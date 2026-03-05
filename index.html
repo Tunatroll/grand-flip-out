@@ -1448,7 +1448,130 @@
                 justify-content: space-between;
             }
         }
-    </style>
+    
+        /* Market Dashboard */
+        .market-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-bottom: 1px solid #333;
+        }
+        .dash-stat {
+            text-align: center;
+            padding: 12px 8px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .dash-stat .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #888;
+            margin-bottom: 6px;
+        }
+        .dash-stat .value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #e8d5b5;
+            font-family: 'Cinzel', serif;
+        }
+        .dash-stat .value.positive { color: #4ade80; }
+        .dash-stat .value.negative { color: #f87171; }
+        .dash-stat .sub {
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+        }
+        /* Signal badge */
+        .signal-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .signal-buy { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
+        .signal-hold { background: rgba(250, 204, 21, 0.15); color: #facc15; border: 1px solid rgba(250, 204, 21, 0.3); }
+        .signal-sell { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); }
+        .signal-avoid { background: rgba(156, 163, 175, 0.15); color: #9ca3af; border: 1px solid rgba(156, 163, 175, 0.3); }
+        /* Analytics tab content */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            padding: 16px 0;
+        }
+        .analytics-panel {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .analytics-panel h3 {
+            font-family: 'Cinzel', serif;
+            color: #e8d5b5;
+            font-size: 14px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        .analytics-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+        .analytics-bar .bar-label {
+            width: 100px;
+            font-size: 12px;
+            color: #aaa;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .analytics-bar .bar-track {
+            flex: 1;
+            height: 16px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .analytics-bar .bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .analytics-bar .bar-value {
+            width: 70px;
+            font-size: 12px;
+            color: #e8d5b5;
+            text-align: right;
+        }
+        .signal-summary {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            padding: 12px 0;
+        }
+        .signal-count {
+            text-align: center;
+        }
+        .signal-count .count {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'Cinzel', serif;
+        }
+        .signal-count .type {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+</style>
 </head>
 <body>
     <!-- HEADER -->
@@ -1482,6 +1605,36 @@
         &#9888;&#65039; <strong style="color:#c9bfb5;">Information only.</strong> Grand Flip Out does not interact with the game client or automate any actions. All data is sourced from the OSRS Wiki API. Not affiliated with Jagex. Compliant with Jagex&#39;s <a href="https://secure.runescape.com/m=news/third-party-client-guidelines" target="_blank" style="color:#ff981f;">Third-Party Client Guidelines</a>.
     </div>
 
+    
+    <!-- MARKET DASHBOARD -->
+    <div class="market-dashboard" id="marketDashboard">
+        <div class="dash-stat">
+            <div class="label">Items Tracked</div>
+            <div class="value" id="dashItemCount">---</div>
+            <div class="sub">with positive margin</div>
+        </div>
+        <div class="dash-stat">
+            <div class="label">Best Potential GP/4h</div>
+            <div class="value positive" id="dashBestProfit">---</div>
+            <div class="sub" id="dashBestItem">loading...</div>
+        </div>
+        <div class="dash-stat">
+            <div class="label">Avg Margin</div>
+            <div class="value" id="dashAvgMargin">---</div>
+            <div class="sub">across top 50</div>
+        </div>
+        <div class="dash-stat">
+            <div class="label">Market Signals</div>
+            <div class="value" id="dashSignals">---</div>
+            <div class="sub" id="dashSignalSub">BUY / HOLD / SELL</div>
+        </div>
+        <div class="dash-stat">
+            <div class="label">Market Mood</div>
+            <div class="value" id="dashMood">---</div>
+            <div class="sub">based on signal ratio</div>
+        </div>
+    </div>
+
     <!-- TABS -->
     <div class="tabs-container">
         <ul class="tabs" role="tablist" aria-label="Main navigation">
@@ -1493,6 +1646,7 @@
             <li role="presentation"><button class="tab-btn" data-tab="special" role="tab" aria-selected="false" aria-controls="special">Special Items</button></li>
             <li role="presentation"><button class="tab-btn" data-tab="discord" role="tab" aria-selected="false" aria-controls="discord">Discord</button></li>
             <li role="presentation"><button class="tab-btn" data-tab="plugin" role="tab" aria-selected="false" aria-controls="plugin">RuneLite Plugin</button></li>
+            <li role="presentation"><button class="tab-btn" data-tab="analytics" role="tab" aria-selected="false" aria-controls="panel-analytics">ANALYTICS</button></li>
         </ul>
     </div>
 
@@ -1807,7 +1961,45 @@
     </div>
 
     <!-- FOOTER -->
-    <footer>
+    
+    <!-- ANALYTICS TAB -->
+    <div class="tab-panel" id="panel-analytics" role="tabpanel" style="display:none;">
+        <div class="analytics-grid" id="analyticsContent">
+            <div class="analytics-panel">
+                <h3>Signal Summary</h3>
+                <div class="signal-summary" id="signalSummary">
+                    <div class="signal-count"><div class="count positive" id="buyCount">0</div><div class="type">BUY</div></div>
+                    <div class="signal-count"><div class="count" style="color:#facc15" id="holdCount">0</div><div class="type">HOLD</div></div>
+                    <div class="signal-count"><div class="count negative" id="sellCount">0</div><div class="type">SELL</div></div>
+                    <div class="signal-count"><div class="count" style="color:#9ca3af" id="avoidCount">0</div><div class="type">AVOID</div></div>
+                </div>
+            </div>
+            <div class="analytics-panel">
+                <h3>Top Potential Profit (GP/4h)</h3>
+                <div id="topProfitBars"></div>
+            </div>
+            <div class="analytics-panel">
+                <h3>Volume Distribution</h3>
+                <div id="volumeBars"></div>
+            </div>
+            <div class="analytics-panel">
+                <h3>ROI Leaders</h3>
+                <div id="roiBars"></div>
+            </div>
+            <div class="analytics-panel">
+                <h3>JTI Score Distribution</h3>
+                <div id="jtiDistribution"></div>
+            </div>
+            <div class="analytics-panel">
+                <h3>Market Intelligence</h3>
+                <div id="marketIntelligence" style="font-size:13px;color:#aaa;line-height:1.6;">
+                    Loading market intelligence...
+                </div>
+            </div>
+        </div>
+    </div>
+
+<footer>
         <p>Grand Flip Out — Your trusted OSRS Grand Exchange companion. Data sourced from the <a href="https://prices.runescape.wiki/api/v1/osrs" target="_blank" style="color:var(--accent);">OSRS Wiki API</a>. Not affiliated with Jagex Ltd. Information-only tool; no game automation. Jagex Third-Party Client Guidelines compliant.</p>
     </footer>
 
@@ -3565,6 +3757,228 @@
 
         // Start the app
         window.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <script>
+    /* === MARKET DASHBOARD & ANALYTICS ENGINE === */
+
+    function updateMarketDashboard(items) {
+        if (!items || !items.length) return;
+        var profitItems = items.filter(function(it) { return it.potentialProfit > 0; });
+        profitItems.sort(function(a, b) { return b.potentialProfit - a.potentialProfit; });
+
+        var el = document.getElementById('dashItemCount');
+        if (el) el.textContent = profitItems.length;
+
+        if (profitItems.length > 0) {
+            var best = profitItems[0];
+            var bestEl = document.getElementById('dashBestProfit');
+            if (bestEl) bestEl.textContent = formatGp(best.potentialProfit);
+            var bestNameEl = document.getElementById('dashBestItem');
+            if (bestNameEl) bestNameEl.textContent = best.name || 'Unknown';
+        }
+
+        var top50 = profitItems.slice(0, 50);
+        if (top50.length > 0) {
+            var avgM = top50.reduce(function(s, it) { return s + (it.margin || 0); }, 0) / top50.length;
+            var avgEl = document.getElementById('dashAvgMargin');
+            if (avgEl) avgEl.textContent = formatGp(Math.round(avgM));
+        }
+
+        var buys = 0, holds = 0, sells = 0, avoids = 0;
+        profitItems.forEach(function(it) {
+            var jti = it.jtiScore || 0;
+            if (jti >= 75) buys++;
+            else if (jti >= 55) holds++;
+            else if (jti >= 35) sells++;
+            else avoids++;
+        });
+
+        var sigEl = document.getElementById('dashSignals');
+        if (sigEl) sigEl.innerHTML = '<span style="color:#4ade80">' + buys + '</span> / <span style="color:#facc15">' + holds + '</span> / <span style="color:#f87171">' + sells + '</span>';
+        var sigSubEl = document.getElementById('dashSignalSub');
+        if (sigSubEl) sigSubEl.textContent = buys + ' BUY / ' + holds + ' HOLD / ' + sells + ' SELL';
+
+        var moodEl = document.getElementById('dashMood');
+        if (moodEl) {
+            var total = buys + holds + sells + avoids;
+            var buyRatio = total > 0 ? buys / total : 0;
+            if (buyRatio > 0.5) { moodEl.textContent = 'Bullish'; moodEl.className = 'value positive'; }
+            else if (buyRatio > 0.3) { moodEl.textContent = 'Neutral'; moodEl.className = 'value'; }
+            else { moodEl.textContent = 'Cautious'; moodEl.className = 'value negative'; }
+        }
+    }
+
+    function renderAnalyticsTab(items) {
+        if (!items || !items.length) return;
+        var profitItems = items.filter(function(it) { return it.potentialProfit > 0; });
+        profitItems.sort(function(a, b) { return b.potentialProfit - a.potentialProfit; });
+
+        var buys = 0, holds = 0, sells = 0, avoids = 0;
+        profitItems.forEach(function(it) {
+            var jti = it.jtiScore || 0;
+            if (jti >= 75) buys++;
+            else if (jti >= 55) holds++;
+            else if (jti >= 35) sells++;
+            else avoids++;
+        });
+
+        var bc = document.getElementById('buyCount');
+        if (bc) bc.textContent = buys;
+        var hc = document.getElementById('holdCount');
+        if (hc) hc.textContent = holds;
+        var sc = document.getElementById('sellCount');
+        if (sc) sc.textContent = sells;
+        var ac = document.getElementById('avoidCount');
+        if (ac) ac.textContent = avoids;
+
+        renderBars('topProfitBars', profitItems.slice(0, 8), 'potentialProfit', '#4ade80');
+        var volSorted = profitItems.slice().sort(function(a, b) { return (b.volume || 0) - (a.volume || 0); });
+        renderBars('volumeBars', volSorted.slice(0, 8), 'volume', '#60a5fa');
+        var roiSorted = profitItems.filter(function(it) { return it.roi > 0; }).sort(function(a, b) { return b.roi - a.roi; });
+        renderBars('roiBars', roiSorted.slice(0, 8), 'roi', '#f59e0b');
+
+        renderJtiDistribution(profitItems);
+        renderMarketIntelligence(profitItems, buys, holds, sells, avoids);
+    }
+
+    function renderBars(containerId, items, field, color) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        if (!items.length) { container.innerHTML = '<div style="color:#666;font-size:12px;">No data</div>'; return; }
+        var maxVal = Math.max.apply(null, items.map(function(it) { return it[field] || 0; }));
+        if (maxVal === 0) maxVal = 1;
+        var html = '';
+        items.forEach(function(it) {
+            var val = it[field] || 0;
+            var pct = (val / maxVal * 100).toFixed(1);
+            var display = field === 'roi' ? val.toFixed(1) + '%' : formatGp(Math.round(val));
+            html += '<div class="analytics-bar">';
+            html += '<div class="bar-label" title="' + (it.name || '') + '">' + (it.name || 'Unknown') + '</div>';
+            html += '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + color + ';"></div></div>';
+            html += '<div class="bar-value">' + display + '</div>';
+            html += '</div>';
+        });
+        container.innerHTML = html;
+    }
+
+    function renderJtiDistribution(items) {
+        var container = document.getElementById('jtiDistribution');
+        if (!container) return;
+        var buckets = [0, 0, 0, 0, 0];
+        var labels = ['0-20', '21-40', '41-60', '61-80', '81-100'];
+        var colors = ['#9ca3af', '#f87171', '#facc15', '#4ade80', '#22d3ee'];
+        items.forEach(function(it) {
+            var jti = it.jtiScore || 0;
+            if (jti <= 20) buckets[0]++;
+            else if (jti <= 40) buckets[1]++;
+            else if (jti <= 60) buckets[2]++;
+            else if (jti <= 80) buckets[3]++;
+            else buckets[4]++;
+        });
+        var maxBucket = Math.max.apply(null, buckets);
+        if (maxBucket === 0) maxBucket = 1;
+        var html = '';
+        for (var i = 0; i < 5; i++) {
+            var pct = (buckets[i] / maxBucket * 100).toFixed(1);
+            html += '<div class="analytics-bar">';
+            html += '<div class="bar-label">JTI ' + labels[i] + '</div>';
+            html += '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + colors[i] + ';"></div></div>';
+            html += '<div class="bar-value">' + buckets[i] + ' items</div>';
+            html += '</div>';
+        }
+        container.innerHTML = html;
+    }
+
+    function renderMarketIntelligence(items, buys, holds, sells, avoids) {
+        var container = document.getElementById('marketIntelligence');
+        if (!container) return;
+        var total = buys + holds + sells + avoids;
+        var buyPct = total > 0 ? (buys / total * 100).toFixed(0) : 0;
+        var top5 = items.slice(0, 5).map(function(it) { return it.name; }).join(', ');
+        var totalProfit = items.reduce(function(s, it) { return s + (it.potentialProfit || 0); }, 0);
+
+        var html = '<p><strong>Signal Breakdown:</strong> ' + buyPct + '% of tracked items show BUY signals (JTI 75+). ';
+        if (buys > holds + sells) {
+            html += 'The market is leaning bullish with more buy opportunities than holds or sells.</p>';
+        } else if (holds > buys) {
+            html += 'Most items are in HOLD territory. Wait for clearer signals before committing capital.</p>';
+        } else {
+            html += 'Mixed signals. Be selective and focus only on the highest-JTI items.</p>';
+        }
+
+        html += '<p><strong>Top Opportunities:</strong> ' + top5 + '</p>';
+        html += '<p><strong>Total Addressable Profit:</strong> If you could flip every positive-margin item simultaneously, the theoretical max profit per 4h cycle would be ' + formatGp(totalProfit) + '. In practice, you are limited by GE slots (8) and capital.</p>';
+        html += '<p><strong>Strategy Recommendation:</strong> ';
+
+        if (buys > 20) {
+            html += 'Lots of opportunities. Prioritize items with JTI > 80 and fill rates above 50%. Use all 8 GE slots aggressively.</p>';
+        } else if (buys > 10) {
+            html += 'Decent market. Fill 5-6 GE slots with top picks, keep 2-3 for volume flips (runes/arrows).</p>';
+        } else {
+            html += 'Slim pickings. Focus on the safest volume flips and wait for better margins to emerge.</p>';
+        }
+
+        html += '<p style="font-size:11px;color:#666;margin-top:12px;"><em>Based on the three-advisor debate framework. See docs/FLIP_INTELLIGENCE.md for methodology.</em></p>';
+        container.innerHTML = html;
+    }
+
+    /* Hook into existing data flow to populate dashboard and analytics */
+    (function hookDashboard() {
+        var origLoadTopFlips = window.loadTopFlips;
+        if (typeof origLoadTopFlips === 'function') {
+            window.loadTopFlips = function() {
+                var result = origLoadTopFlips.apply(this, arguments);
+                if (result && typeof result.then === 'function') {
+                    result.then(function() {
+                        tryUpdateDashboard();
+                    });
+                } else {
+                    setTimeout(tryUpdateDashboard, 500);
+                }
+                return result;
+            };
+        }
+
+        var origLoadSmartTab = window.loadSmartTab;
+        if (typeof origLoadSmartTab === 'function') {
+            window.loadSmartTab = function() {
+                var result = origLoadSmartTab.apply(this, arguments);
+                if (result && typeof result.then === 'function') {
+                    result.then(function() {
+                        tryUpdateDashboard();
+                    });
+                } else {
+                    setTimeout(tryUpdateDashboard, 500);
+                }
+                return result;
+            };
+        }
+    })();
+
+    function tryUpdateDashboard() {
+        try {
+            if (window._allItems && window._allItems.length > 0) {
+                updateMarketDashboard(window._allItems);
+                renderAnalyticsTab(window._allItems);
+            } else if (window._topFlipsData && window._topFlipsData.length > 0) {
+                updateMarketDashboard(window._topFlipsData);
+                renderAnalyticsTab(window._topFlipsData);
+            }
+        } catch(e) { /* silent */ }
+    }
+
+    /* Auto-update dashboard periodically */
+    setInterval(function() {
+        tryUpdateDashboard();
+    }, 10000);
+
+    /* Handle analytics tab click */
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.getAttribute && e.target.getAttribute('data-tab') === 'analytics') {
+            tryUpdateDashboard();
+        }
+    });
     </script>
 </body>
 </html>
