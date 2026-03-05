@@ -1597,7 +1597,7 @@
                     return { thirdAge: items.filter(i => i.name && i.name.toLowerCase().startsWith('3rd age')).map(i => ({
                         name: i.name, itemId: i.itemId, icon: i.icon,
                         buyPrice: i.buyPrice, sellPrice: i.sellPrice || i.buyPrice,
-                        margin: (i.margin && typeof i.margin === 'object') ? i.margin.gp : (i.margin || 0),
+                        margin: (i.margin && typeof i.margin === 'object') ? (i.margin.gp || 0) : (i.margin || 0),
                         geTax: Math.min(Math.floor((i.sellPrice || 0) * 0.02), 5000000),
                         volume: (i.buyQuantity || 0) + (i.sellQuantity || 0),
                         jti: i.jtiScore || 0, rarity: 'extremely-rare'
@@ -1606,7 +1606,7 @@
                     return { brutal: items.filter(i => i.name && i.name.toLowerCase().includes('brutal')).map(i => ({
                         name: i.name, itemId: i.itemId, icon: i.icon,
                         buyPrice: i.buyPrice, sellPrice: i.sellPrice || i.buyPrice,
-                        flipMargin: (i.margin && typeof i.margin === 'object') ? i.margin.gp : (i.margin || 0),
+                        flipMargin: (i.margin && typeof i.margin === 'object') ? (i.margin.gp || 0) : (i.margin || 0),
                         craftProfit: 0, bestStrategy: 'flip',
                         volume: (i.buyQuantity || 0) + (i.sellQuantity || 0), jti: i.jtiScore || 0
                     })) };
@@ -1615,7 +1615,7 @@
                         name: i.name, itemId: i.itemId, icon: i.icon,
                         buyPrice: i.buyPrice, sellPrice: i.sellPrice || i.buyPrice,
                         expectedLootValue: 0, expectedProfit: 0,
-                        flipMargin: (i.margin && typeof i.margin === 'object') ? i.margin.gp : (i.margin || 0),
+                        flipMargin: (i.margin && typeof i.margin === 'object') ? (i.margin.gp || 0) : (i.margin || 0),
                         tier: 'unknown', volume: (i.buyQuantity || 0) + (i.sellQuantity || 0),
                         jti: i.jtiScore || 0
                     })) };
