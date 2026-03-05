@@ -292,26 +292,254 @@
             box-shadow: 0 0 12px rgba(255, 152, 31, 0.3);
         }
 
-        /* === ITEM GRID === */
+        /* === ITEM LIST TABLE === */
+        .item-list {
+            margin-top: 16px;
+        }
+
+        .item-list-header {
+            display: grid;
+            grid-template-columns: 32px 36px 1fr 90px 90px 90px 90px 70px 50px;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius) var(--radius) 0 0;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            align-items: center;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .item-row {
+            display: grid;
+            grid-template-columns: 32px 36px 1fr 90px 90px 90px 90px 70px 50px;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid rgba(255, 152, 31, 0.08);
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 13px;
+        }
+
+        .item-row:hover {
+            background: rgba(255, 152, 31, 0.06);
+        }
+
+        .item-row.expanded {
+            background: rgba(255, 152, 31, 0.08);
+            border-bottom-color: transparent;
+        }
+
+        .item-row:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+
+        .row-fav {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: var(--text-muted);
+            padding: 0;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+        .row-fav:hover, .row-fav.active { color: var(--accent); }
+
+        .row-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .row-icon img { width: 100%; height: 100%; object-fit: cover; }
+
+        .row-name {
+            font-weight: 700;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .row-buy { color: var(--green); font-weight: 600; font-size: 12px; }
+        .row-sell { color: var(--red); font-weight: 600; font-size: 12px; }
+        .row-margin { color: var(--accent); font-weight: 700; font-size: 12px; }
+        .row-volume { color: var(--text-secondary); font-size: 12px; }
+
+        .jti-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            text-align: center;
+            min-width: 36px;
+            letter-spacing: 0.5px;
+            display: inline-block;
+        }
+        .jti-badge.high {
+            background: rgba(74, 222, 128, 0.2);
+            color: var(--green);
+            border: 1px solid rgba(74, 222, 128, 0.4);
+        }
+        .jti-badge.medium {
+            background: rgba(255, 152, 31, 0.2);
+            color: var(--accent);
+            border: 1px solid rgba(255, 152, 31, 0.4);
+        }
+        .jti-badge.low {
+            background: rgba(248, 113, 113, 0.2);
+            color: var(--red);
+            border: 1px solid rgba(248, 113, 113, 0.4);
+        }
+
+        .row-expand { color: var(--text-muted); font-size: 14px; transition: transform 0.2s; }
+        .item-row.expanded .row-expand { transform: rotate(180deg); color: var(--accent); }
+
+        /* === EXPANDED DETAIL PANEL === */
+        .item-detail {
+            background: var(--bg-primary);
+            border-left: 3px solid var(--accent);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 24px;
+            display: none;
+            animation: slideDown 0.25s ease;
+        }
+        .item-detail.open { display: block; }
+
+        @keyframes slideDown {
+            from { opacity: 0; max-height: 0; }
+            to { opacity: 1; max-height: 600px; }
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .detail-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .detail-stat {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            text-align: center;
+        }
+        .detail-stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .detail-stat-value {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .detail-stat-value.green { color: var(--green); }
+        .detail-stat-value.red { color: var(--red); }
+        .detail-stat-value.gold { color: var(--accent); }
+        .detail-stat-value.blue { color: var(--blue); }
+
+        .chart-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            position: relative;
+        }
+        .chart-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .chart-canvas {
+            width: 100%;
+            height: 180px;
+        }
+        .chart-legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .chart-legend span::before {
+            content: '';
+            display: inline-block;
+            width: 10px;
+            height: 3px;
+            margin-right: 4px;
+            vertical-align: middle;
+            border-radius: 1px;
+        }
+        .legend-buy::before { background: var(--green); }
+        .legend-sell::before { background: var(--red); }
+        .legend-margin::before { background: var(--accent); }
+        .legend-volume::before { background: var(--blue); }
+
+        .chart-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 180px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* Responsive list */
+        @media (max-width: 900px) {
+            .item-list-header, .item-row {
+                grid-template-columns: 32px 36px 1fr 70px 70px 60px;
+            }
+            .item-list-header .col-volume,
+            .item-list-header .col-limit,
+            .item-list-header .col-expand,
+            .row-volume, .item-row > :nth-child(8), .item-row > :nth-child(9) {
+                display: none;
+            }
+            .detail-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 600px) {
+            .item-list-header, .item-row {
+                grid-template-columns: 32px 1fr 60px 50px;
+                font-size: 12px;
+                padding: 8px 12px;
+            }
+            .item-list-header .col-buy,
+            .item-list-header .col-sell,
+            .row-buy, .row-sell, .row-icon {
+                display: none;
+            }
+            .detail-stats { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* Keep the old item-grid for dumps/pumps/watchlist (smaller sections) */
         .item-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
             gap: 16px;
             margin-top: 24px;
-        }
-
-        @media (max-width: 768px) {
-            .item-grid {
-                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-                gap: 12px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .item-grid {
-                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-                gap: 10px;
-            }
         }
 
         .item-card {
@@ -324,29 +552,10 @@
             position: relative;
             overflow: hidden;
         }
-
-        .item-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(255, 152, 31, 0.1) 0%, transparent 100%);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            pointer-events: none;
-        }
-
         .item-card:hover {
             border-color: var(--accent);
-            background: linear-gradient(135deg, rgba(42, 32, 21, 0.8) 0%, rgba(26, 20, 16, 0.8) 100%);
-            box-shadow: 0 0 20px rgba(255, 152, 31, 0.3), inset 0 0 20px rgba(255, 152, 31, 0.05);
-            transform: translateY(-4px);
-        }
-
-        .item-card:hover::before {
-            opacity: 1;
+            box-shadow: 0 0 16px rgba(255, 152, 31, 0.2);
+            transform: translateY(-2px);
         }
 
         .item-icon {
@@ -360,19 +569,8 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            position: relative;
         }
-
-        .item-icon img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .item-icon.placeholder {
-            font-size: 24px;
-            color: var(--gold);
-        }
+        .item-icon img { width: 100%; height: 100%; object-fit: cover; }
 
         .item-name {
             font-weight: 700;
@@ -383,42 +581,6 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-        }
-
-        .item-badges {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .jti-badge {
-            font-size: 11px;
-            font-weight: 700;
-            padding: 4px 8px;
-            border-radius: 4px;
-            text-align: center;
-            min-width: 40px;
-            letter-spacing: 0.5px;
-        }
-
-        .jti-badge.high {
-            background: rgba(74, 222, 128, 0.2);
-            color: var(--green);
-            border: 1px solid rgba(74, 222, 128, 0.4);
-        }
-
-        .jti-badge.medium {
-            background: rgba(255, 152, 31, 0.2);
-            color: var(--accent);
-            border: 1px solid rgba(255, 152, 31, 0.4);
-        }
-
-        .jti-badge.low {
-            background: rgba(248, 113, 113, 0.2);
-            color: var(--red);
-            border: 1px solid rgba(248, 113, 113, 0.4);
         }
 
         .favorite-btn {
@@ -438,16 +600,10 @@
             transition: all 0.3s ease;
             color: var(--accent);
         }
+        .favorite-btn:hover { background: rgba(255, 152, 31, 0.2); }
+        .favorite-btn.active { background: rgba(255, 152, 31, 0.3); box-shadow: 0 0 12px rgba(255, 152, 31, 0.4); }
 
-        .favorite-btn:hover {
-            background: rgba(255, 152, 31, 0.2);
-            transform: scale(1.1);
-        }
-
-        .favorite-btn.active {
-            background: rgba(255, 152, 31, 0.3);
-            box-shadow: 0 0 12px rgba(255, 152, 31, 0.4);
-        }
+        .item-badges { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; justify-content: center; }
 
         .item-prices {
             display: grid;
@@ -456,71 +612,25 @@
             margin-bottom: 10px;
             font-size: 12px;
         }
+        .price-item { background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 4px; text-align: center; }
+        .price-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+        .price-value { font-weight: 700; font-size: 12px; }
+        .price-buy .price-value { color: var(--green); font-size: 11px; }
+        .price-sell .price-value { color: var(--red); font-size: 11px; }
 
-        .price-item {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 6px 8px;
-            border-radius: 4px;
-            text-align: center;
-        }
-
-        .price-label {
-            font-size: 10px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 2px;
-        }
-
-        .price-value {
-            font-weight: 700;
-            font-size: 12px;
-        }
-
-        .price-buy .price-value {
-            color: var(--green);
-            word-break: break-all;
-            font-size: 11px;
-        }
-
-        .price-sell .price-value {
-            color: var(--red);
-            word-break: break-all;
-            font-size: 11px;
-        }
-
-        .item-margin {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 8px;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            font-size: 11px;
-        }
-
-        .margin-label {
-            font-size: 10px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .margin-value {
-            font-weight: 700;
-            color: var(--accent);
-            font-size: 13px;
-            margin-top: 2px;
-        }
+        .item-margin { background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 11px; }
+        .margin-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+        .margin-value { font-weight: 700; color: var(--accent); font-size: 13px; margin-top: 2px; }
 
         .item-buy-limit {
-            background: rgba(96, 165, 250, 0.1);
-            border: 1px solid rgba(96, 165, 250, 0.3);
+            background: rgba(96,165,250,0.1);
+            border: 1px solid rgba(96,165,250,0.3);
             color: var(--blue);
             padding: 4px 8px;
             border-radius: 4px;
             font-size: 11px;
             font-weight: 600;
             text-align: center;
-            letter-spacing: 0.5px;
         }
 
         /* === DUMP/PUMP SECTIONS === */
@@ -971,14 +1081,23 @@
                     <option value="price">Sort: Price</option>
                 </select>
                 <input type="text" class="filter-input" id="filterInput" placeholder="Filter by name...">
+                <span id="itemCount" style="color:var(--text-muted);font-size:12px;margin-left:auto;"></span>
             </div>
-            <div class="item-grid" id="topFlipsGrid">
-                <div class="item-card skeleton" style="height: 280px;"></div>
-                <div class="item-card skeleton" style="height: 280px;"></div>
-                <div class="item-card skeleton" style="height: 280px;"></div>
-                <div class="item-card skeleton" style="height: 280px;"></div>
-                <div class="item-card skeleton" style="height: 280px;"></div>
-                <div class="item-card skeleton" style="height: 280px;"></div>
+            <div class="item-list" id="topFlipsList">
+                <div class="item-list-header">
+                    <div></div>
+                    <div></div>
+                    <div>Item</div>
+                    <div class="col-buy">Buy</div>
+                    <div class="col-sell">Sell</div>
+                    <div>Margin</div>
+                    <div class="col-volume">Volume</div>
+                    <div>JTI</div>
+                    <div class="col-expand"></div>
+                </div>
+                <div id="topFlipsRows">
+                    <div class="chart-loading">Loading items from Wiki API...</div>
+                </div>
             </div>
         </div>
 
@@ -1462,91 +1581,410 @@
             return 'low';
         }
 
-        function createItemCard(item) {
-            const card = document.createElement('div');
-            card.className = 'item-card';
-            card.innerHTML = `
-                <button class="favorite-btn ${state.watchlist.has(item.itemId) ? 'active' : ''}" data-item-id="${item.itemId}" aria-label="${state.watchlist.has(item.itemId) ? 'Remove from' : 'Add to'} watchlist: ${item.name}" title="Toggle watchlist">★</button>
-                <div class="item-icon">
-                    ${item.icon ? `<img src="https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}" alt="${item.name}" onerror="this.parentElement.textContent=''; this.parentElement.classList.add('placeholder'); this.parentElement.innerHTML='💰';">` : '<span class="placeholder">💰</span>'}
-                </div>
-                <div class="item-name">${item.name}</div>
-                <div class="item-badges">
-                    <div class="jti-badge ${getJtiColor(item.jtiScore || 0)}">${Math.round(item.jtiScore || 0)}</div>
-                </div>
-                <div class="item-prices">
-                    <div class="price-item price-buy">
-                        <div class="price-label">Buy</div>
-                        <div class="price-value">${formatGp(item.buyPrice)}</div>
-                    </div>
-                    <div class="price-item price-sell">
-                        <div class="price-label">Sell</div>
-                        <div class="price-value">${formatGp(item.sellPrice)}</div>
-                    </div>
-                </div>
-                <div class="item-margin">
-                    <div class="margin-label">Profit</div>
-                    <div class="margin-value">${formatGp(item.margin)} (${item.marginPct || 0}%)</div>
-                </div>
-                ${item.buyLimit ? `<div class="item-buy-limit">Buy Limit: ${item.buyLimit.toLocaleString()}</div>` : ''}
-            `;
-
-            // Favorite button handler
-            card.querySelector('.favorite-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleWatchlist(item.itemId);
-                card.querySelector('.favorite-btn').classList.toggle('active');
-            });
-
-            return card;
+        function getIconUrl(icon) {
+            if (!icon) return '';
+            return `https://oldschool.runescape.wiki/images/${encodeURIComponent(icon.replace(/ /g, '_'))}`;
         }
 
+        // Cache for timeseries data per item
+        const timeseriesCache = {};
+
+        // ============================================
+        // LIST VIEW: Create a row + expandable detail panel
+        // ============================================
+        function createItemRow(item) {
+            const frag = document.createDocumentFragment();
+            const totalVol = (item.buyQuantity || 0) + (item.sellQuantity || 0);
+
+            // --- ROW ---
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            row.dataset.itemId = item.itemId;
+            row.innerHTML = `
+                <button class="row-fav ${state.watchlist.has(item.itemId) ? 'active' : ''}" title="Toggle watchlist">★</button>
+                <div class="row-icon">
+                    ${item.icon ? `<img src="${getIconUrl(item.icon)}" alt="" onerror="this.style.display='none'">` : '<span style="color:var(--gold);font-size:14px;">$</span>'}
+                </div>
+                <div class="row-name" title="${item.name}">${item.name}</div>
+                <div class="row-buy">${formatGp(item.buyPrice)}</div>
+                <div class="row-sell">${formatGp(item.sellPrice)}</div>
+                <div class="row-margin">${formatGp(item.margin)} <span style="color:var(--text-muted);font-size:10px;">(${item.marginPct || 0}%)</span></div>
+                <div class="row-volume">${totalVol > 0 ? totalVol.toLocaleString() : '—'}</div>
+                <div><span class="jti-badge ${getJtiColor(item.jtiScore || 0)}">${Math.round(item.jtiScore || 0)}</span></div>
+                <div class="row-expand">▼</div>
+            `;
+
+            // --- DETAIL PANEL (hidden by default) ---
+            const detail = document.createElement('div');
+            detail.className = 'item-detail';
+            detail.id = `detail-${item.itemId}`;
+
+            const geTax = Math.min(Math.floor((item.sellPrice || 0) * 0.02), 5000000);
+            const profitPerLimit = item.buyLimit > 0 ? item.margin * item.buyLimit : 0;
+            const roi = item.buyPrice > 0 ? ((item.margin / item.buyPrice) * 100).toFixed(2) : '0';
+
+            detail.innerHTML = `
+                <div class="detail-stats">
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">Buy Price</div>
+                        <div class="detail-stat-value green">${formatGp(item.buyPrice)}</div>
+                    </div>
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">Sell Price</div>
+                        <div class="detail-stat-value red">${formatGp(item.sellPrice)}</div>
+                    </div>
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">GE Tax</div>
+                        <div class="detail-stat-value red">${formatGp(geTax)}</div>
+                    </div>
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">Net Margin</div>
+                        <div class="detail-stat-value gold">${formatGp(item.margin)}</div>
+                    </div>
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">ROI</div>
+                        <div class="detail-stat-value gold">${roi}%</div>
+                    </div>
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">Buy Limit</div>
+                        <div class="detail-stat-value blue">${item.buyLimit > 0 ? item.buyLimit.toLocaleString() : '—'}</div>
+                    </div>
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">Profit / Limit</div>
+                        <div class="detail-stat-value green">${profitPerLimit > 0 ? formatGp(profitPerLimit) : '—'}</div>
+                    </div>
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">High Alch</div>
+                        <div class="detail-stat-value gold">${item.highAlch > 0 ? formatGp(item.highAlch) : '—'}</div>
+                    </div>
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">5m Volume</div>
+                        <div class="detail-stat-value blue">${totalVol > 0 ? totalVol.toLocaleString() : '—'}</div>
+                    </div>
+                </div>
+                <div class="detail-grid">
+                    <div class="chart-container">
+                        <div class="chart-title">Price History (24h)</div>
+                        <canvas class="chart-canvas" id="priceChart-${item.itemId}"></canvas>
+                        <div class="chart-legend">
+                            <span class="legend-buy">Buy (Low)</span>
+                            <span class="legend-sell">Sell (High)</span>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Margin & Volume</div>
+                        <canvas class="chart-canvas" id="marginChart-${item.itemId}"></canvas>
+                        <div class="chart-legend">
+                            <span class="legend-margin">Margin</span>
+                            <span class="legend-volume">Volume</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // --- EVENT: Toggle expand ---
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('.row-fav')) return;
+                const wasOpen = detail.classList.contains('open');
+
+                // Close all other expanded rows
+                document.querySelectorAll('.item-row.expanded').forEach(r => r.classList.remove('expanded'));
+                document.querySelectorAll('.item-detail.open').forEach(d => d.classList.remove('open'));
+
+                if (!wasOpen) {
+                    row.classList.add('expanded');
+                    detail.classList.add('open');
+                    loadItemCharts(item);
+                }
+            });
+
+            // --- EVENT: Favorite ---
+            row.querySelector('.row-fav').addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleWatchlist(item.itemId);
+                e.target.classList.toggle('active');
+            });
+
+            frag.appendChild(row);
+            frag.appendChild(detail);
+            return frag;
+        }
+
+        // ============================================
+        // CHART DRAWING (pure Canvas — no library needed)
+        // ============================================
+        async function loadItemCharts(item) {
+            const priceCanvas = document.getElementById(`priceChart-${item.itemId}`);
+            const marginCanvas = document.getElementById(`marginChart-${item.itemId}`);
+            if (!priceCanvas || !marginCanvas) return;
+
+            // Show loading state
+            drawLoadingText(priceCanvas, 'Loading price data...');
+            drawLoadingText(marginCanvas, 'Loading...');
+
+            // Fetch timeseries from Wiki (5-minute intervals, last 24h)
+            let ts = timeseriesCache[item.itemId];
+            if (!ts) {
+                ts = await fetchFromWiki(`/timeseries?timestep=5m&id=${item.itemId}`);
+                if (ts && ts.data) timeseriesCache[item.itemId] = ts;
+            }
+
+            if (!ts || !ts.data || ts.data.length === 0) {
+                drawLoadingText(priceCanvas, 'No timeseries data available');
+                drawLoadingText(marginCanvas, 'No timeseries data available');
+                return;
+            }
+
+            const points = ts.data.slice(-288); // Last 24h at 5min intervals
+
+            // Extract buy/sell/margin/volume arrays
+            const buyPrices = points.map(p => p.avgLowPrice || 0);
+            const sellPrices = points.map(p => p.avgHighPrice || 0);
+            const margins = points.map((p, i) => {
+                const sell = sellPrices[i];
+                const buy = buyPrices[i];
+                if (sell > 0 && buy > 0) return sell - buy;
+                return 0;
+            });
+            const volumes = points.map(p => (p.highPriceVolume || 0) + (p.lowPriceVolume || 0));
+            const timestamps = points.map(p => p.timestamp * 1000);
+
+            drawPriceChart(priceCanvas, timestamps, buyPrices, sellPrices);
+            drawMarginVolumeChart(marginCanvas, timestamps, margins, volumes);
+        }
+
+        function drawLoadingText(canvas, text) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.parentElement.clientWidth - 32;
+            canvas.width = w * (window.devicePixelRatio || 1);
+            canvas.height = 180 * (window.devicePixelRatio || 1);
+            canvas.style.width = w + 'px';
+            canvas.style.height = '180px';
+            ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+            ctx.fillStyle = '#8b8078';
+            ctx.font = '13px Nunito, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(text, w / 2, 90);
+        }
+
+        function drawPriceChart(canvas, timestamps, buyData, sellData) {
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const w = canvas.parentElement.clientWidth - 32;
+            const h = 180;
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            ctx.scale(dpr, dpr);
+
+            const pad = { top: 10, right: 10, bottom: 24, left: 60 };
+            const cw = w - pad.left - pad.right;
+            const ch = h - pad.top - pad.bottom;
+
+            // Filter out zeros for range calc
+            const allPrices = [...buyData, ...sellData].filter(v => v > 0);
+            if (allPrices.length === 0) { drawLoadingText(canvas, 'No price data'); return; }
+            const minP = Math.min(...allPrices) * 0.995;
+            const maxP = Math.max(...allPrices) * 1.005;
+            const range = maxP - minP || 1;
+
+            const xStep = cw / (buyData.length - 1 || 1);
+
+            // Grid lines
+            ctx.strokeStyle = 'rgba(255,152,31,0.08)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.top + (ch / 4) * i;
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+                const val = maxP - (range / 4) * i;
+                ctx.fillStyle = '#8b8078';
+                ctx.font = '10px Nunito, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(formatGp(Math.round(val)).replace(' gp', ''), pad.left - 6, y + 3);
+            }
+
+            // Time labels
+            ctx.textAlign = 'center';
+            const labelCount = 5;
+            for (let i = 0; i < labelCount; i++) {
+                const idx = Math.floor((buyData.length - 1) * i / (labelCount - 1));
+                const x = pad.left + idx * xStep;
+                const date = new Date(timestamps[idx]);
+                ctx.fillStyle = '#8b8078';
+                ctx.font = '10px Nunito, sans-serif';
+                ctx.fillText(`${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`, x, h - 4);
+            }
+
+            // Draw line helper
+            function drawLine(data, color) {
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                let started = false;
+                for (let i = 0; i < data.length; i++) {
+                    if (data[i] <= 0) continue;
+                    const x = pad.left + i * xStep;
+                    const y = pad.top + ch - ((data[i] - minP) / range) * ch;
+                    if (!started) { ctx.moveTo(x, y); started = true; }
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+
+            drawLine(buyData, '#4ade80');
+            drawLine(sellData, '#f87171');
+        }
+
+        function drawMarginVolumeChart(canvas, timestamps, marginData, volumeData) {
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const w = canvas.parentElement.clientWidth - 32;
+            const h = 180;
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            ctx.scale(dpr, dpr);
+
+            const pad = { top: 10, right: 50, bottom: 24, left: 60 };
+            const cw = w - pad.left - pad.right;
+            const ch = h - pad.top - pad.bottom;
+
+            const validMargins = marginData.filter(v => v > 0);
+            const maxMargin = validMargins.length > 0 ? Math.max(...validMargins) * 1.1 : 1;
+            const maxVol = Math.max(...volumeData, 1);
+
+            const xStep = cw / (marginData.length - 1 || 1);
+
+            // Volume bars (background)
+            ctx.fillStyle = 'rgba(96, 165, 250, 0.15)';
+            const barW = Math.max(1, xStep * 0.6);
+            for (let i = 0; i < volumeData.length; i++) {
+                if (volumeData[i] <= 0) continue;
+                const x = pad.left + i * xStep - barW / 2;
+                const barH = (volumeData[i] / maxVol) * ch;
+                ctx.fillRect(x, pad.top + ch - barH, barW, barH);
+            }
+
+            // Margin Y axis labels (left)
+            ctx.fillStyle = '#8b8078';
+            ctx.font = '10px Nunito, sans-serif';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.top + (ch / 4) * i;
+                const val = maxMargin - (maxMargin / 4) * i;
+                ctx.fillText(formatGp(Math.round(val)).replace(' gp', ''), pad.left - 6, y + 3);
+                ctx.strokeStyle = 'rgba(255,152,31,0.06)';
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+            }
+
+            // Volume Y axis labels (right)
+            ctx.textAlign = 'left';
+            for (let i = 0; i <= 2; i++) {
+                const y = pad.top + (ch / 2) * i;
+                const val = maxVol - (maxVol / 2) * i;
+                ctx.fillText(val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val.toFixed(0), w - pad.right + 6, y + 3);
+            }
+
+            // Margin line
+            ctx.beginPath();
+            ctx.strokeStyle = '#ff981f';
+            ctx.lineWidth = 2;
+            let started = false;
+            for (let i = 0; i < marginData.length; i++) {
+                if (marginData[i] <= 0) continue;
+                const x = pad.left + i * xStep;
+                const y = pad.top + ch - (marginData[i] / maxMargin) * ch;
+                if (!started) { ctx.moveTo(x, y); started = true; }
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Time labels
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#8b8078';
+            for (let i = 0; i < 5; i++) {
+                const idx = Math.floor((marginData.length - 1) * i / 4);
+                const x = pad.left + idx * xStep;
+                const date = new Date(timestamps[idx]);
+                ctx.fillText(`${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`, x, h - 4);
+            }
+        }
+
+        // ============================================
+        // RENDER TOP FLIPS (List View)
+        // ============================================
+        // Manipulation blacklist
+        const MANIPULATION_BLACKLIST_PREFIXES = ['3rd age', 'twisted', 'scythe', 'tumeken', 'sanguinesti', 'holy scythe', 'avernic'];
+        const MANIPULATION_BLACKLIST_WORDS = ['volatile', 'eldritch', 'harmonised'];
+
         function renderTopFlips() {
-            const grid = document.getElementById('topFlipsGrid');
-            if (!grid) return;
+            const container = document.getElementById('topFlipsRows');
+            const countEl = document.getElementById('itemCount');
+            if (!container) return;
 
             let items = [...state.items];
-    // Filter out known low-volume / manipulation-risk items from top flips
-    const MANIPULATION_BLACKLIST_PREFIXES = ['3rd age', 'twisted', 'scythe', 'tumeken', 'sanguinesti', 'holy scythe', 'avernic'];
-    const MANIPULATION_BLACKLIST_WORDS = ['volatile', 'eldritch', 'harmonised'];
-    items = items.filter(i => {
-        if (!i.name) return true;
-        const nm = i.name.toLowerCase();
-        if (MANIPULATION_BLACKLIST_PREFIXES.some(p => nm.startsWith(p))) return false;
-        if (MANIPULATION_BLACKLIST_WORDS.some(w => nm.includes(w))) return false;
-        return true;
-    });
 
-            // Filter
+            // Filter manipulation-risk items
+            items = items.filter(i => {
+                if (!i.name) return true;
+                const nm = i.name.toLowerCase();
+                if (MANIPULATION_BLACKLIST_PREFIXES.some(p => nm.startsWith(p))) return false;
+                if (MANIPULATION_BLACKLIST_WORDS.some(w => nm.includes(w))) return false;
+                return true;
+            });
+
+            // Search filter
             if (state.currentFilter) {
                 items = items.filter(i => i.name.toLowerCase().includes(state.currentFilter.toLowerCase()));
             }
 
             // Sort
             switch (state.currentSort) {
-                case 'margin':
-                    items.sort((a, b) => (b.margin || 0) - (a.margin || 0));
-                    break;
-                case 'margin-pct':
-                    items.sort((a, b) => (b.marginPct || 0) - (a.marginPct || 0));
-                    break;
-                case 'volume':
-                    items.sort((a, b) => (b.buyQuantity || 0) - (a.buyQuantity || 0));
-                    break;
-                case 'price':
-                    items.sort((a, b) => (b.sellPrice || 0) - (a.sellPrice || 0));
-                    break;
-                case 'jti':
-                default:
-                    items.sort((a, b) => (b.jtiScore || 0) - (a.jtiScore || 0));
+                case 'margin': items.sort((a, b) => (b.margin || 0) - (a.margin || 0)); break;
+                case 'margin-pct': items.sort((a, b) => (b.marginPct || 0) - (a.marginPct || 0)); break;
+                case 'volume': items.sort((a, b) => ((b.buyQuantity || 0) + (b.sellQuantity || 0)) - ((a.buyQuantity || 0) + (a.sellQuantity || 0))); break;
+                case 'price': items.sort((a, b) => (b.sellPrice || 0) - (a.sellPrice || 0)); break;
+                case 'jti': default: items.sort((a, b) => (b.jtiScore || 0) - (a.jtiScore || 0));
             }
 
+            if (countEl) countEl.textContent = `${items.length} items`;
+
             if (items.length > 0) {
-                grid.innerHTML = '';
-                items.forEach(item => grid.appendChild(createItemCard(item)));
+                container.innerHTML = '';
+                items.forEach(item => container.appendChild(createItemRow(item)));
             } else {
-                grid.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><div class="empty-state-icon">📊</div><h3>No items found</h3><p>Try adjusting your search or wait for data to load.</p></div>';
+                container.innerHTML = '<div class="chart-loading">No items found. Try adjusting your search.</div>';
             }
+        }
+
+        // Keep createItemCard for dumps/pumps/watchlist (smaller grid sections)
+        function createItemCard(item) {
+            const card = document.createElement('div');
+            card.className = 'item-card';
+            card.innerHTML = `
+                <button class="favorite-btn ${state.watchlist.has(item.itemId) ? 'active' : ''}" data-item-id="${item.itemId}" title="Toggle watchlist">★</button>
+                <div class="item-icon">
+                    ${item.icon ? `<img src="${getIconUrl(item.icon)}" alt="${item.name}" onerror="this.style.display='none'">` : '<span style="color:var(--gold);font-size:24px;">$</span>'}
+                </div>
+                <div class="item-name">${item.name}</div>
+                <div class="item-badges">
+                    <div class="jti-badge ${getJtiColor(item.jtiScore || 0)}">${Math.round(item.jtiScore || 0)}</div>
+                </div>
+                <div class="item-prices">
+                    <div class="price-item price-buy"><div class="price-label">Buy</div><div class="price-value">${formatGp(item.buyPrice)}</div></div>
+                    <div class="price-item price-sell"><div class="price-label">Sell</div><div class="price-value">${formatGp(item.sellPrice)}</div></div>
+                </div>
+                <div class="item-margin"><div class="margin-label">Profit</div><div class="margin-value">${formatGp(item.margin)} (${item.marginPct || 0}%)</div></div>
+                ${item.buyLimit ? `<div class="item-buy-limit">Limit: ${item.buyLimit.toLocaleString()}</div>` : ''}
+            `;
+            card.querySelector('.favorite-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleWatchlist(item.itemId);
+                card.querySelector('.favorite-btn').classList.toggle('active');
+            });
+            return card;
         }
 
         function renderDumpsPumps() {
