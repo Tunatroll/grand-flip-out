@@ -13,32 +13,25 @@ import java.util.List;
 /**
  * Analyzes price data and suggests the best items to flip based on
  * margin, volume, buy limits, and configurable criteria.
- *
- * Integrates ManipulationFilter to suppress commonly manipulated items
- * such as 3rd age equipment, brutal arrows, and other thin-market targets.
  */
 @Slf4j
 public class FlipSuggestionEngine
 {
     private final PriceService priceService;
     private final GrandFlipOutConfig config;
-    private final ManipulationFilter manipulationFilter;
 
     public FlipSuggestionEngine(PriceService priceService, GrandFlipOutConfig config)
     {
         this.priceService = priceService;
         this.config = config;
-        this.manipulationFilter = new ManipulationFilter();
     }
 
     /**
      * Generate flip suggestions based on current config and market data.
-     * Items flagged as manipulation targets are automatically excluded.
      */
     public List<FlipSuggestion> generateSuggestions()
     {
         List<FlipSuggestion> suggestions = new ArrayList<>();
-        int suppressedCount = 0;
 
         for (PriceAggregate agg : priceService.getAggregatedPrices().values())
         {
@@ -46,6 +39,7 @@ public class FlipSuggestionEngine
             long volume = agg.getTotalVolume1h();
             int limit = agg.getBuyLimit();
 
+            // Apply filters
             if (margin < config.minSuggestionMargin())
             {
                 continue;
@@ -66,24 +60,11 @@ public class FlipSuggestionEngine
                 continue;
             }
 
+            // Calculate tax
             long taxPerItem = Math.min((long) (sellPrice * 0.02), 5_000_000L);
             long netMargin = margin - taxPerItem;
             if (netMargin <= 0)
             {
-                continue;
-            }
-
-            // Manipulation filter: suppress known bad items and dynamic risk signals.
-            // avgMargin30d passed as 0 until PriceHistoryCollector provides 30-day data.
-            ManipulationFilter.RiskAssessment risk = manipulationFilter.assess(
-                agg.getItemId(), agg.getItemName(),
-                netMargin, 0L, volume, limit);
-
-            if (risk.isSuppressed())
-            {
-                suppressedCount++;
-                log.debug("Suppressed {} (id={}) from suggestions: {}",
-                    agg.getItemName(), agg.getItemId(), risk.getReason());
                 continue;
             }
 
@@ -92,13 +73,12 @@ public class FlipSuggestionEngine
             double roi = (double) netMargin / buyPrice * 100.0;
             long capitalRequired = buyPrice * limit;
 
-            double volumeScore = Math.min(volume / 100.0, 10.0);
-            double marginScore = Math.min(marginPercent, 20.0);
+            // Calculate a composite score
+            // Weighs margin, volume, and roi
+            double volumeScore = Math.min(volume / 100.0, 10.0); // cap at 10
+            double marginScore = Math.min(marginPercent, 20.0); // cap at 20%
             double roiScore = Math.min(roi, 15.0);
-
-            // CAUTION items get a ranking penalty so they appear lower in the list
-            double manipPenalty = (risk.getRisk() == ManipulationFilter.ManipulationRisk.CAUTION) ? 0.6 : 1.0;
-            double compositeScore = ((volumeScore * 0.3) + (marginScore * 0.3) + (roiScore * 0.4)) * manipPenalty;
+            double compositeScore = (volumeScore * 0.3) + (marginScore * 0.3) + (roiScore * 0.4);
 
             FlipSuggestion suggestion = new FlipSuggestion();
             suggestion.setItemId(agg.getItemId());
@@ -115,18 +95,11 @@ public class FlipSuggestionEngine
             suggestion.setCapitalRequired(capitalRequired);
             suggestion.setCompositeScore(compositeScore);
             suggestion.setAlchProfitable(agg.isAlchProfitable());
-            suggestion.setManipulationRisk(risk.getRisk());
-            suggestion.setManipulationWarning(
-                risk.getRisk() == ManipulationFilter.ManipulationRisk.CAUTION ? risk.getReason() : null);
 
             suggestions.add(suggestion);
         }
 
-        if (suppressedCount > 0)
-        {
-            log.info("Suppressed {} manipulation-risk items from suggestions", suppressedCount);
-        }
-
+        // Sort by configured criteria
         Comparator<FlipSuggestion> comparator = getSortComparator();
         suggestions.sort(comparator);
 
@@ -136,8 +109,7 @@ public class FlipSuggestionEngine
             suggestions = suggestions.subList(0, max);
         }
 
-        log.debug("Generated {} flip suggestions ({} suppressed as manipulation risk)",
-            suggestions.size(), suppressedCount);
+        log.debug("Generated {} flip suggestions", suggestions.size());
         return suggestions;
     }
 
@@ -176,9 +148,5 @@ public class FlipSuggestionEngine
         private long capitalRequired;
         private double compositeScore;
         private boolean alchProfitable;
-        /** Manipulation risk level for this item (SAFE, CAUTION, HIGH_RISK, BLACKLISTED). */
-        private ManipulationFilter.ManipulationRisk manipulationRisk;
-        /** Non-null only when risk is CAUTION - a human-readable warning. */
-        private String manipulationWarning;
     }
 }

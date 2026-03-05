@@ -61,7 +61,8 @@ public class RiskManager {
         // Convert HHI to score (0-100)
         // HHI ranges from 1/n (perfect diversification) to 1.0 (complete concentration)
         double minHhi = 1.0 / Math.max(activeFlips.size(), 1);
-        double diversificationRatio = (1.0 - hhi) / (1.0 - minHhi);
+        double denominator = 1.0 - minHhi;
+        double diversificationRatio = denominator > 0.001 ? (1.0 - hhi) / denominator : 0.0;
         int score = (int) Math.max(0, Math.min(100, diversificationRatio * 100));
 
         log.debug("Diversification score: {} for {} active flips (HHI: {}, ratio: {})",

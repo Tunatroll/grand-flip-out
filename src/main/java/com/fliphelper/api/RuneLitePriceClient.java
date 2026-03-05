@@ -23,7 +23,8 @@ public class RuneLitePriceClient
 {
     private static final String PRICES_URL = "https://prices.runescape.wiki/api/v1/osrs/latest";
     // RuneLite also provides item prices via its own API
-    private static final String RUNELITE_API_URL = "https://api.runelite.net/runelite-1.10.34/item/prices.js";
+    // Fallback: RuneLite prices API (version-independent endpoint)
+    private static final String RUNELITE_API_URL = "https://prices.runescape.wiki/api/v1/osrs/5m";
 
     private final OkHttpClient httpClient;
     private Map<Integer, PriceData> prices = new HashMap<>();

@@ -104,9 +104,10 @@ public class JagexTradeIndex
     {
         if (agg == null) return null;
 
-        long instaBuy = agg.getBestHighPrice();   // sell price (what buyers pay)
-        long instaSell = agg.getBestLowPrice();    // buy price (what sellers receive)
-        if (instaBuy <= 0 || instaSell <= 0 || instaBuy <= instaSell) return null;
+        long instaBuy = agg.getBestHighPrice();   // instant buy = high price (what buyers pay)
+        long instaSell = agg.getBestLowPrice();    // instant sell = low price (what sellers receive)
+        // instaBuy should be >= instaSell for a valid margin (buyers pay more than sellers receive)
+        if (instaBuy <= 0 || instaSell <= 0 || instaSell >= instaBuy) return null;
 
         int limit = agg.getBuyLimit();
         if (limit <= 0) return null;

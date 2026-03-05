@@ -106,7 +106,8 @@ public class PriceService
         allItemIds.addAll(wikiLatest.keySet());
         allItemIds.addAll(runeLitePrices.keySet());
 
-        aggregatedPrices.clear();
+        // Build new map atomically, then swap — avoids readers seeing partial data
+        Map<Integer, PriceAggregate> newPrices = new ConcurrentHashMap<>();
         for (int itemId : allItemIds)
         {
             Map<PriceSource, PriceData> sourceData = new HashMap<>();
@@ -141,9 +142,13 @@ public class PriceService
                     .priceHistoryProvider(this::getPriceHistoryForItem)
                     .build();
 
-                aggregatedPrices.put(itemId, aggregate);
+                newPrices.put(itemId, aggregate);
             }
         }
+
+        // Atomic swap — readers always see a complete set of prices
+        aggregatedPrices.clear();
+        aggregatedPrices.putAll(newPrices);
 
         lastRefresh = Instant.now();
 

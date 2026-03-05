@@ -117,7 +117,7 @@ public interface GrandFlipOutConfig extends Config
     )
     default String userAgent()
     {
-        return "GrandFlipOut RuneLite Plugin - github.com/max/grand-flip-out";
+        return "GrandFlipOut RuneLite Plugin - github.com/Tunatroll/grand-flip-out";
     }
 
     // ==================== FLIP TRACKER ====================
