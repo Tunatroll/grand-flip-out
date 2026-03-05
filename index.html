@@ -460,10 +460,14 @@
 
         .price-buy .price-value {
             color: var(--green);
+            word-break: break-all;
+            font-size: 11px;
         }
 
         .price-sell .price-value {
             color: var(--red);
+            word-break: break-all;
+            font-size: 11px;
         }
 
         .item-margin {
@@ -916,6 +920,10 @@
             </div>
         </div>
     </header>
+    <!-- COMPLIANCE NOTICE -->
+    <div style="background:rgba(255,152,31,0.08);border-bottom:1px solid rgba(255,152,31,0.2);padding:8px 24px;text-align:center;font-size:11px;color:#8b8078;">
+        &#9888;&#65039; <strong style="color:#c9bfb5;">Information only.</strong> Grand Flip Out does not interact with the game client or automate any actions. All data is sourced from the OSRS Wiki API. Not affiliated with Jagex. Compliant with Jagex&#39;s <a href="https://secure.runescape.com/m=news/third-party-client-guidelines" target="_blank" style="color:#ff981f;">Third-Party Client Guidelines</a>.
+    </div>
 
     <!-- TABS -->
     <div class="tabs-container">
@@ -1172,7 +1180,7 @@
 
     <!-- FOOTER -->
     <footer>
-        <p>Grand Flip Out - Your trusted OSRS Grand Exchange companion. Data from OSRS Wiki API. Not affiliated with Jagex.</p>
+        <p>Grand Flip Out — Your trusted OSRS Grand Exchange companion. Data sourced from the <a href="https://prices.runescape.wiki/api/v1/osrs" target="_blank" style="color:var(--accent);">OSRS Wiki API</a>. Not affiliated with Jagex Ltd. Information-only tool; no game automation. Jagex Third-Party Client Guidelines compliant.</p>
     </footer>
 
     <script>
@@ -1386,6 +1394,16 @@
             if (!grid) return;
 
             let items = [...state.items];
+    // Filter out known low-volume / manipulation-risk items from top flips
+    const MANIPULATION_BLACKLIST_PREFIXES = ['3rd age', 'twisted', 'scythe', 'tumeken', 'sanguinesti', 'holy scythe', 'avernic'];
+    const MANIPULATION_BLACKLIST_WORDS = ['volatile', 'eldritch', 'harmonised'];
+    items = items.filter(i => {
+        if (!i.name) return true;
+        const nm = i.name.toLowerCase();
+        if (MANIPULATION_BLACKLIST_PREFIXES.some(p => nm.startsWith(p))) return false;
+        if (MANIPULATION_BLACKLIST_WORDS.some(w => nm.includes(w))) return false;
+        return true;
+    });
 
             // Filter
             if (state.currentFilter) {
@@ -1772,7 +1790,7 @@
 
             if (connected) {
                 dot.className = 'status-dot connected';
-                text.textContent = 'Connected (API)';
+                text.textContent = 'Live (Wiki API)';
             } else {
                 dot.className = 'status-dot offline';
                 text.textContent = 'Offline';
@@ -1841,15 +1859,8 @@
             // Try to load data
             await loadTopFlips();
 
-            // If backend is available, show connected status
-            const isHealthy = await checkHealth();
-            if (isHealthy) {
-                state.isConnected = true;
-                updateStatusBadge(true);
-            } else {
-                state.isConnected = false;
-                updateStatusBadge(false);
-            }
+            // Wiki API data loaded - status set in loadTopFlips() on success.
+            // No backend health check needed; this tool uses the Wiki API directly.
 
             // Load other data
             await loadDumpsPumps();
