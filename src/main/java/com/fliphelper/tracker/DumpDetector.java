@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 /**
@@ -54,7 +55,7 @@ public class DumpDetector
             snapshot.setLowPrice(agg.getBestLowPrice());
             snapshot.setVolume1h(agg.getTotalVolume1h());
 
-            priceHistory.computeIfAbsent(agg.getItemId(), k -> new ArrayList<>()).add(snapshot);
+            priceHistory.computeIfAbsent(agg.getItemId(), k -> new CopyOnWriteArrayList<>()).add(snapshot);
 
             // Trim old snapshots
             List<PriceSnapshot> history = priceHistory.get(agg.getItemId());

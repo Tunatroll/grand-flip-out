@@ -12,6 +12,7 @@ import okhttp3.Response;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Client for the official Jagex Grand Exchange API.
@@ -24,7 +25,7 @@ public class OfficialGePriceClient
     private static final String BASE_URL = "https://secure.runescape.com/m=itemdb_oldschool/api/catalogue/detail.json?item=";
 
     private final OkHttpClient httpClient;
-    private final Map<Integer, PriceData> prices = new HashMap<>();
+    private final Map<Integer, PriceData> prices = new ConcurrentHashMap<>();
 
     public OfficialGePriceClient(OkHttpClient httpClient)
     {

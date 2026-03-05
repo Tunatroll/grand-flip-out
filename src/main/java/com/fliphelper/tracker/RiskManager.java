@@ -143,16 +143,17 @@ public class RiskManager {
             }
         }
 
-        // Check volatility
+        // Check bid-ask spread (called "volatility" but actually measures spread, not standard deviation)
+        // This is the percentage difference between buy and sell prices on the current snapshot
         long priceRange = agg.getHighPrice() - agg.getLowPrice();
         if (avgPrice > 0) {
-            double volatility = (double) priceRange / avgPrice * 100;
-            if (volatility > 15) {
-                reasons.add(String.format("High volatility: %.1f%%", volatility));
+            double bidAskSpread = (double) priceRange / avgPrice * 100;
+            if (bidAskSpread > 15) {
+                reasons.add(String.format("High bid-ask spread: %.1f%%", bidAskSpread));
                 level = RiskLevel.MEDIUM;
             }
-            if (volatility > 30) {
-                reasons.add(String.format("Extreme volatility: %.1f%%", volatility));
+            if (bidAskSpread > 30) {
+                reasons.add(String.format("Extreme bid-ask spread: %.1f%%", bidAskSpread));
                 level = RiskLevel.HIGH;
             }
         }

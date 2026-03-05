@@ -58,14 +58,20 @@ public class WikiPriceClient
 
         try (Response response = httpClient.newCall(request).execute())
         {
-            if (!response.isSuccessful() || response.body() == null)
+            if (!response.isSuccessful())
             {
                 throw new IOException("Wiki mapping request failed: " + response.code());
             }
 
-            String body = response.body().string();
+            var body = response.body();
+            if (body == null)
+            {
+                throw new IOException("Wiki mapping request returned empty response body");
+            }
+
+            String bodyString = body.string();
             Type listType = new TypeToken<List<ItemMapping>>() {}.getType();
-            itemMappings = GSON.fromJson(body, listType);
+            itemMappings = GSON.fromJson(bodyString, listType);
 
             mappingById.clear();
             for (ItemMapping mapping : itemMappings)
@@ -90,13 +96,19 @@ public class WikiPriceClient
 
         try (Response response = httpClient.newCall(request).execute())
         {
-            if (!response.isSuccessful() || response.body() == null)
+            if (!response.isSuccessful())
             {
                 throw new IOException("Wiki latest prices request failed: " + response.code());
             }
 
-            String body = response.body().string();
-            JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+            var body = response.body();
+            if (body == null)
+            {
+                throw new IOException("Wiki latest prices request returned empty response body");
+            }
+
+            String bodyString = body.string();
+            JsonObject json = JsonParser.parseString(bodyString).getAsJsonObject();
             JsonObject data = json.getAsJsonObject("data");
 
             latestPrices.clear();
@@ -138,13 +150,19 @@ public class WikiPriceClient
 
         try (Response response = httpClient.newCall(request).execute())
         {
-            if (!response.isSuccessful() || response.body() == null)
+            if (!response.isSuccessful())
             {
                 throw new IOException("Wiki 5m prices request failed: " + response.code());
             }
 
-            String body = response.body().string();
-            JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+            var body = response.body();
+            if (body == null)
+            {
+                throw new IOException("Wiki 5m prices request returned empty response body");
+            }
+
+            String bodyString = body.string();
+            JsonObject json = JsonParser.parseString(bodyString).getAsJsonObject();
             JsonObject data = json.getAsJsonObject("data");
 
             prices5m.clear();
@@ -186,13 +204,19 @@ public class WikiPriceClient
 
         try (Response response = httpClient.newCall(request).execute())
         {
-            if (!response.isSuccessful() || response.body() == null)
+            if (!response.isSuccessful())
             {
                 throw new IOException("Wiki 1h prices request failed: " + response.code());
             }
 
-            String body = response.body().string();
-            JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+            var body = response.body();
+            if (body == null)
+            {
+                throw new IOException("Wiki 1h prices request returned empty response body");
+            }
+
+            String bodyString = body.string();
+            JsonObject json = JsonParser.parseString(bodyString).getAsJsonObject();
             JsonObject data = json.getAsJsonObject("data");
 
             prices1h.clear();
@@ -234,13 +258,19 @@ public class WikiPriceClient
 
         try (Response response = httpClient.newCall(request).execute())
         {
-            if (!response.isSuccessful() || response.body() == null)
+            if (!response.isSuccessful())
             {
                 throw new IOException("Wiki timeseries request failed: " + response.code());
             }
 
-            String body = response.body().string();
-            JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+            var body = response.body();
+            if (body == null)
+            {
+                throw new IOException("Wiki timeseries request returned empty response body");
+            }
+
+            String bodyString = body.string();
+            JsonObject json = JsonParser.parseString(bodyString).getAsJsonObject();
             var dataArray = json.getAsJsonArray("data");
 
             ItemMapping mapping = mappingById.get(itemId);

@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
 
 /**
  * Collects and stores rolling price history for items, enabling technical analysis.
@@ -93,10 +94,10 @@ public class PriceHistoryCollector {
         // Evict oldest-tracked items if we exceed the cap (prevents unbounded memory growth)
         if (priceHistory.size() > MAX_TRACKED_ITEMS) {
             int toRemove = priceHistory.size() - MAX_TRACKED_ITEMS;
-            Iterator<Integer> it = priceHistory.keySet().iterator();
-            for (int i = 0; i < toRemove && it.hasNext(); i++) {
-                int evictId = it.next();
-                it.remove();
+            List<Integer> keysToEvict = new ArrayList<>(priceHistory.keySet());
+            for (int i = 0; i < toRemove && i < keysToEvict.size(); i++) {
+                int evictId = keysToEvict.get(i);
+                priceHistory.remove(evictId);
                 timestampHistory.remove(evictId);
                 volumeHistory.remove(evictId);
             }
@@ -177,7 +178,13 @@ public class PriceHistoryCollector {
                 seeded++;
 
                 // Rate limit: 1 request per 200ms
-                Thread.sleep(200);
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("seedTopItems interrupted");
+                    break;
+                }
             }
 
             log.info("Seeded price history for {} top items from Wiki timeseries API", seeded);

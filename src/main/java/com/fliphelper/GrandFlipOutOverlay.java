@@ -97,7 +97,7 @@ public class GrandFlipOutOverlay extends Overlay
             .color(Color.CYAN)
             .build());
 
-        long profit = flipTracker.getSessionProfit();
+        long profit = flipTracker.getSessionProfit().get();
         Color profitColor = profit >= 0 ? Color.GREEN : Color.RED;
 
         panelComponent.getChildren().add(LineComponent.builder()
@@ -108,7 +108,7 @@ public class GrandFlipOutOverlay extends Overlay
 
         panelComponent.getChildren().add(LineComponent.builder()
             .left("Flips:")
-            .right(String.valueOf(flipTracker.getSessionFlipCount()))
+            .right(String.valueOf(flipTracker.getSessionFlipCount().get()))
             .build());
 
         double avg = flipTracker.getAverageProfitPerFlip();

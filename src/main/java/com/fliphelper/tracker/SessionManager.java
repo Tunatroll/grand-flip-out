@@ -177,7 +177,7 @@ public class SessionManager {
         }
 
         long elapsedMillis = System.currentTimeMillis() - activeSession.startTime.toEpochMilli();
-        double hourElapsed = elapsedMillis / 3600000.0;
+        double hourElapsed = Math.max(1.0, elapsedMillis / 3600000.0);
         double gpPerHour = activeSession.actualProfit / hourElapsed;
 
         return SessionStats.builder()

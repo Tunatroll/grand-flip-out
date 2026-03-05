@@ -15,6 +15,8 @@ import java.lang.reflect.Type;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -41,10 +43,10 @@ public class FlipTracker
     private final Map<Integer, Deque<TradeRecord>> pendingBuys = new ConcurrentHashMap<>();
 
     @Getter
-    private volatile long sessionProfit = 0;
+    private final AtomicLong sessionProfit = new AtomicLong(0);
 
     @Getter
-    private volatile int sessionFlipCount = 0;
+    private final AtomicInteger sessionFlipCount = new AtomicInteger(0);
 
     public FlipTracker(GrandFlipOutConfig config, File dataDir)
     {
@@ -107,8 +109,8 @@ public class FlipTracker
                 activeFlips.remove(trade.getGeSlot());
 
                 long profit = completedFlip.getProfit();
-                sessionProfit += profit;
-                sessionFlipCount++;
+                sessionProfit.addAndGet(profit);
+                sessionFlipCount.incrementAndGet();
 
                 log.info("Completed flip: {}x {} | Buy: {}gp Sell: {}gp | Profit: {}gp",
                     completedFlip.getQuantity(), completedFlip.getItemName(),
@@ -141,8 +143,8 @@ public class FlipTracker
         if (flip.isComplete())
         {
             completedFlips.add(0, flip);
-            sessionProfit += flip.getProfit();
-            sessionFlipCount++;
+            sessionProfit.addAndGet(flip.getProfit());
+            sessionFlipCount.incrementAndGet();
 
             if (config.persistHistory())
             {
@@ -215,11 +217,12 @@ public class FlipTracker
      */
     public double getAverageProfitPerFlip()
     {
-        if (sessionFlipCount == 0)
+        int flipCount = sessionFlipCount.get();
+        if (flipCount == 0)
         {
             return 0;
         }
-        return (double) sessionProfit / sessionFlipCount;
+        return (double) sessionProfit.get() / flipCount;
     }
 
     /**
@@ -227,8 +230,8 @@ public class FlipTracker
      */
     public void resetSession()
     {
-        sessionProfit = 0;
-        sessionFlipCount = 0;
+        sessionProfit.set(0);
+        sessionFlipCount.set(0);
         activeFlips.clear();
         pendingBuys.clear();
     }

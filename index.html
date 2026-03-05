@@ -3,14 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grand Flip Out — Your OSRS Flipping Companion</title>
+    <title>Grand Flip Out — OSRS Grand Exchange Flipping Companion</title>
+    <meta name="description" content="Free OSRS flipping tool with real-time GE prices, JTI scoring, margin analysis, dump detection, and technical analysis. Includes RuneLite plugin and Discord bot.">
+    <meta name="keywords" content="OSRS, Grand Exchange, flipping, RuneScape, GE tracker, JTI, margins, RuneLite plugin">
+    <meta property="og:title" content="Grand Flip Out — OSRS Flipping Companion">
+    <meta property="og:description" content="Real-time Grand Exchange flipping data with JTI scoring, margin analysis, and dump detection. Free RuneLite plugin included.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tunatroll.github.io/grand-flip-out/">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23ff981f'/><circle cx='50' cy='50' r='35' fill='%231a1410'/></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
         }
 
         :root {
@@ -909,7 +928,8 @@
                 </div>
             </div>
             <div class="header-middle">
-                <input type="text" class="search-bar" id="searchInput" placeholder="Search items...">
+                <label for="searchInput" class="sr-only">Search items</label>
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search items..." aria-label="Search items by name">
             </div>
             <div class="header-right">
                 <div class="status-badge">
@@ -927,14 +947,14 @@
 
     <!-- TABS -->
     <div class="tabs-container">
-        <ul class="tabs">
-            <li><button class="tab-btn active" data-tab="top-flips">Top Flips</button></li>
-            <li><button class="tab-btn" data-tab="dumps-pumps">Dumps & Pumps</button></li>
-            <li><button class="tab-btn" data-tab="watchlist">Watchlist</button></li>
-            <li><button class="tab-btn" data-tab="recipes">Recipes</button></li>
-            <li><button class="tab-btn" data-tab="special">Special Items</button></li>
-            <li><button class="tab-btn" data-tab="discord">Discord</button></li>
-            <li><button class="tab-btn" data-tab="plugin">RuneLite Plugin</button></li>
+        <ul class="tabs" role="tablist" aria-label="Main navigation">
+            <li role="presentation"><button class="tab-btn active" data-tab="top-flips" role="tab" aria-selected="true" aria-controls="top-flips">Top Flips</button></li>
+            <li role="presentation"><button class="tab-btn" data-tab="dumps-pumps" role="tab" aria-selected="false" aria-controls="dumps-pumps">Dumps & Pumps</button></li>
+            <li role="presentation"><button class="tab-btn" data-tab="watchlist" role="tab" aria-selected="false" aria-controls="watchlist">Watchlist</button></li>
+            <li role="presentation"><button class="tab-btn" data-tab="recipes" role="tab" aria-selected="false" aria-controls="recipes">Recipes</button></li>
+            <li role="presentation"><button class="tab-btn" data-tab="special" role="tab" aria-selected="false" aria-controls="special">Special Items</button></li>
+            <li role="presentation"><button class="tab-btn" data-tab="discord" role="tab" aria-selected="false" aria-controls="discord">Discord</button></li>
+            <li role="presentation"><button class="tab-btn" data-tab="plugin" role="tab" aria-selected="false" aria-controls="plugin">RuneLite Plugin</button></li>
         </ul>
     </div>
 
@@ -1087,10 +1107,10 @@
                     Fully Jagex-compliant — only uses official and community APIs.
                 </p>
                 <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-bottom:8px;">
-                    <a href="tunatroll/grand-flip-out.jar" download class="discord-button" style="background:linear-gradient(135deg,#ff981f 0%,#d4af37 100%);color:#1a1410;">
+                    <a href="https://github.com/Tunatroll/grand-flip-out/releases/latest" target="_blank" class="discord-button" style="background:linear-gradient(135deg,#ff981f 0%,#d4af37 100%);color:#1a1410;">
                         Download Plugin (.jar)
                     </a>
-                    <a href="grand-flip-out-plugin.zip" download class="discord-button" style="background:var(--bg-tertiary);color:var(--text-secondary);border:1px solid var(--border);">
+                    <a href="https://github.com/Tunatroll/grand-flip-out/archive/refs/heads/main.zip" target="_blank" class="discord-button" style="background:var(--bg-tertiary);color:var(--text-secondary);border:1px solid var(--border);">
                         Source Code (ZIP)
                     </a>
                 </div>
@@ -1106,7 +1126,7 @@
                         <div class="command-name">Step 2</div>
                         <div class="command-desc">Open RuneLiteHijack settings and paste this URL into "External Plugin Hubs":</div>
                     </div>
-                    <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin:8px 0 16px;font-family:monospace;font-size:13px;color:var(--accent);word-break:break-all;cursor:pointer;" onclick="navigator.clipboard.writeText('https://raw.githubusercontent.com/Tunatroll/grand-flip-out/gh-pages/');this.style.borderColor='#4ade80';this.innerHTML='✓ Copied!';setTimeout(()=>{this.style.borderColor='';this.innerHTML='https://raw.githubusercontent.com/Tunatroll/grand-flip-out/gh-pages/'},1500);">
+                    <div id="pluginUrl" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin:8px 0 16px;font-family:monospace;font-size:13px;color:var(--accent);word-break:break-all;cursor:pointer;user-select:all;transition:border-color 0.3s;" onclick="(function(el){try{navigator.clipboard.writeText('https://raw.githubusercontent.com/Tunatroll/grand-flip-out/gh-pages/').then(()=>{el.style.borderColor='#4ade80';el.dataset.orig=el.textContent;el.textContent='Copied!';setTimeout(()=>{el.style.borderColor='';el.textContent=el.dataset.orig},1500)}).catch(()=>{window.getSelection().selectAllChildren(el)})}catch(e){window.getSelection().selectAllChildren(el)}})(this)">
                         https://raw.githubusercontent.com/Tunatroll/grand-flip-out/gh-pages/
                     </div>
                     <div class="command-item">
@@ -1188,7 +1208,13 @@
         // STATE MANAGEMENT
         // ============================================
         const state = {
-            apiUrl: window.location.origin !== 'null' && !window.location.origin.startsWith('file') ? window.location.origin : 'http://localhost:3001',
+            apiUrl: (() => {
+                try {
+                    const origin = window.location.origin;
+                    if (origin && origin !== 'null' && window.location.protocol !== 'file:') return origin;
+                } catch(e) {}
+                return 'http://localhost:3001';
+            })(),
             items: [],
             dumps: [],
             pumps: [],
@@ -1198,89 +1224,147 @@
             currentSort: 'jti',
             currentFilter: '',
             lastUpdate: new Date(),
-            ws: null,
+            isLoading: false,
+            errorCount: 0,
+            maxRetries: 3,
         };
 
         // ============================================
-        // API CALLS
+        // API CALLS (with proper AbortController timeout)
         // ============================================
-        async function fetchFromBackend(endpoint) {
+        async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
             try {
-                const response = await fetch(`${state.apiUrl}${endpoint}`, {
-                    timeout: 5000
-                });
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(timer);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 return await response.json();
             } catch (e) {
-                console.warn(`Backend failed (${endpoint}):`, e.message);
+                clearTimeout(timer);
+                if (e.name === 'AbortError') console.warn(`Request timed out (${timeoutMs}ms): ${url}`);
+                else console.warn(`Fetch failed: ${url}`, e.message);
                 return null;
             }
+        }
+
+        async function fetchFromBackend(endpoint) {
+            return fetchWithTimeout(`${state.apiUrl}${endpoint}`, {}, 5000);
         }
 
         async function fetchFromWiki(endpoint) {
             const wikiBase = 'https://prices.runescape.wiki/api/v1/osrs';
-            try {
-                const response = await fetch(`${wikiBase}${endpoint}`, {
-                    headers: {
-                        'User-Agent': 'GrandFlipOut - OSRS Flipping Tool'
-                    },
-                    timeout: 10000
-                });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                return await response.json();
-            } catch (e) {
-                console.warn(`Wiki API failed (${endpoint}):`, e.message);
-                return null;
+            return fetchWithTimeout(`${wikiBase}${endpoint}`, {
+                headers: { 'User-Agent': 'GrandFlipOut - OSRS Flipping Tool (https://tunatroll.github.io/grand-flip-out/)' }
+            }, 10000);
+        }
+
+        /**
+         * Calculates a real JTI score based on margin, volume, and spread stability.
+         * Score 0-100: higher = better flipping opportunity.
+         */
+        function calculateJtiScore(buyPrice, sellPrice, buyVol, sellVol, buyLimit) {
+            if (buyPrice <= 0 || sellPrice <= 0) return 0;
+
+            const margin = sellPrice - buyPrice;
+            const marginPct = (margin / buyPrice) * 100;
+            const totalVol = (buyVol || 0) + (sellVol || 0);
+            const volBalance = (buyVol > 0 && sellVol > 0) ? Math.min(buyVol, sellVol) / Math.max(buyVol, sellVol) : 0;
+
+            // Margin component (0-35): sweet spot is 2-15% margin
+            let marginScore = 0;
+            if (marginPct > 0.5 && marginPct <= 30) {
+                marginScore = marginPct <= 15 ? (marginPct / 15) * 35 : 35 - ((marginPct - 15) / 15) * 15;
             }
+            marginScore = Math.max(0, Math.min(35, marginScore));
+
+            // Volume component (0-35): higher volume = more liquid = better
+            const volScore = Math.min(35, (Math.log10(Math.max(1, totalVol)) / 5) * 35);
+
+            // Balance component (0-15): balanced buy/sell volumes are healthier
+            const balanceScore = volBalance * 15;
+
+            // Buy limit component (0-15): higher limits allow bigger flips
+            const limitScore = buyLimit > 0 ? Math.min(15, (Math.log10(buyLimit) / 4) * 15) : 5;
+
+            return Math.round(Math.max(0, Math.min(100, marginScore + volScore + balanceScore + limitScore)));
         }
 
         async function loadTopFlips() {
-            let data = await fetchFromBackend('/api/items?sort=jti&limit=50');
+            if (state.isLoading) return;
+            state.isLoading = true;
+
+            let data = await fetchFromBackend('/api/items?sort=jti&limit=100');
 
             if (!data) {
-                // Fallback to Wiki API
-                const mapping = await fetchFromWiki('/mapping');
-                const latest = await fetchFromWiki('/latest');
-                const volumes = await fetchFromWiki('/5m');
+                // Fallback to Wiki API — fetch all 3 endpoints in parallel
+                const [mapping, latest, volumes] = await Promise.all([
+                    fetchFromWiki('/mapping'),
+                    fetchFromWiki('/latest'),
+                    fetchFromWiki('/5m')
+                ]);
 
                 if (mapping && latest && volumes) {
                     const latestData = latest.data || {};
                     const volData = volumes.data || {};
 
-                    data = mapping.slice(0, 50).map(item => {
-                        const priceInfo = latestData[item.id] || {};
-                        const volInfo = volData[item.id] || {};
+                    // Filter to items with actual trade data, then sort by volume
+                    data = mapping
+                        .filter(item => item && item.id && latestData[item.id])
+                        .map(item => {
+                            const priceInfo = latestData[item.id] || {};
+                            const volInfo = volData[item.id] || {};
 
-                        const buyPrice = priceInfo.low || item.value || 0;
-                        const sellPrice = priceInfo.high || item.value || 0;
-                        const geeTax = Math.min(sellPrice * 0.02, 5000000);
-                        const margin = (sellPrice - geeTax) - buyPrice;
-                        const marginPct = buyPrice > 0 ? ((margin / buyPrice) * 100).toFixed(1) : 0;
+                            const buyPrice = priceInfo.low || 0;
+                            const sellPrice = priceInfo.high || 0;
 
-                        return {
-                            itemId: item.id,
-                            name: item.name,
-                            icon: item.icon,
-                            buyPrice,
-                            sellPrice,
-                            margin,
-                            marginPct,
-                            jtiScore: Math.random() * 100,
-                            buyQuantity: volInfo.lowPriceVolume || 0,
-                            sellQuantity: volInfo.highPriceVolume || 0,
-                            buyLimit: item.limit || 0,
-                            highAlch: item.highalch || 0,
-                        };
-                    });
+                            if (buyPrice <= 0 || sellPrice <= 0 || sellPrice <= buyPrice) return null;
+
+                            const geTax = Math.min(Math.floor(sellPrice * 0.02), 5000000);
+                            const margin = sellPrice - geTax - buyPrice;
+                            const marginPct = buyPrice > 0 ? ((margin / buyPrice) * 100).toFixed(1) : '0';
+                            const buyVol = volInfo.lowPriceVolume || 0;
+                            const sellVol = volInfo.highPriceVolume || 0;
+                            const buyLimit = item.limit || 0;
+
+                            return {
+                                itemId: item.id,
+                                name: item.name || 'Unknown',
+                                icon: item.icon,
+                                buyPrice,
+                                sellPrice,
+                                margin,
+                                marginPct: parseFloat(marginPct),
+                                jtiScore: calculateJtiScore(buyPrice, sellPrice, buyVol, sellVol, buyLimit),
+                                buyQuantity: buyVol,
+                                sellQuantity: sellVol,
+                                buyLimit,
+                                highAlch: item.highalch || 0,
+                            };
+                        })
+                        .filter(item => item !== null && item.margin > 0)
+                        .sort((a, b) => b.jtiScore - a.jtiScore)
+                        .slice(0, 100);
+
+                    state.errorCount = 0;
+                } else {
+                    state.errorCount++;
                 }
+            } else {
+                state.errorCount = 0;
             }
 
             if (data) {
                 state.items = Array.isArray(data) ? data : (data.items || []);
                 state.isConnected = true;
+                state.lastUpdate = new Date();
                 updateStatusBadge(true);
                 renderTopFlips();
+            } else if (state.items.length === 0) {
+                updateStatusBadge(false);
             }
+
+            state.isLoading = false;
         }
 
         async function loadDumpsPumps() {
@@ -1288,11 +1372,13 @@
             let pumps = await fetchFromBackend('/api/items/pumps');
 
             if (!dumps || !pumps) {
-                // For fallback, just use items with extreme margins
+                // Derive dumps/pumps from items: pumps = high margin %, dumps = negative or lowest margin
                 if (state.items.length > 0) {
-                    const sorted = [...state.items].sort((a, b) => b.marginPct - a.marginPct);
-                    pumps = sorted.slice(0, 10);
-                    dumps = [...sorted].reverse().slice(0, 10);
+                    const withMargin = state.items.filter(i => typeof i.marginPct === 'number');
+                    const sorted = [...withMargin].sort((a, b) => b.marginPct - a.marginPct);
+                    pumps = sorted.filter(i => i.marginPct > 3).slice(0, 10);
+                    dumps = sorted.filter(i => i.marginPct <= 1).slice(0, 10);
+                    if (dumps.length === 0) dumps = [...sorted].reverse().slice(0, 10);
                 }
             }
 
@@ -1301,47 +1387,73 @@
             renderDumpsPumps();
         }
 
+        // Well-known OSRS processing recipes with item IDs for live price lookup
+        const KNOWN_RECIPES = [
+            { id: 1, name: 'Gold Ore → Gold Bar', inputId: 444, outputId: 2357, input: 'Gold Ore', output: 'Gold Bar', skill: 'Smithing' },
+            { id: 2, name: 'Iron Ore → Iron Bar', inputId: 440, outputId: 2351, input: 'Iron Ore', output: 'Iron Bar', skill: 'Smithing' },
+            { id: 3, name: 'Mithril Ore → Mithril Bar', inputId: 447, outputId: 2359, input: 'Mithril Ore', output: 'Mithril Bar', skill: 'Smithing' },
+            { id: 4, name: 'Adamantite Ore → Adamantite Bar', inputId: 449, outputId: 2361, input: 'Adamantite Ore', output: 'Adamantite Bar', skill: 'Smithing' },
+            { id: 5, name: 'Runite Ore → Runite Bar', inputId: 451, outputId: 2363, input: 'Runite Ore', output: 'Runite Bar', skill: 'Smithing' },
+            { id: 6, name: 'Raw Lobster → Lobster', inputId: 377, outputId: 379, input: 'Raw Lobster', output: 'Lobster', skill: 'Cooking' },
+            { id: 7, name: 'Raw Shark → Shark', inputId: 383, outputId: 385, input: 'Raw Shark', output: 'Shark', skill: 'Cooking' },
+            { id: 8, name: 'Raw Monkfish → Monkfish', inputId: 7944, outputId: 7946, input: 'Raw Monkfish', output: 'Monkfish', skill: 'Cooking' },
+            { id: 9, name: 'Raw Anglerfish → Anglerfish', inputId: 13439, outputId: 13441, input: 'Raw Anglerfish', output: 'Anglerfish', skill: 'Cooking' },
+            { id: 10, name: 'Uncut Ruby → Ruby', inputId: 1619, outputId: 1603, input: 'Uncut Ruby', output: 'Ruby', skill: 'Crafting' },
+            { id: 11, name: 'Uncut Diamond → Diamond', inputId: 1617, outputId: 1601, input: 'Uncut Diamond', output: 'Diamond', skill: 'Crafting' },
+            { id: 12, name: 'Uncut Dragonstone → Dragonstone', inputId: 1631, outputId: 1615, input: 'Uncut Dragonstone', output: 'Dragonstone', skill: 'Crafting' },
+            { id: 13, name: 'Flax → Bow String', inputId: 1779, outputId: 1777, input: 'Flax', output: 'Bow String', skill: 'Crafting' },
+            { id: 14, name: 'Green Dragonhide → Green D\'hide Body', inputId: 1745, outputId: 1135, input: 'Green Dragonhide (×3)', output: 'Green D\'hide Body', inputQty: 3, skill: 'Crafting' },
+            { id: 15, name: 'Blue Dragonhide → Blue D\'hide Body', inputId: 1747, outputId: 2499, input: 'Blue Dragonhide (×3)', output: 'Blue D\'hide Body', inputQty: 3, skill: 'Crafting' },
+            { id: 16, name: 'Black Dragonhide → Black D\'hide Body', inputId: 1749, outputId: 2503, input: 'Black Dragonhide (×3)', output: 'Black D\'hide Body', inputQty: 3, skill: 'Crafting' },
+        ];
+
         async function loadRecipes() {
             let data = await fetchFromBackend('/api/recipes');
 
             if (!data) {
-                data = [
-                    {
-                        id: 1,
-                        name: 'Gold Ore -> Gold Bars',
-                        input: 'Gold Ore',
-                        output: 'Gold Bars',
-                        inputPrice: 180,
-                        outputPrice: 215,
-                        profit: 35
-                    },
-                    {
-                        id: 2,
-                        name: 'Copper Ore -> Copper Bars',
-                        input: 'Copper Ore',
-                        output: 'Copper Bars',
-                        inputPrice: 42,
-                        outputPrice: 48,
-                        profit: 6
-                    }
-                ];
+                // Look up live prices for known recipes
+                const latest = await fetchFromWiki('/latest');
+                if (latest && latest.data) {
+                    const prices = latest.data;
+                    data = KNOWN_RECIPES.map(recipe => {
+                        const inPrice = prices[recipe.inputId];
+                        const outPrice = prices[recipe.outputId];
+                        const inputCost = inPrice ? (inPrice.high || inPrice.low || 0) : 0;
+                        const outputValue = outPrice ? (outPrice.low || outPrice.high || 0) : 0;
+                        const inputQty = recipe.inputQty || 1;
+                        const totalInput = inputCost * inputQty;
+                        const profit = outputValue - totalInput;
+                        return {
+                            id: recipe.id,
+                            name: recipe.name,
+                            input: recipe.input,
+                            output: recipe.output,
+                            inputPrice: totalInput,
+                            outputPrice: outputValue,
+                            profit,
+                            skill: recipe.skill,
+                        };
+                    }).filter(r => r.inputPrice > 0 && r.outputPrice > 0);
+                } else {
+                    data = [];
+                }
             }
 
             state.recipes = Array.isArray(data) ? data : (data.recipes || []);
             renderRecipes();
         }
 
-        async function checkHealth() {
-            const health = await fetchFromBackend('/health');
-            return !!health;
-        }
-
         // ============================================
         // RENDERING
         // ============================================
         function formatGp(value) {
-            if (!value) return '0 gp';
-            return Math.abs(value).toLocaleString('en-US') + ' gp';
+            if (value === null || value === undefined || value === 0) return '0 gp';
+            const sign = value < 0 ? '-' : '';
+            const abs = Math.abs(value);
+            if (abs >= 1000000000) return sign + (abs / 1000000000).toFixed(1) + 'B gp';
+            if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M gp';
+            if (abs >= 1000) return sign + (abs / 1000).toFixed(1) + 'K gp';
+            return sign + abs.toLocaleString('en-US') + ' gp';
         }
 
         function getJtiColor(score) {
@@ -1354,7 +1466,7 @@
             const card = document.createElement('div');
             card.className = 'item-card';
             card.innerHTML = `
-                <button class="favorite-btn ${state.watchlist.has(item.itemId) ? 'active' : ''}" data-item-id="${item.itemId}">★</button>
+                <button class="favorite-btn ${state.watchlist.has(item.itemId) ? 'active' : ''}" data-item-id="${item.itemId}" aria-label="${state.watchlist.has(item.itemId) ? 'Remove from' : 'Add to'} watchlist: ${item.name}" title="Toggle watchlist">★</button>
                 <div class="item-icon">
                     ${item.icon ? `<img src="https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}" alt="${item.name}" onerror="this.parentElement.textContent=''; this.parentElement.classList.add('placeholder'); this.parentElement.innerHTML='💰';">` : '<span class="placeholder">💰</span>'}
                 </div>
@@ -1429,19 +1541,12 @@
                     items.sort((a, b) => (b.jtiScore || 0) - (a.jtiScore || 0));
             }
 
-            grid.innerHTML = items.length > 0
-                ? items.map(item => createItemCard(item).outerHTML).join('')
-                : '<div class="empty-state" style="grid-column: 1/-1;"><div class="empty-state-icon">📊</div><h3>No items found</h3></div>';
-
-            // Re-attach favorite handlers
-            grid.querySelectorAll('.favorite-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const itemId = parseInt(btn.dataset.itemId);
-                    toggleWatchlist(itemId);
-                    btn.classList.toggle('active');
-                });
-            });
+            if (items.length > 0) {
+                grid.innerHTML = '';
+                items.forEach(item => grid.appendChild(createItemCard(item)));
+            } else {
+                grid.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><div class="empty-state-icon">📊</div><h3>No items found</h3><p>Try adjusting your search or wait for data to load.</p></div>';
+            }
         }
 
         function renderDumpsPumps() {
@@ -1449,26 +1554,22 @@
             const pumpsGrid = document.getElementById('pumpsGrid');
 
             if (dumpsGrid) {
-                dumpsGrid.innerHTML = state.dumps.length > 0
-                    ? state.dumps.map(item => createItemCard(item).outerHTML).join('')
-                    : '<div class="empty-state"><div class="empty-state-icon">📉</div><p>No dumps yet</p></div>';
+                dumpsGrid.innerHTML = '';
+                if (state.dumps.length > 0) {
+                    state.dumps.forEach(item => dumpsGrid.appendChild(createItemCard(item)));
+                } else {
+                    dumpsGrid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📉</div><p>No dumps detected</p></div>';
+                }
             }
 
             if (pumpsGrid) {
-                pumpsGrid.innerHTML = state.pumps.length > 0
-                    ? state.pumps.map(item => createItemCard(item).outerHTML).join('')
-                    : '<div class="empty-state"><div class="empty-state-icon">📈</div><p>No pumps yet</p></div>';
+                pumpsGrid.innerHTML = '';
+                if (state.pumps.length > 0) {
+                    state.pumps.forEach(item => pumpsGrid.appendChild(createItemCard(item)));
+                } else {
+                    pumpsGrid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📈</div><p>No pumps detected</p></div>';
+                }
             }
-
-            // Re-attach handlers
-            document.querySelectorAll('.favorite-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const itemId = parseInt(btn.dataset.itemId);
-                    toggleWatchlist(itemId);
-                    btn.classList.toggle('active');
-                });
-            });
         }
 
         function renderWatchlist() {
@@ -1478,24 +1579,13 @@
 
             const watchedItems = state.items.filter(i => state.watchlist.has(i.itemId));
 
+            grid.innerHTML = '';
             if (watchedItems.length > 0) {
-                grid.innerHTML = watchedItems.map(item => createItemCard(item).outerHTML).join('');
-                empty.classList.add('hidden');
+                watchedItems.forEach(item => grid.appendChild(createItemCard(item)));
+                if (empty) empty.classList.add('hidden');
             } else {
-                grid.innerHTML = '';
-                empty.classList.remove('hidden');
+                if (empty) empty.classList.remove('hidden');
             }
-
-            // Re-attach handlers
-            grid.querySelectorAll('.favorite-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const itemId = parseInt(btn.dataset.itemId);
-                    toggleWatchlist(itemId);
-                    btn.classList.toggle('active');
-                    renderWatchlist(); // Refresh watchlist
-                });
-            });
         }
 
         function renderRecipes() {
@@ -1509,8 +1599,8 @@
             switch (sortBy) {
                 case 'roi':
                     recipes.sort((a, b) => {
-                        const aRoi = ((a.profit / a.inputPrice) * 100) || 0;
-                        const bRoi = ((b.profit / b.inputPrice) * 100) || 0;
+                        const aRoi = a.inputPrice > 0 ? (a.profit / a.inputPrice) * 100 : 0;
+                        const bRoi = b.inputPrice > 0 ? (b.profit / b.inputPrice) * 100 : 0;
                         return bRoi - aRoi;
                     });
                     break;
@@ -1523,18 +1613,22 @@
             }
 
             container.innerHTML = recipes.length > 0
-                ? recipes.map(recipe => `
+                ? recipes.map(recipe => {
+                    const roi = recipe.inputPrice > 0 ? ((recipe.profit / recipe.inputPrice) * 100).toFixed(1) : '0';
+                    return `
                     <div class="recipe-card">
-                        <div class="recipe-title">${recipe.name || ''}</div>
+                        <div class="recipe-title">${recipe.name || ''}${recipe.skill ? ` <span style="color:var(--text-muted);font-size:11px;">(${recipe.skill})</span>` : ''}</div>
                         <div class="recipe-details">
                             <div class="recipe-input">${recipe.input || ''}: ${formatGp(recipe.inputPrice)}</div>
-                            <span style="text-align: center;">→</span>
+                            <span style="text-align: center; color: var(--accent);">→</span>
                             <div class="recipe-output">${recipe.output || ''}: ${formatGp(recipe.outputPrice)}</div>
                         </div>
-                        <div class="recipe-profit">${formatGp(recipe.profit)} profit</div>
-                    </div>
-                `).join('')
-                : '<div class="empty-state"><div class="empty-state-icon">🔧</div><h3>No recipes available</h3></div>';
+                        <div class="recipe-profit" style="color: ${recipe.profit > 0 ? 'var(--green)' : 'var(--red)'};">
+                            ${formatGp(recipe.profit)} profit <span style="color:var(--text-muted);font-size:12px;">(${roi}% ROI)</span>
+                        </div>
+                    </div>`;
+                }).join('')
+                : '<div class="empty-state"><div class="empty-state-icon">🔧</div><h3>No recipes available</h3><p>Price data may still be loading.</p></div>';
         }
 
         // ============================================
@@ -1787,19 +1881,21 @@
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');
             const lastUpdate = document.getElementById('lastUpdate');
+            if (!dot || !text || !lastUpdate) return;
 
             if (connected) {
                 dot.className = 'status-dot connected';
                 text.textContent = 'Live (Wiki API)';
             } else {
                 dot.className = 'status-dot offline';
-                text.textContent = 'Offline';
+                text.textContent = state.errorCount > state.maxRetries ? 'API Error' : 'Connecting...';
             }
 
             const now = new Date();
             const hours = String(now.getHours()).padStart(2, '0');
             const mins = String(now.getMinutes()).padStart(2, '0');
-            lastUpdate.textContent = `${hours}:${mins}`;
+            const secs = String(now.getSeconds()).padStart(2, '0');
+            lastUpdate.textContent = `Updated ${hours}:${mins}:${secs}`;
         }
 
         // ============================================
@@ -1807,16 +1903,21 @@
         // ============================================
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('active');
+                    b.setAttribute('aria-selected', 'false');
+                });
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
 
                 btn.classList.add('active');
+                btn.setAttribute('aria-selected', 'true');
                 const tabId = btn.dataset.tab;
-                document.getElementById(tabId).classList.remove('hidden');
+                const panel = document.getElementById(tabId);
+                if (panel) panel.classList.remove('hidden');
 
                 if (tabId === 'watchlist') renderWatchlist();
                 if (tabId === 'dumps-pumps') loadDumpsPumps();
-                if (tabId === 'recipes') renderRecipes();
+                if (tabId === 'recipes') loadRecipes(); // Refresh with live prices
                 if (tabId === 'special') loadSpecialItems('poisoned');
             });
         });
@@ -1834,43 +1935,73 @@
         });
 
         // ============================================
-        // SEARCH & FILTER
+        // SEARCH & FILTER (debounced)
         // ============================================
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            state.currentFilter = e.target.value;
-            renderTopFlips();
-        });
+        let searchDebounceTimer = null;
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.setAttribute('aria-label', 'Search items by name');
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => {
+                    state.currentFilter = e.target.value;
+                    renderTopFlips();
+                }, 250);
+            });
+        }
 
-        document.getElementById('sortDropdown').addEventListener('change', (e) => {
-            state.currentSort = e.target.value;
-            renderTopFlips();
-        });
+        const sortDropdown = document.getElementById('sortDropdown');
+        if (sortDropdown) {
+            sortDropdown.addEventListener('change', (e) => {
+                state.currentSort = e.target.value;
+                renderTopFlips();
+            });
+        }
 
         document.getElementById('recipeSort')?.addEventListener('change', () => {
             renderRecipes();
         });
 
+        // Also connect the filter input (separate from header search)
+        const filterInput = document.getElementById('filterInput');
+        if (filterInput) {
+            filterInput.addEventListener('input', (e) => {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => {
+                    state.currentFilter = e.target.value;
+                    renderTopFlips();
+                }, 250);
+            });
+        }
+
         // ============================================
         // INITIALIZATION
         // ============================================
+        let refreshInterval = 30000; // 30 seconds base
+        let refreshTimer = null;
+
         async function init() {
             updateStatusBadge(false);
 
-            // Try to load data
+            // Load all data in parallel for faster startup
             await loadTopFlips();
+            await Promise.all([loadDumpsPumps(), loadRecipes()]);
 
-            // Wiki API data loaded - status set in loadTopFlips() on success.
-            // No backend health check needed; this tool uses the Wiki API directly.
+            // Schedule auto-refresh with backoff on errors
+            scheduleRefresh();
+        }
 
-            // Load other data
-            await loadDumpsPumps();
-            await loadRecipes();
+        function scheduleRefresh() {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            const interval = state.errorCount > 0
+                ? Math.min(refreshInterval * Math.pow(2, state.errorCount), 300000) // Max 5 min backoff
+                : refreshInterval;
 
-            // Auto-refresh every 30 seconds
-            setInterval(async () => {
+            refreshTimer = setTimeout(async () => {
                 await loadTopFlips();
-                await loadDumpsPumps();
-            }, 30000);
+                if (state.isConnected) await loadDumpsPumps();
+                scheduleRefresh();
+            }, interval);
         }
 
         // Start the app

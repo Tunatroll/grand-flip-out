@@ -24,10 +24,10 @@ public class FlipItem
         {
             return 0;
         }
-        // GE tax is 2% capped at 5m per item
+        // GE tax is 2% capped at 5m per transaction total (not per unit)
         long revenue = sellPrice * quantity;
         long cost = buyPrice * quantity;
-        long tax = Math.min((long) (sellPrice * 0.02), 5_000_000L) * quantity;
+        long tax = Math.min((long)(revenue * 0.02), 5_000_000L);
         return revenue - cost - tax;
     }
 

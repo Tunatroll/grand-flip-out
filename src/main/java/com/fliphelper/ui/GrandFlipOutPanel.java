@@ -555,11 +555,11 @@ public class GrandFlipOutPanel extends PluginPanel
 
     public void updateHeader()
     {
-        long profit = flipTracker.getSessionProfit();
+        long profit = flipTracker.getSessionProfit().get();
         sessionProfitLabel.setText("Profit: " + formatGp(profit));
         sessionProfitLabel.setForeground(profit >= 0 ? Color.GREEN : Color.RED);
 
-        sessionFlipCountLabel.setText("Flips: " + flipTracker.getSessionFlipCount());
+        sessionFlipCountLabel.setText("Flips: " + flipTracker.getSessionFlipCount().get());
         avgProfitLabel.setText("Avg: " + formatGp((long) flipTracker.getAverageProfitPerFlip()));
 
         if (priceService.getLastRefresh() != Instant.EPOCH)
