@@ -423,8 +423,14 @@
 
         .detail-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+        @media (max-width: 1100px) {
+            .detail-grid { grid-template-columns: 1fr 1fr !important; }
+        }
+        @media (max-width: 700px) {
+            .detail-grid { grid-template-columns: 1fr !important; }
         }
 
         .detail-stats {
@@ -1126,12 +1132,26 @@
 
         <!-- RECIPES TAB -->
         <div id="recipes" class="tab-content hidden">
-            <div class="controls">
+            <div class="controls" style="flex-wrap:wrap;">
                 <select class="sort-dropdown" id="recipeSort">
                     <option value="profit">Sort: Profit</option>
                     <option value="roi">Sort: ROI %</option>
                     <option value="name">Sort: Name</option>
+                    <option value="level">Sort: Level</option>
                 </select>
+                <select class="sort-dropdown" id="recipeSkillFilter">
+                    <option value="all">All Skills</option>
+                    <option value="Smithing">Smithing</option>
+                    <option value="Cooking">Cooking</option>
+                    <option value="Crafting">Crafting</option>
+                    <option value="Fletching">Fletching</option>
+                    <option value="Herblore">Herblore</option>
+                    <option value="Magic">Magic / Alch</option>
+                </select>
+                <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer;">
+                    <input type="checkbox" id="recipeProfitOnly" checked style="accent-color:var(--accent);"> Profitable only
+                </label>
+                <span id="recipeCount" style="color:var(--text-muted);font-size:12px;margin-left:auto;"></span>
             </div>
             <div id="recipesContainer"></div>
         </div>
@@ -1507,51 +1527,128 @@
 
         // Well-known OSRS processing recipes with item IDs for live price lookup
         const KNOWN_RECIPES = [
-            { id: 1, name: 'Gold Ore → Gold Bar', inputId: 444, outputId: 2357, input: 'Gold Ore', output: 'Gold Bar', skill: 'Smithing' },
-            { id: 2, name: 'Iron Ore → Iron Bar', inputId: 440, outputId: 2351, input: 'Iron Ore', output: 'Iron Bar', skill: 'Smithing' },
-            { id: 3, name: 'Mithril Ore → Mithril Bar', inputId: 447, outputId: 2359, input: 'Mithril Ore', output: 'Mithril Bar', skill: 'Smithing' },
-            { id: 4, name: 'Adamantite Ore → Adamantite Bar', inputId: 449, outputId: 2361, input: 'Adamantite Ore', output: 'Adamantite Bar', skill: 'Smithing' },
-            { id: 5, name: 'Runite Ore → Runite Bar', inputId: 451, outputId: 2363, input: 'Runite Ore', output: 'Runite Bar', skill: 'Smithing' },
-            { id: 6, name: 'Raw Lobster → Lobster', inputId: 377, outputId: 379, input: 'Raw Lobster', output: 'Lobster', skill: 'Cooking' },
-            { id: 7, name: 'Raw Shark → Shark', inputId: 383, outputId: 385, input: 'Raw Shark', output: 'Shark', skill: 'Cooking' },
-            { id: 8, name: 'Raw Monkfish → Monkfish', inputId: 7944, outputId: 7946, input: 'Raw Monkfish', output: 'Monkfish', skill: 'Cooking' },
-            { id: 9, name: 'Raw Anglerfish → Anglerfish', inputId: 13439, outputId: 13441, input: 'Raw Anglerfish', output: 'Anglerfish', skill: 'Cooking' },
-            { id: 10, name: 'Uncut Ruby → Ruby', inputId: 1619, outputId: 1603, input: 'Uncut Ruby', output: 'Ruby', skill: 'Crafting' },
-            { id: 11, name: 'Uncut Diamond → Diamond', inputId: 1617, outputId: 1601, input: 'Uncut Diamond', output: 'Diamond', skill: 'Crafting' },
-            { id: 12, name: 'Uncut Dragonstone → Dragonstone', inputId: 1631, outputId: 1615, input: 'Uncut Dragonstone', output: 'Dragonstone', skill: 'Crafting' },
-            { id: 13, name: 'Flax → Bow String', inputId: 1779, outputId: 1777, input: 'Flax', output: 'Bow String', skill: 'Crafting' },
-            { id: 14, name: 'Green Dragonhide → Green D\'hide Body', inputId: 1745, outputId: 1135, input: 'Green Dragonhide (×3)', output: 'Green D\'hide Body', inputQty: 3, skill: 'Crafting' },
-            { id: 15, name: 'Blue Dragonhide → Blue D\'hide Body', inputId: 1747, outputId: 2499, input: 'Blue Dragonhide (×3)', output: 'Blue D\'hide Body', inputQty: 3, skill: 'Crafting' },
-            { id: 16, name: 'Black Dragonhide → Black D\'hide Body', inputId: 1749, outputId: 2503, input: 'Black Dragonhide (×3)', output: 'Black D\'hide Body', inputQty: 3, skill: 'Crafting' },
+            // === SMITHING: Ores → Bars ===
+            { id: 1, name: 'Bronze Bar', inputId: 436, input2Id: 438, inputId2Name: 'Tin Ore', inputId1Name: 'Copper Ore', outputId: 2349, input: 'Copper + Tin Ore', output: 'Bronze Bar', skill: 'Smithing', lvl: 1 },
+            { id: 2, name: 'Iron Bar', inputId: 440, outputId: 2351, input: 'Iron Ore', output: 'Iron Bar', skill: 'Smithing', lvl: 15 },
+            { id: 3, name: 'Steel Bar', inputId: 440, input2Id: 453, outputId: 2353, input: 'Iron Ore + Coal (×2)', output: 'Steel Bar', inputQty: 1, input2Qty: 2, skill: 'Smithing', lvl: 30 },
+            { id: 4, name: 'Gold Bar', inputId: 444, outputId: 2357, input: 'Gold Ore', output: 'Gold Bar', skill: 'Smithing', lvl: 40 },
+            { id: 5, name: 'Mithril Bar', inputId: 447, input2Id: 453, outputId: 2359, input: 'Mithril Ore + Coal (×4)', output: 'Mithril Bar', inputQty: 1, input2Qty: 4, skill: 'Smithing', lvl: 50 },
+            { id: 6, name: 'Adamantite Bar', inputId: 449, input2Id: 453, outputId: 2361, input: 'Adamant Ore + Coal (×6)', output: 'Adamantite Bar', inputQty: 1, input2Qty: 6, skill: 'Smithing', lvl: 70 },
+            { id: 7, name: 'Runite Bar', inputId: 451, input2Id: 453, outputId: 2363, input: 'Runite Ore + Coal (×8)', output: 'Runite Bar', inputQty: 1, input2Qty: 8, skill: 'Smithing', lvl: 85 },
+            // === SMITHING: Bars → Platebodies ===
+            { id: 8, name: 'Mithril Platebody', inputId: 2359, outputId: 1121, input: 'Mithril Bar (×5)', output: 'Mithril Platebody', inputQty: 5, skill: 'Smithing', lvl: 68 },
+            { id: 9, name: 'Adamant Platebody', inputId: 2361, outputId: 1123, input: 'Adamantite Bar (×5)', output: 'Adamant Platebody', inputQty: 5, skill: 'Smithing', lvl: 88 },
+            { id: 10, name: 'Rune Platebody', inputId: 2363, outputId: 1127, input: 'Runite Bar (×5)', output: 'Rune Platebody', inputQty: 5, skill: 'Smithing', lvl: 99 },
+            // === SMITHING: Bars → Other ===
+            { id: 11, name: 'Cannonball (×4)', inputId: 2353, outputId: 2, input: 'Steel Bar', output: 'Cannonball (×4)', outputQty: 4, skill: 'Smithing', lvl: 35 },
+            { id: 12, name: 'Dart Tips (×10)', inputId: 2361, outputId: 823, input: 'Adamantite Bar', output: 'Adamant Dart Tip (×10)', outputQty: 10, skill: 'Smithing', lvl: 74 },
+            { id: 13, name: 'Rune Dart Tips (×10)', inputId: 2363, outputId: 824, input: 'Runite Bar', output: 'Rune Dart Tip (×10)', outputQty: 10, skill: 'Smithing', lvl: 89 },
+            // === COOKING ===
+            { id: 20, name: 'Lobster', inputId: 377, outputId: 379, input: 'Raw Lobster', output: 'Lobster', skill: 'Cooking', lvl: 40 },
+            { id: 21, name: 'Swordfish', inputId: 371, outputId: 373, input: 'Raw Swordfish', output: 'Swordfish', skill: 'Cooking', lvl: 45 },
+            { id: 22, name: 'Monkfish', inputId: 7944, outputId: 7946, input: 'Raw Monkfish', output: 'Monkfish', skill: 'Cooking', lvl: 62 },
+            { id: 23, name: 'Shark', inputId: 383, outputId: 385, input: 'Raw Shark', output: 'Shark', skill: 'Cooking', lvl: 80 },
+            { id: 24, name: 'Anglerfish', inputId: 13439, outputId: 13441, input: 'Raw Anglerfish', output: 'Anglerfish', skill: 'Cooking', lvl: 84 },
+            { id: 25, name: 'Dark Crab', inputId: 11934, outputId: 11936, input: 'Raw Dark Crab', output: 'Dark Crab', skill: 'Cooking', lvl: 90 },
+            { id: 26, name: 'Manta Ray', inputId: 389, outputId: 391, input: 'Raw Manta Ray', output: 'Manta Ray', skill: 'Cooking', lvl: 91 },
+            { id: 27, name: 'Karambwan', inputId: 3142, outputId: 3144, input: 'Raw Karambwan', output: 'Cooked Karambwan', skill: 'Cooking', lvl: 30 },
+            { id: 28, name: 'Pineapple Pizza', inputId: 2301, input2Id: 2114, outputId: 2301, input: 'Plain Pizza + Pineapple Ring', output: 'Pineapple Pizza', skill: 'Cooking', lvl: 65 },
+            // === CRAFTING: Gems ===
+            { id: 30, name: 'Sapphire', inputId: 1623, outputId: 1607, input: 'Uncut Sapphire', output: 'Sapphire', skill: 'Crafting', lvl: 20 },
+            { id: 31, name: 'Emerald', inputId: 1621, outputId: 1605, input: 'Uncut Emerald', output: 'Emerald', skill: 'Crafting', lvl: 27 },
+            { id: 32, name: 'Ruby', inputId: 1619, outputId: 1603, input: 'Uncut Ruby', output: 'Ruby', skill: 'Crafting', lvl: 63 },
+            { id: 33, name: 'Diamond', inputId: 1617, outputId: 1601, input: 'Uncut Diamond', output: 'Diamond', skill: 'Crafting', lvl: 43 },
+            { id: 34, name: 'Dragonstone', inputId: 1631, outputId: 1615, input: 'Uncut Dragonstone', output: 'Dragonstone', skill: 'Crafting', lvl: 55 },
+            { id: 35, name: 'Onyx', inputId: 6571, outputId: 6573, input: 'Uncut Onyx', output: 'Onyx', skill: 'Crafting', lvl: 67 },
+            // === CRAFTING: Dragonhide ===
+            { id: 36, name: 'Green D\'hide Body', inputId: 1745, outputId: 1135, input: 'Green D\'hide (×3)', output: 'Green D\'hide Body', inputQty: 3, skill: 'Crafting', lvl: 63 },
+            { id: 37, name: 'Blue D\'hide Body', inputId: 1747, outputId: 2499, input: 'Blue D\'hide (×3)', output: 'Blue D\'hide Body', inputQty: 3, skill: 'Crafting', lvl: 71 },
+            { id: 38, name: 'Red D\'hide Body', inputId: 2505, outputId: 2501, input: 'Red D\'hide (×3)', output: 'Red D\'hide Body', inputQty: 3, skill: 'Crafting', lvl: 77 },
+            { id: 39, name: 'Black D\'hide Body', inputId: 1749, outputId: 2503, input: 'Black D\'hide (×3)', output: 'Black D\'hide Body', inputQty: 3, skill: 'Crafting', lvl: 84 },
+            // === CRAFTING: Jewelry ===
+            { id: 40, name: 'Amulet of Glory', inputId: 1615, input2Id: 1692, outputId: 1704, input: 'Dragonstone + Gold Bar', output: 'Dragonstone Amulet (u)', skill: 'Crafting', lvl: 80 },
+            // === CRAFTING: Other ===
+            { id: 41, name: 'Bow String', inputId: 1779, outputId: 1777, input: 'Flax', output: 'Bow String', skill: 'Crafting', lvl: 10 },
+            { id: 42, name: 'Gold Bracelet', inputId: 2357, outputId: 11069, input: 'Gold Bar', output: 'Gold Bracelet', skill: 'Crafting', lvl: 7 },
+            // === FLETCHING ===
+            { id: 50, name: 'Maple Longbow (u)', inputId: 1517, outputId: 62, input: 'Maple Logs', output: 'Maple Longbow (u)', skill: 'Fletching', lvl: 55 },
+            { id: 51, name: 'Yew Longbow (u)', inputId: 1515, outputId: 66, input: 'Yew Logs', output: 'Yew Longbow (u)', skill: 'Fletching', lvl: 70 },
+            { id: 52, name: 'Magic Longbow (u)', inputId: 1513, outputId: 70, input: 'Magic Logs', output: 'Magic Longbow (u)', skill: 'Fletching', lvl: 85 },
+            { id: 53, name: 'Maple Longbow', inputId: 62, input2Id: 1777, outputId: 859, input: 'Maple Longbow (u) + Bow String', output: 'Maple Longbow', skill: 'Fletching', lvl: 55 },
+            { id: 54, name: 'Yew Longbow', inputId: 66, input2Id: 1777, outputId: 855, input: 'Yew Longbow (u) + Bow String', output: 'Yew Longbow', skill: 'Fletching', lvl: 70 },
+            { id: 55, name: 'Magic Longbow', inputId: 70, input2Id: 1777, outputId: 851, input: 'Magic Longbow (u) + Bow String', output: 'Magic Longbow', skill: 'Fletching', lvl: 85 },
+            // === HERBLORE ===
+            { id: 60, name: 'Prayer Potion', inputId: 99, input2Id: 231, outputId: 2434, input: 'Ranarr Weed + Snape Grass', output: 'Prayer Potion (3)', skill: 'Herblore', lvl: 38 },
+            { id: 61, name: 'Super Restore', inputId: 3000, input2Id: 223, outputId: 3026, input: 'Snapdragon + Red Spider Eggs', output: 'Super Restore (3)', skill: 'Herblore', lvl: 63 },
+            { id: 62, name: 'Ranging Potion', inputId: 109, input2Id: 245, outputId: 2444, input: 'Dwarf Weed + Wine of Zamorak', output: 'Ranging Potion (3)', skill: 'Herblore', lvl: 72 },
+            { id: 63, name: 'Saradomin Brew', inputId: 3002, input2Id: 6693, outputId: 6687, input: 'Toadflax + Crushed Nest', output: 'Saradomin Brew (3)', skill: 'Herblore', lvl: 81 },
+            { id: 64, name: 'Anti-Venom+', inputId: 12905, input2Id: 3002, outputId: 12913, input: 'Anti-Venom + Torstol', output: 'Anti-Venom+ (4)', skill: 'Herblore', lvl: 94 },
+            // === MAGIC / ENCHANTING ===
+            { id: 70, name: 'Enchant Diamond Bolt', inputId: 9340, outputId: 9342, input: 'Diamond Bolts (e)', output: 'Diamond Dragon Bolts (e)', skill: 'Magic', lvl: 57 },
+            // === HIGH ALCH MARGINS (buy and alch) ===
+            { id: 80, name: 'Rune Platelegs (Alch)', inputId: 1079, outputId: null, input: 'Rune Platelegs', output: 'High Alch (38.4K)', alchValue: 38400, skill: 'Magic', lvl: 55 },
+            { id: 81, name: 'Rune Plateskirt (Alch)', inputId: 1093, outputId: null, input: 'Rune Plateskirt', output: 'High Alch (38.4K)', alchValue: 38400, skill: 'Magic', lvl: 55 },
+            { id: 82, name: 'Rune Kiteshield (Alch)', inputId: 1201, outputId: null, input: 'Rune Kiteshield', output: 'High Alch (31.2K)', alchValue: 31200, skill: 'Magic', lvl: 55 },
+            { id: 83, name: 'Rune 2h Sword (Alch)', inputId: 1319, outputId: null, input: 'Rune 2h Sword', output: 'High Alch (38.4K)', alchValue: 38400, skill: 'Magic', lvl: 55 },
+            { id: 84, name: 'Adamant Platebody (Alch)', inputId: 1123, outputId: null, input: 'Adamant Platebody', output: 'High Alch (9.9K)', alchValue: 9984, skill: 'Magic', lvl: 55 },
         ];
 
         async function loadRecipes() {
             let data = await fetchFromBackend('/api/recipes');
 
             if (!data) {
-                // Look up live prices for known recipes
+                // Look up live prices for all known recipes
                 const latest = await fetchFromWiki('/latest');
                 if (latest && latest.data) {
-                    const prices = latest.data;
+                    const p = latest.data;
                     data = KNOWN_RECIPES.map(recipe => {
-                        const inPrice = prices[recipe.inputId];
-                        const outPrice = prices[recipe.outputId];
-                        const inputCost = inPrice ? (inPrice.high || inPrice.low || 0) : 0;
-                        const outputValue = outPrice ? (outPrice.low || outPrice.high || 0) : 0;
-                        const inputQty = recipe.inputQty || 1;
-                        const totalInput = inputCost * inputQty;
-                        const profit = outputValue - totalInput;
+                        // Primary input cost
+                        const in1 = p[recipe.inputId];
+                        const inputCost1 = in1 ? (in1.high || in1.low || 0) : 0;
+                        const inputQty1 = recipe.inputQty || 1;
+
+                        // Secondary input cost (for multi-ingredient recipes like Steel Bar = Iron + 2 Coal)
+                        let inputCost2 = 0;
+                        if (recipe.input2Id) {
+                            const in2 = p[recipe.input2Id];
+                            inputCost2 = in2 ? (in2.high || in2.low || 0) : 0;
+                            inputCost2 *= (recipe.input2Qty || 1);
+                        }
+
+                        const totalInput = (inputCost1 * inputQty1) + inputCost2;
+
+                        // Output value — either sell on GE or high alch
+                        let outputValue = 0;
+                        let outputLabel = recipe.output;
+                        if (recipe.alchValue) {
+                            // Alch recipe: profit = alch value - buy price - nature rune cost (~120gp)
+                            outputValue = recipe.alchValue;
+                            outputLabel = recipe.output;
+                        } else {
+                            const out = p[recipe.outputId];
+                            outputValue = out ? (out.low || out.high || 0) : 0;
+                            outputValue *= (recipe.outputQty || 1);
+                        }
+
+                        if (totalInput <= 0 || outputValue <= 0) return null;
+
+                        const profit = recipe.alchValue
+                            ? outputValue - totalInput - 120  // subtract nature rune
+                            : outputValue - totalInput;
+
                         return {
                             id: recipe.id,
                             name: recipe.name,
                             input: recipe.input,
-                            output: recipe.output,
+                            output: outputLabel,
                             inputPrice: totalInput,
                             outputPrice: outputValue,
                             profit,
                             skill: recipe.skill,
+                            lvl: recipe.lvl || 1,
+                            isAlch: !!recipe.alchValue,
                         };
-                    }).filter(r => r.inputPrice > 0 && r.outputPrice > 0);
+                    }).filter(r => r !== null);
                 } else {
                     data = [];
                 }
@@ -1664,7 +1761,7 @@
                         <div class="detail-stat-value blue">${totalVol > 0 ? totalVol.toLocaleString() : '—'}</div>
                     </div>
                 </div>
-                <div class="detail-grid">
+                <div class="detail-grid" style="grid-template-columns:1fr 1fr 1fr;">
                     <div class="chart-container">
                         <div class="chart-title">Price History (24h)</div>
                         <canvas class="chart-canvas" id="priceChart-${item.itemId}"></canvas>
@@ -1679,6 +1776,13 @@
                         <div class="chart-legend">
                             <span class="legend-margin">Margin</span>
                             <span class="legend-volume">Volume</span>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <div class="chart-title">Potential Profit (24h)</div>
+                        <canvas class="chart-canvas" id="profitChart-${item.itemId}"></canvas>
+                        <div class="chart-legend">
+                            <span class="legend-margin">Profit / Limit Cycle</span>
                         </div>
                     </div>
                 </div>
@@ -1718,11 +1822,13 @@
         async function loadItemCharts(item) {
             const priceCanvas = document.getElementById(`priceChart-${item.itemId}`);
             const marginCanvas = document.getElementById(`marginChart-${item.itemId}`);
+            const profitCanvas = document.getElementById(`profitChart-${item.itemId}`);
             if (!priceCanvas || !marginCanvas) return;
 
             // Show loading state
             drawLoadingText(priceCanvas, 'Loading price data...');
             drawLoadingText(marginCanvas, 'Loading...');
+            if (profitCanvas) drawLoadingText(profitCanvas, 'Loading...');
 
             // Fetch timeseries from Wiki (5-minute intervals, last 24h)
             let ts = timeseriesCache[item.itemId];
@@ -1734,25 +1840,127 @@
             if (!ts || !ts.data || ts.data.length === 0) {
                 drawLoadingText(priceCanvas, 'No timeseries data available');
                 drawLoadingText(marginCanvas, 'No timeseries data available');
+                if (profitCanvas) drawLoadingText(profitCanvas, 'No data');
                 return;
             }
 
             const points = ts.data.slice(-288); // Last 24h at 5min intervals
 
-            // Extract buy/sell/margin/volume arrays
+            // Extract buy/sell/margin/volume/profit arrays
             const buyPrices = points.map(p => p.avgLowPrice || 0);
             const sellPrices = points.map(p => p.avgHighPrice || 0);
             const margins = points.map((p, i) => {
                 const sell = sellPrices[i];
                 const buy = buyPrices[i];
-                if (sell > 0 && buy > 0) return sell - buy;
+                if (sell > 0 && buy > 0) {
+                    const tax = Math.min(Math.floor(sell * 0.02), 5000000);
+                    return sell - tax - buy;
+                }
                 return 0;
             });
             const volumes = points.map(p => (p.highPriceVolume || 0) + (p.lowPriceVolume || 0));
             const timestamps = points.map(p => p.timestamp * 1000);
 
+            // Potential profit = margin * buy limit at each point
+            const limit = item.buyLimit || 1;
+            const profits = margins.map(m => m > 0 ? m * limit : 0);
+
             drawPriceChart(priceCanvas, timestamps, buyPrices, sellPrices);
             drawMarginVolumeChart(marginCanvas, timestamps, margins, volumes);
+            if (profitCanvas) drawProfitChart(profitCanvas, timestamps, profits, limit);
+        }
+
+        function drawProfitChart(canvas, timestamps, profitData, buyLimit) {
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const w = canvas.parentElement.clientWidth - 32;
+            const h = 180;
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            ctx.scale(dpr, dpr);
+
+            const pad = { top: 12, right: 12, bottom: 26, left: 62 };
+            const cw = w - pad.left - pad.right;
+            const ch = h - pad.top - pad.bottom;
+
+            const validProfits = profitData.filter(v => v > 0);
+            if (validProfits.length === 0) { drawLoadingText(canvas, 'No profitable periods'); return; }
+            const maxProfit = Math.max(...validProfits) * 1.1;
+            const xStep = cw / (profitData.length - 1 || 1);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(74,222,128,0.06)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.top + (ch / 4) * i;
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+                const val = maxProfit - (maxProfit / 4) * i;
+                ctx.fillStyle = '#6b6058';
+                ctx.font = '10px Nunito, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(formatGp(Math.round(val)).replace(' gp', ''), pad.left - 6, y + 4);
+            }
+
+            // Collect points
+            const pts = [];
+            for (let i = 0; i < profitData.length; i++) {
+                if (profitData[i] <= 0) continue;
+                pts.push({ x: pad.left + i * xStep, y: pad.top + ch - (profitData[i] / maxProfit) * ch });
+            }
+
+            if (pts.length >= 2) {
+                // Gradient fill
+                const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+                grad.addColorStop(0, 'rgba(74, 222, 128, 0.25)');
+                grad.addColorStop(1, 'rgba(74, 222, 128, 0)');
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pad.top + ch);
+                pts.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.lineTo(pts[pts.length - 1].x, pad.top + ch);
+                ctx.closePath();
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                // Line
+                ctx.beginPath();
+                ctx.strokeStyle = '#4ade80';
+                ctx.lineWidth = 2.5;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+                ctx.stroke();
+
+                // End dot
+                const last = pts[pts.length - 1];
+                ctx.beginPath(); ctx.arc(last.x, last.y, 4, 0, Math.PI * 2); ctx.fillStyle = '#4ade80'; ctx.fill();
+
+                // Current + peak annotations
+                const currentProfit = profitData.filter(v => v > 0).pop() || 0;
+                const peakProfit = Math.max(...validProfits);
+                ctx.font = 'bold 11px Nunito, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#4ade80';
+                ctx.fillText(`Now: ${formatGp(currentProfit)}`, w - pad.right, pad.top + 12);
+                ctx.fillStyle = '#6b6058';
+                ctx.font = '10px Nunito, sans-serif';
+                ctx.fillText(`Peak: ${formatGp(peakProfit)}`, w - pad.right, pad.top + 26);
+                if (buyLimit > 1) {
+                    ctx.fillText(`(${buyLimit.toLocaleString()} limit)`, w - pad.right, pad.top + 38);
+                }
+            }
+
+            // Time labels
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#6b6058';
+            ctx.font = '10px Nunito, sans-serif';
+            for (let i = 0; i < 6; i++) {
+                const idx = Math.floor((profitData.length - 1) * i / 5);
+                const x = pad.left + idx * xStep;
+                const date = new Date(timestamps[idx]);
+                ctx.fillText(`${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`, x, h - 4);
+            }
         }
 
         function drawLoadingText(canvas, text) {
@@ -1780,7 +1988,7 @@
             canvas.style.height = h + 'px';
             ctx.scale(dpr, dpr);
 
-            const pad = { top: 10, right: 10, bottom: 24, left: 60 };
+            const pad = { top: 12, right: 12, bottom: 26, left: 62 };
             const cw = w - pad.left - pad.right;
             const ch = h - pad.top - pad.bottom;
 
@@ -1794,48 +2002,89 @@
             const xStep = cw / (buyData.length - 1 || 1);
 
             // Grid lines
-            ctx.strokeStyle = 'rgba(255,152,31,0.08)';
+            ctx.strokeStyle = 'rgba(255,152,31,0.06)';
             ctx.lineWidth = 1;
             for (let i = 0; i <= 4; i++) {
                 const y = pad.top + (ch / 4) * i;
                 ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
                 const val = maxP - (range / 4) * i;
-                ctx.fillStyle = '#8b8078';
+                ctx.fillStyle = '#6b6058';
                 ctx.font = '10px Nunito, sans-serif';
                 ctx.textAlign = 'right';
-                ctx.fillText(formatGp(Math.round(val)).replace(' gp', ''), pad.left - 6, y + 3);
+                ctx.fillText(formatGp(Math.round(val)).replace(' gp', ''), pad.left - 6, y + 4);
             }
 
             // Time labels
             ctx.textAlign = 'center';
-            const labelCount = 5;
-            for (let i = 0; i < labelCount; i++) {
-                const idx = Math.floor((buyData.length - 1) * i / (labelCount - 1));
+            for (let i = 0; i < 6; i++) {
+                const idx = Math.floor((buyData.length - 1) * i / 5);
                 const x = pad.left + idx * xStep;
                 const date = new Date(timestamps[idx]);
-                ctx.fillStyle = '#8b8078';
+                ctx.fillStyle = '#6b6058';
                 ctx.font = '10px Nunito, sans-serif';
                 ctx.fillText(`${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`, x, h - 4);
             }
 
-            // Draw line helper
-            function drawLine(data, color) {
+            // Draw line with gradient fill
+            function drawLineWithFill(data, color, fillAlpha) {
+                // Collect valid points
+                const pts = [];
+                for (let i = 0; i < data.length; i++) {
+                    if (data[i] <= 0) continue;
+                    pts.push({ x: pad.left + i * xStep, y: pad.top + ch - ((data[i] - minP) / range) * ch });
+                }
+                if (pts.length < 2) return;
+
+                // Gradient fill under curve
+                const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+                grad.addColorStop(0, color.replace(')', `,${fillAlpha})`).replace('rgb', 'rgba'));
+                grad.addColorStop(1, color.replace(')', ',0)').replace('rgb', 'rgba'));
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pad.top + ch);
+                pts.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.lineTo(pts[pts.length - 1].x, pad.top + ch);
+                ctx.closePath();
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                // Line
                 ctx.beginPath();
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
-                let started = false;
-                for (let i = 0; i < data.length; i++) {
-                    if (data[i] <= 0) continue;
-                    const x = pad.left + i * xStep;
-                    const y = pad.top + ch - ((data[i] - minP) / range) * ch;
-                    if (!started) { ctx.moveTo(x, y); started = true; }
-                    else ctx.lineTo(x, y);
-                }
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
                 ctx.stroke();
+
+                // Dot on last point
+                const last = pts[pts.length - 1];
+                ctx.beginPath();
+                ctx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(last.x, last.y, 6, 0, Math.PI * 2);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.3;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
             }
 
-            drawLine(buyData, '#4ade80');
-            drawLine(sellData, '#f87171');
+            drawLineWithFill(buyData, 'rgb(74, 222, 128)', 0.12);
+            drawLineWithFill(sellData, 'rgb(248, 113, 113)', 0.08);
+
+            // Current spread annotation
+            const lastBuy = buyData.filter(v => v > 0).pop();
+            const lastSell = sellData.filter(v => v > 0).pop();
+            if (lastBuy && lastSell) {
+                const spread = lastSell - lastBuy;
+                ctx.fillStyle = 'var(--accent)';
+                ctx.font = 'bold 11px Nunito, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#ff981f';
+                ctx.fillText(`Spread: ${formatGp(spread)}`, w - pad.right, pad.top + 12);
+            }
         }
 
         function drawMarginVolumeChart(canvas, timestamps, marginData, volumeData) {
@@ -1849,65 +2098,103 @@
             canvas.style.height = h + 'px';
             ctx.scale(dpr, dpr);
 
-            const pad = { top: 10, right: 50, bottom: 24, left: 60 };
+            const pad = { top: 12, right: 52, bottom: 26, left: 62 };
             const cw = w - pad.left - pad.right;
             const ch = h - pad.top - pad.bottom;
 
             const validMargins = marginData.filter(v => v > 0);
-            const maxMargin = validMargins.length > 0 ? Math.max(...validMargins) * 1.1 : 1;
+            const maxMargin = validMargins.length > 0 ? Math.max(...validMargins) * 1.15 : 1;
             const maxVol = Math.max(...volumeData, 1);
 
             const xStep = cw / (marginData.length - 1 || 1);
 
-            // Volume bars (background)
-            ctx.fillStyle = 'rgba(96, 165, 250, 0.15)';
-            const barW = Math.max(1, xStep * 0.6);
+            // Grid
+            ctx.strokeStyle = 'rgba(255,152,31,0.06)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.top + (ch / 4) * i;
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+            }
+
+            // Volume bars with gradient
+            const barW = Math.max(1.5, xStep * 0.5);
             for (let i = 0; i < volumeData.length; i++) {
                 if (volumeData[i] <= 0) continue;
                 const x = pad.left + i * xStep - barW / 2;
                 const barH = (volumeData[i] / maxVol) * ch;
+                const barGrad = ctx.createLinearGradient(x, pad.top + ch - barH, x, pad.top + ch);
+                barGrad.addColorStop(0, 'rgba(96, 165, 250, 0.25)');
+                barGrad.addColorStop(1, 'rgba(96, 165, 250, 0.05)');
+                ctx.fillStyle = barGrad;
                 ctx.fillRect(x, pad.top + ch - barH, barW, barH);
             }
 
-            // Margin Y axis labels (left)
-            ctx.fillStyle = '#8b8078';
+            // Margin Y axis (left)
+            ctx.fillStyle = '#6b6058';
             ctx.font = '10px Nunito, sans-serif';
             ctx.textAlign = 'right';
             for (let i = 0; i <= 4; i++) {
                 const y = pad.top + (ch / 4) * i;
                 const val = maxMargin - (maxMargin / 4) * i;
-                ctx.fillText(formatGp(Math.round(val)).replace(' gp', ''), pad.left - 6, y + 3);
-                ctx.strokeStyle = 'rgba(255,152,31,0.06)';
-                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+                ctx.fillText(formatGp(Math.round(val)).replace(' gp', ''), pad.left - 6, y + 4);
             }
 
-            // Volume Y axis labels (right)
+            // Volume Y axis (right)
             ctx.textAlign = 'left';
             for (let i = 0; i <= 2; i++) {
                 const y = pad.top + (ch / 2) * i;
                 const val = maxVol - (maxVol / 2) * i;
-                ctx.fillText(val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val.toFixed(0), w - pad.right + 6, y + 3);
+                ctx.fillStyle = 'rgba(96,165,250,0.5)';
+                ctx.fillText(val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val.toFixed(0), w - pad.right + 6, y + 4);
             }
 
-            // Margin line
-            ctx.beginPath();
-            ctx.strokeStyle = '#ff981f';
-            ctx.lineWidth = 2;
-            let started = false;
+            // Margin line with gradient fill
+            const marginPts = [];
             for (let i = 0; i < marginData.length; i++) {
                 if (marginData[i] <= 0) continue;
-                const x = pad.left + i * xStep;
-                const y = pad.top + ch - (marginData[i] / maxMargin) * ch;
-                if (!started) { ctx.moveTo(x, y); started = true; }
-                else ctx.lineTo(x, y);
+                marginPts.push({ x: pad.left + i * xStep, y: pad.top + ch - (marginData[i] / maxMargin) * ch });
             }
-            ctx.stroke();
+
+            if (marginPts.length >= 2) {
+                // Fill
+                const mGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+                mGrad.addColorStop(0, 'rgba(255, 152, 31, 0.2)');
+                mGrad.addColorStop(1, 'rgba(255, 152, 31, 0)');
+                ctx.beginPath();
+                ctx.moveTo(marginPts[0].x, pad.top + ch);
+                marginPts.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.lineTo(marginPts[marginPts.length - 1].x, pad.top + ch);
+                ctx.closePath();
+                ctx.fillStyle = mGrad;
+                ctx.fill();
+
+                // Line
+                ctx.beginPath();
+                ctx.strokeStyle = '#ff981f';
+                ctx.lineWidth = 2;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+                marginPts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+                ctx.stroke();
+
+                // End dot
+                const last = marginPts[marginPts.length - 1];
+                ctx.beginPath(); ctx.arc(last.x, last.y, 3, 0, Math.PI * 2); ctx.fillStyle = '#ff981f'; ctx.fill();
+
+                // Avg margin annotation
+                const avgMargin = validMargins.reduce((s, v) => s + v, 0) / validMargins.length;
+                ctx.fillStyle = '#ff981f';
+                ctx.font = 'bold 11px Nunito, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(`Avg: ${formatGp(Math.round(avgMargin))}`, w - pad.right, pad.top + 12);
+            }
 
             // Time labels
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#8b8078';
-            for (let i = 0; i < 5; i++) {
-                const idx = Math.floor((marginData.length - 1) * i / 4);
+            ctx.fillStyle = '#6b6058';
+            ctx.font = '10px Nunito, sans-serif';
+            for (let i = 0; i < 6; i++) {
+                const idx = Math.floor((marginData.length - 1) * i / 5);
                 const x = pad.left + idx * xStep;
                 const date = new Date(timestamps[idx]);
                 ctx.fillText(`${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`, x, h - 4);
@@ -2036,6 +2323,18 @@
 
             let recipes = [...state.recipes];
 
+            // Skill filter
+            const skillFilter = document.getElementById('recipeSkillFilter')?.value || 'all';
+            if (skillFilter !== 'all') {
+                recipes = recipes.filter(r => r.skill === skillFilter || (skillFilter === 'Magic' && r.isAlch));
+            }
+
+            // Profitable only filter
+            const profitOnly = document.getElementById('recipeProfitOnly')?.checked;
+            if (profitOnly) {
+                recipes = recipes.filter(r => r.profit > 0);
+            }
+
             // Sort
             const sortBy = document.getElementById('recipeSort')?.value || 'profit';
             switch (sortBy) {
@@ -2047,26 +2346,43 @@
                     });
                     break;
                 case 'name':
-                    recipes.sort((a, b) => a.name.localeCompare(b.name));
+                    recipes.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                    break;
+                case 'level':
+                    recipes.sort((a, b) => (a.lvl || 1) - (b.lvl || 1));
                     break;
                 case 'profit':
                 default:
                     recipes.sort((a, b) => (b.profit || 0) - (a.profit || 0));
             }
 
+            const countEl = document.getElementById('recipeCount');
+            if (countEl) countEl.textContent = `${recipes.length} recipes`;
+
             container.innerHTML = recipes.length > 0
                 ? recipes.map(recipe => {
                     const roi = recipe.inputPrice > 0 ? ((recipe.profit / recipe.inputPrice) * 100).toFixed(1) : '0';
+                    const profitColor = recipe.profit > 0 ? 'var(--green)' : 'var(--red)';
+                    const alchBadge = recipe.isAlch ? '<span style="background:rgba(212,175,55,0.2);color:var(--gold);border:1px solid rgba(212,175,55,0.4);padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;margin-left:6px;">ALCH</span>' : '';
+                    const skillColor = { 'Smithing': '#888', 'Cooking': '#c47a47', 'Crafting': '#b88a3a', 'Fletching': '#7ab87a', 'Herblore': '#4a8', 'Magic': '#6af' }[recipe.skill] || 'var(--text-muted)';
                     return `
-                    <div class="recipe-card">
-                        <div class="recipe-title">${recipe.name || ''}${recipe.skill ? ` <span style="color:var(--text-muted);font-size:11px;">(${recipe.skill})</span>` : ''}</div>
-                        <div class="recipe-details">
-                            <div class="recipe-input">${recipe.input || ''}: ${formatGp(recipe.inputPrice)}</div>
-                            <span style="text-align: center; color: var(--accent);">→</span>
-                            <div class="recipe-output">${recipe.output || ''}: ${formatGp(recipe.outputPrice)}</div>
+                    <div class="recipe-card" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:14px 16px;">
+                        <div>
+                            <div style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:4px;">
+                                ${recipe.name || ''}${alchBadge}
+                            </div>
+                            <div style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                <span style="color:${skillColor};font-weight:600;">${recipe.skill || ''}</span>
+                                ${recipe.lvl ? `<span style="color:var(--text-muted);font-size:11px;">Lvl ${recipe.lvl}</span>` : ''}
+                                <span style="color:var(--text-muted);">|</span>
+                                <span>${recipe.input}: ${formatGp(recipe.inputPrice)}</span>
+                                <span style="color:var(--accent);">→</span>
+                                <span>${recipe.output}: ${formatGp(recipe.outputPrice)}</span>
+                            </div>
                         </div>
-                        <div class="recipe-profit" style="color: ${recipe.profit > 0 ? 'var(--green)' : 'var(--red)'};">
-                            ${formatGp(recipe.profit)} profit <span style="color:var(--text-muted);font-size:12px;">(${roi}% ROI)</span>
+                        <div style="text-align:right;min-width:100px;">
+                            <div style="font-size:16px;font-weight:700;color:${profitColor};">${formatGp(recipe.profit)}</div>
+                            <div style="font-size:11px;color:var(--text-muted);">${roi}% ROI</div>
                         </div>
                     </div>`;
                 }).join('')
@@ -2400,9 +2716,9 @@
             });
         }
 
-        document.getElementById('recipeSort')?.addEventListener('change', () => {
-            renderRecipes();
-        });
+        document.getElementById('recipeSort')?.addEventListener('change', () => renderRecipes());
+        document.getElementById('recipeSkillFilter')?.addEventListener('change', () => renderRecipes());
+        document.getElementById('recipeProfitOnly')?.addEventListener('change', () => renderRecipes());
 
         // Also connect the filter input (separate from header search)
         const filterInput = document.getElementById('filterInput');
