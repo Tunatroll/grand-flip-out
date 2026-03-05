@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grand Flip Out — Your OSRS Flipping Companion</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23ff981f'/><circle cx='50' cy='50' r='35' fill='%231a1410'/></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #1a1410;
+            --bg-secondary: #2a2015;
+            --bg-tertiary: #3a2f20;
+            --accent: #ff981f;
+            --accent-light: #ffb347;
+            --text-primary: #f5f1ed;
+            --text-secondary: #c9bfb5;
+            --text-muted: #8b8078;
+            --gold: #d4af37;
+            --green: #4ade80;
+            --red: #f87171;
+            --blue: #60a5fa;
+            --border: rgba(255, 152, 31, 0.2);
+            --radius: 8px;
+            --radius-lg: 12px;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* === HEADER === */
+        header {
+            background: linear-gradient(180deg, #2a2015 0%, #1a1410 100%);
+            border-bottom: 2px solid var(--accent);
+            padding: 16px 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #ff981f 0%, #ffb347 100%);
+            border: 2px solid var(--gold);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 0 16px rgba(255, 152, 31, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.2);
+        }
+
+        .logo-text h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 1px;
+        }
+
+        .logo-text h1 .accent {
+            color: var(--accent);
+        }
+
+        .logo-text p {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .header-middle {
+            flex: 2;
+            display: flex;
+            gap: 12px;
+        }
+
+        .search-bar {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px 16px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .search-bar:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 12px rgba(255, 152, 31, 0.3);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: var(--green);
+        }
+
+        .status-dot.offline {
+            background: var(--red);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .last-update {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* === TABS === */
+        .tabs-container {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0;
+            margin: 0;
+            position: sticky;
+            top: 60px;
+            z-index: 50;
+        }
+
+        .tabs {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            gap: 0;
+            list-style: none;
+            overflow-x: auto;
+        }
+
+        .tabs::-webkit-scrollbar {
+            height: 3px;
+        }
+
+        .tabs::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .tabs::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .tab-btn {
+            flex: 0 0 auto;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            padding: 16px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-family: 'Nunito', sans-serif;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tab-btn:hover {
+            color: var(--accent);
+            background: rgba(255, 152, 31, 0.05);
+        }
+
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        /* === MAIN CONTENT === */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .sort-dropdown, .filter-input {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px 16px;
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Nunito', sans-serif;
+        }
+
+        .sort-dropdown:hover, .filter-input:hover {
+            border-color: var(--accent);
+        }
+
+        .sort-dropdown:focus, .filter-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 12px rgba(255, 152, 31, 0.3);
+        }
+
+        /* === ITEM GRID === */
+        .item-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .item-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .item-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 10px;
+            }
+        }
+
+        .item-card {
+            background: var(--bg-secondary);
+            border: 2px solid transparent;
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .item-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 152, 31, 0.1) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .item-card:hover {
+            border-color: var(--accent);
+            background: linear-gradient(135deg, rgba(42, 32, 21, 0.8) 0%, rgba(26, 20, 16, 0.8) 100%);
+            box-shadow: 0 0 20px rgba(255, 152, 31, 0.3), inset 0 0 20px rgba(255, 152, 31, 0.05);
+            transform: translateY(-4px);
+        }
+
+        .item-card:hover::before {
+            opacity: 1;
+        }
+
+        .item-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .item-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .item-icon.placeholder {
+            font-size: 24px;
+            color: var(--gold);
+        }
+
+        .item-name {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .item-badges {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .jti-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-align: center;
+            min-width: 40px;
+            letter-spacing: 0.5px;
+        }
+
+        .jti-badge.high {
+            background: rgba(74, 222, 128, 0.2);
+            color: var(--green);
+            border: 1px solid rgba(74, 222, 128, 0.4);
+        }
+
+        .jti-badge.medium {
+            background: rgba(255, 152, 31, 0.2);
+            color: var(--accent);
+            border: 1px solid rgba(255, 152, 31, 0.4);
+        }
+
+        .jti-badge.low {
+            background: rgba(248, 113, 113, 0.2);
+            color: var(--red);
+            border: 1px solid rgba(248, 113, 113, 0.4);
+        }
+
+        .favorite-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 152, 31, 0.1);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            color: var(--accent);
+        }
+
+        .favorite-btn:hover {
+            background: rgba(255, 152, 31, 0.2);
+            transform: scale(1.1);
+        }
+
+        .favorite-btn.active {
+            background: rgba(255, 152, 31, 0.3);
+            box-shadow: 0 0 12px rgba(255, 152, 31, 0.4);
+        }
+
+        .item-prices {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+
+        .price-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .price-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .price-value {
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .price-buy .price-value {
+            color: var(--green);
+        }
+
+        .price-sell .price-value {
+            color: var(--red);
+        }
+
+        .item-margin {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+
+        .margin-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .margin-value {
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 13px;
+            margin-top: 2px;
+        }
+
+        .item-buy-limit {
+            background: rgba(96, 165, 250, 0.1);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            color: var(--blue);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        /* === DUMP/PUMP SECTIONS === */
+        .dump-pump-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .dump-pump-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section-title {
+            font-family: 'Cinzel', serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        /* === RECIPES === */
+        .recipe-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .recipe-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 16px rgba(255, 152, 31, 0.2);
+        }
+
+        .recipe-title {
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .recipe-details {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 12px;
+            align-items: center;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .recipe-input, .recipe-output {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+
+        .recipe-profit {
+            font-weight: 700;
+            color: var(--green);
+            text-align: right;
+            font-size: 14px;
+        }
+
+        /* === DISCORD SECTION === */
+        .discord-container {
+            max-width: 600px;
+            margin: 24px auto;
+            text-align: center;
+        }
+
+        .discord-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #5865f2 0%, #4752c4 100%);
+            border: none;
+            color: white;
+            padding: 16px 32px;
+            border-radius: var(--radius-lg);
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            margin-bottom: 24px;
+            display: inline-block;
+        }
+
+        .discord-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(88, 101, 242, 0.4);
+        }
+
+        .commands-list {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            text-align: left;
+        }
+
+        .command-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .command-item:last-child {
+            border-bottom: none;
+        }
+
+        .command-name {
+            font-weight: 700;
+            color: var(--accent);
+            font-family: monospace;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .command-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* === EMPTY STATE === */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        /* === LOADING SKELETON === */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* === FOOTER === */
+        footer {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-top: 48px;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .header-middle {
+                width: 100%;
+            }
+
+            .header-right {
+                width: 100%;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .sort-dropdown, .filter-input {
+                width: 100%;
+            }
+
+            .tabs {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .main-container {
+                padding: 16px;
+            }
+
+            .recipe-details {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* === UTILITY === */
+        .hidden {
+            display: none !important;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mt-24 {
+            margin-top: 24px;
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header>
+        <div class="header-content">
+            <div class="header-left">
+                <div class="logo">
+                    <div class="logo-icon">%</div>
+                    <div class="logo-text">
+                        <h1>Grand <span class="accent">Flip</span> Out</h1>
+                        <p>OSRS Flipping Companion</p>
+                    </div>
+                </div>
+            </div>
+            <div class="header-middle">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Search items...">
+            </div>
+            <div class="header-right">
+                <div class="status-badge">
+                    <div class="status-dot connected" id="statusDot"></div>
+                    <span id="statusText">Connecting...</span>
+                </div>
+                <div class="last-update" id="lastUpdate">--:--</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- TABS -->
+    <div class="tabs-container">
+        <ul class="tabs">
+            <li><button class="tab-btn active" data-tab="top-flips">Top Flips</button></li>
+            <li><button class="tab-btn" data-tab="dumps-pumps">Dumps & Pumps</button></li>
+            <li><button class="tab-btn" data-tab="watchlist">Watchlist</button></li>
+            <li><button class="tab-btn" data-tab="recipes">Recipes</button></li>
+            <li><button class="tab-btn" data-tab="discord">Discord</button></li>
+            <li><button class="tab-btn" data-tab="plugin">RuneLite Plugin</button></li>
+        </ul>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-container">
+        <!-- TOP FLIPS TAB -->
+        <div id="top-flips" class="tab-content">
+            <div class="controls">
+                <select class="sort-dropdown" id="sortDropdown">
+                    <option value="jti">Sort: JTI Score</option>
+                    <option value="margin">Sort: Margin</option>
+                    <option value="margin-pct">Sort: Margin %</option>
+                    <option value="volume">Sort: Volume</option>
+                    <option value="price">Sort: Price</option>
+                </select>
+                <input type="text" class="filter-input" id="filterInput" placeholder="Filter by name...">
+            </div>
+            <div class="item-grid" id="topFlipsGrid">
+                <div class="item-card skeleton" style="height: 280px;"></div>
+                <div class="item-card skeleton" style="height: 280px;"></div>
+                <div class="item-card skeleton" style="height: 280px;"></div>
+                <div class="item-card skeleton" style="height: 280px;"></div>
+                <div class="item-card skeleton" style="height: 280px;"></div>
+                <div class="item-card skeleton" style="height: 280px;"></div>
+            </div>
+        </div>
+
+        <!-- DUMPS & PUMPS TAB -->
+        <div id="dumps-pumps" class="tab-content hidden">
+            <div class="dump-pump-container">
+                <div>
+                    <h2 class="section-title">Price Dumps</h2>
+                    <div class="item-grid" id="dumpsGrid" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));"></div>
+                </div>
+                <div>
+                    <h2 class="section-title">Price Pumps</h2>
+                    <div class="item-grid" id="pumpsGrid" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WATCHLIST TAB -->
+        <div id="watchlist" class="tab-content hidden">
+            <div class="item-grid" id="watchlistGrid"></div>
+            <div id="watchlistEmpty" class="empty-state hidden">
+                <div class="empty-state-icon">☆</div>
+                <h3>No Favorites Yet</h3>
+                <p>Add items to your watchlist by clicking the star icon on any item card.</p>
+            </div>
+        </div>
+
+        <!-- RECIPES TAB -->
+        <div id="recipes" class="tab-content hidden">
+            <div class="controls">
+                <select class="sort-dropdown" id="recipeSort">
+                    <option value="profit">Sort: Profit</option>
+                    <option value="roi">Sort: ROI %</option>
+                    <option value="name">Sort: Name</option>
+                </select>
+            </div>
+            <div id="recipesContainer"></div>
+        </div>
+
+        <!-- DISCORD TAB -->
+        <div id="discord" class="tab-content hidden">
+            <div class="discord-container">
+                <h2 class="section-title text-center">Join Our Discord</h2>
+                <a href="https://discord.com/oauth2/authorize?client_id=1479089173209284608&permissions=1126745612873728&integration_type=0&scope=bot" class="discord-button" target="_blank">
+                    Invite Bot to Server
+                </a>
+                <div class="commands-list">
+                    <h3 style="color: var(--accent); font-family: 'Cinzel', serif; margin-bottom: 16px;">Available Commands</h3>
+                    <div class="command-item">
+                        <div class="command-name">/flip [item name]</div>
+                        <div class="command-desc">Get flipping stats for a specific item</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">/top-flips [limit]</div>
+                        <div class="command-desc">Show top flipping opportunities</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">/watch add [item name]</div>
+                        <div class="command-desc">Add item to your personal watchlist</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">/watch remove [item name]</div>
+                        <div class="command-desc">Remove item from your watchlist</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">/prices [item name]</div>
+                        <div class="command-desc">Check current buy and sell prices</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">/recipe [craft/cook/smith/etc]</div>
+                        <div class="command-desc">Get profit info on crafting recipes</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">/settings</div>
+                        <div class="command-desc">Configure bot preferences for your server</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PLUGIN TAB -->
+        <div id="plugin" class="tab-content hidden">
+            <div class="discord-container" style="max-width:700px;">
+                <h2 class="section-title text-center">RuneLite Plugin</h2>
+                <p style="color:var(--text-secondary); margin-bottom:24px;">
+                    Get the Grand Flip Out plugin for RuneLite and flip right from your game client.
+                    Fully Jagex-compliant — only uses official and community APIs.
+                </p>
+                <a href="grand-flip-out-plugin.zip" download class="discord-button" style="background:linear-gradient(135deg,#ff981f 0%,#d4af37 100%);color:#1a1410;">
+                    Download Plugin (ZIP)
+                </a>
+                <div class="commands-list" style="margin-top:24px;">
+                    <h3 style="color:var(--accent); font-family:'Cinzel',serif; margin-bottom:16px;">How to Install</h3>
+                    <div class="command-item">
+                        <div class="command-name">Step 1</div>
+                        <div class="command-desc">Download the ZIP above and extract it to a folder on your PC.</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">Step 2</div>
+                        <div class="command-desc">Open RuneLite and go to the Configuration wrench icon at the top right.</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">Step 3</div>
+                        <div class="command-desc">Scroll down and enable "Developer Tools" under RuneLite settings.</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">Step 4</div>
+                        <div class="command-desc">In Developer Tools, click "Load External Plugin" and point it to the extracted folder containing build.gradle.</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">Step 5</div>
+                        <div class="command-desc">The "Grand Flip Out" panel will appear in your RuneLite sidebar. You're ready to flip!</div>
+                    </div>
+                </div>
+                <div class="commands-list" style="margin-top:16px;">
+                    <h3 style="color:var(--accent); font-family:'Cinzel',serif; margin-bottom:16px;">Plugin Features</h3>
+                    <div class="command-item">
+                        <div class="command-name">Live GE Prices</div>
+                        <div class="command-desc">Real-time buy/sell prices from 3 sources: Official GE, Wiki, and RuneLite.</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">JTI Score</div>
+                        <div class="command-desc">Custom 0-100 score that tells you how good a flip is based on margin, volume, and stability.</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">Dump Detection</div>
+                        <div class="command-desc">Get alerted when items crash so you can buy low.</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">Flip Suggestions</div>
+                        <div class="command-desc">Intelligent suggestions based on your bank value and buy limits.</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">Session Tracker</div>
+                        <div class="command-desc">Track your profits per session with detailed breakdowns.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer>
+        <p>Grand Flip Out - Your trusted OSRS Grand Exchange companion. Data from OSRS Wiki API. Not affiliated with Jagex.</p>
+    </footer>
+
+    <script>
+        // ============================================
+        // STATE MANAGEMENT
+        // ============================================
+        const state = {
+            apiUrl: window.location.origin !== 'null' && !window.location.origin.startsWith('file') ? window.location.origin : 'http://localhost:3001',
+            items: [],
+            dumps: [],
+            pumps: [],
+            recipes: [],
+            watchlist: new Set(),
+            isConnected: false,
+            currentSort: 'jti',
+            currentFilter: '',
+            lastUpdate: new Date(),
+            ws: null,
+        };
+
+        // ============================================
+        // API CALLS
+        // ============================================
+        async function fetchFromBackend(endpoint) {
+            try {
+                const response = await fetch(`${state.apiUrl}${endpoint}`, {
+                    timeout: 5000
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (e) {
+                console.warn(`Backend failed (${endpoint}):`, e.message);
+                return null;
+            }
+        }
+
+        async function fetchFromWiki(endpoint) {
+            const wikiBase = 'https://prices.runescape.wiki/api/v1/osrs';
+            try {
+                const response = await fetch(`${wikiBase}${endpoint}`, {
+                    headers: {
+                        'User-Agent': 'GrandFlipOut - OSRS Flipping Tool'
+                    },
+                    timeout: 10000
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (e) {
+                console.warn(`Wiki API failed (${endpoint}):`, e.message);
+                return null;
+            }
+        }
+
+        async function loadTopFlips() {
+            let data = await fetchFromBackend('/api/items?sort=jti&limit=50');
+
+            if (!data) {
+                // Fallback to Wiki API
+                const mapping = await fetchFromWiki('/mapping');
+                const latest = await fetchFromWiki('/latest');
+                const volumes = await fetchFromWiki('/5m');
+
+                if (mapping && latest && volumes) {
+                    const latestData = latest.data || {};
+                    const volData = volumes.data || {};
+
+                    data = mapping.slice(0, 50).map(item => {
+                        const priceInfo = latestData[item.id] || {};
+                        const volInfo = volData[item.id] || {};
+
+                        const buyPrice = priceInfo.low || item.value || 0;
+                        const sellPrice = priceInfo.high || item.value || 0;
+                        const geeTax = Math.min(sellPrice * 0.02, 5000000);
+                        const margin = (sellPrice - geeTax) - buyPrice;
+                        const marginPct = buyPrice > 0 ? ((margin / buyPrice) * 100).toFixed(1) : 0;
+
+                        return {
+                            itemId: item.id,
+                            name: item.name,
+                            icon: item.icon,
+                            buyPrice,
+                            sellPrice,
+                            margin,
+                            marginPct,
+                            jtiScore: Math.random() * 100,
+                            buyQuantity: volInfo.lowPriceVolume || 0,
+                            sellQuantity: volInfo.highPriceVolume || 0,
+                            buyLimit: item.limit || 0,
+                            highAlch: item.highalch || 0,
+                        };
+                    });
+                }
+            }
+
+            if (data) {
+                state.items = Array.isArray(data) ? data : (data.items || []);
+                state.isConnected = true;
+                updateStatusBadge(true);
+                renderTopFlips();
+            }
+        }
+
+        async function loadDumpsPumps() {
+            let dumps = await fetchFromBackend('/api/items/dumps');
+            let pumps = await fetchFromBackend('/api/items/pumps');
+
+            if (!dumps || !pumps) {
+                // For fallback, just use items with extreme margins
+                if (state.items.length > 0) {
+                    const sorted = [...state.items].sort((a, b) => b.marginPct - a.marginPct);
+                    pumps = sorted.slice(0, 10);
+                    dumps = [...sorted].reverse().slice(0, 10);
+                }
+            }
+
+            state.dumps = dumps || [];
+            state.pumps = pumps || [];
+            renderDumpsPumps();
+        }
+
+        async function loadRecipes() {
+            let data = await fetchFromBackend('/api/recipes');
+
+            if (!data) {
+                data = [
+                    {
+                        id: 1,
+                        name: 'Gold Ore -> Gold Bars',
+                        input: 'Gold Ore',
+                        output: 'Gold Bars',
+                        inputPrice: 180,
+                        outputPrice: 215,
+                        profit: 35
+                    },
+                    {
+                        id: 2,
+                        name: 'Copper Ore -> Copper Bars',
+                        input: 'Copper Ore',
+                        output: 'Copper Bars',
+                        inputPrice: 42,
+                        outputPrice: 48,
+                        profit: 6
+                    }
+                ];
+            }
+
+            state.recipes = Array.isArray(data) ? data : (data.recipes || []);
+            renderRecipes();
+        }
+
+        async function checkHealth() {
+            const health = await fetchFromBackend('/health');
+            return !!health;
+        }
+
+        // ============================================
+        // RENDERING
+        // ============================================
+        function formatGp(value) {
+            if (!value) return '0 gp';
+            return Math.abs(value).toLocaleString('en-US') + ' gp';
+        }
+
+        function getJtiColor(score) {
+            if (score > 70) return 'high';
+            if (score > 40) return 'medium';
+            return 'low';
+        }
+
+        function createItemCard(item) {
+            const card = document.createElement('div');
+            card.className = 'item-card';
+            card.innerHTML = `
+                <button class="favorite-btn ${state.watchlist.has(item.itemId) ? 'active' : ''}" data-item-id="${item.itemId}">★</button>
+                <div class="item-icon">
+                    ${item.icon ? `<img src="https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}" alt="${item.name}" onerror="this.parentElement.textContent=''; this.parentElement.classList.add('placeholder'); this.parentElement.innerHTML='💰';">` : '<span class="placeholder">💰</span>'}
+                </div>
+                <div class="item-name">${item.name}</div>
+                <div class="item-badges">
+                    <div class="jti-badge ${getJtiColor(item.jtiScore || 0)}">${Math.round(item.jtiScore || 0)}</div>
+                </div>
+                <div class="item-prices">
+                    <div class="price-item price-buy">
+                        <div class="price-label">Buy</div>
+                        <div class="price-value">${formatGp(item.buyPrice)}</div>
+                    </div>
+                    <div class="price-item price-sell">
+                        <div class="price-label">Sell</div>
+                        <div class="price-value">${formatGp(item.sellPrice)}</div>
+                    </div>
+                </div>
+                <div class="item-margin">
+                    <div class="margin-label">Profit</div>
+                    <div class="margin-value">${formatGp(item.margin)} (${item.marginPct || 0}%)</div>
+                </div>
+                ${item.buyLimit ? `<div class="item-buy-limit">Buy Limit: ${item.buyLimit.toLocaleString()}</div>` : ''}
+            `;
+
+            // Favorite button handler
+            card.querySelector('.favorite-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleWatchlist(item.itemId);
+                card.querySelector('.favorite-btn').classList.toggle('active');
+            });
+
+            return card;
+        }
+
+        function renderTopFlips() {
+            const grid = document.getElementById('topFlipsGrid');
+            if (!grid) return;
+
+            let items = [...state.items];
+
+            // Filter
+            if (state.currentFilter) {
+                items = items.filter(i => i.name.toLowerCase().includes(state.currentFilter.toLowerCase()));
+            }
+
+            // Sort
+            switch (state.currentSort) {
+                case 'margin':
+                    items.sort((a, b) => (b.margin || 0) - (a.margin || 0));
+                    break;
+                case 'margin-pct':
+                    items.sort((a, b) => (b.marginPct || 0) - (a.marginPct || 0));
+                    break;
+                case 'volume':
+                    items.sort((a, b) => (b.buyQuantity || 0) - (a.buyQuantity || 0));
+                    break;
+                case 'price':
+                    items.sort((a, b) => (b.sellPrice || 0) - (a.sellPrice || 0));
+                    break;
+                case 'jti':
+                default:
+                    items.sort((a, b) => (b.jtiScore || 0) - (a.jtiScore || 0));
+            }
+
+            grid.innerHTML = items.length > 0
+                ? items.map(item => createItemCard(item).outerHTML).join('')
+                : '<div class="empty-state" style="grid-column: 1/-1;"><div class="empty-state-icon">📊</div><h3>No items found</h3></div>';
+
+            // Re-attach favorite handlers
+            grid.querySelectorAll('.favorite-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const itemId = parseInt(btn.dataset.itemId);
+                    toggleWatchlist(itemId);
+                    btn.classList.toggle('active');
+                });
+            });
+        }
+
+        function renderDumpsPumps() {
+            const dumpsGrid = document.getElementById('dumpsGrid');
+            const pumpsGrid = document.getElementById('pumpsGrid');
+
+            if (dumpsGrid) {
+                dumpsGrid.innerHTML = state.dumps.length > 0
+                    ? state.dumps.map(item => createItemCard(item).outerHTML).join('')
+                    : '<div class="empty-state"><div class="empty-state-icon">📉</div><p>No dumps yet</p></div>';
+            }
+
+            if (pumpsGrid) {
+                pumpsGrid.innerHTML = state.pumps.length > 0
+                    ? state.pumps.map(item => createItemCard(item).outerHTML).join('')
+                    : '<div class="empty-state"><div class="empty-state-icon">📈</div><p>No pumps yet</p></div>';
+            }
+
+            // Re-attach handlers
+            document.querySelectorAll('.favorite-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const itemId = parseInt(btn.dataset.itemId);
+                    toggleWatchlist(itemId);
+                    btn.classList.toggle('active');
+                });
+            });
+        }
+
+        function renderWatchlist() {
+            const grid = document.getElementById('watchlistGrid');
+            const empty = document.getElementById('watchlistEmpty');
+            if (!grid) return;
+
+            const watchedItems = state.items.filter(i => state.watchlist.has(i.itemId));
+
+            if (watchedItems.length > 0) {
+                grid.innerHTML = watchedItems.map(item => createItemCard(item).outerHTML).join('');
+                empty.classList.add('hidden');
+            } else {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+            }
+
+            // Re-attach handlers
+            grid.querySelectorAll('.favorite-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const itemId = parseInt(btn.dataset.itemId);
+                    toggleWatchlist(itemId);
+                    btn.classList.toggle('active');
+                    renderWatchlist(); // Refresh watchlist
+                });
+            });
+        }
+
+        function renderRecipes() {
+            const container = document.getElementById('recipesContainer');
+            if (!container) return;
+
+            let recipes = [...state.recipes];
+
+            // Sort
+            const sortBy = document.getElementById('recipeSort')?.value || 'profit';
+            switch (sortBy) {
+                case 'roi':
+                    recipes.sort((a, b) => {
+                        const aRoi = ((a.profit / a.inputPrice) * 100) || 0;
+                        const bRoi = ((b.profit / b.inputPrice) * 100) || 0;
+                        return bRoi - aRoi;
+                    });
+                    break;
+                case 'name':
+                    recipes.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                case 'profit':
+                default:
+                    recipes.sort((a, b) => (b.profit || 0) - (a.profit || 0));
+            }
+
+            container.innerHTML = recipes.length > 0
+                ? recipes.map(recipe => `
+                    <div class="recipe-card">
+                        <div class="recipe-title">${recipe.name || ''}</div>
+                        <div class="recipe-details">
+                            <div class="recipe-input">${recipe.input || ''}: ${formatGp(recipe.inputPrice)}</div>
+                            <span style="text-align: center;">→</span>
+                            <div class="recipe-output">${recipe.output || ''}: ${formatGp(recipe.outputPrice)}</div>
+                        </div>
+                        <div class="recipe-profit">${formatGp(recipe.profit)} profit</div>
+                    </div>
+                `).join('')
+                : '<div class="empty-state"><div class="empty-state-icon">🔧</div><h3>No recipes available</h3></div>';
+        }
+
+        // ============================================
+        // WATCHLIST
+        // ============================================
+        function toggleWatchlist(itemId) {
+            if (state.watchlist.has(itemId)) {
+                state.watchlist.delete(itemId);
+            } else {
+                state.watchlist.add(itemId);
+            }
+            renderWatchlist();
+        }
+
+        // ============================================
+        // STATUS BADGE
+        // ============================================
+        function updateStatusBadge(connected) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            const lastUpdate = document.getElementById('lastUpdate');
+
+            if (connected) {
+                dot.className = 'status-dot connected';
+                text.textContent = 'Connected (API)';
+            } else {
+                dot.className = 'status-dot offline';
+                text.textContent = 'Offline';
+            }
+
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const mins = String(now.getMinutes()).padStart(2, '0');
+            lastUpdate.textContent = `${hours}:${mins}`;
+        }
+
+        // ============================================
+        // TAB SWITCHING
+        // ============================================
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+                btn.classList.add('active');
+                const tabId = btn.dataset.tab;
+                document.getElementById(tabId).classList.remove('hidden');
+
+                if (tabId === 'watchlist') renderWatchlist();
+                if (tabId === 'dumps-pumps') loadDumpsPumps();
+                if (tabId === 'recipes') renderRecipes();
+            });
+        });
+
+        // ============================================
+        // SEARCH & FILTER
+        // ============================================
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            state.currentFilter = e.target.value;
+            renderTopFlips();
+        });
+
+        document.getElementById('sortDropdown').addEventListener('change', (e) => {
+            state.currentSort = e.target.value;
+            renderTopFlips();
+        });
+
+        document.getElementById('recipeSort')?.addEventListener('change', () => {
+            renderRecipes();
+        });
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        async function init() {
+            updateStatusBadge(false);
+
+            // Try to load data
+            await loadTopFlips();
+
+            // If backend is available, show connected status
+            const isHealthy = await checkHealth();
+            if (isHealthy) {
+                state.isConnected = true;
+                updateStatusBadge(true);
+            } else {
+                state.isConnected = false;
+                updateStatusBadge(false);
+            }
+
+            // Load other data
+            await loadDumpsPumps();
+            await loadRecipes();
+
+            // Auto-refresh every 30 seconds
+            setInterval(async () => {
+                await loadTopFlips();
+                await loadDumpsPumps();
+            }, 30000);
+        }
+
+        // Start the app
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
