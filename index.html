@@ -3979,6 +3979,121 @@
             tryUpdateDashboard();
         }
     });
+    
+    /* === ENHANCED TAB HANDLING & AUTO-LOAD === */
+
+    /* Override the tab click to handle analytics */
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var tab = this.getAttribute('data-tab');
+            if (tab === 'analytics') {
+                /* Hide all other tab panels */
+                document.querySelectorAll('.tab-panel, [id^="panel-"]').forEach(function(p) {
+                    p.style.display = 'none';
+                });
+                /* Hide the default content areas */
+                var topFlips = document.getElementById('topFlipsContent');
+                if (topFlips) topFlips.style.display = 'none';
+                var smartTab = document.querySelector('.smart-tab-content, .smart-picks-section');
+                if (smartTab) smartTab.closest('.tab-panel, div[role=tabpanel]') && (smartTab.closest('.tab-panel, div[role=tabpanel]').style.display = 'none');
+
+                /* Show analytics panel */
+                var panel = document.getElementById('panel-analytics');
+                if (panel) {
+                    panel.style.display = 'block';
+                    scrapeAndUpdate();
+                }
+                
+                /* Update active tab styling */
+                document.querySelectorAll('.tab-btn').forEach(function(b) {
+                    b.classList.remove('active');
+                    b.setAttribute('aria-selected', 'false');
+                });
+                this.classList.add('active');
+                this.setAttribute('aria-selected', 'true');
+            } else {
+                /* Hide analytics when switching to other tab */
+                var panel = document.getElementById('panel-analytics');
+                if (panel) panel.style.display = 'none';
+            }
+        });
+    });
+
+    /* Scrape DOM data and update dashboard */
+    function scrapeAndUpdate() {
+        var rows = document.querySelectorAll('.item-row');
+        if (rows.length === 0) return;
+
+        function parseGpVal(text) {
+            if (!text) return 0;
+            text = text.replace(/,/g, '').trim();
+            var m = text.match(/([\\.\d]+)\s*([KkMm]?)\s*gp/);
+            if (!m) return 0;
+            var n = parseFloat(m[1]);
+            if (m[2].toUpperCase() === 'K') n *= 1000;
+            if (m[2].toUpperCase() === 'M') n *= 1000000;
+            return n;
+        }
+
+        function parseQtyVal(text) {
+            var m = text.match(/\(([\d,]+)x\)/);
+            return m ? parseInt(m[1].replace(/,/g, '')) : 0;
+        }
+
+        var items = [];
+        rows.forEach(function(row) {
+            var cells = Array.from(row.children).map(function(c) { return c.textContent.trim(); });
+            var name = cells[2] || '';
+            var buyT = '', sellT = '', profitT = '', jtiT = '';
+            
+            cells.forEach(function(c) {
+                if (c.match(/^\d+\s*gp$/) && !buyT) buyT = c;
+                else if (c.match(/^\d+\s*gp$/) && buyT && !sellT) sellT = c;
+                else if (c.match(/gp.*\(/) || c.match(/[\d.]+[KM]\s*gp/)) profitT = c;
+                else if (c.match(/^\d{1,3}$/)) jtiT = c;
+            });
+
+            items.push({
+                name: name,
+                buy: parseGpVal(buyT),
+                sell: parseGpVal(sellT),
+                margin: parseGpVal(sellT) - parseGpVal(buyT),
+                potentialProfit: parseGpVal(profitT),
+                qty: parseQtyVal(profitT),
+                jtiScore: parseInt(jtiT) || 0,
+                volume: parseQtyVal(profitT),
+                roi: parseGpVal(buyT) > 0 ? ((parseGpVal(sellT) - parseGpVal(buyT)) / parseGpVal(buyT) * 100) : 0
+            });
+        });
+
+        window._allItems = items;
+        window._topFlipsData = items;
+        updateMarketDashboard(items);
+        renderAnalyticsTab(items);
+    }
+
+    /* Auto-populate on page load after data renders */
+    var autoLoadAttempts = 0;
+    var autoLoadInterval = setInterval(function() {
+        autoLoadAttempts++;
+        var rows = document.querySelectorAll('.item-row');
+        if (rows.length > 0) {
+            scrapeAndUpdate();
+            clearInterval(autoLoadInterval);
+        }
+        if (autoLoadAttempts > 30) clearInterval(autoLoadInterval);
+    }, 2000);
+
+    /* Also scrape after each refresh cycle */
+    var origScheduleRefresh = window.scheduleRefresh;
+    if (typeof origScheduleRefresh === 'function') {
+        window.scheduleRefresh = function() {
+            var result = origScheduleRefresh.apply(this, arguments);
+            setTimeout(scrapeAndUpdate, 3000);
+            return result;
+        };
+    }
+
     </script>
 </body>
 </html>
