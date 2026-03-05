@@ -1357,7 +1357,7 @@
             dumps: [],
             pumps: [],
             recipes: [],
-            watchlist: new Set(),
+            watchlist: new Set((() => { try { return JSON.parse(localStorage.getItem('gfo_watchlist') || '[]'); } catch(e) { return []; } })()),
             isConnected: false,
             currentSort: 'jti',
             currentFilter: '',
@@ -1682,8 +1682,9 @@
             return `https://oldschool.runescape.wiki/images/${encodeURIComponent(icon.replace(/ /g, '_'))}`;
         }
 
-        // Cache for timeseries data per item
+        // Cache for timeseries data per item (expires after 5 minutes)
         const timeseriesCache = {};
+        const CACHE_TTL = 5 * 60 * 1000;
 
         // ============================================
         // LIST VIEW: Create a row + expandable detail panel
@@ -1709,7 +1710,7 @@
                 <div class="row-buy">${formatGp(item.buyPrice)}</div>
                 <div class="row-sell">${formatGp(item.sellPrice)}</div>
                 <div class="row-profit ${potentialProfit < 0 ? 'negative' : ''}">${profitLabel}</div>
-                <div><span class="jti-badge ${getJtiColor(item.jtiScore || 0)}">${Math.round(item.jtiScore || 0)}</span></div>
+                <div><span class="jti-badge ${getJtiColor(item.jtiScore || 0)}" title="JTI Score: Margin (0-35) + Volume (0-35) + Balance (0-15) + Limit (0-15). Higher = better flip.">${Math.round(item.jtiScore || 0)}</span></div>
                 <div class="row-expand">▼</div>
             `;
 
@@ -1801,6 +1802,8 @@
                     row.classList.add('expanded');
                     detail.classList.add('open');
                     loadItemCharts(item);
+                    // Scroll expanded detail into view after a brief render delay
+                    setTimeout(() => detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
                 }
             });
 
@@ -1830,11 +1833,12 @@
             drawLoadingText(marginCanvas, 'Loading...');
             if (profitCanvas) drawLoadingText(profitCanvas, 'Loading...');
 
-            // Fetch timeseries from Wiki (5-minute intervals, last 24h)
-            let ts = timeseriesCache[item.itemId];
+            // Fetch timeseries from Wiki (5-minute intervals, last 24h) with cache expiry
+            let cached = timeseriesCache[item.itemId];
+            let ts = (cached && Date.now() - cached.time < CACHE_TTL) ? cached.data : null;
             if (!ts) {
                 ts = await fetchFromWiki(`/timeseries?timestep=5m&id=${item.itemId}`);
-                if (ts && ts.data) timeseriesCache[item.itemId] = ts;
+                if (ts && ts.data) timeseriesCache[item.itemId] = { data: ts, time: Date.now() };
             }
 
             if (!ts || !ts.data || ts.data.length === 0) {
@@ -2398,6 +2402,7 @@
             } else {
                 state.watchlist.add(itemId);
             }
+            try { localStorage.setItem('gfo_watchlist', JSON.stringify([...state.watchlist])); } catch(e) {}
             renderWatchlist();
         }
 
