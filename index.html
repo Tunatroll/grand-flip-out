@@ -1078,30 +1078,53 @@
                     Get the Grand Flip Out plugin for RuneLite and flip right from your game client.
                     Fully Jagex-compliant — only uses official and community APIs.
                 </p>
-                <a href="grand-flip-out-plugin.zip" download class="discord-button" style="background:linear-gradient(135deg,#ff981f 0%,#d4af37 100%);color:#1a1410;">
-                    Download Plugin (ZIP)
-                </a>
+                <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-bottom:8px;">
+                    <a href="tunatroll/grand-flip-out.jar" download class="discord-button" style="background:linear-gradient(135deg,#ff981f 0%,#d4af37 100%);color:#1a1410;">
+                        Download Plugin (.jar)
+                    </a>
+                    <a href="grand-flip-out-plugin.zip" download class="discord-button" style="background:var(--bg-tertiary);color:var(--text-secondary);border:1px solid var(--border);">
+                        Source Code (ZIP)
+                    </a>
+                </div>
+
+                <!-- OPTION A: RuneLiteHijack External Repo (Easiest) -->
                 <div class="commands-list" style="margin-top:24px;">
-                    <h3 style="color:var(--accent); font-family:'Cinzel',serif; margin-bottom:16px;">How to Install</h3>
+                    <h3 style="color:#4ade80; font-family:'Cinzel',serif; margin-bottom:16px;">Option A — External Plugin Hub (Easiest)</h3>
                     <div class="command-item">
                         <div class="command-name">Step 1</div>
-                        <div class="command-desc">Download the ZIP above and extract it to a folder on your PC.</div>
+                        <div class="command-desc">Install the <strong>RuneLiteHijack</strong> plugin from the RuneLite Plugin Hub (search "Hijack" in the hub).</div>
                     </div>
                     <div class="command-item">
                         <div class="command-name">Step 2</div>
-                        <div class="command-desc">Open RuneLite and go to the Configuration wrench icon at the top right.</div>
+                        <div class="command-desc">Open RuneLiteHijack settings and paste this URL into "External Plugin Hubs":</div>
+                    </div>
+                    <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin:8px 0 16px;font-family:monospace;font-size:13px;color:var(--accent);word-break:break-all;cursor:pointer;" onclick="navigator.clipboard.writeText('https://raw.githubusercontent.com/Tunatroll/grand-flip-out/gh-pages/');this.style.borderColor='#4ade80';this.innerHTML='✓ Copied!';setTimeout(()=>{this.style.borderColor='';this.innerHTML='https://raw.githubusercontent.com/Tunatroll/grand-flip-out/gh-pages/'},1500);">
+                        https://raw.githubusercontent.com/Tunatroll/grand-flip-out/gh-pages/
                     </div>
                     <div class="command-item">
                         <div class="command-name">Step 3</div>
-                        <div class="command-desc">Scroll down and enable "Developer Tools" under RuneLite settings.</div>
+                        <div class="command-desc">Restart RuneLite. Grand Flip Out will appear in your Plugin Hub list — just toggle it on!</div>
+                    </div>
+                </div>
+
+                <!-- OPTION B: Manual JAR Loading -->
+                <div class="commands-list" style="margin-top:16px;">
+                    <h3 style="color:var(--accent); font-family:'Cinzel',serif; margin-bottom:16px;">Option B — Load JAR Manually</h3>
+                    <div class="command-item">
+                        <div class="command-name">Step 1</div>
+                        <div class="command-desc">Download the <strong>.jar file</strong> above and save it somewhere you'll remember.</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">Step 2</div>
+                        <div class="command-desc">Open RuneLite → Settings (wrench icon) → RuneLite section → Enable <strong>"Allow loading of external plugins"</strong>.</div>
+                    </div>
+                    <div class="command-item">
+                        <div class="command-name">Step 3</div>
+                        <div class="command-desc">Copy the .jar file into your RuneLite externalplugins folder:<br><span style="font-family:monospace;color:var(--accent);font-size:12px;">%USERPROFILE%/.runelite/externalplugins/</span> (Windows) or <span style="font-family:monospace;color:var(--accent);font-size:12px;">~/.runelite/externalplugins/</span> (Mac/Linux)</div>
                     </div>
                     <div class="command-item">
                         <div class="command-name">Step 4</div>
-                        <div class="command-desc">In Developer Tools, click "Load External Plugin" and point it to the extracted folder containing build.gradle.</div>
-                    </div>
-                    <div class="command-item">
-                        <div class="command-name">Step 5</div>
-                        <div class="command-desc">The "Grand Flip Out" panel will appear in your RuneLite sidebar. You're ready to flip!</div>
+                        <div class="command-desc">Restart RuneLite. The "Grand Flip Out" panel will appear in your sidebar — you're ready to flip!</div>
                     </div>
                 </div>
                 <div class="commands-list" style="margin-top:16px;">

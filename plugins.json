@@ -1,0 +1,13 @@
+[
+    {
+        "internalName": "grand-flip-out",
+        "hash": "c3fd17519bc46d734487716242bc8cc24cd714e991e77debdfc9af4948c0a54a",
+        "size": 715915,
+        "displayName": "Grand Flip Out",
+        "description": "Smart OSRS Grand Exchange flipping companion with JTI scoring, RSI/EMA/MACD technical analysis, bot economy tracking, dump detection, and SmartAdvisor intelligence.",
+        "provider": "tunatroll",
+        "plugins": [
+            "com.fliphelper.GrandFlipOutPlugin"
+        ]
+    }
+]
