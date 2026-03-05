@@ -717,6 +717,178 @@
         .mt-24 {
             margin-top: 24px;
         }
+
+        /* === SPECIAL ITEMS === */
+        .category-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .cat-btn {
+            padding: 10px 18px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Nunito', sans-serif;
+        }
+
+        .cat-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .cat-btn.active {
+            background: rgba(255, 152, 31, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .special-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .special-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 16px rgba(255, 152, 31, 0.15);
+        }
+
+        .special-card .item-icon {
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+            margin: 0;
+        }
+
+        .special-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .special-name {
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .special-detail {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .special-stats {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .special-stat {
+            text-align: center;
+            min-width: 70px;
+        }
+
+        .special-stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .special-stat-value {
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .special-stat-value.profit { color: var(--green); }
+        .special-stat-value.loss { color: var(--red); }
+        .special-stat-value.neutral { color: var(--accent); }
+
+        .strategy-badge {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .strategy-badge.craft {
+            background: rgba(96, 165, 250, 0.2);
+            color: var(--blue);
+            border: 1px solid rgba(96, 165, 250, 0.4);
+        }
+
+        .strategy-badge.flip {
+            background: rgba(74, 222, 128, 0.2);
+            color: var(--green);
+            border: 1px solid rgba(74, 222, 128, 0.4);
+        }
+
+        .tier-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .tier-badge.high-value {
+            background: rgba(212, 175, 55, 0.2);
+            color: var(--gold);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+        }
+
+        .tier-badge.mid-value {
+            background: rgba(255, 152, 31, 0.2);
+            color: var(--accent);
+            border: 1px solid rgba(255, 152, 31, 0.4);
+        }
+
+        .tier-badge.low-value {
+            background: rgba(139, 128, 120, 0.2);
+            color: var(--text-secondary);
+            border: 1px solid rgba(139, 128, 120, 0.4);
+        }
+
+        .category-description {
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            background: rgba(255, 152, 31, 0.05);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 var(--radius) var(--radius) 0;
+        }
+
+        @media (max-width: 768px) {
+            .special-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .special-stats {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
     </style>
 </head>
 <body>
@@ -752,6 +924,7 @@
             <li><button class="tab-btn" data-tab="dumps-pumps">Dumps & Pumps</button></li>
             <li><button class="tab-btn" data-tab="watchlist">Watchlist</button></li>
             <li><button class="tab-btn" data-tab="recipes">Recipes</button></li>
+            <li><button class="tab-btn" data-tab="special">Special Items</button></li>
             <li><button class="tab-btn" data-tab="discord">Discord</button></li>
             <li><button class="tab-btn" data-tab="plugin">RuneLite Plugin</button></li>
         </ul>
@@ -815,6 +988,45 @@
                 </select>
             </div>
             <div id="recipesContainer"></div>
+        </div>
+
+        <!-- SPECIAL ITEMS TAB -->
+        <div id="special" class="tab-content hidden">
+            <h2 class="section-title">Special Items</h2>
+            <div class="category-tabs">
+                <button class="cat-btn active" data-cat="poisoned">Poisoned Weapons</button>
+                <button class="cat-btn" data-cat="3rd-age">3rd Age</button>
+                <button class="cat-btn" data-cat="brutal">Brutal Arrows</button>
+                <button class="cat-btn" data-cat="implings">Implings</button>
+            </div>
+
+            <div id="cat-poisoned" class="cat-content">
+                <div class="category-description">
+                    Poisoned weapons can be flipped by buying the base weapon + poison, or trading the poisoned variant directly. Shows profit for each tier: (p), (p+), (p++).
+                </div>
+                <div id="poisonedList"></div>
+            </div>
+
+            <div id="cat-3rd-age" class="cat-content hidden">
+                <div class="category-description">
+                    3rd Age items are extremely rare drops from Treasure Trails. Low volume, high margins, high capital required. Great for patient flippers with deep banks.
+                </div>
+                <div id="thirdAgeList"></div>
+            </div>
+
+            <div id="cat-brutal" class="cat-content hidden">
+                <div class="category-description">
+                    Brutal arrows are niche ranged ammo used in the Grotesque Guardians and other content. Can be profitable to both craft and flip. Shows which strategy is better.
+                </div>
+                <div id="brutalList"></div>
+            </div>
+
+            <div id="cat-implings" class="cat-content hidden">
+                <div class="category-description">
+                    Impling jars contain random loot. The expected loot value is compared against the jar's buy price to show whether opening or flipping is more profitable.
+                </div>
+                <div id="implingList"></div>
+            </div>
         </div>
 
         <!-- DISCORD TAB -->
@@ -1281,6 +1493,237 @@
         }
 
         // ============================================
+        // SPECIAL ITEMS (Categories)
+        // ============================================
+        let specialItemsCache = {};
+
+        async function loadSpecialItems(category) {
+            const containerId = {
+                'poisoned': 'poisonedList',
+                '3rd-age': 'thirdAgeList',
+                'brutal': 'brutalList',
+                'implings': 'implingList'
+            }[category];
+
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            // Show loading
+            container.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+
+            // Try backend API first
+            let data = await fetchFromBackend(`/api/categories?type=${category}`);
+
+            if (data) {
+                specialItemsCache[category] = data;
+            } else {
+                // Fallback: filter from existing items using name patterns
+                data = filterSpecialFromItems(category);
+            }
+
+            renderSpecialItems(category, data, container);
+        }
+
+        function filterSpecialFromItems(category) {
+            // Client-side fallback when backend is unavailable
+            const items = state.items;
+            switch (category) {
+                case 'poisoned':
+                    return { poisoned: items.filter(i => i.name && (i.name.includes('(p)') || i.name.includes('(p+)') || i.name.includes('(p++)'))).map(i => ({
+                        name: i.name, itemId: i.itemId, icon: i.icon,
+                        tier: i.name.includes('(p++)') ? 'p++' : i.name.includes('(p+)') ? 'p+' : 'p',
+                        buyPrice: i.buyPrice, sellPrice: i.sellPrice || i.buyPrice,
+                        poisonedPrice: i.sellPrice || i.buyPrice, profit: i.margin || 0,
+                        jti: i.jtiScore || 0, volume: (i.buyQuantity || 0) + (i.sellQuantity || 0)
+                    })) };
+                case '3rd-age':
+                    return { thirdAge: items.filter(i => i.name && i.name.toLowerCase().startsWith('3rd age')).map(i => ({
+                        name: i.name, itemId: i.itemId, icon: i.icon,
+                        buyPrice: i.buyPrice, sellPrice: i.sellPrice || i.buyPrice,
+                        margin: (i.margin && typeof i.margin === 'object') ? i.margin.gp : (i.margin || 0),
+                        geTax: Math.min(Math.floor((i.sellPrice || 0) * 0.02), 5000000),
+                        volume: (i.buyQuantity || 0) + (i.sellQuantity || 0),
+                        jti: i.jtiScore || 0, rarity: 'extremely-rare'
+                    })) };
+                case 'brutal':
+                    return { brutal: items.filter(i => i.name && i.name.toLowerCase().includes('brutal')).map(i => ({
+                        name: i.name, itemId: i.itemId, icon: i.icon,
+                        buyPrice: i.buyPrice, sellPrice: i.sellPrice || i.buyPrice,
+                        flipMargin: (i.margin && typeof i.margin === 'object') ? i.margin.gp : (i.margin || 0),
+                        craftProfit: 0, bestStrategy: 'flip',
+                        volume: (i.buyQuantity || 0) + (i.sellQuantity || 0), jti: i.jtiScore || 0
+                    })) };
+                case 'implings':
+                    return { implings: items.filter(i => i.name && i.name.toLowerCase().includes('impling')).map(i => ({
+                        name: i.name, itemId: i.itemId, icon: i.icon,
+                        buyPrice: i.buyPrice, sellPrice: i.sellPrice || i.buyPrice,
+                        expectedLootValue: 0, expectedProfit: 0,
+                        flipMargin: (i.margin && typeof i.margin === 'object') ? i.margin.gp : (i.margin || 0),
+                        tier: 'unknown', volume: (i.buyQuantity || 0) + (i.sellQuantity || 0),
+                        jti: i.jtiScore || 0
+                    })) };
+                default:
+                    return {};
+            }
+        }
+
+        function getIconHtml(icon, name) {
+            if (!icon) return '<span class="placeholder" style="font-size:20px;">$</span>';
+            const url = `https://oldschool.runescape.wiki/images/${encodeURIComponent(icon.replace(/ /g, '_'))}`;
+            return `<img src="${url}" alt="${name || ''}" onerror="this.parentElement.innerHTML='<span style=\\'font-size:20px;color:var(--gold)\\'>$</span>';">`;
+        }
+
+        function renderSpecialItems(category, data, container) {
+            switch (category) {
+                case 'poisoned':
+                    renderPoisoned(data.poisoned || [], container);
+                    break;
+                case '3rd-age':
+                    renderThirdAge(data.thirdAge || [], container);
+                    break;
+                case 'brutal':
+                    renderBrutal(data.brutal || [], container);
+                    break;
+                case 'implings':
+                    renderImplings(data.implings || [], container);
+                    break;
+            }
+        }
+
+        function renderPoisoned(items, container) {
+            if (items.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">&#9876;</div><h3>No poisoned weapons found</h3><p>Data may still be loading.</p></div>';
+                return;
+            }
+            container.innerHTML = items.map(item => `
+                <div class="special-card">
+                    <div class="item-icon">${getIconHtml(item.icon, item.name)}</div>
+                    <div class="special-info">
+                        <div class="special-name">${item.name}</div>
+                        <div class="special-detail">
+                            Tier: <span class="tier-badge ${item.tier === 'p++' ? 'high-value' : item.tier === 'p+' ? 'mid-value' : 'low-value'}">${item.tier}</span>
+                            ${item.baseName ? ` | Base: ${item.baseName}` : ''}
+                        </div>
+                    </div>
+                    <div class="special-stats">
+                        <div class="special-stat">
+                            <div class="special-stat-label">Buy</div>
+                            <div class="special-stat-value neutral">${formatGp(item.buyPrice || item.basePrice)}</div>
+                        </div>
+                        <div class="special-stat">
+                            <div class="special-stat-label">Sell</div>
+                            <div class="special-stat-value neutral">${formatGp(item.poisonedPrice || item.sellPrice)}</div>
+                        </div>
+                        <div class="special-stat">
+                            <div class="special-stat-label">Profit</div>
+                            <div class="special-stat-value ${item.profit > 0 ? 'profit' : 'loss'}">${formatGp(item.profit)}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderThirdAge(items, container) {
+            if (items.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">&#x1F451;</div><h3>No 3rd Age items found</h3><p>These are ultra-rare. Data may still be loading.</p></div>';
+                return;
+            }
+            container.innerHTML = items.map(item => `
+                <div class="special-card">
+                    <div class="item-icon">${getIconHtml(item.icon, item.name)}</div>
+                    <div class="special-info">
+                        <div class="special-name">${item.name}</div>
+                        <div class="special-detail">
+                            <span class="tier-badge high-value">Ultra Rare</span>
+                            | GE Limit: ${item.geLimit || 8} | Tax: ${formatGp(item.geTax)}
+                            ${item.warning ? ` | ${item.warning}` : ''}
+                        </div>
+                    </div>
+                    <div class="special-stats">
+                        <div class="special-stat">
+                            <div class="special-stat-label">Buy</div>
+                            <div class="special-stat-value neutral">${formatGp(item.buyPrice)}</div>
+                        </div>
+                        <div class="special-stat">
+                            <div class="special-stat-label">Sell</div>
+                            <div class="special-stat-value neutral">${formatGp(item.sellPrice)}</div>
+                        </div>
+                        <div class="special-stat">
+                            <div class="special-stat-label">Margin</div>
+                            <div class="special-stat-value ${item.margin > 0 ? 'profit' : 'loss'}">${formatGp(item.margin)}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderBrutal(items, container) {
+            if (items.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">&#127993;</div><h3>No brutal arrows found</h3><p>Data may still be loading.</p></div>';
+                return;
+            }
+            container.innerHTML = items.map(item => `
+                <div class="special-card">
+                    <div class="item-icon">${getIconHtml(item.icon, item.name)}</div>
+                    <div class="special-info">
+                        <div class="special-name">${item.name}</div>
+                        <div class="special-detail">
+                            <span class="strategy-badge ${item.bestStrategy}">${item.bestStrategy}</span>
+                            | Craft cost: ${formatGp(item.craftCost || 0)}
+                        </div>
+                    </div>
+                    <div class="special-stats">
+                        <div class="special-stat">
+                            <div class="special-stat-label">Flip Profit</div>
+                            <div class="special-stat-value ${item.flipMargin > 0 ? 'profit' : 'loss'}">${formatGp(item.flipMargin)}</div>
+                        </div>
+                        <div class="special-stat">
+                            <div class="special-stat-label">Craft Profit</div>
+                            <div class="special-stat-value ${item.craftProfit > 0 ? 'profit' : 'loss'}">${formatGp(item.craftProfit)}</div>
+                        </div>
+                        <div class="special-stat">
+                            <div class="special-stat-label">Volume</div>
+                            <div class="special-stat-value neutral">${(item.volume || 0).toLocaleString()}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderImplings(items, container) {
+            if (items.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">&#129419;</div><h3>No impling jars found</h3><p>Data may still be loading.</p></div>';
+                return;
+            }
+            container.innerHTML = items.map(item => `
+                <div class="special-card">
+                    <div class="item-icon">${getIconHtml(item.icon, item.name)}</div>
+                    <div class="special-info">
+                        <div class="special-name">${item.name}</div>
+                        <div class="special-detail">
+                            <span class="tier-badge ${item.tier || 'low-value'}">${item.tier || 'common'}</span>
+                            | Avg loot: ${formatGp(item.expectedLootValue)}
+                        </div>
+                    </div>
+                    <div class="special-stats">
+                        <div class="special-stat">
+                            <div class="special-stat-label">Jar Cost</div>
+                            <div class="special-stat-value neutral">${formatGp(item.buyPrice)}</div>
+                        </div>
+                        <div class="special-stat">
+                            <div class="special-stat-label">Expected Profit</div>
+                            <div class="special-stat-value ${item.expectedProfit > 0 ? 'profit' : 'loss'}">${formatGp(item.expectedProfit)}</div>
+                        </div>
+                        <div class="special-stat">
+                            <div class="special-stat-label">Flip Margin</div>
+                            <div class="special-stat-value ${item.flipMargin > 0 ? 'profit' : 'loss'}">${formatGp(item.flipMargin)}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ============================================
         // STATUS BADGE
         // ============================================
         function updateStatusBadge(connected) {
@@ -1317,6 +1760,19 @@
                 if (tabId === 'watchlist') renderWatchlist();
                 if (tabId === 'dumps-pumps') loadDumpsPumps();
                 if (tabId === 'recipes') renderRecipes();
+                if (tabId === 'special') loadSpecialItems('poisoned');
+            });
+        });
+
+        // Category sub-tabs
+        document.querySelectorAll('.cat-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.cat-content').forEach(c => c.classList.add('hidden'));
+                btn.classList.add('active');
+                const cat = btn.dataset.cat;
+                document.getElementById('cat-' + cat).classList.remove('hidden');
+                loadSpecialItems(cat);
             });
         });
 
