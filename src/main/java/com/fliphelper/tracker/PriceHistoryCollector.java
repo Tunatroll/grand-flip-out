@@ -4,25 +4,22 @@ import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.model.PriceData;
 import lombok.extern.slf4j.Slf4j;
-
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Collects and stores rolling price history for items, enabling technical analysis.
- *
- * Snapshots the current price of each item every time recordSnapshot() is called
- * (typically every refresh cycle). Stores up to MAX_HISTORY_SIZE data points per item
- * in a circular buffer approach.
- *
- * This bridges the gap between the real-time price APIs (which only give current prices)
- * and the MarketIntelligenceEngine which needs price history for EMA/RSI/MACD/Bollinger.
- */
+     *
+     * Snapshots the current price of each item every time recordSnapshot() is called
+     * (typically every refresh cycle). Stores up to MAX_HISTORY_SIZE data points per item.
+     *
+     * Also tracks per-item buy timestamps so GE limit windows can be estimated.
+     */
 @Slf4j
-public class PriceHistoryCollector {
+    public class PriceHistoryCollector {
 
     private static final int MAX_HISTORY_SIZE = 300; // ~25 hours at 5-min intervals
-    private static final int MIN_HISTORY_FOR_ANALYSIS = 14; // Minimum for RSI-14
+    private static final int MIN_HISTORY_FOR_ANALYSIS = 14;
 
     private final PriceService priceService;
 
@@ -35,210 +32,192 @@ public class PriceHistoryCollector {
     // itemId -> list of historical volumes
     private final Map<Integer, LinkedList<Long>> volumeHistory = new ConcurrentHashMap<>();
 
+    // itemId -> epoch-seconds timestamp of the last detected buy for this item
+    // Used by SmartAdvisor to check GE limit window resets
+    private final Map<Integer, Long> lastBuyTimestamps = new ConcurrentHashMap<>();
+
     // Track items that have been seeded from Wiki timeseries API
     private final Set<Integer> seededItems = ConcurrentHashMap.newKeySet();
 
     private long lastSnapshotTime = 0;
-    private int totalSnapshots = 0;
+            private int totalSnapshots = 0;
 
     public PriceHistoryCollector(PriceService priceService) {
-        this.priceService = priceService;
+                this.priceService = priceService;
     }
 
     /**
      * Record a snapshot of all current prices. Call this after each PriceService.refreshAll().
-     */
+             */
     public void recordSnapshot() {
-        long now = System.currentTimeMillis() / 1000;
+                long now = System.currentTimeMillis() / 1000;
 
-        // Don't record too frequently (minimum 60 seconds between snapshots)
-        if (now - lastSnapshotTime < 60) {
-            return;
-        }
+                // Don't record too frequently (minimum 60 seconds between snapshots)
+                if (now - lastSnapshotTime < 60) {
+                                return;
+                }
 
-        int recorded = 0;
-        for (Map.Entry<Integer, PriceAggregate> entry : priceService.getAggregatedPrices().entrySet()) {
-            int itemId = entry.getKey();
-            PriceAggregate agg = entry.getValue();
+                int recorded = 0;
+                for (Map.Entry<Integer, PriceAggregate> entry : priceService.getAggregatedPrices().entrySet()) {
+                                int itemId = entry.getKey();
+                                PriceAggregate agg = entry.getValue();
 
-            long midPrice = agg.getCurrentPrice();
-            if (midPrice <= 0) continue;
+                    long midPrice = agg.getCurrentPrice();
+                                if (midPrice <= 0) continue;
 
-            long volume = agg.getTotalVolume1h();
+                    long volume = agg.getTotalVolume1h();
 
-            // Get or create history lists
-            LinkedList<Long> prices = priceHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
-            LinkedList<Long> timestamps = timestampHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
-            LinkedList<Long> volumes = volumeHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
+                    LinkedList<Long> prices = priceHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
+                                LinkedList<Long> timestamps = timestampHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
+                                LinkedList<Long> volumes = volumeHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
 
-            // Add new data point
-            prices.addLast(midPrice);
-            timestamps.addLast(now);
-            volumes.addLast(volume);
+                    prices.addLast(midPrice);
+                                timestamps.addLast(now);
+                                volumes.addLast(volume);
 
-            // Trim to max size (circular buffer)
-            while (prices.size() > MAX_HISTORY_SIZE) {
-                prices.removeFirst();
-                timestamps.removeFirst();
-                volumes.removeFirst();
-            }
+                    // Trim to max size
+                    while (prices.size() > MAX_HISTORY_SIZE) {
+                                        prices.removeFirst();
+                                        timestamps.removeFirst();
+                                        volumes.removeFirst();
+                    }
+                                recorded++;
+                }
 
-            recorded++;
-        }
+                lastSnapshotTime = now;
+                totalSnapshots++;
 
-        lastSnapshotTime = now;
-        totalSnapshots++;
-
-        if (totalSnapshots % 12 == 0) { // Log every ~1 hour
-            log.info("Price history: {} snapshots recorded, tracking {} items, avg {} data points",
-                totalSnapshots, priceHistory.size(),
-                priceHistory.values().stream().mapToInt(LinkedList::size).average().orElse(0));
-        }
+                if (totalSnapshots % 12 == 0) {
+                                log.info("Price history: {} snapshots recorded, tracking {} items",
+                                                         totalSnapshots, priceHistory.size());
+                }
     }
 
     /**
+     * Record that a buy was detected for the given item (for GE limit window tracking).
+             * Call this from FlipTracker when a buy transaction is recorded.
+             *
+             * @param itemId the item that was bought
+             */
+    public void recordBuy(int itemId) {
+                lastBuyTimestamps.put(itemId, System.currentTimeMillis() / 1000);
+    }
+
+    /**
+     * Get the epoch-seconds timestamp of the last tracked buy for this item.
+         * Returns 0 if no buy has been recorded.
+         * Used by SmartAdvisor to check remaining GE limit window.
+         */
+        public long getLastBuyTimestamp(int itemId) {
+            return lastBuyTimestamps.getOrDefault(itemId, 0L);
+}
+
+    /**
      * Seed price history for a specific item from the Wiki timeseries API.
-     * This bootstraps the history so analysis works immediately instead of
-     * waiting hours for enough data points.
-     */
-    public void seedFromTimeseries(int itemId) {
-        if (seededItems.contains(itemId)) return;
-
+             */
+            public void seedFromTimeseries(int itemId) {
+                if (seededItems.contains(itemId)) return;
         try {
-            List<PriceData> timeseries = priceService.getWikiClient().fetchTimeSeries(itemId, "5m");
-
-            if (timeseries == null || timeseries.isEmpty()) return;
+                        List<PriceData> timeseries = priceService.getWikiClient().fetchTimeSeries(itemId, "5m");
+                        if (timeseries == null || timeseries.isEmpty()) return;
 
             LinkedList<Long> prices = priceHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
-            LinkedList<Long> timestamps = timestampHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
-            LinkedList<Long> volumes = volumeHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
+                        LinkedList<Long> timestamps = timestampHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
+                        LinkedList<Long> volumes = volumeHistory.computeIfAbsent(itemId, k -> new LinkedList<>());
 
-            // Clear existing and fill from timeseries
             prices.clear();
-            timestamps.clear();
-            volumes.clear();
+                        timestamps.clear();
+                        volumes.clear();
 
-            for (PriceData pd : timeseries) {
-                long avgHigh = pd.getAvgHighPrice1h() > 0 ? pd.getAvgHighPrice1h() : pd.getHighPrice();
-                long avgLow = pd.getAvgLowPrice1h() > 0 ? pd.getAvgLowPrice1h() : pd.getLowPrice();
+                    for (PriceData pd : timeseries) {
+                                        long avgHigh = pd.getAvgHighPrice1h() > 0 ? pd.getAvgHighPrice1h() : pd.getHighPrice();
+                                        long avgLow  = pd.getAvgLowPrice1h()  > 0 ? pd.getAvgLowPrice1h()  : pd.getLowPrice();
+                                        if (avgHigh <= 0 && avgLow <= 0) continue;
+                                        long mid = avgHigh > 0 && avgLow > 0 ? (avgHigh + avgLow) / 2
+                                                                     : avgHigh > 0 ? avgHigh : avgLow;
+                                        prices.addLast(mid);
+                                        timestamps.addLast(pd.getHighTime());
+                                        volumes.addLast(pd.getHighVolume1h() + pd.getLowVolume1h());
+                    }
 
-                if (avgHigh <= 0 && avgLow <= 0) continue;
+                    while (prices.size() > MAX_HISTORY_SIZE) {
+                                        prices.removeFirst();
+                                        timestamps.removeFirst();
+                                        volumes.removeFirst();
+                    }
 
-                long mid = avgHigh > 0 && avgLow > 0 ? (avgHigh + avgLow) / 2 :
-                          avgHigh > 0 ? avgHigh : avgLow;
-
-                prices.addLast(mid);
-                timestamps.addLast(pd.getHighTime());
-                volumes.addLast(pd.getHighVolume1h() + pd.getLowVolume1h());
-            }
-
-            // Trim
-            while (prices.size() > MAX_HISTORY_SIZE) {
-                prices.removeFirst();
-                timestamps.removeFirst();
-                volumes.removeFirst();
-            }
-
-            seededItems.add(itemId);
-            log.debug("Seeded {} history points for item {} from Wiki timeseries", prices.size(), itemId);
-
+                    seededItems.add(itemId);
+                        log.debug("Seeded {} history points for item {} from Wiki timeseries", prices.size(), itemId);
         } catch (Exception e) {
-            log.debug("Could not seed timeseries for item {}: {}", itemId, e.getMessage());
+                        log.debug("Could not seed timeseries for item {}: {}", itemId, e.getMessage());
         }
     }
 
     /**
      * Seed the top N most-traded items from timeseries on startup.
-     * Rate-limited to avoid hammering the Wiki API.
-     */
-    public void seedTopItems(int count) {
-        try {
-            List<PriceAggregate> topItems = priceService.getTopByMargin(count, 10);
+             * Rate-limited to avoid hammering the Wiki API.
+             */
+            public void seedTopItems(int count) {
+                try {
+                    List<PriceAggregate> topItems = priceService.getTopByMargin(count, 10);
+                    int seeded = 0;
+                    for (PriceAggregate agg : topItems) {
+                                        if (seeded >= count) break;
+                                        seedFromTimeseries(agg.getItemId());
+                                        seeded++;
+                                        Thread.sleep(200); // Rate limit: 1 request per 200ms
+                    }
+                    log.info("Seeded price history for {} top items from Wiki timeseries API", seeded);
+    } catch (Exception e) {
+                    log.warn("Error seeding top items: {}", e.getMessage());
+    }
+}
 
-            int seeded = 0;
-            for (PriceAggregate agg : topItems) {
-                if (seeded >= count) break;
-
-                seedFromTimeseries(agg.getItemId());
-                seeded++;
-
-                // Rate limit: 1 request per 200ms
-                Thread.sleep(200);
-            }
-
-            log.info("Seeded price history for {} top items from Wiki timeseries API", seeded);
-        } catch (Exception e) {
-            log.warn("Error seeding top items: {}", e.getMessage());
-        }
+    /** Get price history for an item (oldest first). */
+            public List<Long> getPriceHistory(int itemId) {
+                LinkedList<Long> history = priceHistory.get(itemId);
+                if (history == null || history.isEmpty()) return Collections.emptyList();
+                return new ArrayList<>(history);
     }
 
-    /**
-     * Get price history for an item (oldest first).
-     */
-    public List<Long> getPriceHistory(int itemId) {
-        LinkedList<Long> history = priceHistory.get(itemId);
-        if (history == null || history.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return new ArrayList<>(history);
+    /** Get volume history for an item (oldest first). */
+            public List<Long> getVolumeHistory(int itemId) {
+                LinkedList<Long> history = volumeHistory.get(itemId);
+                if (history == null || history.isEmpty()) return Collections.emptyList();
+                return new ArrayList<>(history);
     }
 
-    /**
-     * Get volume history for an item (oldest first).
-     */
-    public List<Long> getVolumeHistory(int itemId) {
-        LinkedList<Long> history = volumeHistory.get(itemId);
-        if (history == null || history.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return new ArrayList<>(history);
+    /** Get timestamp history for an item (oldest first). */
+            public List<Long> getTimestampHistory(int itemId) {
+                LinkedList<Long> history = timestampHistory.get(itemId);
+                if (history == null || history.isEmpty()) return Collections.emptyList();
+                return new ArrayList<>(history);
     }
 
-    /**
-     * Get timestamp history for an item (oldest first).
-     */
-    public List<Long> getTimestampHistory(int itemId) {
-        LinkedList<Long> history = timestampHistory.get(itemId);
-        if (history == null || history.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return new ArrayList<>(history);
-    }
-
-    /**
-     * Check if we have enough data points for meaningful analysis.
-     */
-    public boolean hasEnoughData(int itemId) {
-        LinkedList<Long> history = priceHistory.get(itemId);
+    /** Check if we have enough data points for meaningful analysis. */
+            public boolean hasEnoughData(int itemId) {
+                LinkedList<Long> history = priceHistory.get(itemId);
         return history != null && history.size() >= MIN_HISTORY_FOR_ANALYSIS;
-    }
+}
 
-    /**
-     * Get number of data points we have for an item.
-     */
-    public int getDataPointCount(int itemId) {
-        LinkedList<Long> history = priceHistory.get(itemId);
+    /** Get number of data points we have for an item. */
+            public int getDataPointCount(int itemId) {
+                LinkedList<Long> history = priceHistory.get(itemId);
         return history == null ? 0 : history.size();
+}
+
+    /** Get total number of items being tracked. */
+            public int getTrackedItemCount() {
+                return priceHistory.size();
     }
 
-    /**
-     * Get total number of items being tracked.
-     */
-    public int getTrackedItemCount() {
-        return priceHistory.size();
-    }
-
-    /**
-     * Get total snapshots recorded.
-     */
+    /** Get total snapshots recorded. */
     public int getTotalSnapshots() {
-        return totalSnapshots;
+                return totalSnapshots;
     }
 
-    /**
-     * Check if an item has been seeded from timeseries.
-     */
-    public boolean isSeeded(int itemId) {
-        return seededItems.contains(itemId);
-    }
+    /** Check if an item has been seeded from timeseries. */
+            public boolean isSeeded(int itemId) {
+                return seededItems.contains(itemId);
+}
 }
