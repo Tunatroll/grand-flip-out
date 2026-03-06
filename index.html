@@ -729,6 +729,7 @@ const state = {
     notificationsEnabled: false,
     showIntel: false,  // Market intel hidden by default, expandable per-item
     lastAlertTimes: {},  // itemId-type -> timestamp for rate limiting
+    lastGlobalAlert: 0,  // global rate limit: 1 alert per 60s
     refreshCountdown: 0,
     priceBaselines: {},  // { normal1h, normal5m, lastSeen } per item
     fetchCache: {},      // { [endpoint]: { data, time } } for fetch deduplication
@@ -839,54 +840,41 @@ function showWebhookStatus(msg, cls) {
 
 async function sendDiscordAlert(item, type, percentChange) {
     if (!state.webhookUrl || !state.autoAlertsEnabled) return;
+    if (type !== 'dump') return; // Only alert on dumps — pumps aren't actionable
 
-    // Filter: only dumps worth 300k+ profit
-    if (type === 'dump') {
-        const margin = item.sellPrice - item.buyPrice - Math.min(Math.floor(item.sellPrice * 0.02), 5000000);
-        if (margin < 300000) return;  // Skip low-profit dumps
-        // Also skip items under 10k GP
-        if (item.buyPrice < 10000) return;
-    }
+    // Calculate the key numbers
+    const buyAt = item.instaBuyAt || item.buyPrice;
+    const sellFor = item.sellFor || item.sellPrice;
+    const profitPerItem = item.flipProfit || (sellFor - buyAt - Math.min(Math.floor(sellFor * 0.02), 5000000));
 
-    // Rate limit: max 1 alert per item per 10 minutes (600000ms)
+    // SMART FILTER: Is this dump actually worth posting?
+    // Criteria: must have real profit AND enough volume to matter
+    if (profitPerItem < 100000) return;  // Under 100k/item? Not worth an alert
+    if (buyAt < 10000) return;           // Junk items under 10k? Skip
+
+    const vol5m = (item.buyQuantity || 0) + (item.sellQuantity || 0);
+    const vol4h = estimateVol4h(item.itemId, vol5m);
+    const buyLimit = item.buyLimit || 999999;
+    const amountToBuy = Math.min(vol4h, buyLimit);
+    const totalProfit = profitPerItem * amountToBuy;
+
+    // Only alert if TOTAL potential profit is meaningful (500k+)
+    if (totalProfit < 500000) return;
+
+    // Rate limit: 1 alert per item per 15 minutes
     const now = Date.now();
-    const key = `${item.itemId}-${type}`;
-    if (state.lastAlertTimes[key] && (now - state.lastAlertTimes[key]) < 600000) return;
+    const key = `${item.itemId}-dump`;
+    if (state.lastAlertTimes[key] && (now - state.lastAlertTimes[key]) < 900000) return;
     state.lastAlertTimes[key] = now;
 
-    console.log(`[GFO] Sending ${type} alert for ${item.name} (${percentChange.toFixed(1)}%)`);
+    // Global rate limit: max 1 Discord alert per 60 seconds total
+    if (state.lastGlobalAlert && (now - state.lastGlobalAlert) < 60000) return;
+    state.lastGlobalAlert = now;
 
-    // Calculate flip profit
-    const profit = item.flipProfit || (item.sellPrice - item.buyPrice - Math.min(Math.floor(item.sellPrice * 0.02), 5000000));
-    const profitPerItem = Math.max(0, profit);
+    console.log(`[GFO] Discord alert: ${item.name} — ${gp(profitPerItem)}/item × ${amountToBuy} = ${gp(totalProfit)}`);
 
-    const emoji = type === 'dump' ? '💰' : '🟢';
-    const color = type === 'dump' ? 0x22C55E : 0x3B82F6;  // Green for dump buys (it's an opportunity!)
-    const verb = type === 'dump' ? 'DUMP' : 'PUMP';
-    const advice = type === 'dump'
-        ? `⚡ Insta-buy at **${gp(item.instaBuyAt || item.buyPrice)}** → sell for **${gp(item.sellFor || item.sellPrice)}** = **${gp(profitPerItem)} profit/item**`
-        : 'Price rising fast — consider selling!';
-
-    const fields = [
-        { name: '💰 FLIP PROFIT', value: `**${gp(profitPerItem)}/item**`, inline: false },
-        { name: '⚡ Insta-Buy At', value: gp(item.instaBuyAt || item.buyPrice), inline: true },
-        { name: '💎 Sell For', value: gp(item.sellFor || item.sellPrice), inline: true },
-        { name: '📉 Crashed', value: `${Math.abs(percentChange).toFixed(1)}%`, inline: true },
-        { name: '📊 Volume', value: `${(item.buyQuantity + item.sellQuantity)} / 5min`, inline: true },
-    ];
-
-    if (item.severity) {
-        fields.push({ name: '⚠️ Severity', value: item.severity.toFixed(1), inline: true });
-    }
-    if (item.trendPct && Math.abs(item.trendPct) > 1) {
-        fields.push({ name: '📈 Trend', value: `${item.trendPct > 0 ? '+' : ''}${item.trendPct.toFixed(1)}%`, inline: true });
-    }
-
-    // Add market intel reasoning
-    const intel = MARKET_INTEL.getIntel(item);
-    if (intel.length > 0) {
-        fields.push({ name: '🧠 Why?', value: intel[0].text.slice(0, 200), inline: false });
-    }
+    // The embed: JUST the actionable info. Buy price, amount, profit.
+    const limitNote = buyLimit < 999999 ? ` (GE limit: ${buyLimit.toLocaleString()})` : '';
 
     try {
         const resp = await fetch(state.webhookUrl, {
@@ -894,12 +882,16 @@ async function sendDiscordAlert(item, type, percentChange) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 embeds: [{
-                    title: `${emoji} ${verb}: ${item.name} — ${gp(profitPerItem)} profit/item`,
-                    description: advice,
-                    color,
+                    title: `💰 ${item.name}`,
+                    color: 0x22C55E,
                     thumbnail: item.icon ? { url: `https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}` } : undefined,
-                    fields,
-                    footer: { text: 'Grand Flip Out • Live Dump Scanner' },
+                    fields: [
+                        { name: 'Buy Price', value: `**${gp(buyAt)}**`, inline: true },
+                        { name: 'Amount to Buy', value: `**${amountToBuy.toLocaleString()}**${limitNote}`, inline: true },
+                        { name: 'Profit/Item', value: `**${gp(profitPerItem)}**`, inline: true },
+                        { name: 'Total Potential Profit', value: `**${gp(totalProfit)}**`, inline: false },
+                    ],
+                    footer: { text: `Crashed ${Math.abs(percentChange || 0).toFixed(1)}% • Grand Flip Out` },
                     timestamp: new Date().toISOString()
                 }]
             })
@@ -907,7 +899,7 @@ async function sendDiscordAlert(item, type, percentChange) {
         if (!resp.ok) {
             console.error(`[GFO] Discord webhook failed: ${resp.status} ${resp.statusText}`);
         } else {
-            console.log(`[GFO] Alert sent successfully for ${item.name}`);
+            console.log(`[GFO] Alert sent for ${item.name}`);
         }
     } catch(e) {
         console.error('[GFO] Discord webhook error:', e.message);
@@ -1278,13 +1270,10 @@ async function checkDumpsLight() {
             }
         });
 
-        // Discord alerts: only top 3 most profitable dumps, only if profit > 300k
-        const alertDumps = brandNew.filter(d => d.flipProfit >= 300000).slice(0, 3);
-        alertDumps.forEach(d => sendDiscordAlert(d, 'dump', d.crashPct));
-
-        // Pump alerts: only if 3 or fewer
-        if (np.length <= 3) {
-            np.forEach(p => sendDiscordAlert(p, 'pump', p.percentChange));
+        // Discord alert: only the SINGLE best new dump (sendDiscordAlert handles all filtering)
+        if (brandNew.length > 0) {
+            const best = brandNew[0]; // Already sorted by flipProfit desc
+            sendDiscordAlert(best, 'dump', best.crashPct || best.percentChange);
         }
 
         // Browser notifications for high-profit dumps
