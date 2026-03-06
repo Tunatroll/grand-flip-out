@@ -385,10 +385,9 @@
     <!-- ===== DASHBOARD TAB ===== -->
     <div id="dashboard" class="tab-panel active">
         <div class="explain-banner">
-            <strong>Real-time OSRS flipping data with honest profit estimates based on actual trading volume.</strong>
-            <br><strong>Profit/Item</strong> = what you actually make per flip after the 2% GE tax. <strong>Realistic Profit</strong> = how much you can realistically make in 4 hours based on real volume (not buy limit fantasies).
-            <br><strong>Verdict</strong> = a plain-English rating based on both margin AND volume. If nobody's trading it, it's not a good flip.
-            <span id="explainMore" class="hidden"><br><strong>Dumps</strong> = items crashing &gt;3% in 5 minutes — could be a buy-low opportunity. <strong>Pumps</strong> = items spiking &gt;3% — could mean rising demand.<br><strong>Volume/hr</strong> = estimated from 5-minute trading data. If it says "~12/hr" that means roughly 12 trades per hour, so don't expect to fill 10,000.<br><strong>You Can Buy</strong> = the realistic amount you can actually acquire, limited by BOTH your GE buy limit AND real trading volume.</span>
+            <strong>Live GE prices. All profit numbers already include the 2% tax — what you see is what you get.</strong>
+            <br>Buy at the green price, sell at the gold price, pocket the profit. Sorted by how much you can realistically make in 4 hours.
+            <span id="explainMore" class="hidden"><br><strong>Verdict</strong> = a quick rating: Great Flip, Good Flip, Decent, Slow, or Dead — based on both profit AND volume.<br><strong>Est. 4h Profit</strong> = profit per item × how many you can actually buy (limited by volume AND GE buy limit).<br><strong>Dump Sniper</strong> = items that just crashed in price. Shows what to buy, how many, and your profit.</span>
             <button class="explain-toggle" id="toggleExplain" onclick="document.getElementById('explainMore').classList.toggle('hidden'); this.textContent = this.textContent === 'Show more...' ? 'Show less' : 'Show more...';">Show more...</button>
         </div>
 
@@ -461,10 +460,9 @@
                         <th class="tooltip" data-tip="How good is this flip based on margin + real volume?">Verdict</th>
                         <th class="tooltip" data-tip="Instant buy (offer) price">Buy</th>
                         <th class="tooltip" data-tip="Instant sell (offer) price">Sell</th>
-                        <th class="tooltip" data-tip="Profit per item after 2% GE tax">Profit/Item</th>
-                        <th class="tooltip" data-tip="Margin as % of buy price">%</th>
-                        <th class="tooltip" data-tip="Estimated trades per hour based on 5-min data">Volume/hr</th>
-                        <th class="tooltip" data-tip="Realistic total profit in 4 hours based on actual volume">Est. 4h Profit</th>
+                        <th class="tooltip" data-tip="Your profit per item (tax already included)">Profit/Item</th>
+                        <th class="tooltip" data-tip="Estimated trades per hour">Vol/hr</th>
+                        <th class="tooltip" data-tip="Realistic total profit in 4 hours">Est. 4h Profit</th>
                     </tr>
                 </thead>
                 <tbody id="topFlipsBody"></tbody>
@@ -847,10 +845,9 @@ async function sendDiscordAlert(item, type, percentChange) {
     const sellFor = item.sellFor || item.sellPrice;
     const profitPerItem = item.flipProfit || (sellFor - buyAt - Math.min(Math.floor(sellFor * 0.02), 5000000));
 
-    // SMART FILTER: Is this dump actually worth posting?
-    // Criteria: must have real profit AND enough volume to matter
-    if (profitPerItem < 100000) return;  // Under 100k/item? Not worth an alert
-    if (buyAt < 10000) return;           // Junk items under 10k? Skip
+    // AGGRESSIVE FILTER: Only post dumps that are genuinely worth dropping everything for
+    if (profitPerItem < 500000) return;   // Under 500k/item? Not worth a Discord ping
+    if (buyAt < 50000) return;            // Item under 50k? Not a real dump flip
 
     const vol5m = (item.buyQuantity || 0) + (item.sellQuantity || 0);
     const vol4h = estimateVol4h(item.itemId, vol5m);
@@ -858,17 +855,17 @@ async function sendDiscordAlert(item, type, percentChange) {
     const amountToBuy = Math.min(vol4h, buyLimit);
     const totalProfit = profitPerItem * amountToBuy;
 
-    // Only alert if TOTAL potential profit is meaningful (500k+)
-    if (totalProfit < 500000) return;
+    // Total profit must be at least 2M to be worth a Discord alert
+    if (totalProfit < 2000000) return;
 
-    // Rate limit: 1 alert per item per 15 minutes
+    // Rate limit: 1 alert per item per 30 minutes
     const now = Date.now();
     const key = `${item.itemId}-dump`;
-    if (state.lastAlertTimes[key] && (now - state.lastAlertTimes[key]) < 900000) return;
+    if (state.lastAlertTimes[key] && (now - state.lastAlertTimes[key]) < 1800000) return;
     state.lastAlertTimes[key] = now;
 
-    // Global rate limit: max 1 Discord alert per 60 seconds total
-    if (state.lastGlobalAlert && (now - state.lastGlobalAlert) < 60000) return;
+    // Global rate limit: max 1 Discord alert per 5 minutes
+    if (state.lastGlobalAlert && (now - state.lastGlobalAlert) < 300000) return;
     state.lastGlobalAlert = now;
 
     console.log(`[GFO] Discord alert: ${item.name} — ${gp(profitPerItem)}/item × ${amountToBuy} = ${gp(totalProfit)}`);
@@ -886,12 +883,13 @@ async function sendDiscordAlert(item, type, percentChange) {
                     color: 0x22C55E,
                     thumbnail: item.icon ? { url: `https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}` } : undefined,
                     fields: [
-                        { name: 'Buy Price', value: `**${gp(buyAt)}**`, inline: true },
-                        { name: 'Amount to Buy', value: `**${amountToBuy.toLocaleString()}**${limitNote}`, inline: true },
+                        { name: 'Buy At', value: `**${gp(buyAt)}**`, inline: true },
+                        { name: 'Sell For', value: `**${gp(sellFor)}**`, inline: true },
+                        { name: 'Volume', value: `**${amountToBuy.toLocaleString()}**${limitNote}`, inline: true },
                         { name: 'Profit/Item', value: `**${gp(profitPerItem)}**`, inline: true },
-                        { name: 'Total Potential Profit', value: `**${gp(totalProfit)}**`, inline: false },
+                        { name: 'Total Profit', value: `**${gp(totalProfit)}**`, inline: true },
                     ],
-                    footer: { text: `Crashed ${Math.abs(percentChange || 0).toFixed(1)}% • Grand Flip Out` },
+                    footer: { text: 'Grand Flip Out' },
                     timestamp: new Date().toISOString()
                 }]
             })
@@ -1567,6 +1565,60 @@ const MARKET_INTEL = {
           reason: 'Corp beast shields — very rare drops. Low volume makes them merch clan targets. Don\'t trust sudden pumps.' },
         { match: ['party hat', 'christmas cracker'], tag: 'merch-target', icon: '💎',
           reason: 'Discontinued items (in RS3) / rare rewards. Pure speculation and merchanting. Not real supply/demand flips.' },
+
+        // ZOMBIE PIRATES BOT SUPPLY (massive bot farm 2024-2026)
+        { match: ['ancient page', 'ancient relic', 'zombie pirate'], tag: 'bot-supply', icon: '🏴‍☠️',
+          reason: 'Zombie pirates are the #1 bot farm in OSRS. Bots generate 2M+/hr in noted drops. Supply floods constantly — price drops are NOT real dumps, just bot activity.' },
+        { match: ['black chinchompa'], tag: 'bot-supply', icon: '🦊',
+          reason: 'Black chins are top-tier ranged ammo, heavily botted in deep Wildy. Price crashes = bot wave, spikes = bot bans. Very volatile.' },
+        { match: ['red chinchompa'], tag: 'bot-supply', icon: '🦊',
+          reason: 'Red chins are one of the most botted P2P items. Steady supply from bot farms keeps price suppressed. Spikes follow ban waves.' },
+        { match: ['amylase crystal', 'amylase'], tag: 'bot-supply', icon: '🏃',
+          reason: 'Farmed from Marks of Grace by agility bots on rooftop courses. Sold in bulk. Supply is bot-driven.' },
+
+        // CHAOS DRUID HERB SUPPLY
+        { match: ['grimy harralander', 'grimy tarromin', 'grimy guam', 'grimy marrentill', 'grimy irit'], tag: 'bot-supply', icon: '🌿',
+          reason: 'Low-tier herbs from chaos druid bots. Bots in every world wearing addy armor. Supply is artificially high and constant.' },
+
+        // MOTHERLODE MINE ORES
+        { match: ['gold nugget'], tag: 'bot-supply', icon: '⛏️',
+          reason: 'Motherlode Mine bots have low ban rates. Steady supply of ores and nuggets keeping prices suppressed.' },
+
+        // PVM BOSS DROPS — BOTS AT BOSSES
+        { match: ['vorkath'], tag: 'bot-supply', icon: '🐉',
+          reason: 'Vorkath is botted by gold farmers. Consistent 4M/hr in drops floods supply of dragonhide, bones, and uniques.' },
+        { match: ['zulrah'], tag: 'bot-supply', icon: '🐍',
+          reason: 'Zulrah botting is widespread. 4.6M/hr in drops floods scales, magic fangs, and serp visages into the market.' },
+        { match: ['tanzanite mutagen', 'magma mutagen', 'serpentine visage', 'magic fang'], tag: 'pvm-meta', icon: '🐍',
+          reason: 'Zulrah uniques. Supply from gold farming bots. Low buy limits mean merchers can control prices.' },
+
+        // ITEM SINK AWARENESS
+        { match: ['dragon pickaxe', 'dragon axe', 'dragon harpoon'], tag: 'pvm-meta', icon: '⚙️',
+          reason: 'Skilling tools from Wilderness bosses. Item sink (GE tax) slowly removes supply. Long-term price tends upward.' },
+        { match: ['dragon warhammer'], tag: 'pvm-meta', icon: '⚔️',
+          reason: 'BiS spec weapon for PvM. Shamans are heavily farmed but DWH still holds value due to universal demand + item sink.' },
+
+        // FLETCHING BOT PRODUCTS
+        { match: ['yew longbow', 'magic longbow', 'maple longbow'], tag: 'bot-supply', icon: '🏹',
+          reason: 'Mass-produced by fletching bots. Often alched for profit. Price pinned near alch value floor.' },
+
+        // QUEST-LOCKED ITEMS (low supply, volatile)
+        { match: ['berserker ring', 'warrior ring', 'seers ring', 'archers ring'], tag: 'pvm-meta', icon: '💍',
+          reason: 'DKS rings. Heavily farmed but consistent demand. Imbued versions are BiS — unimbued prices track imbue scroll supply.' },
+
+        // THIEVING BOT SUPPLY
+        { match: ['dragonstone', 'uncut dragonstone'], tag: 'bot-supply', icon: '💎',
+          reason: 'Rogues Castle thieving bots dump dragonstones from chests. Level 84 Thieving bots flood supply in Wilderness.' },
+
+        // HIGH-DEMAND TRAINING SUPPLIES
+        { match: ['dragon dart', 'dragon dart tip'], tag: 'consumable', icon: '🎯',
+          reason: 'BiS ammo for blowpipe. Consumed rapidly in PvM. Supply from Volcanic Mine and Vorkath. Price tracks demand cycles.' },
+        { match: ['anglerfish', 'cooked anglerfish'], tag: 'consumable', icon: '🐟',
+          reason: 'Best food for PvM/PvP (heals above max HP). Piscarilius fishing supplies the market. Steady demand.' },
+        { match: ['dark crab', 'cooked dark crab'], tag: 'consumable', icon: '🦀',
+          reason: 'Wilderness-only food. Supply limited by location risk. Prices volatile around PvP activity changes.' },
+        { match: ['manta ray', 'cooked manta ray'], tag: 'consumable', icon: '🐟',
+          reason: 'Top-tier food. Steady PvM demand. Supply from Tempoross and fishing. Reliable flip item.' },
     ],
     // Dynamic intel based on item data
     getDynamic(item) {
@@ -1577,33 +1629,35 @@ const MARKET_INTEL = {
 
         // Alch value insight
         if (item.highAlch && item.buyPrice) {
-            const alchProfit = item.highAlch - item.buyPrice - 200; // nature rune cost ~200
+            const alchProfit = item.highAlch - item.buyPrice - 200;
             if (alchProfit > 0 && alchProfit > margin) {
-                insights.push({ icon: '🔥', text: `Alch profit: ${gp(alchProfit)} (safer than flipping)`, tag: 'alch-floor' });
+                insights.push({ icon: '🔥', text: `Can alch for ${gp(alchProfit)} profit instead of flipping`, tag: 'alch-floor' });
             }
             if (item.buyPrice < item.highAlch * 1.02) {
-                insights.push({ icon: '🛡️', text: `Near alch floor (${gp(item.highAlch)}) — limited downside`, tag: 'alch-floor' });
+                insights.push({ icon: '🛡️', text: `Near alch floor — price can't drop much further`, tag: 'alch-floor' });
             }
         }
 
         // Volume insight
         if (vph > 5000) {
-            insights.push({ icon: '🌊', text: 'Extremely liquid — fills fast, tight margins but reliable', tag: 'volume' });
+            insights.push({ icon: '🌊', text: 'Very liquid — fills fast', tag: 'volume' });
         } else if (vph < 24) {
-            insights.push({ icon: '⚠️', text: 'Very low volume — expect slow fills and wide spreads', tag: 'volume' });
+            insights.push({ icon: '⚠️', text: 'Low volume — slow fills', tag: 'volume' });
         }
 
         // Margin insight
         if (mPct > 15) {
-            insights.push({ icon: '🚩', text: `${mPct}% margin is unusually high — could be stale data or manipulation`, tag: 'warning' });
+            insights.push({ icon: '🚩', text: 'Unusually high margin — could be stale data or manipulation', tag: 'warning' });
         }
 
-        // Buy limit vs volume insight
-        if (item.buyLimit && vph > 0) {
-            const hoursToFillLimit = item.buyLimit / vph;
-            if (hoursToFillLimit > 8) {
-                insights.push({ icon: '🐌', text: `Takes ~${Math.round(hoursToFillLimit)}h to fill buy limit at current volume`, tag: 'volume' });
-            }
+        // Buy limit constraint
+        if (item.buyLimit && item.buyLimit < 50 && margin > 50000) {
+            insights.push({ icon: '🔒', text: `Buy limit ${item.buyLimit} — max ${gp(margin * item.buyLimit)} per 4h`, tag: 'volume' });
+        }
+
+        // Item sink awareness (GE tax removes 2% of all traded items)
+        if (item.buyPrice > 5000000) {
+            insights.push({ icon: '📉', text: 'GE item sink is slowly reducing supply — long-term price support', tag: 'alch-floor' });
         }
 
         return insights;
@@ -1948,12 +2002,11 @@ function renderTopFlips(force = false) {
                 <td><span class="verdict-pill ${v.cls}" title="${v.tip}">${v.text}</span></td>
                 <td style="font-size:16px; font-weight:800; color:var(--green);">${gp(item.buyPrice)}</td>
                 <td style="font-size:16px; font-weight:800; color:var(--red);">${gp(item.sellPrice)}</td>
-                <td class="price-gold">${gp(item.margin)}</td>
-                <td>${item.marginPct}%</td>
+                <td class="price-gold" style="font-size:14px; font-weight:800;">${gp(item.margin)}</td>
                 <td><span class="vol-context">${formatVolPerHour(item)}</span></td>
                 <td class="price-hero">${gp(rp)}${volumeLimited ? '<br><span class="capped-warning">vol limited (~' + rb.toLocaleString() + ' avail)</span>' : ''}</td>
             </tr>`;
-        }).join('') : '<tr><td colspan="9" class="empty-state">No items found</td></tr>';
+        }).join('') : '<tr><td colspan="8" class="empty-state">No items found</td></tr>';
     }
 
     const grid = document.getElementById('gridView');
@@ -1981,7 +2034,7 @@ function renderTopFlips(force = false) {
                     <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:16px;font-weight:800;">${gp(item.buyPrice)}</div></div>
                     <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:16px;font-weight:800;">${gp(item.sellPrice)}</div></div>
                 </div>
-                <div class="card-price-box" style="margin-bottom:6px;"><div class="card-price-label">Profit/Item</div><div class="price-gold" style="font-size:12px;font-weight:700;">${gp(item.margin)} (${item.marginPct}%)</div></div>
+                <div class="card-price-box" style="margin-bottom:6px;"><div class="card-price-label">Profit/Item</div><div class="price-gold" style="font-size:14px;font-weight:800;">${gp(item.margin)}</div></div>
                 <div class="card-profit" style="background:rgba(34,197,94,0.15); color:var(--green); border:1px solid rgba(34,197,94,0.3); font-size:16px;">${gp(rp)}<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;"> / 4h</span></div>
             </div>`;
         }).join('');
