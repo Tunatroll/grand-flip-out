@@ -342,6 +342,7 @@
         <button class="nav-tab active" data-tab="dashboard"><span class="tab-icon">📊</span>Dashboard</button>
         <button class="nav-tab" data-tab="top-flips"><span class="tab-icon">💰</span>Top Flips</button>
         <button class="nav-tab" data-tab="dumps-pumps"><span class="tab-icon">⚠️</span>Dumps & Pumps<span class="tab-badge" id="dumpsPumpsBadge" style="display:none;">0</span></button>
+        <button class="nav-tab" data-tab="dump-sniper"><span class="tab-icon">🎯</span>Dump Sniper<span class="tab-badge" id="sniperBadge"></span></button>
         <button class="nav-tab" data-tab="watchlist"><span class="tab-icon">⭐</span>Watchlist<span class="tab-badge" id="watchlistBadge" style="display:none;">0</span></button>
         <button class="nav-tab" data-tab="recipes"><span class="tab-icon">🔬</span>Recipes</button>
         <button class="nav-tab" data-tab="special"><span class="tab-icon">💎</span>Special Items</button>
@@ -480,6 +481,35 @@
         </div>
     </div>
 
+    <!-- ===== DUMP SNIPER TAB ===== -->
+    <div id="dump-sniper" class="tab-panel">
+        <div class="explain-banner">
+            <strong>Dump Sniper</strong> — a dedicated real-time feed focused on catching price crashes as they happen. Items are scored by severity and sorted by buy opportunity. Auto-refreshes every 8 seconds.
+        </div>
+
+        <div class="sniper-stats" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:16px;">
+            <div class="stat-card" title="Items currently crashing"><div class="stat-icon">🎯</div><div class="stat-label">Active Targets</div><div class="stat-value" style="color:var(--red)" id="sniperTargets">0</div></div>
+            <div class="stat-card" title="Highest severity dump right now"><div class="stat-icon">⚠️</div><div class="stat-label">Max Severity</div><div class="stat-value accent" id="sniperMaxSev">—</div></div>
+            <div class="stat-card" title="Best buy opportunity from dumps"><div class="stat-icon">💎</div><div class="stat-label">Best Opportunity</div><div class="stat-value green" id="sniperBestOpp">—</div><div class="stat-sub" id="sniperBestName">scanning...</div></div>
+            <div class="stat-card" title="Scan frequency"><div class="stat-icon">⏱️</div><div class="stat-label">Scan Rate</div><div class="stat-value accent">8s</div><div class="stat-sub">auto-scanning</div></div>
+        </div>
+
+        <div id="sniperFeed" style="display:flex; flex-direction:column; gap:10px;">
+            <div class="empty-state"><div class="empty-icon">🎯</div><p>Scanning for dump opportunities...</p></div>
+        </div>
+
+        <div class="chart-row" style="margin-top:16px;">
+            <div class="chart-box">
+                <h3>Dump Severity Over Time</h3>
+                <canvas id="chartSniperSev"></canvas>
+            </div>
+            <div class="chart-box">
+                <h3>Top Dump Targets — Margin Opportunity</h3>
+                <canvas id="chartSniperOpp"></canvas>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== WATCHLIST TAB ===== -->
     <div id="watchlist" class="tab-panel">
         <div class="explain-banner">
@@ -598,6 +628,14 @@
             </div>
         </div>
 
+        <div class="settings-group">
+            <label class="settings-label">Browser Notifications</label>
+            <div class="settings-toggle">
+                <div class="toggle-switch" id="notifToggle" onclick="toggleNotifications(this)"></div>
+                <span style="font-size:13px; color:var(--text-secondary);">Show browser notifications for severe dumps</span>
+            </div>
+        </div>
+
         <div class="settings-button-group">
             <button class="settings-button" onclick="testDiscordWebhook()">📨 Test Webhook</button>
             <button class="settings-button secondary" onclick="toggleSettingsModal()">Close</button>
@@ -640,16 +678,20 @@ const state = {
     watchlist: new Set(), isConnected: false,
     currentSort: 'realistic', currentFilter: '', verdictFilter: 'all', lastUpdate: new Date(),
     mappingById: {}, prevPrices: {},
-    cachedMapping: null, cachedLatest: null,
+    cachedMapping: null, cachedLatest: null, cachedVolData: {},
     lastFullRefresh: 0, lastDumpCheck: 0,
-    fullRefreshInterval: 60000, dumpCheckInterval: 12000,
+    fullRefreshInterval: 45000, dumpCheckInterval: 8000,
     viewMode: 'table',
     dpHistory: [],      // { time, dumps, pumps } for chart
+    sniperHistory: [],  // { time, severity, count } for sniper chart
     priceSnapshots: {},  // itemId -> [{ time, avg }] for sparklines
+    priceHistory: {},    // itemId -> [{ time, price, vol }] rolling window
     charts: {},          // chart instances
     dumpLog: [],         // { time, itemId, name, percentChange, type } - max 100 entries
     webhookUrl: 'https://discord.com/api/webhooks/1479300808947531776/9ELFKUCDELZUW2cXJLJAyz5RmRtkMWT4wIoRdE2KA5gTVdUIRgqZ09bYpX6QZvLipFZe',
     autoAlertsEnabled: true,
+    notificationsEnabled: false,
+    lastAlertTimes: {},  // itemId-type -> timestamp for rate limiting
     refreshCountdown: 0,
 };
 
@@ -660,9 +702,11 @@ function loadSettings() {
     const saved = localStorage.getItem('gfo_webhook_url');
     const autoAlerts = localStorage.getItem('gfo_auto_alerts');
     const watchlistSaved = localStorage.getItem('gfo_watchlist');
+    const notifEnabled = localStorage.getItem('gfo_notifications_enabled');
     if (saved) state.webhookUrl = saved;
     // state.webhookUrl already has the default hardcoded, so it works out of the box
     if (autoAlerts !== null) state.autoAlertsEnabled = autoAlerts === 'true';
+    if (notifEnabled !== null) state.notificationsEnabled = notifEnabled === 'true';
     if (watchlistSaved) {
         try {
             const ids = JSON.parse(watchlistSaved);
@@ -671,12 +715,19 @@ function loadSettings() {
     }
     document.getElementById('webhookInput').value = state.webhookUrl || '';
     if (state.autoAlertsEnabled) document.getElementById('autoAlertToggle').classList.add('on');
+    const notifToggle = document.getElementById('notifToggle');
+    if (notifToggle && state.notificationsEnabled) notifToggle.classList.add('on');
+    // Request notification permission if Notification API is available
+    if ('Notification' in window && Notification.permission === 'default') {
+        // Will ask when user first visits Dump Sniper tab
+    }
 }
 
 function saveSettings() {
     state.webhookUrl = document.getElementById('webhookInput').value.trim();
     localStorage.setItem('gfo_webhook_url', state.webhookUrl);
     localStorage.setItem('gfo_auto_alerts', state.autoAlertsEnabled);
+    localStorage.setItem('gfo_notifications_enabled', state.notificationsEnabled);
 }
 
 function loadWatchlist() {
@@ -742,29 +793,90 @@ function showWebhookStatus(msg, cls) {
 
 async function sendDiscordAlert(item, type, percentChange) {
     if (!state.webhookUrl || !state.autoAlertsEnabled) return;
+
+    // Rate limit: max 1 alert per item per 5 minutes
+    const now = Date.now();
+    const key = `${item.itemId}-${type}`;
+    if (state.lastAlertTimes[key] && (now - state.lastAlertTimes[key]) < 300000) return;
+    state.lastAlertTimes[key] = now;
+
+    console.log(`[GFO] Sending ${type} alert for ${item.name} (${percentChange.toFixed(1)}%)`);
+
     const emoji = type === 'dump' ? '🔴' : '🟢';
-    const color = type === 'dump' ? 0xFF0000 : 0x00FF00;
-    const title = `${emoji} ${type.toUpperCase()} — ${item.name}`;
-    const description = `Price ${type === 'dump' ? 'dropped' : 'spiked'} ${Math.abs(percentChange).toFixed(1)}% — ${type === 'dump' ? 'potential buy opportunity' : 'strong demand signal'}`;
+    const color = type === 'dump' ? 0xEF4444 : 0x22C55E;
+    const verb = type === 'dump' ? 'crashed' : 'spiked';
+    const advice = type === 'dump' ? 'Potential buy-low opportunity!' : 'Strong demand — prices rising!';
+
+    const fields = [
+        { name: '💰 Price', value: `Buy: ${gp(item.buyPrice)}\nSell: ${gp(item.sellPrice)}`, inline: true },
+        { name: '📉 Change', value: `${percentChange > 0 ? '+' : ''}${percentChange.toFixed(1)}%`, inline: true },
+        { name: '📊 Volume', value: `${(item.buyQuantity + item.sellQuantity)} / 5min`, inline: true },
+    ];
+
+    if (item.severity) {
+        fields.push({ name: '⚠️ Severity', value: item.severity.toFixed(1), inline: true });
+    }
+    if (item.trendPct && Math.abs(item.trendPct) > 1) {
+        fields.push({ name: '📈 Trend', value: `${item.trendPct > 0 ? '+' : ''}${item.trendPct.toFixed(1)}%`, inline: true });
+    }
+
+    // Calculate margin for dumps
+    if (type === 'dump' && item.buyPrice && item.sellPrice) {
+        const margin = item.sellPrice - item.buyPrice - Math.min(Math.floor(item.sellPrice * 0.02), 5000000);
+        if (margin > 0) {
+            fields.push({ name: '💎 Margin', value: gp(margin) + '/item', inline: true });
+        }
+    }
+
     try {
-        await fetch(state.webhookUrl, {
+        const resp = await fetch(state.webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 embeds: [{
-                    title,
-                    description,
+                    title: `${emoji} ${item.name} ${verb} ${Math.abs(percentChange).toFixed(1)}%`,
+                    description: advice,
                     color,
-                    fields: [
-                        { name: 'Price', value: `${gp(item.buyPrice)} - ${gp(item.sellPrice)}`, inline: true },
-                        { name: 'Change', value: `${percentChange.toFixed(1)}%`, inline: true }
-                    ],
-                    footer: { text: 'Grand Flip Out — Dump Alert' },
+                    thumbnail: item.icon ? { url: `https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}` } : undefined,
+                    fields,
+                    footer: { text: 'Grand Flip Out • Live Dump Scanner' },
                     timestamp: new Date().toISOString()
                 }]
             })
         });
-    } catch {}
+        if (!resp.ok) {
+            console.error(`[GFO] Discord webhook failed: ${resp.status} ${resp.statusText}`);
+        } else {
+            console.log(`[GFO] Alert sent successfully for ${item.name}`);
+        }
+    } catch(e) {
+        console.error('[GFO] Discord webhook error:', e.message);
+    }
+}
+
+function toggleNotifications(toggle) {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then(p => {
+            state.notificationsEnabled = p === 'granted';
+            toggle.classList.toggle('on', state.notificationsEnabled);
+            saveSettings();
+        });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+        state.notificationsEnabled = !state.notificationsEnabled;
+        toggle.classList.toggle('on');
+        saveSettings();
+    }
+}
+
+function showDumpNotification(item) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const n = new Notification(`🔴 DUMP: ${item.name} ${item.percentChange.toFixed(1)}%`, {
+        body: `Buy: ${gp(item.buyPrice)} | Sell: ${gp(item.sellPrice)} | Severity: ${(item.severity||0).toFixed(1)}`,
+        icon: item.icon ? `https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}` : undefined,
+        tag: `dump-${item.itemId}`,
+        requireInteraction: false,
+    });
+    setTimeout(() => n.close(), 10000);
 }
 
 // ============================================
@@ -907,13 +1019,17 @@ async function loadTopFlips(force = false) {
 }
 
 async function checkDumpsLight() {
-    const vols = await fetchWiki('/5m');
+    const [vols, latestResp] = await Promise.all([fetchWiki('/5m'), fetchWiki('/latest')]);
     if (!vols || !vols.data) return;
+
+    // Always update latest prices for freshness
+    if (latestResp && latestResp.data) {
+        state.cachedLatest = latestResp.data;
+    }
     let ld = state.cachedLatest;
-    if (!ld) { const l = await fetchWiki('/latest'); if (l && l.data) { ld = l.data; state.cachedLatest = ld; } }
     if (!ld) return;
 
-    // Update volume data on existing items so prices stay fresh between full refreshes
+    // Update volume data on existing items
     state.cachedVolData = vols.data;
     if (state.allItems.length > 0) {
         state.allItems.forEach(item => {
@@ -923,7 +1039,6 @@ async function checkDumpsLight() {
                 item.sellQuantity = vi.highPriceVolume || 0;
             }
         });
-        // Also update the display items
         state.items = state.allItems.slice(0, 200);
         renderTopFlips();
     }
@@ -934,18 +1049,76 @@ async function checkDumpsLight() {
         if (!meta) continue;
         const pi = ld[idStr];
         if (!pi || !pi.high || !pi.low) continue;
-        const bp = pi.low, sp = pi.high, bv = vi.lowPriceVolume||0, sv = vi.highPriceVolume||0;
-        if ((bv+sv) < 10) continue;
-        const cur = Math.round((bp+sp)/2), prev = state.prevPrices[id];
-        if (!prev || prev <= 0) continue;
-        const pct = ((cur-prev)/prev)*100;
-        const sellP = sv/Math.max(1,bv), buyP = bv/Math.max(1,sv);
-        const summary = { itemId:id, name:meta.name, icon:meta.icon, buyPrice:bp, sellPrice:sp, percentChange:pct, buyQuantity:bv, sellQuantity:sv };
-        if (pct < -3 || (sellP > 3 && pct < -1)) nd.push(summary);
-        if (pct > 3 || (buyP > 3 && pct > 1)) np.push(summary);
+
+        const latestAvg = Math.round((pi.high + pi.low) / 2); // baseline from /latest
+        const bv = vi.lowPriceVolume || 0, sv = vi.highPriceVolume || 0;
+        if ((bv + sv) < 5) continue; // lowered threshold from 10 to 5
+
+        // Use /5m average prices for comparison (much more sensitive)
+        const fiveMinAvg = (vi.avgHighPrice && vi.avgLowPrice)
+            ? Math.round((vi.avgHighPrice + vi.avgLowPrice) / 2)
+            : null;
+
+        // Track price history for this item (rolling window of 10 snapshots = ~1.3 minutes at 8s interval)
+        if (!state.priceHistory[id]) state.priceHistory[id] = [];
+        if (fiveMinAvg) {
+            state.priceHistory[id].push({ time: Date.now(), price: fiveMinAvg, vol: bv + sv });
+            if (state.priceHistory[id].length > 10) state.priceHistory[id].shift();
+        }
+
+        // Calculate price change: compare 5m average to latest trade price
+        let pct = 0;
+        if (fiveMinAvg && latestAvg > 0) {
+            pct = ((fiveMinAvg - latestAvg) / latestAvg) * 100;
+        }
+
+        // Also check rolling trend: compare current to oldest snapshot in history
+        const history = state.priceHistory[id] || [];
+        let trendPct = 0;
+        if (history.length >= 3) {
+            const oldest = history[0].price;
+            const newest = history[history.length - 1].price;
+            if (oldest > 0) trendPct = ((newest - oldest) / oldest) * 100;
+        }
+
+        // Volume pressure analysis
+        const sellPressure = sv / Math.max(1, bv);
+        const buyPressure = bv / Math.max(1, sv);
+
+        // Dump severity scoring
+        let severity = 0;
+        if (pct < -2) severity += Math.abs(pct);
+        if (trendPct < -2) severity += Math.abs(trendPct) * 0.5;
+        if (sellPressure > 2) severity += sellPressure;
+        if ((bv + sv) > 100) severity += 1; // bonus for liquid items
+
+        const summary = {
+            itemId: id, name: meta.name, icon: meta.icon,
+            buyPrice: pi.low, sellPrice: pi.high,
+            fiveMinAvg: fiveMinAvg || latestAvg,
+            percentChange: pct, trendPct: trendPct,
+            buyQuantity: bv, sellQuantity: sv,
+            severity: severity,
+            sellPressure: sellPressure, buyPressure: buyPressure
+        };
+
+        // More sensitive dump detection
+        if (pct < -2 || (sellPressure > 2.5 && pct < -0.5) || trendPct < -3 || severity > 5) {
+            nd.push(summary);
+        }
+        // More sensitive pump detection
+        if (pct > 2 || (buyPressure > 2.5 && pct > 0.5) || trendPct > 3) {
+            np.push(summary);
+        }
+
+        // Update prevPrices with fresh data for next comparison
+        state.prevPrices[id] = fiveMinAvg || latestAvg;
     }
-    nd.sort((a,b) => a.percentChange - b.percentChange);
-    np.sort((a,b) => b.percentChange - a.percentChange);
+
+    // Sort dumps by severity (most severe first)
+    nd.sort((a, b) => b.severity - a.severity);
+    np.sort((a, b) => b.percentChange - a.percentChange);
+
     const prevDI = new Set(state.dumps.map(d=>d.itemId));
     const changed = nd.length !== state.dumps.length || nd.some(d => !prevDI.has(d.itemId));
     if (changed || np.length !== state.pumps.length) {
@@ -964,6 +1137,9 @@ async function checkDumpsLight() {
         // Send Discord alerts
         brandNew.forEach(d => sendDiscordAlert(d, 'dump', d.percentChange));
         np.forEach(p => sendDiscordAlert(p, 'pump', p.percentChange));
+
+        // Send browser notifications for severe dumps
+        brandNew.filter(d => (d.severity || 0) > 5).forEach(d => showDumpNotification(d));
     }
     // Track history for chart
     state.dpHistory.push({ time: new Date(), dumps: nd.length, pumps: np.length });
@@ -1237,6 +1413,124 @@ function updateChart(canvasId, type, data, options) {
     state.charts[canvasId] = new Chart(ctx, { type, data, options: { responsive:true, maintainAspectRatio:false, animation:{duration:400}, ...options } });
 }
 
+function renderSniperFeed() {
+    const feed = document.getElementById('sniperFeed');
+    if (!feed) return;
+
+    const dumps = state.dumps;
+
+    // Update sniper stats
+    const targetsEl = document.getElementById('sniperTargets');
+    const maxSevEl = document.getElementById('sniperMaxSev');
+    const bestOppEl = document.getElementById('sniperBestOpp');
+    const bestNameEl = document.getElementById('sniperBestName');
+    const badgeEl = document.getElementById('sniperBadge');
+
+    if (targetsEl) targetsEl.textContent = dumps.length;
+    if (badgeEl) badgeEl.textContent = dumps.length > 0 ? dumps.length : '';
+
+    if (dumps.length > 0) {
+        const maxSev = Math.max(...dumps.map(d => d.severity || 0));
+        if (maxSevEl) maxSevEl.textContent = maxSev.toFixed(1);
+
+        // Best opportunity: dump with best margin
+        const withMargins = dumps.map(d => {
+            const margin = d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000);
+            return { ...d, margin };
+        }).filter(d => d.margin > 0).sort((a, b) => b.margin - a.margin);
+
+        if (withMargins.length > 0 && bestOppEl) {
+            bestOppEl.textContent = gp(withMargins[0].margin) + '/item';
+            if (bestNameEl) bestNameEl.textContent = withMargins[0].name;
+        }
+    } else {
+        if (maxSevEl) maxSevEl.textContent = '—';
+        if (bestOppEl) bestOppEl.textContent = '—';
+        if (bestNameEl) bestNameEl.textContent = 'scanning...';
+    }
+
+    if (dumps.length === 0) {
+        feed.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><p>No dumps detected — market looks stable. Scanning every 8 seconds...</p></div>';
+        return;
+    }
+
+    feed.innerHTML = dumps.map(d => {
+        const margin = d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000);
+        const sevPct = Math.min(100, (d.severity || 0) * 10);
+        const sevColor = sevPct > 70 ? 'var(--red)' : sevPct > 40 ? 'var(--accent)' : '#d97706';
+        const trendArrow = (d.trendPct || 0) < -1 ? '📉📉' : (d.trendPct || 0) < 0 ? '📉' : '➡️';
+        const vpressure = d.sellPressure > 3 ? '🔴 Heavy sell pressure' : d.sellPressure > 1.5 ? '🟠 Moderate sell pressure' : '🟡 Light';
+
+        return `
+        <div class="dp-section" style="padding:14px; cursor:pointer;" onclick="openOSRSWiki('${d.name.replace(/'/g, "\\'")}')">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+                <div class="dp-item-icon" style="width:40px;height:40px;">${iconHtml(d.icon, d.name, 40)}</div>
+                <div style="flex:1;">
+                    <div style="font-weight:700; font-size:15px; color:var(--text);">${d.name}</div>
+                    <div style="font-size:11px; color:var(--text-muted);">Severity: ${(d.severity||0).toFixed(1)} • ${vpressure}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:20px; font-weight:800; color:var(--red);">${d.percentChange.toFixed(1)}%</div>
+                    <div style="font-size:11px; color:var(--text-muted);">${trendArrow} trend ${(d.trendPct||0).toFixed(1)}%</div>
+                </div>
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <div style="flex:1; background:rgba(0,0,0,0.25); border-radius:6px; padding:8px; text-align:center;">
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.3px;">Buy</div>
+                    <div class="price-green" style="font-size:13px; font-weight:700;">${gp(d.buyPrice)}</div>
+                </div>
+                <div style="flex:1; background:rgba(0,0,0,0.25); border-radius:6px; padding:8px; text-align:center;">
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.3px;">Sell</div>
+                    <div class="price-red" style="font-size:13px; font-weight:700;">${gp(d.sellPrice)}</div>
+                </div>
+                <div style="flex:1; background:rgba(0,0,0,0.25); border-radius:6px; padding:8px; text-align:center;">
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.3px;">Margin</div>
+                    <div style="font-size:13px; font-weight:700; color:${margin > 0 ? 'var(--green)' : 'var(--red)'};">${gp(margin)}</div>
+                </div>
+                <div style="flex:1; background:rgba(0,0,0,0.25); border-radius:6px; padding:8px; text-align:center;">
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.3px;">Vol/8s</div>
+                    <div style="font-size:13px; font-weight:700; color:var(--blue);">${d.buyQuantity + d.sellQuantity}</div>
+                </div>
+            </div>
+            <div style="background:var(--bg-input); border-radius:4px; height:6px; overflow:hidden;">
+                <div style="height:100%; width:${sevPct}%; background:${sevColor}; border-radius:4px; transition:width 0.3s;"></div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // Render sniper charts
+    renderSniperCharts(dumps);
+}
+
+function renderSniperCharts(dumps) {
+    if (dumps.length > 0) {
+        const top8 = dumps.slice(0, 8);
+        updateChart('chartSniperOpp', 'bar', {
+            labels: top8.map(d => d.name.length > 14 ? d.name.slice(0,13)+'...' : d.name),
+            datasets: [
+                { label: 'Drop %', data: top8.map(d => Math.abs(d.percentChange)), backgroundColor: 'rgba(239,68,68,0.6)', borderRadius: 4 },
+                { label: 'Severity', data: top8.map(d => d.severity || 0), backgroundColor: 'rgba(255,152,31,0.6)', borderRadius: 4 },
+            ]
+        }, { indexAxis:'y', plugins:{legend:{labels:{color:'#b8b0a5'}}}, scales:{ x:{ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}}, y:{ticks:{color:'#b8b0a5',font:{size:11}},grid:{display:false}} }});
+    }
+
+    // Severity over time chart
+    if (!state.sniperHistory) state.sniperHistory = [];
+    const maxSev = state.dumps.length > 0 ? Math.max(...state.dumps.map(d => d.severity || 0)) : 0;
+    state.sniperHistory.push({ time: new Date(), severity: maxSev, count: state.dumps.length });
+    if (state.sniperHistory.length > 30) state.sniperHistory.shift();
+
+    if (state.sniperHistory.length > 1) {
+        updateChart('chartSniperSev', 'line', {
+            labels: state.sniperHistory.map(h => h.time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})),
+            datasets: [
+                { label:'Max Severity', data:state.sniperHistory.map(h=>h.severity), borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.1)', fill:true, tension:0.3, pointRadius:2 },
+                { label:'Active Dumps', data:state.sniperHistory.map(h=>h.count), borderColor:'#ff981f', backgroundColor:'rgba(255,152,31,0.1)', fill:true, tension:0.3, pointRadius:2, yAxisID:'y2' },
+            ]
+        }, { plugins:{legend:{labels:{color:'#b8b0a5'}}}, scales:{ x:{ticks:{color:'#7a7268',maxTicksLimit:8},grid:{color:'rgba(255,152,31,0.08)'}}, y:{ticks:{color:'#ef4444'},grid:{color:'rgba(255,152,31,0.08)'}}, y2:{position:'right',ticks:{color:'#ff981f'},grid:{display:false}} }});
+    }
+}
+
 function renderTopFlips() {
     let items = [...state.items];
     if (state.currentFilter) items = items.filter(i => i.name.toLowerCase().includes(state.currentFilter.toLowerCase()));
@@ -1336,6 +1630,9 @@ function renderDumpsPumps() {
     } else {
         badge.style.display = 'none';
     }
+
+    // Render Dump Sniper tab feed
+    renderSniperFeed();
 }
 
 function renderWatchlist() {
