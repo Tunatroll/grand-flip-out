@@ -2029,6 +2029,219 @@ const PROFIT_VELOCITY = {
 };
 
 // ============================================
+// V7: ITEM TIER SYSTEM
+// ============================================
+// Classify all items into tiers for smarter filtering and display.
+// T1 = endgame BIS (always worth flipping), T2 = mid-level gear, T3 = consumables, T4 = skilling/utility
+const ITEM_TIERS = {
+    classify(name) {
+        const n = (name || '').toLowerCase();
+        // T1: Endgame BIS — highest demand, most reliable flips
+        const t1 = ['twisted bow', 'scythe of vitur', 'tumeken', 'shadow', 'masori',
+            'torva', 'ancestral', 'kodai', 'rapier', 'avernic', 'inquisitor',
+            'harmonised', 'eldritch', 'volatile', 'dragon hunter crossbow',
+            'dragon warhammer', 'zaryte crossbow', 'osmumten', 'elidinis',
+            'oathplate', 'virtus', 'bellator', 'venator', 'ultor', 'magus',
+            'lightbearer', 'bow of faerdhinen', 'blade of saeldor', 'eclipse'];
+        if (t1.some(p => n.includes(p))) return { tier: 1, label: 'Endgame BIS', color: '#ffd700' };
+
+        // T2: Mid-level gear — good demand, solid flips
+        const t2 = ['bandos', 'armadyl chainskirt', 'armadyl chestplate', 'armadyl helmet',
+            'pegasian', 'primordial', 'eternal', 'amulet of torture', 'necklace of anguish',
+            'tormented bracelet', 'berserker ring', 'archers ring', 'seers ring',
+            'guardian boots', 'ferocious gloves', 'brimstone ring', 'spectral',
+            'arcane spirit shield', 'dexterous prayer scroll', 'arcane prayer scroll',
+            'dragon claws', 'elder maul', 'saradomin sword', 'zamorakian spear',
+            'abyssal whip', 'abyssal tentacle', 'trident', 'toxic blowpipe',
+            'serpentine helm', 'tanzanite fang', 'magic fang'];
+        if (t2.some(p => n.includes(p))) return { tier: 2, label: 'Mid-Tier Gear', color: '#c0c0c0' };
+
+        // T3: Consumables — steady demand, fast fills
+        const t3 = ['potion', 'brew', 'restore', 'stamina', 'prayer',
+            'anglerfish', 'manta ray', 'dark crab', 'shark', 'karambwan',
+            'cannonball', 'dart', 'arrow', 'bolt', 'javelin',
+            'blood rune', 'death rune', 'soul rune', 'wrath rune', 'nature rune',
+            'zulrah scale', 'divine', 'bastion', 'battlemage', 'super combat', 'ranging potion',
+            'anti-venom', 'antidote', 'sanfew'];
+        if (t3.some(p => n.includes(p))) return { tier: 3, label: 'Consumable', color: '#90ee90' };
+
+        // T4: Everything else — skilling, utility, niche
+        return { tier: 4, label: 'Other', color: '#7a7268' };
+    }
+};
+
+// ============================================
+// V7: SPREAD QUALITY ANALYZER
+// ============================================
+// Analyze bid-ask spread to determine flip quality and competition level.
+const SPREAD_ANALYZER = {
+    analyze(instaBuy, instaSell, avgBuy5m, avgSell5m) {
+        if (!instaBuy || !instaSell || instaSell <= instaBuy) {
+            return { quality: 'invalid', spreadGp: 0, spreadPct: 0, label: '' };
+        }
+        const spreadGp = instaSell - instaBuy;
+        const midPrice = (instaBuy + instaSell) / 2;
+        const spreadPct = midPrice > 0 ? (spreadGp / midPrice) * 100 : 0;
+
+        // Compare live spread to 5m avg spread to detect unusual widening/tightening
+        let avgSpread = 0;
+        if (avgBuy5m > 0 && avgSell5m > avgBuy5m) {
+            avgSpread = ((avgSell5m - avgBuy5m) / ((avgBuy5m + avgSell5m) / 2)) * 100;
+        }
+        const spreadChange = avgSpread > 0 ? spreadPct - avgSpread : 0;
+
+        let quality, label;
+        if (spreadPct < 0.5) { quality = 'very_tight'; label = 'Very competitive spread'; }
+        else if (spreadPct < 1.5) { quality = 'tight'; label = 'Tight spread'; }
+        else if (spreadPct < 4) { quality = 'normal'; label = ''; }
+        else if (spreadPct < 10) { quality = 'wide'; label = 'Wide spread — good margin'; }
+        else { quality = 'very_wide'; label = 'Very wide spread — caution'; }
+
+        // Is the spread unusually wide compared to average? (dump signal)
+        const spreadExpanded = spreadChange > 2;
+        if (spreadExpanded) label = 'Spread widened — dump in progress';
+
+        return { quality, spreadGp, spreadPct, avgSpreadPct: avgSpread, spreadChange, spreadExpanded, label };
+    }
+};
+
+// ============================================
+// V7: ANTI-SNIPE DETECTION
+// ============================================
+// Detect when prices recover suspiciously fast — another flipper is sniping.
+// If price bounces back within 1-2 checks, the opportunity is already taken.
+const ANTI_SNIPE = {
+    priceSnaps: {},  // itemId -> [{ time, price }] — last 10 price snapshots
+
+    record(itemId, price) {
+        if (!this.priceSnaps[itemId]) this.priceSnaps[itemId] = [];
+        this.priceSnaps[itemId].push({ time: Date.now(), price });
+        if (this.priceSnaps[itemId].length > 10) this.priceSnaps[itemId].shift();
+    },
+
+    // Did price crash and immediately bounce? That's a snipe already happening.
+    detectSnipe(itemId, currentPrice) {
+        const snaps = this.priceSnaps[itemId];
+        if (!snaps || snaps.length < 4) return { sniped: false };
+
+        // Look at the last 4 snapshots
+        const recent = snaps.slice(-4);
+        const prices = recent.map(s => s.price);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+
+        // Price must have dipped and recovered
+        if (maxPrice <= minPrice * 1.01) return { sniped: false }; // No real movement
+
+        // Find if there was a dip and recovery
+        const minIdx = prices.indexOf(minPrice);
+        const maxAfterMin = Math.max(...prices.slice(minIdx));
+
+        if (minIdx > 0 && minIdx < prices.length - 1) {
+            // Dip is in the middle — price went down then back up
+            const dipPct = ((prices[0] - minPrice) / prices[0]) * 100;
+            const recoveryPct = ((maxAfterMin - minPrice) / minPrice) * 100;
+
+            if (dipPct > 2 && recoveryPct > dipPct * 0.5) {
+                // Price dipped 2%+ and recovered 50%+ of the dip — someone sniped it
+                return {
+                    sniped: true,
+                    dipPct: Math.round(dipPct * 10) / 10,
+                    recoveryPct: Math.round(recoveryPct * 10) / 10,
+                    label: 'Price bouncing — another flipper active'
+                };
+            }
+        }
+
+        return { sniped: false };
+    },
+
+    cleanup(activeIds) {
+        const set = new Set(activeIds);
+        for (const id of Object.keys(this.priceSnaps)) {
+            if (!set.has(parseInt(id))) delete this.priceSnaps[id];
+        }
+    }
+};
+
+// ============================================
+// V7: SMART EXIT ADVISOR
+// ============================================
+// After buying a dump, should you insta-sell or wait for better price?
+function getExitStrategy(item) {
+    const spread = SPREAD_ANALYZER.analyze(
+        item.instaBuyAt || item.buyPrice,
+        item.sellFor || item.sellPrice,
+        item.fiveMinAvg, item.fiveMinAvg
+    );
+    const tier = ITEM_TIERS.classify(item.name);
+    const volHr = ((item.buyQuantity || 0) + (item.sellQuantity || 0)) * 12;
+    const marginTrend = item.marginTrend || getMarginTrend(item.itemId);
+
+    // Insta-sell: when margins are already good and fading
+    if (marginTrend === 'compressing' && spread.spreadPct > 2) {
+        return { strategy: 'insta_sell', label: 'Sell now — margins fading', icon: '⚡' };
+    }
+
+    // Wait for recovery: when item is BIS and volume is high
+    if (tier.tier <= 2 && volHr > 50 && marginTrend !== 'compressing') {
+        return { strategy: 'patience', label: 'Patient sell — BIS will recover', icon: '⏳' };
+    }
+
+    // High volume consumable: insta-sell is fine
+    if (tier.tier === 3 && volHr > 100) {
+        return { strategy: 'insta_sell', label: 'Quick flip — consumable', icon: '⚡' };
+    }
+
+    // Default: insta-sell for safety
+    if (spread.quality === 'very_wide') {
+        return { strategy: 'patience', label: 'Wide spread — patience pays', icon: '⏳' };
+    }
+
+    return { strategy: 'insta_sell', label: 'Standard flip', icon: '🔄' };
+}
+
+// ============================================
+// V7: VOLUME PROFILE BUILDER
+// ============================================
+// Track what hour each item trades most. Over time, builds a per-item volume heatmap.
+const VOLUME_PROFILE = {
+    // itemId -> { hourBuckets: [0..23], total: N }
+    profiles: {},
+
+    record(itemId, volume) {
+        const hour = new Date().getUTCHours();
+        if (!this.profiles[itemId]) {
+            this.profiles[itemId] = { hourBuckets: new Array(24).fill(0), total: 0 };
+        }
+        this.profiles[itemId].hourBuckets[hour] += volume;
+        this.profiles[itemId].total += volume;
+    },
+
+    // Is current hour good or bad for this item?
+    getCurrentMultiplier(itemId) {
+        const p = this.profiles[itemId];
+        if (!p || p.total < 100) return 1.0; // Not enough data
+        const hour = new Date().getUTCHours();
+        const avgPerHour = p.total / 24;
+        if (avgPerHour <= 0) return 1.0;
+        return Math.min(2.0, Math.max(0.2, p.hourBuckets[hour] / avgPerHour));
+    },
+
+    // Get the best trading hours for this item
+    getBestHours(itemId) {
+        const p = this.profiles[itemId];
+        if (!p || p.total < 100) return [];
+        const avg = p.total / 24;
+        return p.hourBuckets
+            .map((vol, hour) => ({ hour, vol, ratio: avg > 0 ? vol / avg : 0 }))
+            .filter(h => h.ratio > 1.3)
+            .sort((a, b) => b.ratio - a.ratio)
+            .slice(0, 5);
+    }
+};
+
+// ============================================
 // GE TAX OPTIMIZATION ENGINE
 // ============================================
 // GE tax = 2% of sell price, capped at 5M GP.
@@ -2588,6 +2801,13 @@ async function checkDumpsLight() {
         const marginTrend = getMarginTrend(id);
         const alchInfo = ALCH_CALC.getAlchProfit({ highAlch: meta.highalch || 0, instaBuyAt: instaBuyPrice, buyPrice: instaBuyPrice, flipProfit });
 
+        // V7: Spread analysis, anti-snipe, tier, volume profile
+        const spreadInfo = SPREAD_ANALYZER.analyze(instaBuyPrice, instaSellPrice, avgBuyPrice5m, avgSellPrice5m);
+        ANTI_SNIPE.record(id, instaBuyPrice);
+        const snipeCheck = ANTI_SNIPE.detectSnipe(id, instaBuyPrice);
+        const itemTier = ITEM_TIERS.classify(meta.name);
+        VOLUME_PROFILE.record(id, bv + sv);
+
         const summary = {
             itemId: id, name: meta.name, icon: meta.icon,
             instaBuyAt: instaBuyPrice,    // "Buy NOW at this price"
@@ -2608,6 +2828,10 @@ async function checkDumpsLight() {
             volAccel: volAccel,                // Volume acceleration data
             marginTrend: marginTrend,          // Margin compression/expansion
             alchInfo: alchInfo,                // High alch profit info
+            // === V7 fields ===
+            spreadInfo: spreadInfo,                // Bid-ask spread analysis
+            snipeCheck: snipeCheck,                // Anti-snipe detection
+            itemTier: itemTier,                    // T1-T4 classification
             // Keep old fields for compatibility
             buyPrice: instaBuyPrice, sellPrice: instaSellPrice,
             fiveMinAvg: avgSellPrice5m || currentAvg,
@@ -2676,6 +2900,10 @@ async function checkDumpsLight() {
     FLIP_TIMER.cleanup(nd.map(d => d.itemId));
     PROFIT_VELOCITY.cleanup(nd.map(d => d.itemId));
     SECTOR_MOMENTUM.update(nd);
+
+    // V7: Compute exit strategies and cleanup
+    nd.forEach(d => { d.exitStrategy = getExitStrategy(d); });
+    ANTI_SNIPE.cleanup(nd.map(d => d.itemId));
 
     // V4+V6: Sort dumps by ACTIONABILITY (most act-on-able first, not just raw profit)
     nd.forEach(d => { d._actionScore = getActionabilityScore(d).score; });
@@ -2950,6 +3178,26 @@ function getDumpScore(d) {
         score -= 4;
         reasons.push(sectorCheck.sector + ' sector dump (' + sectorCheck.count + ' items)');
     }
+
+    // V7: Anti-snipe — if another flipper is already active, opportunity is worse
+    const snipe = d.snipeCheck || ANTI_SNIPE.detectSnipe(d.itemId, d.instaBuyAt || d.buyPrice);
+    if (snipe && snipe.sniped) {
+        score -= 8;
+        reasons.push('Another flipper active — price bouncing');
+    }
+
+    // V7: Spread quality bonus
+    const spreadQ = d.spreadInfo;
+    if (spreadQ) {
+        if (spreadQ.spreadExpanded) { score += 3; reasons.push('Spread widened — dump confirmed'); }
+        if (spreadQ.quality === 'very_wide' && volHr < 20) { score -= 3; } // Wide + illiquid = trap
+    }
+
+    // V7: Item tier bonus — endgame BIS items are always worth more attention
+    const tier = d.itemTier || ITEM_TIERS.classify(d.name);
+    if (tier.tier === 1) score += 4; // BIS endgame
+    else if (tier.tier === 2) score += 2; // Mid-tier gear
+    // T3 consumables already get a bonus from the category section above
 
     // V4: Historical win rate — if we've tracked flips for this score range,
     // adjust based on how often dumps at this score level actually worked
@@ -3789,11 +4037,28 @@ function renderSniperFeed() {
         const sectorInfo = SECTOR_MOMENTUM.isSectorDump(d.name);
         if (sectorInfo.isSector) tags.push({ text: sectorInfo.sector + ' sector dump', color: 'var(--accent)', icon: '🏢' });
 
+        // V7: Item tier badge
+        if (d.itemTier && d.itemTier.tier <= 2) tags.push({ text: d.itemTier.label, color: d.itemTier.color, icon: d.itemTier.tier === 1 ? '👑' : '🛡️' });
+
+        // V7: Anti-snipe warning
+        if (d.snipeCheck && d.snipeCheck.sniped) tags.push({ text: d.snipeCheck.label, color: 'var(--red)', icon: '🏃' });
+
+        // V7: Exit strategy suggestion
+        if (d.exitStrategy && d.exitStrategy.label !== 'Standard flip') {
+            tags.push({ text: d.exitStrategy.label, color: d.exitStrategy.strategy === 'patience' ? 'var(--blue)' : 'var(--green)', icon: d.exitStrategy.icon });
+        }
+
+        // V7: Spread quality
+        if (d.spreadInfo && d.spreadInfo.label && d.spreadInfo.quality !== 'normal') {
+            const spColor = d.spreadInfo.quality === 'wide' || d.spreadInfo.quality === 'very_wide' ? 'var(--green)' : 'var(--text-muted)';
+            tags.push({ text: d.spreadInfo.label, color: spColor, icon: '📏' });
+        }
+
         // Market intel
         const intel = MARKET_INTEL.getIntel(d);
         if (intel.length > 0) tags.push({ text: intel[0].text.length > 25 ? intel[0].text.slice(0,24) + '…' : intel[0].text, color: 'var(--accent)', icon: intel[0].icon });
 
-        const tagsHtml = tags.length > 0 ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;">${tags.slice(0,6).map(t => `<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:${t.color};">${t.icon} ${t.text}</span>`).join('')}</div>` : '';
+        const tagsHtml = tags.length > 0 ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;">${tags.slice(0,8).map(t => `<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:${t.color};">${t.icon} ${t.text}</span>`).join('')}</div>` : '';
 
         const buyLimitHtml = buyLimit < 100 ? `<span style="margin-left:6px; color:var(--red); font-weight:700; font-size:10px;">⚠️ Limit: ${buyLimit}</span>` : '';
 
