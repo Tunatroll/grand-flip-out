@@ -303,6 +303,18 @@
             .footer-inner { grid-template-columns:1fr; }
         }
 
+        /* === MARKET INTEL === */
+        .intel-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+        .intel-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:600; background:rgba(255,152,31,0.08); border:1px solid rgba(255,152,31,0.15); color:var(--text-secondary); cursor:help; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition:all .2s; }
+        .intel-badge:hover { background:rgba(255,152,31,0.15); border-color:var(--accent); color:var(--text); white-space:normal; max-width:none; }
+        .intel-badge.bot-supply { background:rgba(239,68,68,0.08); border-color:rgba(239,68,68,0.2); }
+        .intel-badge.pvm-meta { background:rgba(59,130,246,0.08); border-color:rgba(59,130,246,0.2); }
+        .intel-badge.skilling-meta { background:rgba(34,197,94,0.08); border-color:rgba(34,197,94,0.2); }
+        .intel-badge.consumable { background:rgba(167,139,250,0.08); border-color:rgba(167,139,250,0.2); }
+        .intel-badge.alch-floor { background:rgba(255,152,31,0.1); border-color:rgba(255,152,31,0.2); }
+        .intel-badge.merch-target { background:rgba(212,175,55,0.1); border-color:rgba(212,175,55,0.2); }
+        .intel-badge.warning { background:rgba(239,68,68,0.1); border-color:rgba(239,68,68,0.2); }
+
         .hidden { display:none !important; }
     </style>
 </head>
@@ -820,6 +832,12 @@ async function sendDiscordAlert(item, type, percentChange) {
         fields.push({ name: '📈 Trend', value: `${item.trendPct > 0 ? '+' : ''}${item.trendPct.toFixed(1)}%`, inline: true });
     }
 
+    // Add market intel reasoning
+    const intel = MARKET_INTEL.getIntel(item);
+    if (intel.length > 0) {
+        fields.push({ name: '🧠 Why?', value: intel[0].text.slice(0, 200), inline: false });
+    }
+
     // Calculate margin for dumps
     if (type === 'dump' && item.buyPrice && item.sellPrice) {
         const margin = item.sellPrice - item.buyPrice - Math.min(Math.floor(item.sellPrice * 0.02), 5000000);
@@ -1279,6 +1297,154 @@ function formatVolPerHour(item) {
     if (vph >= 1000) return (vph/1000).toFixed(1) + 'K/hr';
     return '~' + vph.toLocaleString() + '/hr';
 }
+// ============================================
+// MARKET INTEL — Teachable reasoning for WHY items move
+// ============================================
+const MARKET_INTEL = {
+    // Pattern: name fragment (lowercase) -> { icon, reason, tag }
+    // Tags: bot-supply, pvm-meta, skilling-meta, merch-target, quest-demand, seasonal, consumable, alch-floor
+    rules: [
+        // BOT-AFFECTED ITEMS
+        { match: ['yew log', 'magic log', 'maple log'], tag: 'bot-supply', icon: '🤖',
+          reason: 'F2P bots mass-farm these logs, keeping supply artificially high and prices low. Dumps here often mean a new wave of bots.' },
+        { match: ['raw lobster', 'raw swordfish', 'raw shark', 'raw monkfish'], tag: 'bot-supply', icon: '🤖',
+          reason: 'Fishing bots keep raw fish supply high. Prices drop when bot waves hit, and spike during bot bans.' },
+        { match: ['gold ore', 'iron ore', 'coal', 'runite ore', 'adamantite ore'], tag: 'bot-supply', icon: '🤖',
+          reason: 'Mining bots constantly dump ores. Pumps usually follow Jagex bot-ban waves.' },
+        { match: ['green dragonhide', 'green dragon'], tag: 'bot-supply', icon: '🤖',
+          reason: 'Green dragon bots in the Wilderness are one of the biggest bot farms. Supply floods when bots are active, prices rise after bans.' },
+        { match: ['flax', 'bow string'], tag: 'bot-supply', icon: '🤖',
+          reason: 'Classic bot target. Bow strings from Flax spinning bots keep supply constant.' },
+        { match: ['nature rune'], tag: 'bot-supply', icon: '🤖',
+          reason: 'Nat-running bots and crafting bots impact supply. Price tied to high-alch profitability floor.' },
+
+        // PVM META ITEMS
+        { match: ['dragon knife', 'dragon knives'], tag: 'pvm-meta', icon: '⚔️',
+          reason: 'Dragon knives are BiS spec weapon for PvM. Bots at Demonic Gorillas used to flood supply — when bots get banned, price spikes. Dump = possible new bot wave.' },
+        { match: ['twisted bow'], tag: 'pvm-meta', icon: '⚔️',
+          reason: 'Endgame PvM weapon. Price moves on raid meta changes and dupe rumors. Very low volume — big swings are normal.' },
+        { match: ['scythe of vitur'], tag: 'pvm-meta', icon: '⚔️',
+          reason: 'Theatre of Blood drop. Price tanks when ToB is boosted/events run, rises when PvM meta shifts in its favor.' },
+        { match: ['toxic blowpipe', 'tanzanite fang'], tag: 'pvm-meta', icon: '⚔️',
+          reason: 'Zulrah drop and PvM staple. Price tied to scale costs and Zulrah kill rates. Bots at Zulrah dump supply.' },
+        { match: ['armadyl crossbow', 'armadyl godsword', 'armadyl chestplate', 'armadyl chainskirt'], tag: 'pvm-meta', icon: '⚔️',
+          reason: 'GWD drops. Supply comes from PvM farmers. Pumps often follow boss-of-the-week events.' },
+        { match: ['bandos chestplate', 'bandos tassets', 'bandos godsword'], tag: 'pvm-meta', icon: '⚔️',
+          reason: 'Bandos GWD drops — constant demand for melee gear. Supply floods when GWD is the weekly boss.' },
+        { match: ['abyssal whip'], tag: 'pvm-meta', icon: '⚔️',
+          reason: 'Abyssal demon drop with steady demand. Price held up by alch value floor. Good stable flip.' },
+        { match: ['zenyte shard', 'tormented bracelet', 'amulet of torture', 'necklace of anguish', 'ring of suffering'], tag: 'pvm-meta', icon: '⚔️',
+          reason: 'Zenyte jewelry is BiS. Supply from Demonic Gorilla farmers/bots. Bans = price spike, bot waves = dump.' },
+
+        // SKILLING META
+        { match: ['ranarr seed', 'snapdragon seed', 'torstol seed'], tag: 'skilling-meta', icon: '🌿',
+          reason: 'Herb seeds are heavily farmed. Price tied to herb demand and farming bot activity. Ranarr = prayer pots, Snap = super restores.' },
+        { match: ['ranarr weed', 'grimy ranarr'], tag: 'skilling-meta', icon: '🌿',
+          reason: 'Core ingredient for Prayer potions. Steady demand from PvM. Supply from herb farming bots.' },
+        { match: ['toadflax', 'grimy toadflax'], tag: 'skilling-meta', icon: '🌿',
+          reason: 'Used in Saradomin brews — key PvM supply. Price moves with boss popularity and brew demand.' },
+        { match: ['sara brew', 'saradomin brew'], tag: 'consumable', icon: '🧪',
+          reason: 'Core PvM supply — everyone uses brews. Price tied to toadflax and crushed nest costs. Stable demand, good flip.' },
+        { match: ['super restore'], tag: 'consumable', icon: '🧪',
+          reason: 'Essential PvM supply used alongside brews. Snapdragon price drives cost. Very liquid — high volume flip.' },
+        { match: ['prayer potion'], tag: 'consumable', icon: '🧪',
+          reason: 'Basic PvM supply. Ranarr weed price is the main cost driver. Extremely high volume.' },
+        { match: ['stamina potion'], tag: 'consumable', icon: '🧪',
+          reason: 'Used everywhere — PvM, skilling, clues. Amylase crystal supply from rooftop courses drives cost.' },
+        { match: ['divine super combat', 'super combat potion'], tag: 'consumable', icon: '🧪',
+          reason: 'Top melee potion. Price tied to herb costs (torstol, super sets). Always in demand for bossing.' },
+        { match: ['ranging potion', 'divine ranging'], tag: 'consumable', icon: '🧪',
+          reason: 'Used by all ranged PvMers. Dwarf weed price drives cost. Steady demand.' },
+
+        // HIGH ALCH FLOOR ITEMS
+        { match: ['rune platebody', 'rune platelegs', 'rune plateskirt', 'rune kiteshield', 'rune 2h sword', 'rune chainbody'], tag: 'alch-floor', icon: '🔥',
+          reason: 'Price held at high-alch value floor (~38K-39K). Cannot drop much below alch value — safe flip with tiny margins but huge volume.' },
+        { match: ['onyx bolt', 'dragonstone bolt'], tag: 'alch-floor', icon: '🔥',
+          reason: 'High-alch value provides a price floor. Good for risk-free flipping when price dips near alch value.' },
+
+        // CONSUMABLE SUPPLIES
+        { match: ['cannonball', 'cannon ball'], tag: 'consumable', icon: '💣',
+          reason: 'Massive demand from Slayer grinders. Alt accounts and bots smith these 24/7. Supply very elastic — dumps recover fast.' },
+        { match: ['feather'], tag: 'consumable', icon: '🪶',
+          reason: 'Fishing and Fletching consumable. Bought from shops and by bots. Very high volume, tiny margins — flip in bulk.' },
+        { match: ['death rune', 'blood rune', 'soul rune', 'wrath rune'], tag: 'consumable', icon: '🎯',
+          reason: 'Combat runes consumed by PvMers. Price tied to runecrafting activity and PvM popularity.' },
+        { match: ['zulrah scale', 'zulrah\'s scale'], tag: 'consumable', icon: '🐍',
+          reason: 'Consumed by Toxic blowpipe/Serpentine helm users. Supply from Zulrah farmers. Very liquid market.' },
+
+        // QUEST/SKILL DEMAND
+        { match: ['dragon bones', 'superior dragon bones'], tag: 'quest-demand', icon: '🦴',
+          reason: 'Prayer training staple. Bots at blue/green dragons dump supply. Price spikes during bonus XP events or after bot bans.' },
+        { match: ['ensouled dragon head', 'ensouled giant head', 'ensouled demon head'], tag: 'quest-demand', icon: '🦴',
+          reason: 'Used for Prayer training at Dark Altar. Cheaper alternative to dragon bones. Supply from PvM and bots.' },
+
+        // MERCH TARGETS
+        { match: ['3rd age'], tag: 'merch-target', icon: '💎',
+          reason: 'Ultra-rare clue scroll rewards. Low volume = easy to manipulate. Big price swings are often merch clans, not real supply/demand.' },
+        { match: ['elysian', 'spectral', 'arcane'], tag: 'merch-target', icon: '💎',
+          reason: 'Corp beast shields — very rare drops. Low volume makes them merch clan targets. Don\'t trust sudden pumps.' },
+        { match: ['party hat', 'christmas cracker'], tag: 'merch-target', icon: '💎',
+          reason: 'Discontinued items (in RS3) / rare rewards. Pure speculation and merchanting. Not real supply/demand flips.' },
+    ],
+    // Dynamic intel based on item data
+    getDynamic(item) {
+        const insights = [];
+        const vph = volPerHour(item);
+        const margin = item.margin || 0;
+        const mPct = item.marginPct || 0;
+
+        // Alch value insight
+        if (item.highAlch && item.buyPrice) {
+            const alchProfit = item.highAlch - item.buyPrice - 200; // nature rune cost ~200
+            if (alchProfit > 0 && alchProfit > margin) {
+                insights.push({ icon: '🔥', text: `Alch profit: ${gp(alchProfit)} (safer than flipping)`, tag: 'alch-floor' });
+            }
+            if (item.buyPrice < item.highAlch * 1.02) {
+                insights.push({ icon: '🛡️', text: `Near alch floor (${gp(item.highAlch)}) — limited downside`, tag: 'alch-floor' });
+            }
+        }
+
+        // Volume insight
+        if (vph > 5000) {
+            insights.push({ icon: '🌊', text: 'Extremely liquid — fills fast, tight margins but reliable', tag: 'volume' });
+        } else if (vph < 24) {
+            insights.push({ icon: '⚠️', text: 'Very low volume — expect slow fills and wide spreads', tag: 'volume' });
+        }
+
+        // Margin insight
+        if (mPct > 15) {
+            insights.push({ icon: '🚩', text: `${mPct}% margin is unusually high — could be stale data or manipulation`, tag: 'warning' });
+        }
+
+        // Buy limit vs volume insight
+        if (item.buyLimit && vph > 0) {
+            const hoursToFillLimit = item.buyLimit / vph;
+            if (hoursToFillLimit > 8) {
+                insights.push({ icon: '🐌', text: `Takes ~${Math.round(hoursToFillLimit)}h to fill buy limit at current volume`, tag: 'volume' });
+            }
+        }
+
+        return insights;
+    },
+    // Get all intel for an item
+    getIntel(item) {
+        const name = (item.name || '').toLowerCase();
+        const results = [];
+
+        // Check static rules
+        for (const rule of this.rules) {
+            if (rule.match.some(m => name.includes(m.toLowerCase()))) {
+                results.push({ icon: rule.icon, text: rule.reason, tag: rule.tag });
+            }
+        }
+
+        // Add dynamic insights
+        results.push(...this.getDynamic(item));
+
+        return results;
+    }
+};
+
 function iconUrl(icon) { return icon ? `https://oldschool.runescape.wiki/images/${encodeURIComponent(icon.replace(/ /g,'_'))}` : ''; }
 function iconHtml(icon, name, size=32) {
     if (!icon) return `<div style="width:${size}px;height:${size}px;display:grid;place-items:center;font-size:${size*0.6}px;color:var(--gold);">$</div>`;
@@ -1460,6 +1626,8 @@ function renderSniperFeed() {
         const sevColor = sevPct > 70 ? 'var(--red)' : sevPct > 40 ? 'var(--accent)' : '#d97706';
         const trendArrow = (d.trendPct || 0) < -1 ? '📉📉' : (d.trendPct || 0) < 0 ? '📉' : '➡️';
         const vpressure = d.sellPressure > 3 ? '🔴 Heavy sell pressure' : d.sellPressure > 1.5 ? '🟠 Moderate sell pressure' : '🟡 Light';
+        const intel = MARKET_INTEL.getIntel(d);
+        const intelHtml = intel.length > 0 ? `<div class="intel-row" style="margin-top:8px;">${intel.slice(0,3).map(i => `<span class="intel-badge ${i.tag}" title="${i.text.replace(/"/g,'&quot;')}">${i.icon} ${i.text}</span>`).join('')}</div>` : '';
 
         return `
         <div class="dp-section" style="padding:14px; cursor:pointer;" onclick="openOSRSWiki('${d.name.replace(/'/g, "\\'")}')">
@@ -1494,7 +1662,7 @@ function renderSniperFeed() {
             </div>
             <div style="background:var(--bg-input); border-radius:4px; height:6px; overflow:hidden;">
                 <div style="height:100%; width:${sevPct}%; background:${sevColor}; border-radius:4px; transition:width 0.3s;"></div>
-            </div>
+            </div>${intelHtml}
         </div>`;
     }).join('');
 
@@ -1555,9 +1723,11 @@ function renderTopFlips() {
             const rp = realistic4hProfit(item);
             const rb = realisticBuys(item);
             const volumeLimited = item.buyLimit && (volPerHour(item) * 4) < item.buyLimit;
+            const intel = MARKET_INTEL.getIntel(item);
+            const intelHtml = intel.length > 0 ? `<div class="intel-row">${intel.slice(0,2).map(i => `<span class="intel-badge ${i.tag}" title="${i.text.replace(/"/g,'&quot;')}">${i.icon} ${i.text.length > 40 ? i.text.slice(0,38)+'...' : i.text}</span>`).join('')}</div>` : '';
             return `<tr onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
                 <td onclick="event.stopPropagation(); toggleFav(${item.itemId},event.target.closest('button'))"><button class="fav-btn ${state.watchlist.has(item.itemId)?'on':''}" data-id="${item.itemId}" onclick="toggleFav(${item.itemId},this)">★</button></td>
-                <td class="item-name-cell"><span class="item-row-icon">${iconHtml(item.icon,item.name,32)}</span>${item.name}</td>
+                <td class="item-name-cell" style="max-width:300px;white-space:normal;"><span class="item-row-icon">${iconHtml(item.icon,item.name,32)}</span>${item.name}${intelHtml}</td>
                 <td><span class="verdict-pill ${v.cls}" title="${v.tip}">${v.text}</span></td>
                 <td class="price-green">${gp(item.buyPrice)}</td>
                 <td class="price-red">${gp(item.sellPrice)}</td>
@@ -1574,12 +1744,14 @@ function renderTopFlips() {
         grid.innerHTML = items.map(item => {
             const v = getVerdict(item);
             const rp = realistic4hProfit(item);
+            const intel = MARKET_INTEL.getIntel(item);
+            const topIntel = intel.length > 0 ? `<div style="margin-top:6px;text-align:center;"><span class="intel-badge ${intel[0].tag}" title="${intel[0].text.replace(/"/g,'&quot;')}" style="font-size:9px;">${intel[0].icon} ${intel[0].text.length > 30 ? intel[0].text.slice(0,28)+'...' : intel[0].text}</span></div>` : '';
             return `
             <div class="item-card" onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
                 <button class="card-fav ${state.watchlist.has(item.itemId)?'on':''}" onclick="event.stopPropagation(); toggleFav(${item.itemId},this)">★</button>
                 <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
                 <div class="card-name">${item.name}</div>
-                <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>
+                <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>${topIntel}
                 <div class="card-prices">
                     <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:12px;font-weight:700;">${gp(item.buyPrice)}</div></div>
                     <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:12px;font-weight:700;">${gp(item.sellPrice)}</div></div>
