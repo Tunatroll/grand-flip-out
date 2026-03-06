@@ -898,21 +898,7 @@ async function sendDiscordAlert(item, type, percentChange) {
 
     console.log(`[GFO] Discord alert: ${item.name} — ${gp(profitPerItem)}/item × ${amountToBuy} = ${gp(totalProfit)}`);
 
-    // Discord: profit info + smart framework context (no raw numbers/percentages)
-    // The framework intelligence shows through smart tags — human-readable insights
-    const smartTags = [];
-    if (item.sellPressure > 3) smartTags.push('🔴 Heavy selling');
-    else if (item.sellPressure > 1.8) smartTags.push('🟠 Sellers flooding');
-    if (item.trendPct && item.trendPct < -3) smartTags.push('📉 Still dropping');
-    if (item.crashFromNormal && item.crashFromNormal < -5) smartTags.push('💎 Way below normal');
-    else if (item.crashFromNormal && item.crashFromNormal < -3) smartTags.push('✅ Below normal');
-    const volHr = (item.buyQuantity + item.sellQuantity) * 12;
-    if (volHr > 100) smartTags.push('💧 Very liquid');
-    else if (volHr < 15) smartTags.push('⚠️ Low volume');
-    const intelItems = MARKET_INTEL.getIntel(item);
-    if (intelItems.length > 0) smartTags.push(`${intelItems[0].icon} ${intelItems[0].text.length > 30 ? intelItems[0].text.slice(0,29)+'…' : intelItems[0].text}`);
-    const tagLine = smartTags.length > 0 ? '\n' + smartTags.slice(0, 3).join(' · ') : '';
-
+    // Discord = just the money. The smartness is in WHAT gets alerted, not the message.
     try {
         const resp = await fetch(state.webhookUrl, {
             method: 'POST',
@@ -920,7 +906,7 @@ async function sendDiscordAlert(item, type, percentChange) {
             body: JSON.stringify({
                 embeds: [{
                     title: `💰 ${item.name} — ${gp(profitPerItem)}/item`,
-                    description: `Buy **${gp(buyAt)}** → Sell **${gp(sellFor)}** → **${gp(totalProfit)}** total${tagLine}`,
+                    description: `Buy **${gp(buyAt)}** → Sell **${gp(sellFor)}** → **${gp(totalProfit)}** total`,
                     color: 0x22C55E,
                     thumbnail: item.icon ? { url: `https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}` } : undefined,
                     footer: { text: 'Grand Flip Out' },
