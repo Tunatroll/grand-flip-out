@@ -1169,8 +1169,27 @@ async function checkDumpsLight() {
         const bv = vi.lowPriceVolume || 0, sv = vi.highPriceVolume || 0;
         if ((bv + sv) < 3) continue; // Need at least some volume
 
-        // Skip very cheap items (under 5k GP - not worth dump flipping)
-        if (instaBuyPrice < 5000 && instaSellPrice < 5000) continue;
+        // ====== ITEM QUALITY GATE ======
+        // Use the NORMAL price (1h average) to judge item value, NOT current price.
+        // A high-value item dumped to 1gp should STILL show up — that's the whole point.
+        // But a bronze pickaxe that normally trades at 120gp? Always junk.
+
+        const normalValue = avgSellPrice1h > 0 ? avgSellPrice1h : (avgSellPrice5m > 0 ? avgSellPrice5m : instaSellPrice);
+
+        // 1. Item must normally be worth at least 50K GP
+        //    This filters out bronze/iron/steel garbage, basic tools, quest junk
+        //    But keeps expensive items that crash to low prices (that's a dump opportunity!)
+        if (normalValue < 50000) continue;
+
+        // 2. Name-based junk filter for items that are NEVER worth flipping
+        //    regardless of price (novelty items, untradeable-adjacent junk)
+        const nameLower = (meta.name || '').toLowerCase();
+        const ALWAYS_JUNK = [
+            'burnt ', 'broken ', 'damaged ',
+            'cake tin', 'pie dish', 'beer glass',
+            'wooden shield', 'leather body', 'leather chaps',
+        ];
+        if (ALWAYS_JUNK.some(p => nameLower.startsWith(p) || nameLower.includes(p))) continue;
 
         // THE DUMP FLIP: buy at instaBuyPrice, sell at instaSellPrice
         // Tax = 2% of sell price, capped at 5M
@@ -1250,18 +1269,37 @@ async function checkDumpsLight() {
             sellPressure: sellPressure, buyPressure: buyPressure
         };
 
-        // DUMP DETECTION: Only show dumps where you can actually make hundreds of thousands of GP
-        // Must have REAL profit AND real crash evidence
-        const isDump = flipProfit >= 50000 && (
-            (crashPct < -2 && flipProfit >= 100000) ||
-            (crashFromNormal < -3 && flipProfit >= 100000) ||
-            (sellPressure > 2.5 && crashPct < -0.5 && flipProfit >= 150000) ||
-            (trendPct < -3 && flipProfit >= 150000) ||
-            (severity > 8 && flipProfit >= 100000)
+        // ====== VOLUME & DEMAND GATE ======
+        // An item is only worth showing if people actually TRADE it
+        // Low volume = you can't actually execute the flip = useless alert
+        const totalVol5m = bv + sv;
+        const estVolPerHour = totalVol5m * 12;
+        const isHighDemand = estVolPerHour >= 20;       // 20+ trades/hr = decent liquidity
+        const isMedDemand = estVolPerHour >= 8;          // 8+ trades/hr = tradeable
+        const isLowDemand = estVolPerHour < 8;           // Under 8/hr = illiquid garbage
+
+        // DUMP DETECTION: Only show dumps that are WORTH YOUR TIME
+        // Requirements: real profit, real crash evidence, real volume
+        const isDump = flipProfit >= 100000 && !isLowDemand && (
+            // High-value crash with good profit
+            (crashFromNormal < -3 && flipProfit >= 200000) ||
+            // Meaningful crash with great profit
+            (crashPct < -2 && flipProfit >= 200000 && isMedDemand) ||
+            // Heavy selling pressure on a profitable item
+            (sellPressure > 2.5 && crashPct < -1 && flipProfit >= 300000 && isMedDemand) ||
+            // Sustained downtrend on expensive items
+            (trendPct < -3 && flipProfit >= 300000 && isHighDemand) ||
+            // Extremely profitable regardless (1M+/item = always show)
+            (flipProfit >= 1000000 && totalVol5m >= 3)
         );
 
-        // PUMP DETECTION: price rising fast
-        const isPump = (crashPct > 2 || (buyPressure > 2.5 && crashPct > 0.5) || trendPct > 3);
+        // PUMP DETECTION: only items worth caring about
+        // Use normalValue (not current price) so we catch pumps on valuable items
+        const isPump = normalValue >= 50000 && isMedDemand && (
+            (crashPct > 3 && normalValue >= 100000) ||
+            (buyPressure > 3 && crashPct > 1 && normalValue >= 100000) ||
+            (trendPct > 5 && isHighDemand && normalValue >= 100000)
+        );
 
         if (isDump) nd.push(summary);
         if (isPump) np.push(summary);
@@ -1272,7 +1310,7 @@ async function checkDumpsLight() {
 
     // Sort dumps by FLIP PROFIT (most profitable first!) — this is what matters
     nd.sort((a, b) => b.flipProfit - a.flipProfit);
-    np.sort((a, b) => b.percentChange - a.percentChange);
+    np.sort((a, b) => (b.sellPrice || 0) - (a.sellPrice || 0)); // Sort pumps by value, not %
 
     const prevDI = new Set(state.dumps.map(d=>d.itemId));
     const changed = nd.length !== state.dumps.length || nd.some(d => !prevDI.has(d.itemId));
