@@ -557,7 +557,7 @@
         <div class="controls-bar">
             <select class="ctrl-select" id="recipeSort">
                 <option value="profit">Sort: Profit</option>
-                <option value="roi">Sort: ROI %</option>
+                <option value="roi">Sort: Best Return</option>
                 <option value="name">Sort: Name</option>
             </select>
         </div>
@@ -2454,7 +2454,7 @@ function renderTopFlips(force = false) {
     }
     switch (state.currentSort) {
         case 'margin': items.sort((a,b) => b.margin - a.margin); break;
-        case 'margin-pct': items.sort((a,b) => b.marginPct - a.marginPct); break;
+        case 'margin-pct': items.sort((a,b) => (b.margin || 0) - (a.margin || 0)); break;
         case 'volume': items.sort((a,b) => volPerHour(b) - volPerHour(a)); break;
         case 'price': items.sort((a,b) => b.sellPrice - a.sellPrice); break;
         default: items.sort((a,b) => realistic4hProfit(b) - realistic4hProfit(a));
