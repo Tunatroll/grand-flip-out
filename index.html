@@ -1084,7 +1084,9 @@ function calculateJTI(item) {
     const buyVol = item.buyQuantity || 0, sellVol = item.sellQuantity || 0;
     const totalVol = buyVol + sellVol;
     const highTime = item.highTime || 0, lowTime = item.lowTime || 0;
+    const margin = item.margin || (sellPrice - buyPrice - GE_TAX.calculate(sellPrice));
 
+    // === FRESHNESS (15%) — how recent is this price data? ===
     let freshness = 0;
     if (highTime || lowTime) {
         const age = Math.floor(Date.now() / 1000) - Math.max(highTime, lowTime);
@@ -1093,27 +1095,62 @@ function calculateJTI(item) {
         else if (age < 600) freshness = 50; else if (age < 1200) freshness = 25;
         else freshness = Math.max(0, 100 - (age / 600) * 100);
     }
+
+    // === LIQUIDITY (20%) — can you actually execute this trade? ===
     let liquidity = 0;
     if (totalVol >= 100000) liquidity = 100; else if (totalVol >= 50000) liquidity = 90;
     else if (totalVol >= 10000) liquidity = 75; else if (totalVol >= 1000) liquidity = 50;
     else if (totalVol >= 100) liquidity = 25;
     else if (totalVol > 0) liquidity = Math.min(100, (totalVol / 100) * 25);
+
+    // === MARGIN QUALITY (20%) — is the spread real and executable? ===
     let marginScore = 0;
     if (buyPrice > 0 && sellPrice > 0) {
         const spread = (sellPrice - buyPrice) / buyPrice;
-        if (spread < 0) marginScore = 0; else if (spread === 0) marginScore = 20;
+        // Sweet spot: 2.5-10% spread. Too low = race to the bottom. Too high = stale/manip.
+        if (spread < 0) marginScore = 0; else if (spread === 0) marginScore = 10;
         else if (spread <= 0.025) marginScore = 40; else if (spread <= 0.05) marginScore = 100;
-        else if (spread <= 0.10) marginScore = 80; else if (spread <= 0.20) marginScore = 50;
-        else if (spread <= 0.40) marginScore = 25;
-        else marginScore = Math.max(0, 100 - spread * 50);
+        else if (spread <= 0.10) marginScore = 80; else if (spread <= 0.20) marginScore = 45;
+        else if (spread <= 0.40) marginScore = 20;
+        else marginScore = Math.max(0, 100 - spread * 100); // >40% spread = suspicious
     }
+
+    // === VELOCITY (15%) — trade frequency ===
     let velocity = 0;
     if (totalVol >= 10000) velocity = 100; else if (totalVol >= 5000) velocity = 90;
     else if (totalVol >= 1000) velocity = 75; else if (totalVol >= 500) velocity = 60;
     else if (totalVol >= 100) velocity = 45; else if (totalVol >= 50) velocity = 30;
     else if (totalVol >= 10) velocity = 15;
     else if (totalVol > 0) velocity = Math.min(100, (totalVol / 10) * 15);
-    const jti = Math.round((freshness*15 + liquidity*20 + marginScore*20 + 50*15 + 50*15 + velocity*15)/100);
+
+    // === GP EFFICIENCY (15%) — realistic profit per hour (replaces dead-weight 50) ===
+    let efficiency = 0;
+    const volHr = totalVol * 12;
+    const buyLimit = item.buyLimit || 999999;
+    const canBuy4h = Math.min(buyLimit, Math.round(volHr * 4));
+    const profit4h = margin * canBuy4h;
+    const gpPerHr = profit4h / 4;
+    if (gpPerHr >= 2000000) efficiency = 100;
+    else if (gpPerHr >= 1000000) efficiency = 85;
+    else if (gpPerHr >= 500000) efficiency = 70;
+    else if (gpPerHr >= 200000) efficiency = 55;
+    else if (gpPerHr >= 100000) efficiency = 40;
+    else if (gpPerHr >= 50000) efficiency = 25;
+    else if (gpPerHr > 0) efficiency = Math.min(100, (gpPerHr / 50000) * 25);
+
+    // === STABILITY (15%) — is this margin reliable or flickering? (replaces dead-weight 50) ===
+    let stability = 50; // Default: neutral
+    const marginTrend = getMarginTrend(item.itemId);
+    if (marginTrend.trend === 'expanding') stability = 90;    // Margins growing = great
+    else if (marginTrend.trend === 'stable') stability = 70;   // Steady margin = good
+    else if (marginTrend.trend === 'compressing') {
+        stability = Math.max(10, 50 - marginTrend.compression); // Shrinking margin = bad
+    }
+    // Alch floor provides a stability backstop
+    const alchInfo = ALCH_CALC.getAlchProfit(item);
+    if (alchInfo.worth) stability = Math.max(stability, 65); // Can always alch = safe floor
+
+    const jti = Math.round((freshness*15 + liquidity*20 + marginScore*20 + efficiency*15 + stability*15 + velocity*15)/100);
     return Math.max(0, Math.min(100, jti));
 }
 
@@ -1554,6 +1591,249 @@ function getFlipRiskScore(item, freshness) {
         color: risk >= 60 ? 'var(--red)' : risk >= 35 ? 'var(--accent)' : risk >= 15 ? 'var(--blue)' : 'var(--green)'
     };
 }
+
+// ============================================
+// MARGIN COMPRESSION DETECTION
+// ============================================
+// When a profitable flip gets noticed, flippers swarm it.
+// More flippers = margin shrinks = your profit drops before you execute.
+// Detect this by tracking margin history and flagging items where margins are tightening.
+
+function getMarginTrend(itemId) {
+    const mem = state.priceMemory[itemId];
+    if (!mem || mem.samples.length < 6) return { trend: 'unknown', compression: 0 };
+
+    // We stored avg price, but we need spread data from spreadHistory
+    const spreadHist = state.spreadHistory[itemId] || [];
+    if (spreadHist.length < 6) return { trend: 'unknown', compression: 0 };
+
+    // Compare recent spreads to older spreads
+    const cutoff = Math.floor(spreadHist.length / 2);
+    const older = spreadHist.slice(0, cutoff);
+    const newer = spreadHist.slice(cutoff);
+
+    const avgOlderSpread = older.reduce((s, x) => s + x.spread, 0) / older.length;
+    const avgNewerSpread = newer.reduce((s, x) => s + x.spread, 0) / newer.length;
+
+    if (avgOlderSpread <= 0) return { trend: 'unknown', compression: 0 };
+
+    const changeRate = ((avgNewerSpread - avgOlderSpread) / avgOlderSpread) * 100;
+
+    if (changeRate < -20) return { trend: 'compressing', compression: Math.abs(changeRate), label: 'Margin shrinking fast', icon: '📉' };
+    if (changeRate < -8) return { trend: 'compressing', compression: Math.abs(changeRate), label: 'Margin tightening', icon: '📉' };
+    if (changeRate > 15) return { trend: 'expanding', compression: changeRate, label: 'Margin growing', icon: '📈' };
+    return { trend: 'stable', compression: 0, label: '', icon: '' };
+}
+
+// ============================================
+// ALCH PROFIT CALCULATOR
+// ============================================
+// High alchemy profit = alch value - item cost - nature rune cost.
+// Some items are worth more alched than sold on GE.
+// This is a floor price guarantee — if the flip fails, you can always alch.
+
+const ALCH_CALC = {
+    // Nature rune price (updated from market data when available)
+    natRunePrice: 120, // default fallback
+
+    updateNatPrice() {
+        // Find nature rune in allItems
+        const nat = state.allItems.find(i => (i.name || '').toLowerCase() === 'nature rune');
+        if (nat && nat.buyPrice > 0) this.natRunePrice = nat.buyPrice;
+    },
+
+    getAlchProfit(item) {
+        const alchValue = item.highAlch || 0;
+        if (alchValue <= 0) return { profit: 0, worth: false };
+        const buyPrice = item.instaBuyAt || item.buyPrice || 0;
+        const profit = alchValue - buyPrice - this.natRunePrice;
+        return {
+            profit,
+            worth: profit > 0,
+            alchValue,
+            natCost: this.natRunePrice,
+            // Is alching more profitable than GE flipping?
+            betterThanFlip: profit > (item.flipProfit || item.margin || 0)
+        };
+    }
+};
+
+// ============================================
+// SUPPLY/DEMAND VELOCITY TRACKING
+// ============================================
+// Not just "are there more sellers than buyers?" but
+// "is selling ACCELERATING or decelerating?"
+// Acceleration = dump getting worse. Deceleration = dump slowing, recovery starting.
+
+function getVolumeAcceleration(itemId) {
+    const history = state.priceHistory[itemId] || [];
+    if (history.length < 4) return { buyAccel: 0, sellAccel: 0, label: '', netPressure: 0 };
+
+    // We only have total vol in history, not buy/sell split.
+    // Use spread history as a proxy — widening spread = more selling pressure.
+    const spreadHist = state.spreadHistory[itemId] || [];
+    if (spreadHist.length < 6) return { buyAccel: 0, sellAccel: 0, label: '', netPressure: 0 };
+
+    // Measure spread velocity (rate of change of spread)
+    const third = Math.floor(spreadHist.length / 3);
+    const early = spreadHist.slice(0, third);
+    const mid = spreadHist.slice(third, third * 2);
+    const late = spreadHist.slice(third * 2);
+
+    const avgEarly = early.reduce((s, x) => s + x.spreadPct, 0) / early.length;
+    const avgMid = mid.reduce((s, x) => s + x.spreadPct, 0) / mid.length;
+    const avgLate = late.reduce((s, x) => s + x.spreadPct, 0) / late.length;
+
+    // First derivative (velocity): is the spread growing or shrinking?
+    const velocity1 = avgMid - avgEarly;
+    const velocity2 = avgLate - avgMid;
+
+    // Second derivative (acceleration): is the change accelerating?
+    const acceleration = velocity2 - velocity1;
+
+    let label = '';
+    if (acceleration > 1 && velocity2 > 0) label = 'Dump accelerating';
+    else if (acceleration < -1 && velocity2 < 0) label = 'Recovery accelerating';
+    else if (velocity2 < -0.5) label = 'Spread tightening';
+    else if (velocity2 > 0.5) label = 'Spread widening';
+
+    return {
+        velocity: velocity2,
+        acceleration,
+        label,
+        // Positive = selling pressure increasing, negative = buying pressure increasing
+        netPressure: velocity2
+    };
+}
+
+// ============================================
+// CAPITAL ALLOCATION ADVISOR
+// ============================================
+// Given a bank size, recommends how to split GP across multiple flips.
+// Rule: never put more than 30% into one item. Diversify across risk levels.
+// Factor in buy limits, fill times, and risk scores.
+
+const CAPITAL_ADVISOR = {
+    recommend(bankSize, dumps) {
+        if (!dumps || dumps.length === 0 || bankSize <= 0) return [];
+
+        const allocations = [];
+        let remaining = bankSize;
+
+        // Score and sort by actionability (already done in pipeline)
+        const candidates = dumps.filter(d => {
+            const buyPrice = d.instaBuyAt || d.buyPrice || 0;
+            return buyPrice > 0 && buyPrice < remaining;
+        });
+
+        for (const item of candidates) {
+            if (remaining <= 0) break;
+            const buyPrice = item.instaBuyAt || item.buyPrice || 0;
+            const profit = item.flipProfit || 0;
+            if (buyPrice <= 0 || profit <= 0) continue;
+
+            const exec = getFlipExecution(item);
+            const risk = getFlipRiskScore(item, item.freshness);
+
+            // Max allocation rules:
+            // 1. Never more than 30% of bank in one item
+            // 2. Never more than buy limit allows
+            // 3. High risk items get smaller allocation
+            const maxPctOfBank = risk.score >= 50 ? 0.10 : risk.score >= 30 ? 0.20 : 0.30;
+            const maxGp = Math.min(remaining, bankSize * maxPctOfBank);
+            const maxByLimit = buyPrice * (item.buyLimit || 999999);
+            const maxByVolume = buyPrice * exec.canBuyPer4h;
+
+            const allocGp = Math.min(maxGp, maxByLimit, maxByVolume);
+            const quantity = Math.floor(allocGp / buyPrice);
+            if (quantity <= 0) continue;
+
+            const investedGp = quantity * buyPrice;
+            const expectedProfit = quantity * profit;
+
+            allocations.push({
+                itemId: item.itemId,
+                name: item.name,
+                quantity,
+                investGp: investedGp,
+                expectedProfit,
+                risk: risk.label,
+                fillTime: exec.fillTimeLabel,
+                pctOfBank: Math.round((investedGp / bankSize) * 100)
+            });
+
+            remaining -= investedGp;
+        }
+
+        return allocations;
+    }
+};
+
+// ============================================
+// JAGEX UPDATE / EVENT AWARENESS
+// ============================================
+// OSRS has predictable weekly patterns that affect the GE:
+// - Wednesday: weekly game updates (often affect item prices)
+// - Boss of the Week: rotates weekly, floods supply of that boss's drops
+// - Double XP weekends (rare): spike demand for skilling supplies
+// - Leagues/DMM: temporary modes that shift player attention
+
+const OSRS_CALENDAR = {
+    getContext() {
+        const now = new Date();
+        const day = now.getUTCDay(); // 0=Sun, 3=Wed
+        const hour = now.getUTCHours();
+        const context = [];
+
+        // Wednesday = update day (usually 11:30 UTC)
+        if (day === 3 && hour < 14) {
+            context.push({ type: 'update_day', label: 'Update day — prices volatile until patch notes', icon: '🔄', impact: 'volatile' });
+        }
+        if (day === 3 && hour >= 11 && hour <= 13) {
+            context.push({ type: 'update_live', label: 'Update deploying — GE frozen briefly', icon: '⚠️', impact: 'frozen' });
+        }
+
+        // Post-update Wednesday afternoon: new meta items spike
+        if (day === 3 && hour >= 14) {
+            context.push({ type: 'post_update', label: 'Post-update — watch for meta shifts', icon: '👀', impact: 'opportunity' });
+        }
+
+        // Weekend: higher player count, more volume, prices tend to stabilize
+        if (day === 0 || day === 6) {
+            context.push({ type: 'weekend', label: 'Weekend — higher volume, steadier prices', icon: '📊', impact: 'stable' });
+        }
+
+        // Monday morning: often a dip as weekend sellers dump
+        if (day === 1 && hour < 12) {
+            context.push({ type: 'monday_dip', label: 'Monday morning — weekend sell-off common', icon: '📉', impact: 'dip' });
+        }
+
+        // Late night (2-6 UTC): dead hours, low liquidity, price spikes unreliable
+        if (hour >= 2 && hour <= 6) {
+            context.push({ type: 'dead_hours', label: 'Dead hours — low liquidity, unreliable prices', icon: '🌙', impact: 'unreliable' });
+        }
+
+        // Peak hours (17-22 UTC): best time to flip, most volume
+        if (hour >= 17 && hour <= 22) {
+            context.push({ type: 'peak', label: 'Peak hours — best volume for flipping', icon: '🔥', impact: 'good' });
+        }
+
+        return context;
+    },
+
+    // Get a single-line market status
+    getStatus() {
+        const ctx = this.getContext();
+        if (ctx.length === 0) return { text: 'Normal trading hours', icon: '🕐' };
+        // Pick the most impactful context
+        const priority = ['update_live', 'update_day', 'post_update', 'dead_hours', 'monday_dip', 'peak', 'weekend'];
+        for (const p of priority) {
+            const match = ctx.find(c => c.type === p);
+            if (match) return match;
+        }
+        return ctx[0];
+    }
+};
 
 // ============================================
 // GE TAX OPTIMIZATION ENGINE
