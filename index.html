@@ -1837,6 +1837,198 @@ const OSRS_CALENDAR = {
 };
 
 // ============================================
+// V6: FLIP TIMER — Track dump age
+// ============================================
+// How long has this dump been active? Fresh dumps are better.
+// Stale dumps = someone else already bought the dip.
+const FLIP_TIMER = {
+    // Track first-seen time for each active dump
+    firstSeen: {},
+
+    markSeen(itemId) {
+        if (!this.firstSeen[itemId]) {
+            this.firstSeen[itemId] = Date.now();
+        }
+    },
+
+    getAge(itemId) {
+        const seen = this.firstSeen[itemId];
+        if (!seen) return { ms: 0, label: 'New', minutes: 0, fresh: true };
+        const ms = Date.now() - seen;
+        const min = Math.round(ms / 60000);
+        if (min < 2) return { ms, label: 'Just found', minutes: min, fresh: true };
+        if (min < 10) return { ms, label: min + ' min ago', minutes: min, fresh: true };
+        if (min < 30) return { ms, label: min + ' min ago', minutes: min, fresh: false };
+        if (min < 60) return { ms, label: Math.round(min) + ' min ago', minutes: min, fresh: false };
+        return { ms, label: Math.round(min / 60) + 'h ago', minutes: min, fresh: false };
+    },
+
+    // Cleanup items no longer in dumps list
+    cleanup(activeDumpIds) {
+        const activeSet = new Set(activeDumpIds);
+        for (const id of Object.keys(this.firstSeen)) {
+            if (!activeSet.has(parseInt(id))) {
+                delete this.firstSeen[id];
+            }
+        }
+    }
+};
+
+// ============================================
+// V6: CONFIDENCE DECAY
+// ============================================
+// Dump confidence should decay if the item hasn't been re-confirmed recently.
+// A dump seen 20 min ago but not confirmed since = might have recovered.
+function applyConfidenceDecay() {
+    const now = Date.now();
+    for (const [id, dc] of Object.entries(state.dumpConfidence)) {
+        if (!dc.lastUpdated) continue;
+        const ageMins = (now - dc.lastUpdated) / 60000;
+        // After 5 min without reconfirmation, start decaying
+        if (ageMins > 5 && dc.confirmations > 0) {
+            dc.confirmations = Math.max(0, dc.confirmations - Math.floor(ageMins / 5));
+        }
+        // After 15 min with no update, clear it entirely
+        if (ageMins > 15) {
+            delete state.dumpConfidence[id];
+        }
+    }
+}
+
+// ============================================
+// V6: ADAPTIVE DUMP THRESHOLDS
+// ============================================
+// In a bear market, everything is crashing — raise the bar.
+// In a bull market, any crash is unusual — lower the bar.
+// In dead hours, raise the bar (low-liquidity noise).
+function getAdaptiveDumpThresholds() {
+    const regime = MARKET_REGIME.state || 'stable';
+    const calCtx = OSRS_CALENDAR.getContext();
+    const isDead = calCtx.some(c => c.type === 'dead_hours');
+    const isUpdate = calCtx.some(c => c.type === 'update_day' || c.type === 'update_live');
+
+    let minScore = 35;       // Base minimum dump score
+    let minProfit = 100000;  // Base minimum flip profit
+    let minConfirm = 2;      // Base confirmation count for borderline items
+
+    if (regime === 'bear') {
+        // Bear market: everything dumps, raise the bar
+        minScore += 10;
+        minProfit += 50000;
+    } else if (regime === 'bull') {
+        // Bull market: crashes are rare and real
+        minScore -= 5;
+    } else if (regime === 'volatile') {
+        // Volatile: noise everywhere, be stricter
+        minScore += 5;
+        minConfirm += 1;
+    }
+
+    if (isDead) {
+        minScore += 8;
+        minProfit += 50000;
+    }
+
+    if (isUpdate) {
+        minScore += 5; // Update day: erratic prices
+    }
+
+    return { minScore, minProfit, minConfirm };
+}
+
+// ============================================
+// V6: SECTOR MOMENTUM TRACKER
+// ============================================
+// Track which item categories are dumping together.
+// If 3+ items in "Bandos GWD" all crash = sector-wide event, not individual dumps.
+const SECTOR_MOMENTUM = {
+    // Track category crash counts over recent scans
+    sectorCrashes: {},  // { 'Bandos GWD': { count: 3, items: ['BCP','Tassets','Hilt'], lastSeen: ts } }
+
+    update(dumps) {
+        const now = Date.now();
+        // Reset sectors not seen in 10 min
+        for (const [sec, data] of Object.entries(this.sectorCrashes)) {
+            if (now - data.lastSeen > 600000) delete this.sectorCrashes[sec];
+        }
+
+        // Map each dump to its ITEM_GROUP
+        const sectorMap = {};
+        for (const d of dumps) {
+            const groups = ITEM_GROUPS.getGroups(d.name);
+            for (const g of groups) {
+                if (!sectorMap[g]) sectorMap[g] = [];
+                sectorMap[g].push(d.name);
+            }
+        }
+
+        for (const [sec, items] of Object.entries(sectorMap)) {
+            this.sectorCrashes[sec] = { count: items.length, items, lastSeen: now };
+        }
+    },
+
+    // Is this item part of a sector-wide dump?
+    isSectorDump(itemName) {
+        const groups = ITEM_GROUPS.getGroups(itemName);
+        for (const g of groups) {
+            const sec = this.sectorCrashes[g];
+            if (sec && sec.count >= 3) {
+                return { isSector: true, sector: g, count: sec.count, items: sec.items };
+            }
+        }
+        return { isSector: false };
+    },
+
+    getActiveSectors() {
+        return Object.entries(this.sectorCrashes)
+            .filter(([, d]) => d.count >= 2)
+            .map(([name, d]) => ({ name, count: d.count, items: d.items }))
+            .sort((a, b) => b.count - a.count);
+    }
+};
+
+// ============================================
+// V6: PROFIT VELOCITY
+// ============================================
+// Track how margins change over time for active dumps.
+// Shrinking margins = other flippers arrived, opportunity fading.
+// Growing margins = dump deepening, opportunity improving.
+const PROFIT_VELOCITY = {
+    history: {}, // itemId -> [{ time, profit }]
+
+    record(itemId, profit) {
+        if (!this.history[itemId]) this.history[itemId] = [];
+        this.history[itemId].push({ time: Date.now(), profit });
+        // Keep last 15 data points (about 2 min at 8s intervals)
+        if (this.history[itemId].length > 15) this.history[itemId].shift();
+    },
+
+    getVelocity(itemId) {
+        const h = this.history[itemId];
+        if (!h || h.length < 3) return { direction: 'unknown', rate: 0, label: '' };
+
+        const recent = h.slice(-3);
+        const older = h.slice(0, 3);
+        const avgRecent = recent.reduce((s, x) => s + x.profit, 0) / recent.length;
+        const avgOlder = older.reduce((s, x) => s + x.profit, 0) / older.length;
+
+        const change = avgRecent - avgOlder;
+        const rate = avgOlder > 0 ? (change / avgOlder) * 100 : 0;
+
+        if (rate > 10) return { direction: 'growing', rate, label: 'Margins growing' };
+        if (rate < -10) return { direction: 'shrinking', rate, label: 'Margins fading' };
+        return { direction: 'stable', rate, label: '' };
+    },
+
+    cleanup(activeIds) {
+        const set = new Set(activeIds);
+        for (const id of Object.keys(this.history)) {
+            if (!set.has(parseInt(id))) delete this.history[id];
+        }
+    }
+};
+
+// ============================================
 // GE TAX OPTIMIZATION ENGINE
 // ============================================
 // GE tax = 2% of sell price, capped at 5M GP.
@@ -2237,6 +2429,10 @@ async function checkDumpsLight() {
     // V5: Update nature rune price for alch calculations
     ALCH_CALC.updateNatPrice();
 
+    // V6: Confidence decay + adaptive thresholds
+    applyConfidenceDecay();
+    const adaptiveThresh = getAdaptiveDumpThresholds();
+
     // ======= DUMP DETECTION: Find items you can BUY LOW and SELL HIGH right now =======
     // A "dump" = item price has crashed. You insta-buy at the crashed price, then sell at normal price.
     //
@@ -2450,10 +2646,14 @@ async function checkDumpsLight() {
         // Require realistic total profit of at least 200K to show up
         const minTotalProfit = totalProfitCap >= 200000;
 
-        // DUMP DETECTION: V2 — score + profit + demand + total profit cap
-        // Also require at least 2 confirmations (seen in consecutive checks) for items with borderline scores
-        const isConfirmed = dumpScoreResult.score >= 50 || (dc && dc.confirmations >= 2);
-        const isDump = flipProfit >= 100000 && !isLowDemand && minTotalProfit && dumpScoreResult.score >= 35 && isConfirmed;
+        // V6: Track profit velocity (margin changes over time)
+        PROFIT_VELOCITY.record(id, flipProfit);
+        const profitVel = PROFIT_VELOCITY.getVelocity(id);
+        summary.profitVelocity = profitVel;
+
+        // DUMP DETECTION: V6 — adaptive thresholds based on market conditions
+        const isConfirmed = dumpScoreResult.score >= 50 || (dc && dc.confirmations >= adaptiveThresh.minConfirm);
+        const isDump = flipProfit >= adaptiveThresh.minProfit && !isLowDemand && minTotalProfit && dumpScoreResult.score >= adaptiveThresh.minScore && isConfirmed;
 
         // PUMP DETECTION: only items worth caring about
         // Use normalValue (not current price) so we catch pumps on valuable items
@@ -2470,8 +2670,14 @@ async function checkDumpsLight() {
         state.prevPrices[id] = currentAvg;
     }
 
-    // V4: Sort dumps by ACTIONABILITY (most act-on-able first, not just raw profit)
-    // Factors: profit, speed, risk, freshness, confirmation, GP/hr, price pattern, market regime
+    // V6: Track dump ages, sector momentum, and cleanup stale trackers
+    nd.forEach(d => FLIP_TIMER.markSeen(d.itemId));
+    nd.forEach(d => { d.dumpAge = FLIP_TIMER.getAge(d.itemId); });
+    FLIP_TIMER.cleanup(nd.map(d => d.itemId));
+    PROFIT_VELOCITY.cleanup(nd.map(d => d.itemId));
+    SECTOR_MOMENTUM.update(nd);
+
+    // V4+V6: Sort dumps by ACTIONABILITY (most act-on-able first, not just raw profit)
     nd.forEach(d => { d._actionScore = getActionabilityScore(d).score; });
     nd.sort((a, b) => b._actionScore - a._actionScore);
     np.sort((a, b) => (b.sellPrice || 0) - (a.sellPrice || 0));
@@ -2722,9 +2928,27 @@ function getDumpScore(d) {
     const ai = d.alchInfo;
     if (ai && ai.worth && ai.betterThanFlip) {
         score += 4;
-        reasons.push('Alch profit backup: ' + gp(ai.profit));
+        reasons.push('Alch profit backup');
     } else if (ai && ai.worth) {
-        score += 2; // Alch is profitable but GE flip is better
+        score += 2;
+    }
+
+    // V6: Dump age penalty — stale dumps are less valuable
+    const dumpAge = d.dumpAge || FLIP_TIMER.getAge(d.itemId);
+    if (dumpAge.minutes > 20) { score -= 6; reasons.push('Dump is ' + dumpAge.minutes + ' min old'); }
+    else if (dumpAge.minutes > 10) { score -= 3; }
+    else if (dumpAge.minutes < 2) { score += 3; reasons.push('Fresh dump — just detected'); }
+
+    // V6: Profit velocity — fading margins = competition arrived
+    const pv = d.profitVelocity || PROFIT_VELOCITY.getVelocity(d.itemId);
+    if (pv.direction === 'shrinking') { score -= 4; reasons.push('Margins fading fast'); }
+    else if (pv.direction === 'growing') { score += 3; reasons.push('Margins still growing'); }
+
+    // V6: Sector dump modifier — individual crashes are better than whole sector dumps
+    const sectorCheck = SECTOR_MOMENTUM.isSectorDump(d.name);
+    if (sectorCheck.isSector) {
+        score -= 4;
+        reasons.push(sectorCheck.sector + ' sector dump (' + sectorCheck.count + ' items)');
     }
 
     // V4: Historical win rate — if we've tracked flips for this score range,
@@ -3548,6 +3772,22 @@ function renderSniperFeed() {
             if (d.alchInfo.betterThanFlip) tags.push({ text: 'Alch backup ' + gp(d.alchInfo.profit), color: 'var(--green)', icon: '🔮' });
             else tags.push({ text: 'Alch floor ' + gp(d.alchInfo.alchValue), color: 'var(--text-muted)', icon: '🔮' });
         }
+
+        // V6: Dump age — how long has this been detected?
+        if (d.dumpAge) {
+            if (d.dumpAge.fresh) tags.push({ text: d.dumpAge.label, color: 'var(--green)', icon: '🆕' });
+            else tags.push({ text: d.dumpAge.label, color: 'var(--text-muted)', icon: '🕐' });
+        }
+
+        // V6: Profit velocity — are margins growing or fading?
+        if (d.profitVelocity && d.profitVelocity.label) {
+            const pvColor = d.profitVelocity.direction === 'growing' ? 'var(--green)' : 'var(--red)';
+            tags.push({ text: d.profitVelocity.label, color: pvColor, icon: d.profitVelocity.direction === 'growing' ? '🚀' : '📉' });
+        }
+
+        // V6: Sector dump warning
+        const sectorInfo = SECTOR_MOMENTUM.isSectorDump(d.name);
+        if (sectorInfo.isSector) tags.push({ text: sectorInfo.sector + ' sector dump', color: 'var(--accent)', icon: '🏢' });
 
         // Market intel
         const intel = MARKET_INTEL.getIntel(d);
