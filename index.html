@@ -512,12 +512,12 @@
     <!-- ===== DUMP SNIPER TAB ===== -->
     <div id="dump-sniper" class="tab-panel">
         <div class="explain-banner">
-            <strong>Dump Sniper</strong> — a dedicated real-time feed focused on catching price crashes as they happen. Items are scored by severity and sorted by buy opportunity. Auto-refreshes every 8 seconds.
+            <strong>Dump Sniper</strong> — catches price crashes in real time. Shows you what to buy, how much, and your profit. Sorted by best flip opportunity. Scans every 8 seconds.
         </div>
 
         <div class="sniper-stats" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:16px;">
             <div class="stat-card" title="Items currently crashing"><div class="stat-icon">🎯</div><div class="stat-label">Active Targets</div><div class="stat-value" style="color:var(--red)" id="sniperTargets">0</div></div>
-            <div class="stat-card" title="Highest severity dump right now"><div class="stat-icon">⚠️</div><div class="stat-label">Max Severity</div><div class="stat-value accent" id="sniperMaxSev">—</div></div>
+            <div class="stat-card" title="Best total profit opportunity"><div class="stat-icon">💰</div><div class="stat-label">Best Total Profit</div><div class="stat-value green" id="sniperMaxCrash">—</div></div>
             <div class="stat-card" title="Best buy opportunity from dumps"><div class="stat-icon">💎</div><div class="stat-label">Best Opportunity</div><div class="stat-value green" id="sniperBestOpp">—</div><div class="stat-sub" id="sniperBestName">scanning...</div></div>
             <div class="stat-card" title="Scan frequency"><div class="stat-icon">⏱️</div><div class="stat-label">Scan Rate</div><div class="stat-value accent">8s</div><div class="stat-sub">auto-scanning</div></div>
         </div>
@@ -528,7 +528,7 @@
 
         <div class="chart-row" style="margin-top:16px;">
             <div class="chart-box">
-                <h3>Dump Severity Over Time</h3>
+                <h3>Best Profit/Item Over Time</h3>
                 <canvas id="chartSniperSev"></canvas>
             </div>
             <div class="chart-box">
@@ -1769,7 +1769,7 @@ function renderSniperFeed() {
 
     // Update sniper stats
     const targetsEl = document.getElementById('sniperTargets');
-    const maxSevEl = document.getElementById('sniperMaxSev');
+    const maxSevEl = document.getElementById('sniperMaxCrash');
     const bestOppEl = document.getElementById('sniperBestOpp');
     const bestNameEl = document.getElementById('sniperBestName');
     const badgeEl = document.getElementById('sniperBadge');
@@ -1780,8 +1780,14 @@ function renderSniperFeed() {
     if (badgeEl) badgeEl.textContent = highConfDumps.length > 0 ? highConfDumps.length : '';
 
     if (dumps.length > 0) {
-        const maxSev = Math.max(...dumps.map(d => d.severity || 0));
-        if (maxSevEl) maxSevEl.textContent = maxSev.toFixed(1);
+        // Show the best total profit opportunity (real money, real number)
+        const bestTotal = Math.max(...dumps.map(d => {
+            const p = d.flipProfit || (d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000));
+            const v4h = Math.round((d.buyQuantity + d.sellQuantity) * 12 * 4);
+            const lim = d.buyLimit || 999999;
+            return p * Math.min(v4h, lim);
+        }));
+        if (maxSevEl) maxSevEl.textContent = gp(bestTotal);
 
         // Best opportunity: dump with best FLIP PROFIT
         const sorted = [...dumps].sort((a, b) => (b.flipProfit || 0) - (a.flipProfit || 0));
@@ -1806,8 +1812,6 @@ function renderSniperFeed() {
     feed.innerHTML = dumps.map(d => {
         const profit = d.flipProfit || (d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000));
         const crash = d.crashPct || d.percentChange || 0;
-        const sevPct = Math.min(100, (d.severity || 0) * 8);
-        const sevColor = sevPct > 70 ? 'var(--red)' : sevPct > 40 ? 'var(--accent)' : '#d97706';
         const vpressure = d.sellPressure > 3 ? '🔴 Heavy selling' : d.sellPressure > 1.5 ? '🟠 Moderate' : '';
 
         // Get confidence score
@@ -1837,37 +1841,31 @@ function renderSniperFeed() {
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <div class="dp-item-icon" style="width:44px;height:44px;">${iconHtml(d.icon, d.name, 44)}</div>
                 <div style="flex:1;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                        <div style="font-weight:700; font-size:16px; color:var(--text);">${d.name}</div>
-                        <span class="conf-badge ${conf.cls}">${conf.text} ${conf.pct}%</span>
-                    </div>
-                    <div style="font-size:11px; color:var(--red); font-weight:600;">Crashed ${Math.abs(crash).toFixed(1)}% ${vpressure ? '• ' + vpressure : ''}${buyLimitHtml}</div>
+                    <div style="font-weight:700; font-size:16px; color:var(--text);">${d.name}</div>
+                    ${buyLimitHtml}
                 </div>
                 <div style="text-align:right;">
-                    <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px;">Flip Profit</div>
-                    <div class="price-hero" style="font-size:22px;">${gp(profit)}</div>
+                    <div style="font-size:22px; font-weight:900; color:var(--green); text-shadow:0 0 12px rgba(34,197,94,0.3);">${gp(profit)}<span style="font-size:11px; font-weight:500; color:var(--text-muted);">/item</span></div>
                 </div>
             </div>
             <div style="display:flex; gap:0; margin-bottom:10px; background:rgba(0,0,0,0.3); border-radius:8px; overflow:hidden;">
                 <div style="flex:1; padding:10px 12px; text-align:center; border-right:1px solid rgba(255,255,255,0.05);">
-                    <div style="font-size:9px; text-transform:uppercase; color:var(--green); letter-spacing:.5px; font-weight:600;">⚡ Insta-Buy At</div>
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--green); letter-spacing:.5px; font-weight:600;">Buy At</div>
                     <div style="font-size:18px; font-weight:900; color:var(--green); margin-top:4px;">${gp(d.instaBuyAt || d.buyPrice)}</div>
                 </div>
-                <div style="flex:0 0 40px; display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--accent);">→</div>
-                <div style="flex:1; padding:10px 12px; text-align:center; border-left:1px solid rgba(255,255,255,0.05);">
-                    <div style="font-size:9px; text-transform:uppercase; color:var(--accent); letter-spacing:.5px; font-weight:600;">💰 Sell For</div>
+                <div style="flex:1; padding:10px 12px; text-align:center; border-right:1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px; font-weight:600;">Buy</div>
+                    <div style="font-size:18px; font-weight:900; color:var(--text); margin-top:4px;">${canBuy.toLocaleString()}</div>
+                </div>
+                <div style="flex:1; padding:10px 12px; text-align:center;">
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--accent); letter-spacing:.5px; font-weight:600;">Sell For</div>
                     <div style="font-size:18px; font-weight:900; color:var(--accent); margin-top:4px;">${gp(d.sellFor || d.sellPrice)}</div>
                 </div>
             </div>
-            <div style="display:flex; gap:8px; font-size:11px; color:var(--text-muted); flex-wrap:wrap; margin-bottom:8px;">
-                <span>📊 Vol: ${d.buyQuantity + d.sellQuantity}/5m (est. ${Math.round(vol4h/1000)}K in 4h)</span>
-                <span>🛒 Can Buy: ${canBuy.toLocaleString()}${d.buyLimit && d.buyLimit < vol4h ? ` (limited by ${d.buyLimit})` : ''}</span>
-                <span>💰 Total: <strong>${gp(totalProfit)}</strong></span>
-                <span>📉 Drop: ${Math.abs(crash).toFixed(1)}%</span>
-                ${(d.trendPct || 0) < -1 ? `<span style="color:var(--red);">📉 Trending down ${Math.abs(d.trendPct).toFixed(1)}%</span>` : ''}
-            </div>
-            <div style="background:var(--bg-input); border-radius:4px; height:4px; overflow:hidden; margin-top:8px;">
-                <div style="height:100%; width:${sevPct}%; background:${sevColor}; border-radius:4px; transition:width 0.3s;"></div>
+            <div style="background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.25); border-radius:8px; padding:10px; text-align:center;">
+                <span style="font-size:11px; color:var(--text-muted);">Total Profit: </span>
+                <span style="font-size:18px; font-weight:900; color:var(--green);">${gp(totalProfit)}</span>
+                ${d.buyLimit && d.buyLimit < vol4h ? `<span style="font-size:10px; color:var(--text-muted); margin-left:8px;">(GE limit: ${d.buyLimit.toLocaleString()})</span>` : ''}
             </div>${intelHtml}
         </div>`;
     }).join('');
@@ -1883,22 +1881,22 @@ function renderSniperCharts(dumps) {
             labels: top8.map(d => d.name.length > 14 ? d.name.slice(0,13)+'...' : d.name),
             datasets: [
                 { label: 'Flip Profit (K)', data: top8.map(d => Math.round((d.flipProfit || 0) / 1000)), backgroundColor: 'rgba(34,197,94,0.6)', borderRadius: 4 },
-                { label: 'Crash %', data: top8.map(d => Math.abs(d.crashPct || d.percentChange || 0)), backgroundColor: 'rgba(239,68,68,0.6)', borderRadius: 4 },
+                { label: 'Profit/Item (K)', data: top8.map(d => Math.round((d.flipProfit || 0) / 1000)), backgroundColor: 'rgba(34,197,94,0.6)', borderRadius: 4 },
             ]
         }, { indexAxis:'y', plugins:{legend:{labels:{color:'#b8b0a5'}}}, scales:{ x:{ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}}, y:{ticks:{color:'#b8b0a5',font:{size:11}},grid:{display:false}} }});
     }
 
     // Severity over time chart
     if (!state.sniperHistory) state.sniperHistory = [];
-    const maxSev = state.dumps.length > 0 ? Math.max(...state.dumps.map(d => d.severity || 0)) : 0;
-    state.sniperHistory.push({ time: new Date(), severity: maxSev, count: state.dumps.length });
+    const bestProfit = state.dumps.length > 0 ? Math.max(...state.dumps.map(d => (d.flipProfit || 0) / 1000)) : 0;
+    state.sniperHistory.push({ time: new Date(), bestProfitK: bestProfit, count: state.dumps.length });
     if (state.sniperHistory.length > 30) state.sniperHistory.shift();
 
     if (state.sniperHistory.length > 1) {
         updateChart('chartSniperSev', 'line', {
             labels: state.sniperHistory.map(h => h.time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})),
             datasets: [
-                { label:'Max Severity', data:state.sniperHistory.map(h=>h.severity), borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.1)', fill:true, tension:0.3, pointRadius:2 },
+                { label:'Best Profit (K)', data:state.sniperHistory.map(h=>h.bestProfitK || h.maxCrash || h.severity || 0), borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,0.1)', fill:true, tension:0.3, pointRadius:2 },
                 { label:'Active Dumps', data:state.sniperHistory.map(h=>h.count), borderColor:'#ff981f', backgroundColor:'rgba(255,152,31,0.1)', fill:true, tension:0.3, pointRadius:2, yAxisID:'y2' },
             ]
         }, { plugins:{legend:{labels:{color:'#b8b0a5'}}}, scales:{ x:{ticks:{color:'#7a7268',maxTicksLimit:8},grid:{color:'rgba(255,152,31,0.08)'}}, y:{ticks:{color:'#ef4444'},grid:{color:'rgba(255,152,31,0.08)'}}, y2:{position:'right',ticks:{color:'#ff981f'},grid:{display:false}} }});
@@ -2013,7 +2011,6 @@ function renderDumpsPumps() {
                 <span style="color:var(--accent); font-weight:700;">Sell ${gp(d.sellFor || d.sellPrice)}</span>
                 <span style="color:var(--green); font-weight:800; font-size:13px; background:rgba(34,197,94,0.1); padding:2px 8px; border-radius:6px;">+${gp(profit)}</span>
             </div>
-            <div class="dp-change neg" style="min-width:50px; text-align:right;">${(d.crashPct || d.percentChange || 0).toFixed(1)}%</div>
         </div>
     `}).join('') : '<div class="empty-state" style="padding:20px;"><p>No dumps detected — scanning every 8s</p></div>';
     if (pc) pc.innerHTML = state.pumps.length > 0 ? state.pumps.map(p => {
