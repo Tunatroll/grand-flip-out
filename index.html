@@ -30,6 +30,16 @@
         ::-webkit-scrollbar-track { background:transparent; }
         ::-webkit-scrollbar-thumb { background:var(--accent-dim); border-radius:3px; }
 
+        /* === LOADING SKELETON === */
+        .loading-skeleton { background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-card) 50%, var(--bg-surface) 75%); background-size: 200% 100%; animation: skeleton-shimmer 1.5s infinite; }
+        @keyframes skeleton-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .skeleton-bar { height: 20px; border-radius: 4px; margin-bottom: 8px; }
+
+        /* === SCROLL TO TOP === */
+        .scroll-to-top { position: fixed; bottom: 24px; right: 24px; width: 44px; height: 44px; background: var(--accent-glow); border: 1px solid var(--border-strong); border-radius: 50%; display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 500; transition: all 0.2s; color: var(--accent); font-size: 20px; box-shadow: 0 4px 12px rgba(255,152,31,0.2); }
+        .scroll-to-top.show { display: flex; }
+        .scroll-to-top:hover { background: var(--accent-glow); border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 8px 20px rgba(255,152,31,0.3); }
+
         /* === HEADER === */
         .site-header { background:linear-gradient(180deg,#1e1a14 0%,var(--bg-dark) 100%); border-bottom:1px solid var(--border-strong); padding:12px 20px; position:sticky; top:0; z-index:100; backdrop-filter:blur(12px); }
         .header-inner { max-width:1440px; margin:0 auto; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
@@ -53,16 +63,18 @@
         @keyframes pulse-live { 0%{opacity:1;box-shadow:0 0 6px var(--green)} 50%{opacity:0.6;box-shadow:0 0 12px var(--green)} 100%{opacity:1;box-shadow:0 0 6px var(--green)} }
         .status-dot.off { background:var(--red); box-shadow:0 0 6px var(--red); }
         .refresh-info { font-size:10px; color:var(--text-muted); white-space:nowrap; }
+        .refresh-countdown { font-size:11px; color:var(--accent); font-weight:600; margin-left:4px; }
         .settings-btn { background:none; border:none; cursor:pointer; font-size:20px; color:var(--text-secondary); transition:all .2s; padding:6px; }
         .settings-btn:hover { color:var(--accent); transform:rotate(20deg); }
 
         /* === NAV TABS === */
         .nav-bar { background:var(--bg-primary); border-bottom:1px solid var(--border); position:sticky; top:66px; z-index:90; }
         .nav-inner { max-width:1440px; margin:0 auto; display:flex; gap:0; overflow-x:auto; padding:0 20px; }
-        .nav-tab { flex:0 0 auto; background:none; border:none; border-bottom:2px solid transparent; color:var(--text-muted); padding:12px 16px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; white-space:nowrap; font-family:inherit; }
+        .nav-tab { flex:0 0 auto; background:none; border:none; border-bottom:2px solid transparent; color:var(--text-muted); padding:12px 16px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; white-space:nowrap; font-family:inherit; position: relative; }
         .nav-tab:hover { color:var(--text-secondary); background:var(--accent-glow); }
         .nav-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
         .nav-tab .tab-icon { margin-right:6px; }
+        .nav-tab .tab-badge { display: inline-block; background: var(--accent-glow); border: 1px solid var(--border-strong); color: var(--accent); font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 10px; margin-left: 4px; }
 
         /* === LAYOUT === */
         .page { max-width:1440px; margin:0 auto; padding:20px; }
@@ -71,7 +83,7 @@
 
         /* === DASHBOARD CARDS === */
         .dash-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:20px; }
-        .stat-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 20px; transition:all .2s; }
+        .stat-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 20px; transition:all .2s; cursor: help; }
         .stat-card:hover { border-color:var(--accent); transform:translateY(-2px); }
         .stat-card .stat-icon { font-size:24px; margin-bottom:8px; }
         .stat-card .stat-label { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
@@ -97,11 +109,17 @@
         .ctrl-select, .ctrl-input { background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius); padding:8px 12px; color:var(--text); font-size:13px; font-family:inherit; transition:border .2s; }
         .ctrl-select:focus, .ctrl-input:focus { outline:none; border-color:var(--accent); }
 
+        /* === VERDICT FILTER PILLS === */
+        .verdict-filter-pills { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .verdict-filter-pill { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+        .verdict-filter-pill:hover { border-color: var(--accent); color: var(--accent); }
+        .verdict-filter-pill.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+
         /* === ITEM TABLE === */
         .items-table { width:100%; border-collapse:separate; border-spacing:0; }
         .items-table thead th { position:sticky; top:130px; background:var(--bg-primary); padding:10px 12px; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; text-align:left; border-bottom:1px solid var(--border-strong); cursor:pointer; white-space:nowrap; z-index:10; }
         .items-table thead th:hover { color:var(--accent); }
-        .items-table tbody tr { transition:all .15s; }
+        .items-table tbody tr { transition: background 0.15s; cursor: pointer; }
         .items-table tbody tr:nth-child(even) { background:rgba(255,152,31,0.02); }
         .items-table tbody tr:hover { background:var(--bg-card-hover); }
         .items-table td { padding:10px 12px; font-size:13px; border-bottom:1px solid var(--border); vertical-align:middle; }
@@ -163,8 +181,17 @@
         /* === DUMP LOG === */
         .dumplog-container { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px; margin-top:16px; max-height:300px; overflow-y:auto; }
         .dumplog-title { font-size:14px; font-weight:700; margin-bottom:12px; color:var(--text); }
-        .dumplog-entry { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); font-size:11px; }
+        .dumplog-entry { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:11px; }
         .dumplog-entry:last-child { border-bottom:none; }
+        .dumplog-entry-icon { width: 28px; height: 28px; flex-shrink: 0; border-radius: 4px; background: var(--bg-surface); display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 0 6px rgba(255,152,31,0.15); }
+        .dumplog-entry-icon img { width: 100%; height: 100%; object-fit: contain; }
+        .dumplog-entry-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .dumplog-entry-name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dumplog-entry-pct { font-weight: 700; }
+        .dumplog-entry-type { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+        .dumplog-entry-type.dump { background: rgba(239,68,68,0.3); color: var(--red); }
+        .dumplog-entry-type.pump { background: rgba(34,197,94,0.3); color: var(--green); }
+        .dumplog-entry-time { color: var(--text-muted); font-size: 9px; white-space: nowrap; text-align: right; flex-shrink: 0; }
         .dumplog-label { color:var(--text-muted); font-weight:600; text-transform:uppercase; }
 
         /* === RECIPES === */
@@ -268,7 +295,8 @@
             .chart-row { grid-template-columns:1fr; }
             .items-table thead th { top:115px; font-size:10px; padding:8px 6px; }
             .items-table td { padding:8px 6px; font-size:12px; }
-            .dumplog-entry { grid-template-columns:1fr 1fr; }
+            .dumplog-entry { flex-direction: column; gap: 6px; align-items: flex-start; }
+            .dumplog-entry-time { text-align: left; }
         }
         @media(max-width:480px) {
             .dash-row { grid-template-columns:1fr; }
@@ -279,6 +307,9 @@
     </style>
 </head>
 <body>
+
+<!-- SCROLL TO TOP BUTTON -->
+<div class="scroll-to-top" id="scrollToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</div>
 
 <!-- HEADER -->
 <header class="site-header">
@@ -291,12 +322,13 @@
             </div>
         </a>
         <div class="header-search">
-            <input type="text" id="searchInput" placeholder="Search any item...">
+            <input type="text" id="searchInput" placeholder="Search items... (e.g., Dragon bones)">
         </div>
         <div class="header-right">
             <div class="status-pill" id="statusPill" title="Click to refresh all data now" onclick="manualRefresh()">
                 <div class="status-dot off" id="statusDot"></div>
                 <span id="statusText">Connecting...</span>
+                <span class="refresh-countdown" id="countdownTimer"></span>
             </div>
             <div class="refresh-info" id="lastUpdate">--:--</div>
             <button class="settings-btn" title="Settings" onclick="toggleSettingsModal()">⚙️</button>
@@ -309,8 +341,8 @@
     <div class="nav-inner">
         <button class="nav-tab active" data-tab="dashboard"><span class="tab-icon">📊</span>Dashboard</button>
         <button class="nav-tab" data-tab="top-flips"><span class="tab-icon">💰</span>Top Flips</button>
-        <button class="nav-tab" data-tab="dumps-pumps"><span class="tab-icon">⚠️</span>Dumps & Pumps</button>
-        <button class="nav-tab" data-tab="watchlist"><span class="tab-icon">⭐</span>Watchlist</button>
+        <button class="nav-tab" data-tab="dumps-pumps"><span class="tab-icon">⚠️</span>Dumps & Pumps<span class="tab-badge" id="dumpsPumpsBadge" style="display:none;">0</span></button>
+        <button class="nav-tab" data-tab="watchlist"><span class="tab-icon">⭐</span>Watchlist<span class="tab-badge" id="watchlistBadge" style="display:none;">0</span></button>
         <button class="nav-tab" data-tab="recipes"><span class="tab-icon">🔬</span>Recipes</button>
         <button class="nav-tab" data-tab="special"><span class="tab-icon">💎</span>Special Items</button>
         <button class="nav-tab" data-tab="discord"><span class="tab-icon">💬</span>Discord</button>
@@ -324,7 +356,7 @@
     <!-- ===== DASHBOARD TAB ===== -->
     <div id="dashboard" class="tab-panel active">
         <div class="explain-banner">
-            <strong>Welcome to Grand Flip Out!</strong> This dashboard shows you real, honest flipping opportunities on the OSRS Grand Exchange. All numbers are based on actual trading activity — not theoretical maximums.
+            <strong>Real-time OSRS flipping data with honest profit estimates based on actual trading volume.</strong>
             <br><strong>Profit/Item</strong> = what you actually make per flip after the 2% GE tax. <strong>Realistic Profit</strong> = how much you can realistically make in 4 hours based on real volume (not buy limit fantasies).
             <br><strong>Verdict</strong> = a plain-English rating based on both margin AND volume. If nobody's trading it, it's not a good flip.
             <span id="explainMore" class="hidden"><br><strong>Dumps</strong> = items crashing &gt;3% in 5 minutes — could be a buy-low opportunity. <strong>Pumps</strong> = items spiking &gt;3% — could mean rising demand.<br><strong>Volume/hr</strong> = estimated from 5-minute trading data. If it says "~12/hr" that means roughly 12 trades per hour, so don't expect to fill 10,000.<br><strong>You Can Buy</strong> = the realistic amount you can actually acquire, limited by BOTH your GE buy limit AND real trading volume.</span>
@@ -333,10 +365,10 @@
 
         <!-- Summary Stats -->
         <div class="dash-row" id="dashStats">
-            <div class="stat-card"><div class="stat-icon">📦</div><div class="stat-label">Items Tracked</div><div class="stat-value accent" id="statItems">—</div><div class="stat-sub">with live buy+sell prices</div></div>
-            <div class="stat-card"><div class="stat-icon">💎</div><div class="stat-label">Best Realistic Flip</div><div class="stat-value green" id="statBestProfit">—</div><div class="stat-sub" id="statBestName">loading...</div></div>
-            <div class="stat-card"><div class="stat-icon">📉</div><div class="stat-label">Active Dumps</div><div class="stat-value" style="color:var(--red)" id="statDumps">0</div><div class="stat-sub">items crashing &gt;3%</div></div>
-            <div class="stat-card"><div class="stat-icon">📈</div><div class="stat-label">Active Pumps</div><div class="stat-value green" id="statPumps">0</div><div class="stat-sub">items spiking &gt;3%</div></div>
+            <div class="stat-card" title="Total number of items being tracked with live prices"><div class="stat-icon">📦</div><div class="stat-label">Items Tracked</div><div class="stat-value accent" id="statItems">—</div><div class="stat-sub">with live buy+sell prices</div></div>
+            <div class="stat-card" title="Best flip opportunity in 4 hours based on realistic volume"><div class="stat-icon">💎</div><div class="stat-label">Best Realistic Flip</div><div class="stat-value green" id="statBestProfit">—</div><div class="stat-sub" id="statBestName">loading...</div></div>
+            <div class="stat-card" title="Items currently crashing more than 3% in price"><div class="stat-icon">📉</div><div class="stat-label">Active Dumps</div><div class="stat-value" style="color:var(--red)" id="statDumps">0</div><div class="stat-sub">items crashing &gt;3%</div></div>
+            <div class="stat-card" title="Items currently spiking in price"><div class="stat-icon">📈</div><div class="stat-label">Active Pumps</div><div class="stat-value green" id="statPumps">0</div><div class="stat-sub">items spiking &gt;3%</div></div>
         </div>
 
         <!-- Charts -->
@@ -375,12 +407,22 @@
                 <option value="volume">Sort: Volume</option>
                 <option value="price">Sort: Price</option>
             </select>
-            <input type="text" class="ctrl-input" id="filterInput" placeholder="Filter by name...">
             <div class="view-toggle">
                 <button class="view-btn active" data-view="table" id="viewTable">Table</button>
                 <button class="view-btn" data-view="grid" id="viewGrid">Cards</button>
             </div>
         </div>
+
+        <!-- Verdict Filter Pills -->
+        <div class="verdict-filter-pills">
+            <button class="verdict-filter-pill active" data-verdict="all">All</button>
+            <button class="verdict-filter-pill" data-verdict="great">Great Flip</button>
+            <button class="verdict-filter-pill" data-verdict="good">Good Flip</button>
+            <button class="verdict-filter-pill" data-verdict="decent">Decent</button>
+            <button class="verdict-filter-pill" data-verdict="slow">Slow</button>
+            <button class="verdict-filter-pill" data-verdict="dead">Dead</button>
+        </div>
+
         <div id="tableView">
             <table class="items-table">
                 <thead>
@@ -596,12 +638,11 @@ const state = {
     apiUrl: window.location.origin !== 'null' && !window.location.origin.startsWith('file') ? window.location.origin : 'http://localhost:3001',
     items: [], allItems: [], dumps: [], pumps: [], recipes: [],
     watchlist: new Set(), isConnected: false,
-    currentSort: 'realistic', currentFilter: '', lastUpdate: new Date(),
+    currentSort: 'realistic', currentFilter: '', verdictFilter: 'all', lastUpdate: new Date(),
     mappingById: {}, prevPrices: {},
     cachedMapping: null, cachedLatest: null,
     lastFullRefresh: 0, lastDumpCheck: 0,
-    fullRefreshInterval: 90000, dumpCheckInterval: 12000,
-    consecutiveNoChange: 0,
+    fullRefreshInterval: 60000, dumpCheckInterval: 12000,
     viewMode: 'table',
     dpHistory: [],      // { time, dumps, pumps } for chart
     priceSnapshots: {},  // itemId -> [{ time, avg }] for sparklines
@@ -609,6 +650,7 @@ const state = {
     dumpLog: [],         // { time, itemId, name, percentChange, type } - max 100 entries
     webhookUrl: 'https://discord.com/api/webhooks/1479300808947531776/9ELFKUCDELZUW2cXJLJAyz5RmRtkMWT4wIoRdE2KA5gTVdUIRgqZ09bYpX6QZvLipFZe',
     autoAlertsEnabled: true,
+    refreshCountdown: 0,
 };
 
 // ============================================
@@ -617,9 +659,16 @@ const state = {
 function loadSettings() {
     const saved = localStorage.getItem('gfo_webhook_url');
     const autoAlerts = localStorage.getItem('gfo_auto_alerts');
+    const watchlistSaved = localStorage.getItem('gfo_watchlist');
     if (saved) state.webhookUrl = saved;
     // state.webhookUrl already has the default hardcoded, so it works out of the box
     if (autoAlerts !== null) state.autoAlertsEnabled = autoAlerts === 'true';
+    if (watchlistSaved) {
+        try {
+            const ids = JSON.parse(watchlistSaved);
+            state.watchlist = new Set(ids);
+        } catch {}
+    }
     document.getElementById('webhookInput').value = state.webhookUrl || '';
     if (state.autoAlertsEnabled) document.getElementById('autoAlertToggle').classList.add('on');
 }
@@ -628,6 +677,16 @@ function saveSettings() {
     state.webhookUrl = document.getElementById('webhookInput').value.trim();
     localStorage.setItem('gfo_webhook_url', state.webhookUrl);
     localStorage.setItem('gfo_auto_alerts', state.autoAlertsEnabled);
+}
+
+function loadWatchlist() {
+    try {
+        const saved = localStorage.getItem('gfo_watchlist');
+        if (saved) { JSON.parse(saved).forEach(id => state.watchlist.add(id)); }
+    } catch {}
+}
+function saveWatchlist() {
+    localStorage.setItem('gfo_watchlist', JSON.stringify(Array.from(state.watchlist)));
 }
 
 function toggleSettingsModal() {
@@ -814,30 +873,37 @@ function processLatest(latestData, volData, force = false) {
 }
 
 async function loadTopFlips(force = false) {
-    let data = await fetchBackend('/api/items?sort=jti&limit=200');
-    if (data && data.items) {
-        state.items = data.items.map(i => ({
-            itemId:i.itemId, name:i.name, icon:i.icon,
-            buyPrice:i.buyPrice, sellPrice:i.sellPrice,
-            margin:i.margin?.gp||i.margin||0, marginPct:i.margin?.percent?i.margin.percent.toFixed(1):0,
-            jtiScore:i.jti||0, buyQuantity:i.volume?.buy||0, sellQuantity:i.volume?.sell||0,
-            buyLimit:i.geLimit||0,
-        }));
-        state.allItems = [...state.items]; state.isConnected = true;
-        updateStatus(true); renderAll(); return;
-    }
+    // Try backend first but with a very short timeout (500ms) so we don't stall
+    try {
+        const r = await fetch(`${state.apiUrl}/api/items?sort=jti&limit=200`, { signal: AbortSignal.timeout(500) });
+        if (r.ok) {
+            const data = await r.json();
+            if (data && data.items) {
+                state.items = data.items.map(i => ({
+                    itemId:i.itemId, name:i.name, icon:i.icon,
+                    buyPrice:i.buyPrice, sellPrice:i.sellPrice,
+                    margin:i.margin?.gp||i.margin||0, marginPct:i.margin?.percent?i.margin.percent.toFixed(1):0,
+                    jtiScore:i.jti||0, buyQuantity:i.volume?.buy||0, sellQuantity:i.volume?.sell||0,
+                    buyLimit:i.geLimit||0,
+                }));
+                state.allItems = [...state.items]; state.isConnected = true;
+                updateStatus(true); renderAll(); return;
+            }
+        }
+    } catch {}
+    // Fall through to Wiki API (the primary data source)
     const mapping = await ensureMapping();
     if (!mapping) return;
     const [latest, vols] = await Promise.all([fetchWiki('/latest'), fetchWiki('/5m')]);
     if (!latest) return;
     const ld = latest.data||{}, vd = (vols&&vols.data)||{};
     state.cachedLatest = ld;
-    const { items, significant, avgDrift } = processLatest(ld, vd, force);
+    state.cachedVolData = vd;
+    const { items } = processLatest(ld, vd, force);
     state.allItems = items; state.items = items.slice(0, 200);
     state.isConnected = true; state.lastFullRefresh = Date.now();
     updateStatus(true);
-    if (significant) { renderAll(); state.consecutiveNoChange = 0; }
-    else { state.consecutiveNoChange++; if (state.consecutiveNoChange > 3) state.fullRefreshInterval = Math.min(180000, state.fullRefreshInterval + 15000); }
+    renderAll(); // Always render — never skip updates
 }
 
 async function checkDumpsLight() {
@@ -846,6 +912,22 @@ async function checkDumpsLight() {
     let ld = state.cachedLatest;
     if (!ld) { const l = await fetchWiki('/latest'); if (l && l.data) { ld = l.data; state.cachedLatest = ld; } }
     if (!ld) return;
+
+    // Update volume data on existing items so prices stay fresh between full refreshes
+    state.cachedVolData = vols.data;
+    if (state.allItems.length > 0) {
+        state.allItems.forEach(item => {
+            const vi = vols.data[item.itemId];
+            if (vi) {
+                item.buyQuantity = vi.lowPriceVolume || 0;
+                item.sellQuantity = vi.highPriceVolume || 0;
+            }
+        });
+        // Also update the display items
+        state.items = state.allItems.slice(0, 200);
+        renderTopFlips();
+    }
+
     const nd = [], np = [];
     for (const [idStr, vi] of Object.entries(vols.data)) {
         const id = parseInt(idStr), meta = state.mappingById[id];
@@ -882,10 +964,6 @@ async function checkDumpsLight() {
         // Send Discord alerts
         brandNew.forEach(d => sendDiscordAlert(d, 'dump', d.percentChange));
         np.forEach(p => sendDiscordAlert(p, 'pump', p.percentChange));
-
-        if (brandNew.length >= 3 || brandNew.some(d => d.percentChange < -10)) {
-            state.fullRefreshInterval = 30000; state.consecutiveNoChange = 0;
-        }
     }
     // Track history for chart
     state.dpHistory.push({ time: new Date(), dumps: nd.length, pumps: np.length });
@@ -897,6 +975,7 @@ function addDumpLog(item, type) {
         time: new Date(),
         itemId: item.itemId,
         name: item.name,
+        icon: item.icon,
         percentChange: item.percentChange,
         type: type
     });
@@ -913,10 +992,15 @@ function renderDumpLog() {
     }
     container.innerHTML = state.dumpLog.slice().reverse().map(entry => `
         <div class="dumplog-entry">
-            <div>${entry.name}</div>
-            <div>${entry.time.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}</div>
-            <div style="color:${entry.percentChange < 0 ? 'var(--red)' : 'var(--green)'}; font-weight:700;">${entry.percentChange.toFixed(1)}%</div>
-            <div style="font-weight:600; color:var(--text-muted); text-transform:uppercase; font-size:10px;">${entry.type}</div>
+            <div class="dumplog-entry-icon">${iconHtml(entry.icon, entry.name, 28)}</div>
+            <div class="dumplog-entry-info">
+                <div class="dumplog-entry-name">${entry.name}</div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <span class="dumplog-entry-pct" style="color:${entry.percentChange < 0 ? 'var(--red)' : 'var(--green)'};">${entry.percentChange.toFixed(1)}%</span>
+                    <span class="dumplog-entry-type ${entry.type}">${entry.type}</span>
+                </div>
+            </div>
+            <div class="dumplog-entry-time">${entry.time.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}</div>
         </div>
     `).join('');
 }
@@ -1032,6 +1116,11 @@ function updateStatus(on) {
     state.lastUpdate = now;
 }
 
+function openOSRSWiki(itemName) {
+    const url = `https://oldschool.runescape.wiki/w/${encodeURIComponent(itemName.replace(/ /g, '_'))}`;
+    window.open(url, '_blank');
+}
+
 let _refreshing = false;
 async function manualRefresh() {
     if (_refreshing) return;
@@ -1045,6 +1134,7 @@ async function manualRefresh() {
         await checkDumpsLight();
         await loadRecipes();
         text.textContent = 'Live';
+        state.refreshCountdown = Math.floor(state.fullRefreshInterval / 1000);
     } catch(e) {
         text.textContent = 'Error';
         setTimeout(() => { text.textContent = state.isConnected ? 'Live' : 'Offline'; }, 2000);
@@ -1052,6 +1142,36 @@ async function manualRefresh() {
     pill.classList.remove('refreshing');
     _refreshing = false;
 }
+
+// ============================================
+// COUNTDOWN TIMER
+// ============================================
+function startCountdownTimer() {
+    state.refreshCountdown = Math.floor(state.fullRefreshInterval / 1000);
+    const timerEl = document.getElementById('countdownTimer');
+
+    const interval = setInterval(() => {
+        state.refreshCountdown--;
+        if (state.refreshCountdown <= 0) {
+            clearInterval(interval);
+            timerEl.textContent = '';
+        } else if (state.refreshCountdown > 0) {
+            timerEl.textContent = `Next: ${state.refreshCountdown}s`;
+        }
+    }, 1000);
+}
+
+// ============================================
+// SCROLL TO TOP VISIBILITY
+// ============================================
+document.addEventListener('scroll', () => {
+    const scrollBtn = document.getElementById('scrollToTop');
+    if (window.scrollY > 300) {
+        scrollBtn.classList.add('show');
+    } else {
+        scrollBtn.classList.remove('show');
+    }
+});
 
 // ============================================
 // RENDERING
@@ -1120,6 +1240,12 @@ function updateChart(canvasId, type, data, options) {
 function renderTopFlips() {
     let items = [...state.items];
     if (state.currentFilter) items = items.filter(i => i.name.toLowerCase().includes(state.currentFilter.toLowerCase()));
+    if (state.verdictFilter !== 'all') {
+        items = items.filter(i => {
+            const verdict = getVerdict(i);
+            return verdict.cls === state.verdictFilter;
+        });
+    }
     switch (state.currentSort) {
         case 'margin': items.sort((a,b) => b.margin - a.margin); break;
         case 'margin-pct': items.sort((a,b) => b.marginPct - a.marginPct); break;
@@ -1135,8 +1261,8 @@ function renderTopFlips() {
             const rp = realistic4hProfit(item);
             const rb = realisticBuys(item);
             const volumeLimited = item.buyLimit && (volPerHour(item) * 4) < item.buyLimit;
-            return `<tr>
-                <td><button class="fav-btn ${state.watchlist.has(item.itemId)?'on':''}" data-id="${item.itemId}" onclick="toggleFav(${item.itemId},this)">★</button></td>
+            return `<tr onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
+                <td onclick="event.stopPropagation(); toggleFav(${item.itemId},event.target.closest('button'))"><button class="fav-btn ${state.watchlist.has(item.itemId)?'on':''}" data-id="${item.itemId}" onclick="toggleFav(${item.itemId},this)">★</button></td>
                 <td class="item-name-cell"><span class="item-row-icon">${iconHtml(item.icon,item.name,32)}</span>${item.name}</td>
                 <td><span class="verdict-pill ${v.cls}" title="${v.tip}">${v.text}</span></td>
                 <td class="price-green">${gp(item.buyPrice)}</td>
@@ -1155,8 +1281,8 @@ function renderTopFlips() {
             const v = getVerdict(item);
             const rp = realistic4hProfit(item);
             return `
-            <div class="item-card">
-                <button class="card-fav ${state.watchlist.has(item.itemId)?'on':''}" onclick="toggleFav(${item.itemId},this)">★</button>
+            <div class="item-card" onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
+                <button class="card-fav ${state.watchlist.has(item.itemId)?'on':''}" onclick="event.stopPropagation(); toggleFav(${item.itemId},this)">★</button>
                 <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
                 <div class="card-name">${item.name}</div>
                 <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>
@@ -1200,19 +1326,39 @@ function renderDumpsPumps() {
 
     document.getElementById('statDumps').textContent = state.dumps.length;
     document.getElementById('statPumps').textContent = state.pumps.length;
+
+    // Update badge
+    const badge = document.getElementById('dumpsPumpsBadge');
+    const totalDP = state.dumps.length + state.pumps.length;
+    if (totalDP > 0) {
+        badge.textContent = totalDP;
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
+    }
 }
 
 function renderWatchlist() {
     const watched = state.allItems.filter(i => state.watchlist.has(i.itemId));
     const content = document.getElementById('watchlistContent');
     const empty = document.getElementById('watchlistEmpty');
+
+    // Update badge
+    const badge = document.getElementById('watchlistBadge');
+    if (watched.length > 0) {
+        badge.textContent = watched.length;
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
+    }
+
     if (watched.length > 0) {
         content.innerHTML = '<div class="item-grid">' + watched.map(item => {
             const v = getVerdict(item);
             const rp = realistic4hProfit(item);
             return `
-            <div class="item-card">
-                <button class="card-fav on" onclick="toggleFav(${item.itemId},this)">★</button>
+            <div class="item-card" onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
+                <button class="card-fav on" onclick="event.stopPropagation(); toggleFav(${item.itemId},this)">★</button>
                 <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
                 <div class="card-name">${item.name}</div>
                 <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>
@@ -1282,7 +1428,7 @@ function renderSpecial(cat, data, container) {
     }
     if (items.length === 0) { container.innerHTML = '<div class="empty-state" style="padding:20px;"><p>No items found. Data may still be loading.</p></div>'; return; }
     container.innerHTML = items.map(item => `
-        <div class="dp-item" style="padding:10px 0;">
+        <div class="dp-item" style="padding:10px 0; cursor:pointer;" onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
             <div class="dp-item-icon">${iconHtml(item.icon, item.name, 32)}</div>
             <div class="dp-item-name">${item.name}</div>
             <div style="display:flex;gap:12px;align-items:center;flex-shrink:0;">
@@ -1300,6 +1446,7 @@ function renderSpecial(cat, data, container) {
 function toggleFav(id, btn) {
     if (state.watchlist.has(id)) state.watchlist.delete(id); else state.watchlist.add(id);
     if (btn) btn.classList.toggle('on');
+    saveWatchlist();
     renderWatchlist();
 }
 
@@ -1312,10 +1459,31 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
     });
 });
 
-document.getElementById('searchInput').addEventListener('input', e => { state.currentFilter = e.target.value; renderTopFlips(); });
-document.getElementById('filterInput').addEventListener('input', e => { state.currentFilter = e.target.value; renderTopFlips(); });
+document.getElementById('searchInput').addEventListener('input', e => {
+    state.currentFilter = e.target.value;
+    // Auto-switch to Top Flips tab
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    const topFlipsTab = document.querySelector('[data-tab="top-flips"]');
+    if (topFlipsTab) {
+        topFlipsTab.classList.add('active');
+        document.getElementById('top-flips').classList.add('active');
+    }
+    renderTopFlips();
+});
+
 document.getElementById('sortDropdown').addEventListener('change', e => { state.currentSort = e.target.value; renderTopFlips(); });
 document.getElementById('recipeSort')?.addEventListener('change', () => renderRecipes());
+
+// Verdict filter pills
+document.querySelectorAll('.verdict-filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+        document.querySelectorAll('.verdict-filter-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        state.verdictFilter = pill.dataset.verdict;
+        renderTopFlips();
+    });
+});
 
 document.getElementById('viewTable').addEventListener('click', () => {
     state.viewMode = 'table';
@@ -1356,19 +1524,20 @@ document.addEventListener('keydown', e => {
 // ============================================
 async function init() {
     loadSettings();
+    loadWatchlist();
     updateStatus(false);
     await loadTopFlips(true);
-    const healthy = !!(await fetchBackend('/health'));
-    state.isConnected = healthy;
     updateStatus(state.allItems.length > 0);
     await loadDumpsPumps();
     await loadRecipes();
     loadSpecialItems('poisoned');
+    startCountdownTimer();
 
     setInterval(async () => { try { await checkDumpsLight(); } catch {} }, state.dumpCheckInterval);
 
     async function smartRefresh() {
         try { await loadTopFlips(false); } catch {}
+        state.refreshCountdown = Math.floor(state.fullRefreshInterval / 1000);
         setTimeout(smartRefresh, state.fullRefreshInterval);
     }
     setTimeout(smartRefresh, state.fullRefreshInterval);
