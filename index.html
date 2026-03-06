@@ -44,7 +44,10 @@
         .header-search { position:relative; }
         .header-search::before { content:''; position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; border:2px solid var(--text-muted); border-radius:50%; z-index:1; }
         .header-right { display:flex; align-items:center; gap:12px; margin-left:auto; }
-        .status-pill { display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:20px; font-size:11px; font-weight:600; color:var(--text-secondary); }
+        .status-pill { display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:20px; font-size:11px; font-weight:600; color:var(--text-secondary); cursor:pointer; transition:all .2s; user-select:none; }
+        .status-pill:hover { border-color:var(--accent); background:var(--accent-glow); }
+        .status-pill.refreshing { animation:pulse-refresh .6s ease-in-out; }
+        @keyframes pulse-refresh { 0%{transform:scale(1)} 50%{transform:scale(1.08);box-shadow:0 0 12px var(--accent-glow)} 100%{transform:scale(1)} }
         .status-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
         .status-dot.on { background:var(--green); box-shadow:0 0 6px var(--green); }
         .status-dot.off { background:var(--red); box-shadow:0 0 6px var(--red); }
@@ -235,7 +238,7 @@
             <input type="text" id="searchInput" placeholder="Search any item...">
         </div>
         <div class="header-right">
-            <div class="status-pill">
+            <div class="status-pill" id="statusPill" title="Click to refresh all data now" onclick="manualRefresh()">
                 <div class="status-dot off" id="statusDot"></div>
                 <span id="statusText">Connecting...</span>
             </div>
@@ -744,6 +747,27 @@ function updateStatus(on) {
     const now = new Date();
     document.getElementById('lastUpdate').textContent = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     state.lastUpdate = now;
+}
+
+let _refreshing = false;
+async function manualRefresh() {
+    if (_refreshing) return;
+    _refreshing = true;
+    const pill = document.getElementById('statusPill');
+    const text = document.getElementById('statusText');
+    pill.classList.add('refreshing');
+    text.textContent = 'Refreshing...';
+    try {
+        await loadTopFlips(true);
+        await checkDumpsLight();
+        await loadRecipes();
+        text.textContent = 'Live';
+    } catch(e) {
+        text.textContent = 'Error';
+        setTimeout(() => { text.textContent = state.isConnected ? 'Live' : 'Offline'; }, 2000);
+    }
+    pill.classList.remove('refreshing');
+    _refreshing = false;
 }
 
 // ============================================
