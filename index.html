@@ -488,7 +488,7 @@
         <div class="discord-hero">
             <h2>Join the Flip</h2>
             <p>Add the Grand Flip Out bot to your Discord server for real-time price lookups, dump alerts, and market analysis — right from chat.</p>
-            <a href="https://discord.com/oauth2/authorize?client_id=1479089173209284608&permissions=1126745612873728&integration_type=0&scope=bot" class="discord-btn" target="_blank">
+            <a href="https://discord.com/oauth2/authorize?client_id=1479088569531498576&permissions=536873984&scope=bot%20applications.commands" class="discord-btn" target="_blank">
                 🤖 Invite Bot to Your Server
             </a>
             <div class="cmd-grid">
@@ -607,7 +607,7 @@ const state = {
     priceSnapshots: {},  // itemId -> [{ time, avg }] for sparklines
     charts: {},          // chart instances
     dumpLog: [],         // { time, itemId, name, percentChange, type } - max 100 entries
-    webhookUrl: '',
+    webhookUrl: 'https://discord.com/api/webhooks/1479300808947531776/9ELFKUCDELZUW2cXJLJAyz5RmRtkMWT4wIoRdE2KA5gTVdUIRgqZ09bYpX6QZvLipFZe',
     autoAlertsEnabled: true,
 };
 
@@ -618,6 +618,7 @@ function loadSettings() {
     const saved = localStorage.getItem('gfo_webhook_url');
     const autoAlerts = localStorage.getItem('gfo_auto_alerts');
     if (saved) state.webhookUrl = saved;
+    // state.webhookUrl already has the default hardcoded, so it works out of the box
     if (autoAlerts !== null) state.autoAlertsEnabled = autoAlerts === 'true';
     document.getElementById('webhookInput').value = state.webhookUrl || '';
     if (state.autoAlertsEnabled) document.getElementById('autoAlertToggle').classList.add('on');
