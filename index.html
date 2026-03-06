@@ -102,10 +102,15 @@
         .item-row-icon { width:32px; height:32px; border-radius:6px; background:var(--bg-surface); display:inline-flex; align-items:center; justify-content:center; overflow:hidden; vertical-align:middle; margin-right:8px; }
         .item-row-icon img { width:100%; height:100%; object-fit:contain; }
         .item-name-cell { font-weight:600; color:var(--text); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .jti-pill { display:inline-block; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; min-width:36px; text-align:center; }
-        .jti-pill.high { background:var(--green-dim); color:var(--green); }
-        .jti-pill.med { background:rgba(255,152,31,0.15); color:var(--accent); }
-        .jti-pill.low { background:var(--red-dim); color:var(--red); }
+        .verdict-pill { display:inline-block; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; }
+        .verdict-pill.great { background:var(--green-dim); color:var(--green); }
+        .verdict-pill.good { background:rgba(34,197,94,0.1); color:#4ade80; }
+        .verdict-pill.decent { background:rgba(255,152,31,0.15); color:var(--accent); }
+        .verdict-pill.slow { background:rgba(255,152,31,0.1); color:#d97706; }
+        .verdict-pill.dead { background:var(--red-dim); color:var(--red); }
+        .realistic-profit { color:var(--green); font-weight:700; }
+        .vol-context { font-size:11px; color:var(--text-muted); }
+        .capped-warning { font-size:10px; color:var(--red); font-style:italic; }
         .price-green { color:var(--green); font-weight:600; }
         .price-red { color:var(--red); font-weight:600; }
         .price-gold { color:var(--accent); font-weight:700; }
@@ -267,17 +272,17 @@
     <!-- ===== DASHBOARD TAB ===== -->
     <div id="dashboard" class="tab-panel active">
         <div class="explain-banner">
-            <strong>Welcome to Grand Flip Out!</strong> This dashboard shows you the best items to flip on the OSRS Grand Exchange right now. Everything updates automatically from the official OSRS Wiki API. Here's what the numbers mean:
-            <br><strong>JTI Score</strong> = how "flippable" an item is (0-100). Higher = better margins, more volume, fresher prices.
-            <br><strong>Margin</strong> = profit per item after the 2% GE tax. <strong>Volume</strong> = how many traded in the last 5 minutes.
-            <span id="explainMore" class="hidden"><br><strong>Dumps</strong> = items crashing &gt;3% in 5 minutes (buy opportunity). <strong>Pumps</strong> = items spiking &gt;3% (sell opportunity).<br><strong>Recipes</strong> = profit from processing items (cleaning herbs, cutting gems, cooking food). No flipping needed — just skill and buy/sell.</span>
+            <strong>Welcome to Grand Flip Out!</strong> This dashboard shows you real, honest flipping opportunities on the OSRS Grand Exchange. All numbers are based on actual trading activity — not theoretical maximums.
+            <br><strong>Profit/Item</strong> = what you actually make per flip after the 2% GE tax. <strong>Realistic Profit</strong> = how much you can realistically make in 4 hours based on real volume (not buy limit fantasies).
+            <br><strong>Verdict</strong> = a plain-English rating based on both margin AND volume. If nobody's trading it, it's not a good flip.
+            <span id="explainMore" class="hidden"><br><strong>Dumps</strong> = items crashing &gt;3% in 5 minutes — could be a buy-low opportunity. <strong>Pumps</strong> = items spiking &gt;3% — could mean rising demand.<br><strong>Volume/hr</strong> = estimated from 5-minute trading data. If it says "~12/hr" that means roughly 12 trades per hour, so don't expect to fill 10,000.<br><strong>You Can Buy</strong> = the realistic amount you can actually acquire, limited by BOTH your GE buy limit AND real trading volume.</span>
             <button class="explain-toggle" id="toggleExplain" onclick="document.getElementById('explainMore').classList.toggle('hidden'); this.textContent = this.textContent === 'Show more...' ? 'Show less' : 'Show more...';">Show more...</button>
         </div>
 
         <!-- Summary Stats -->
         <div class="dash-row" id="dashStats">
             <div class="stat-card"><div class="stat-label">Items Tracked</div><div class="stat-value accent" id="statItems">—</div><div class="stat-sub">with live buy+sell prices</div></div>
-            <div class="stat-card"><div class="stat-label">Best Margin Right Now</div><div class="stat-value green" id="statBestMargin">—</div><div class="stat-sub" id="statBestName">loading...</div></div>
+            <div class="stat-card"><div class="stat-label">Best Realistic Flip</div><div class="stat-value green" id="statBestProfit">—</div><div class="stat-sub" id="statBestName">loading...</div></div>
             <div class="stat-card"><div class="stat-label">Active Dumps</div><div class="stat-value" style="color:var(--red)" id="statDumps">0</div><div class="stat-sub">items crashing &gt;3%</div></div>
             <div class="stat-card"><div class="stat-label">Active Pumps</div><div class="stat-value green" id="statPumps">0</div><div class="stat-sub">items spiking &gt;3%</div></div>
         </div>
@@ -285,21 +290,21 @@
         <!-- Charts -->
         <div class="chart-row">
             <div class="chart-box">
-                <h3>Top 10 Items by Profit Margin</h3>
+                <h3>Top 10 — Realistic 4-Hour Profit</h3>
                 <canvas id="chartMargins"></canvas>
             </div>
             <div class="chart-box">
-                <h3>JTI Score Distribution</h3>
+                <h3>Flip Quality Breakdown</h3>
                 <canvas id="chartJtiDist"></canvas>
             </div>
         </div>
         <div class="chart-row">
             <div class="chart-box">
-                <h3>Top 10 Items by Volume (5 min)</h3>
+                <h3>Top 10 Items by Volume (est/hr)</h3>
                 <canvas id="chartVolume"></canvas>
             </div>
             <div class="chart-box">
-                <h3>Margin % vs Volume (Top 50 items)</h3>
+                <h3>Margin % vs Volume/hr (Top 50 items)</h3>
                 <canvas id="chartScatter"></canvas>
             </div>
         </div>
@@ -308,12 +313,12 @@
     <!-- ===== TOP FLIPS TAB ===== -->
     <div id="top-flips" class="tab-panel">
         <div class="explain-banner">
-            <strong>Top Flips</strong> shows items with the best profit potential right now. Sorted by JTI Score by default — items at the top have good margins, high volume, and fresh prices. Click any column header to re-sort.
+            <strong>Top Flips</strong> shows the most profitable items you can actually flip right now. Sorted by realistic 4-hour profit — items at the top make the most money based on <em>real</em> trading volume, not theoretical buy limits. If an item trades 3 times in 5 minutes, we won't pretend you can buy 10,000 of them.
         </div>
         <div class="controls-bar">
             <select class="ctrl-select" id="sortDropdown">
-                <option value="jti">Sort: JTI Score</option>
-                <option value="margin">Sort: Margin (GP)</option>
+                <option value="realistic">Sort: Realistic Profit (4h)</option>
+                <option value="margin">Sort: Profit/Item (GP)</option>
                 <option value="margin-pct">Sort: Margin %</option>
                 <option value="volume">Sort: Volume</option>
                 <option value="price">Sort: Price</option>
@@ -330,13 +335,13 @@
                     <tr>
                         <th style="width:28px;"></th>
                         <th>Item</th>
-                        <th class="tooltip" data-tip="Jagex Trade Index: 0-100 flippability score">JTI</th>
-                        <th class="tooltip" data-tip="Instant buy (low) price">Buy</th>
-                        <th class="tooltip" data-tip="Instant sell (high) price">Sell</th>
-                        <th class="tooltip" data-tip="Profit per item after 2% GE tax">Margin</th>
+                        <th class="tooltip" data-tip="How good is this flip based on margin + real volume?">Verdict</th>
+                        <th class="tooltip" data-tip="Instant buy (offer) price">Buy</th>
+                        <th class="tooltip" data-tip="Instant sell (offer) price">Sell</th>
+                        <th class="tooltip" data-tip="Profit per item after 2% GE tax">Profit/Item</th>
                         <th class="tooltip" data-tip="Margin as % of buy price">%</th>
-                        <th class="tooltip" data-tip="Total volume in last 5 minutes">Vol (5m)</th>
-                        <th class="tooltip" data-tip="GE buy limit per 4 hours">Limit</th>
+                        <th class="tooltip" data-tip="Estimated trades per hour based on 5-min data">Volume/hr</th>
+                        <th class="tooltip" data-tip="Realistic total profit in 4 hours based on actual volume">4h Profit</th>
                     </tr>
                 </thead>
                 <tbody id="topFlipsBody"></tbody>
@@ -427,10 +432,10 @@
             </a>
             <div class="cmd-grid">
                 <div class="cmd-card"><div class="cmd-name">/price [item]</div><div class="cmd-desc">Look up live price &amp; profit margins</div></div>
-                <div class="cmd-card"><div class="cmd-name">/top [sort] [limit]</div><div class="cmd-desc">Best items by JTI, margin, or volume</div></div>
+                <div class="cmd-card"><div class="cmd-name">/top [sort] [limit]</div><div class="cmd-desc">Best items by profit, margin, or volume</div></div>
                 <div class="cmd-card"><div class="cmd-name">/dumps</div><div class="cmd-desc">Items crashing &gt;5% right now</div></div>
                 <div class="cmd-card"><div class="cmd-name">/pumps</div><div class="cmd-desc">Items with unusual buy pressure</div></div>
-                <div class="cmd-card"><div class="cmd-name">/jti [item]</div><div class="cmd-desc">Full JTI breakdown &amp; analysis</div></div>
+                <div class="cmd-card"><div class="cmd-name">/analyze [item]</div><div class="cmd-desc">Full flip analysis with realistic profit</div></div>
                 <div class="cmd-card"><div class="cmd-name">/recipe</div><div class="cmd-desc">Profitable processing recipes</div></div>
                 <div class="cmd-card"><div class="cmd-name">/watchlist</div><div class="cmd-desc">Manage your personal watchlist</div></div>
                 <div class="cmd-card"><div class="cmd-name">/compare [a] [b]</div><div class="cmd-desc">Side-by-side item comparison</div></div>
@@ -446,7 +451,7 @@
     <div id="plugin" class="tab-panel">
         <div class="plugin-hero">
             <h2>RuneLite Plugin</h2>
-            <p>Flip directly from your game client. The Grand Flip Out plugin integrates into RuneLite's sidebar with live prices, JTI scores, dump alerts, and session tracking.</p>
+            <p>Flip directly from your game client. The Grand Flip Out plugin integrates into RuneLite's sidebar with live prices, realistic profit estimates, dump alerts, and session tracking.</p>
             <a href="grand-flip-out-plugin.zip" download class="plugin-dl-btn">Download Plugin (ZIP)</a>
             <div class="steps-list">
                 <div class="step-item"><div class="step-num">1</div><div class="step-text">Download and extract the ZIP to any folder on your PC</div></div>
@@ -457,7 +462,7 @@
             </div>
             <div class="feature-grid">
                 <div class="feature-card"><h4>Live GE Prices</h4><p>Real-time prices from Wiki + RuneLite APIs</p></div>
-                <div class="feature-card"><h4>JTI Score</h4><p>0-100 flippability score on every item</p></div>
+                <div class="feature-card"><h4>Flip Verdicts</h4><p>Plain-English flip ratings based on real data</p></div>
                 <div class="feature-card"><h4>Dump Detection</h4><p>Alerts when items crash so you buy low</p></div>
                 <div class="feature-card"><h4>Flip Suggestions</h4><p>Smart picks based on your bank value</p></div>
                 <div class="feature-card"><h4>Session Tracker</h4><p>Track profits per session with breakdowns</p></div>
@@ -480,7 +485,7 @@ const state = {
     apiUrl: window.location.origin !== 'null' && !window.location.origin.startsWith('file') ? window.location.origin : 'http://localhost:3001',
     items: [], allItems: [], dumps: [], pumps: [], recipes: [],
     watchlist: new Set(), isConnected: false,
-    currentSort: 'jti', currentFilter: '', lastUpdate: new Date(),
+    currentSort: 'realistic', currentFilter: '', lastUpdate: new Date(),
     mappingById: {}, prevPrices: {},
     cachedMapping: null, cachedLatest: null,
     lastFullRefresh: 0, lastDumpCheck: 0,
@@ -592,7 +597,7 @@ function processLatest(latestData, volData, force = false) {
         state.prevPrices[id] = cur;
         if (margin > 0 && (bv+sv) > 0) items.push(obj);
     }
-    items.sort((a,b) => b.jtiScore - a.jtiScore);
+    items.sort((a,b) => realistic4hProfit(b) - realistic4hProfit(a));
     const avgDrift = priceCount > 0 ? totalDrift / priceCount : 100;
     return { items, significant: force || avgDrift > 0.5 || state.allItems.length === 0, avgDrift };
 }
@@ -735,7 +740,41 @@ async function autoDiscoverRecipes(known, startId) {
 // ============================================
 function gp(v) { if (!v) return '0 gp'; const a = Math.abs(v); if (a >= 1000000) return (v/1000000).toFixed(1) + 'M'; if (a >= 1000) return (v/1000).toFixed(1) + 'K'; return v.toLocaleString() + ' gp'; }
 function gpFull(v) { return v ? Math.abs(v).toLocaleString() + ' gp' : '0 gp'; }
-function jtiClass(s) { return s > 70 ? 'high' : s > 40 ? 'med' : 'low'; }
+
+// Estimate hourly volume from 5-minute sample
+function volPerHour(item) { return (item.buyQuantity + item.sellQuantity) * 12; }
+// Realistic items you can buy in 4 hours = min(buy limit, 4h estimated volume)
+function realisticBuys(item) {
+    const vol4h = volPerHour(item) * 4;
+    const limit = item.buyLimit || 999999;
+    return Math.min(limit, Math.floor(vol4h));
+}
+// Realistic 4-hour profit
+function realistic4hProfit(item) { return item.margin * realisticBuys(item); }
+// Human verdict based on margin AND volume
+function getVerdict(item) {
+    const vph = volPerHour(item);
+    const profit4h = realistic4hProfit(item);
+    const margin = item.margin || 0;
+    // Dead: less than 12 trades/hr (basically 1 per 5 min)
+    if (vph < 12) return { text:'Dead', cls:'dead', tip:'Almost no one is trading this' };
+    // Slow: trades happening but profit is tiny or volume is low
+    if (vph < 60 || profit4h < 10000) return { text:'Slow', cls:'slow', tip:'Low activity — small profits' };
+    // Decent: moderate volume and profit
+    if (profit4h < 100000 || vph < 200) return { text:'Decent', cls:'decent', tip:'Okay flip — moderate volume' };
+    // Good: solid volume and profit
+    if (profit4h < 500000) return { text:'Good Flip', cls:'good', tip:'Solid margins with real volume' };
+    // Great: high volume and high profit
+    return { text:'Great Flip', cls:'great', tip:'High profit with strong volume' };
+}
+function formatVolPerHour(item) {
+    const vph = volPerHour(item);
+    if (vph === 0) return 'None';
+    if (vph < 12) return '<12/hr';
+    if (vph >= 10000) return (vph/1000).toFixed(0) + 'K/hr';
+    if (vph >= 1000) return (vph/1000).toFixed(1) + 'K/hr';
+    return '~' + vph.toLocaleString() + '/hr';
+}
 function iconUrl(icon) { return icon ? `https://oldschool.runescape.wiki/images/${encodeURIComponent(icon.replace(/ /g,'_'))}` : ''; }
 function iconHtml(icon, name, size=32) {
     if (!icon) return `<div style="width:${size}px;height:${size}px;display:grid;place-items:center;font-size:${size*0.6}px;color:var(--gold);">$</div>`;
@@ -784,9 +823,11 @@ function renderDashboard() {
     const items = state.allItems;
     document.getElementById('statItems').textContent = items.length.toLocaleString();
     if (items.length > 0) {
-        const best = items.reduce((a,b) => (b.margin||0) > (a.margin||0) ? b : a, items[0]);
-        document.getElementById('statBestMargin').textContent = gp(best.margin);
-        document.getElementById('statBestName').textContent = best.name;
+        // Best flip = highest REALISTIC 4h profit, not just highest margin on a dead item
+        const best = items.reduce((a,b) => realistic4hProfit(b) > realistic4hProfit(a) ? b : a, items[0]);
+        const rp = realistic4hProfit(best);
+        document.getElementById('statBestProfit').textContent = gp(rp) + '/4h';
+        document.getElementById('statBestName').textContent = best.name + ' (' + gp(best.margin) + '/item)';
     }
     document.getElementById('statDumps').textContent = state.dumps.length;
     document.getElementById('statPumps').textContent = state.pumps.length;
@@ -797,37 +838,37 @@ function renderCharts() {
     const items = state.allItems;
     if (items.length === 0) return;
 
-    // Chart 1: Top 10 by margin
-    const top10m = [...items].sort((a,b) => b.margin - a.margin).slice(0,10);
+    // Chart 1: Top 10 by realistic 4h profit
+    const top10rp = [...items].sort((a,b) => realistic4hProfit(b) - realistic4hProfit(a)).slice(0,10);
     updateChart('chartMargins', 'bar', {
-        labels: top10m.map(i => i.name.length > 15 ? i.name.slice(0,14)+'...' : i.name),
-        datasets: [{ label:'Margin (GP)', data:top10m.map(i => i.margin), backgroundColor:'rgba(255,152,31,0.7)', borderColor:'#ff981f', borderWidth:1, borderRadius:4 }]
+        labels: top10rp.map(i => i.name.length > 15 ? i.name.slice(0,14)+'...' : i.name),
+        datasets: [{ label:'4h Profit', data:top10rp.map(i => realistic4hProfit(i)), backgroundColor:'rgba(34,197,94,0.7)', borderColor:'#22c55e', borderWidth:1, borderRadius:4 }]
     }, { indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#7a7268',callback:v=>gp(v)},grid:{color:'rgba(255,152,31,0.08)'}}, y:{ticks:{color:'#b8b0a5',font:{size:11}},grid:{display:false}} }});
 
-    // Chart 2: JTI distribution
-    const bins = [0,0,0,0,0]; // 0-20, 21-40, 41-60, 61-80, 81-100
-    items.forEach(i => { const b = Math.min(4, Math.floor((i.jtiScore||0)/20)); bins[b]++; });
+    // Chart 2: Verdict distribution
+    const verdictCounts = { 'Great Flip':0, 'Good Flip':0, 'Decent':0, 'Slow':0, 'Dead':0 };
+    items.forEach(i => { const v = getVerdict(i); verdictCounts[v.text] = (verdictCounts[v.text]||0) + 1; });
     updateChart('chartJtiDist', 'doughnut', {
-        labels: ['0-20 (Avoid)', '21-40 (Weak)', '41-60 (Decent)', '61-80 (Good)', '81-100 (Elite)'],
-        datasets: [{ data:bins, backgroundColor:['#ef4444','#f97316','#eab308','#22c55e','#3b82f6'], borderWidth:0 }]
+        labels: Object.keys(verdictCounts),
+        datasets: [{ data:Object.values(verdictCounts), backgroundColor:['#22c55e','#4ade80','#ff981f','#d97706','#ef4444'], borderWidth:0 }]
     }, { plugins:{legend:{position:'right',labels:{color:'#b8b0a5',font:{size:11},padding:8}}} });
 
-    // Chart 3: Top 10 by volume
-    const top10v = [...items].sort((a,b) => (b.buyQuantity+b.sellQuantity) - (a.buyQuantity+a.sellQuantity)).slice(0,10);
+    // Chart 3: Top 10 by volume (hourly estimate)
+    const top10v = [...items].sort((a,b) => volPerHour(b) - volPerHour(a)).slice(0,10);
     updateChart('chartVolume', 'bar', {
         labels: top10v.map(i => i.name.length > 15 ? i.name.slice(0,14)+'...' : i.name),
         datasets: [
-            { label:'Buy Vol', data:top10v.map(i=>i.buyQuantity), backgroundColor:'rgba(34,197,94,0.6)', borderRadius:4 },
-            { label:'Sell Vol', data:top10v.map(i=>i.sellQuantity), backgroundColor:'rgba(239,68,68,0.6)', borderRadius:4 },
+            { label:'Buy Vol/hr', data:top10v.map(i=>i.buyQuantity*12), backgroundColor:'rgba(34,197,94,0.6)', borderRadius:4 },
+            { label:'Sell Vol/hr', data:top10v.map(i=>i.sellQuantity*12), backgroundColor:'rgba(239,68,68,0.6)', borderRadius:4 },
         ]
     }, { indexAxis:'y', plugins:{legend:{labels:{color:'#b8b0a5'}}}, scales:{ x:{stacked:true,ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}}, y:{stacked:true,ticks:{color:'#b8b0a5',font:{size:11}},grid:{display:false}} }});
 
-    // Chart 4: Scatter — margin% vs volume
+    // Chart 4: Scatter — margin% vs volume/hr
     const top50 = items.slice(0, 50);
     updateChart('chartScatter', 'scatter', {
-        datasets: [{ label:'Items', data: top50.map(i => ({ x:i.buyQuantity+i.sellQuantity, y:i.marginPct, name:i.name })),
+        datasets: [{ label:'Items', data: top50.map(i => ({ x:volPerHour(i), y:i.marginPct, name:i.name })),
             backgroundColor:'rgba(255,152,31,0.5)', borderColor:'#ff981f', pointRadius:5, pointHoverRadius:8 }]
-    }, { plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw.name}: ${ctx.raw.y}% margin, ${ctx.raw.x} vol`}}}, scales:{ x:{title:{display:true,text:'Volume (5m)',color:'#7a7268'},ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}}, y:{title:{display:true,text:'Margin %',color:'#7a7268'},ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}} }});
+    }, { plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw.name}: ${ctx.raw.y}% margin, ~${ctx.raw.x}/hr`}}}, scales:{ x:{title:{display:true,text:'Volume per Hour (est.)',color:'#7a7268'},ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}}, y:{title:{display:true,text:'Margin %',color:'#7a7268'},ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}} }});
 }
 
 function updateChart(canvasId, type, data, options) {
@@ -843,28 +884,29 @@ function renderTopFlips() {
     switch (state.currentSort) {
         case 'margin': items.sort((a,b) => b.margin - a.margin); break;
         case 'margin-pct': items.sort((a,b) => b.marginPct - a.marginPct); break;
-        case 'volume': items.sort((a,b) => (b.buyQuantity+b.sellQuantity) - (a.buyQuantity+a.sellQuantity)); break;
+        case 'volume': items.sort((a,b) => volPerHour(b) - volPerHour(a)); break;
         case 'price': items.sort((a,b) => b.sellPrice - a.sellPrice); break;
-        default: items.sort((a,b) => b.jtiScore - a.jtiScore);
+        default: items.sort((a,b) => realistic4hProfit(b) - realistic4hProfit(a)); // realistic profit
     }
 
     // Table view
     const tbody = document.getElementById('topFlipsBody');
     if (tbody) {
-        const maxVol = Math.max(1, ...items.map(i => i.buyQuantity + i.sellQuantity));
         tbody.innerHTML = items.length > 0 ? items.map(item => {
-            const vol = item.buyQuantity + item.sellQuantity;
-            const volPct = Math.min(100, (vol / maxVol) * 100);
+            const v = getVerdict(item);
+            const rp = realistic4hProfit(item);
+            const rb = realisticBuys(item);
+            const volumeLimited = item.buyLimit && (volPerHour(item) * 4) < item.buyLimit;
             return `<tr>
                 <td><button class="fav-btn ${state.watchlist.has(item.itemId)?'on':''}" data-id="${item.itemId}" onclick="toggleFav(${item.itemId},this)">&#9733;</button></td>
                 <td class="item-name-cell"><span class="item-row-icon">${iconHtml(item.icon,item.name,28)}</span>${item.name}</td>
-                <td><span class="jti-pill ${jtiClass(item.jtiScore)}">${Math.round(item.jtiScore)}</span></td>
+                <td><span class="verdict-pill ${v.cls}" title="${v.tip}">${v.text}</span></td>
                 <td class="price-green">${gp(item.buyPrice)}</td>
                 <td class="price-red">${gp(item.sellPrice)}</td>
                 <td class="price-gold">${gp(item.margin)}</td>
                 <td>${item.marginPct}%</td>
-                <td><span class="vol-bar" style="width:${Math.max(4,volPct*0.6)}px;"></span>${vol.toLocaleString()}</td>
-                <td>${item.buyLimit ? item.buyLimit.toLocaleString() : '—'}</td>
+                <td><span class="vol-context">${formatVolPerHour(item)}</span></td>
+                <td class="realistic-profit">${gp(rp)}${volumeLimited ? '<br><span class="capped-warning">vol limited (~' + rb.toLocaleString() + ' avail)</span>' : ''}</td>
             </tr>`;
         }).join('') : '<tr><td colspan="9" class="empty-state">No items found</td></tr>';
     }
@@ -872,19 +914,23 @@ function renderTopFlips() {
     // Card view
     const grid = document.getElementById('gridView');
     if (grid) {
-        grid.innerHTML = items.map(item => `
+        grid.innerHTML = items.map(item => {
+            const v = getVerdict(item);
+            const rp = realistic4hProfit(item);
+            return `
             <div class="item-card">
                 <button class="card-fav ${state.watchlist.has(item.itemId)?'on':''}" onclick="toggleFav(${item.itemId},this)">&#9733;</button>
                 <div class="card-icon">${iconHtml(item.icon,item.name,36)}</div>
                 <div class="card-name">${item.name}</div>
-                <div class="card-jti"><span class="jti-pill ${jtiClass(item.jtiScore)}">${Math.round(item.jtiScore)}</span></div>
+                <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>
                 <div class="card-prices">
                     <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:12px;font-weight:700;">${gp(item.buyPrice)}</div></div>
                     <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:12px;font-weight:700;">${gp(item.sellPrice)}</div></div>
                 </div>
-                <div class="card-profit">${gp(item.margin)} (${item.marginPct}%)</div>
-            </div>
-        `).join('');
+                <div class="card-price-box" style="margin-bottom:6px;"><div class="card-price-label">Profit/Item</div><div class="price-gold" style="font-size:12px;font-weight:700;">${gp(item.margin)} (${item.marginPct}%)</div></div>
+                <div class="card-profit" style="background:rgba(34,197,94,0.1);color:var(--green);">${gp(rp)} / 4h<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;">${formatVolPerHour(item)}</span></div>
+            </div>`;
+        }).join('');
     }
 }
 
@@ -927,19 +973,22 @@ function renderWatchlist() {
     const content = document.getElementById('watchlistContent');
     const empty = document.getElementById('watchlistEmpty');
     if (watched.length > 0) {
-        content.innerHTML = '<div class="item-grid">' + watched.map(item => `
+        content.innerHTML = '<div class="item-grid">' + watched.map(item => {
+            const v = getVerdict(item);
+            const rp = realistic4hProfit(item);
+            return `
             <div class="item-card">
                 <button class="card-fav on" onclick="toggleFav(${item.itemId},this)">&#9733;</button>
                 <div class="card-icon">${iconHtml(item.icon,item.name,36)}</div>
                 <div class="card-name">${item.name}</div>
-                <div class="card-jti"><span class="jti-pill ${jtiClass(item.jtiScore)}">${Math.round(item.jtiScore)}</span></div>
+                <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>
                 <div class="card-prices">
                     <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:12px;font-weight:700;">${gp(item.buyPrice)}</div></div>
                     <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:12px;font-weight:700;">${gp(item.sellPrice)}</div></div>
                 </div>
-                <div class="card-profit">${gp(item.margin)} (${item.marginPct}%)</div>
-            </div>
-        `).join('') + '</div>';
+                <div class="card-profit" style="background:rgba(34,197,94,0.1);color:var(--green);">${gp(rp)} / 4h<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;">${gp(item.margin)}/item · ${formatVolPerHour(item)}</span></div>
+            </div>`;
+        }).join('') + '</div>';
         empty.classList.add('hidden');
     } else {
         content.innerHTML = '';
