@@ -735,6 +735,10 @@ const state = {
     fetchCache: {},      // { [endpoint]: { data, time } } for fetch deduplication
     lastRenderHash: '',  // for renderTopFlips optimization
     lastDumpsHash: '',   // for renderDumpsPumps optimization
+    // === FRAMEWORK V2: Long-term price memory ===
+    priceMemory: {},     // itemId -> { avg24h, avg4h, high24h, low24h, samples: [{time,price}], lastUpdated }
+    spreadHistory: {},   // itemId -> [{ time, spread, spreadPct }] rolling 30-min window
+    dumpConfidence: {},  // itemId -> { firstSeen, confirmations, peakScore, lastScore }
 };
 
 // ============================================
@@ -776,6 +780,120 @@ function saveSettings() {
     localStorage.setItem('gfo_notifications_enabled', state.notificationsEnabled);
     localStorage.setItem('gfo_showIntel', state.showIntel);
 }
+
+// ============================================
+// FRAMEWORK V2: LONG-TERM PRICE MEMORY
+// ============================================
+// Persists price data across page reloads so we can compare current prices
+// against 4h/24h baselines, not just 1h API snapshots.
+// This is the KEY upgrade — we can detect real crashes vs normal fluctuation.
+
+function loadPriceMemory() {
+    try {
+        const saved = localStorage.getItem('gfo_price_memory');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            // Only load if data is less than 25 hours old
+            const cutoff = Date.now() - 90000000; // 25 hours
+            for (const [id, mem] of Object.entries(parsed)) {
+                if (mem.lastUpdated && mem.lastUpdated > cutoff) {
+                    // Prune old samples (keep last 24h only)
+                    if (mem.samples) {
+                        mem.samples = mem.samples.filter(s => s.time > cutoff);
+                    }
+                    state.priceMemory[id] = mem;
+                }
+            }
+        }
+    } catch(e) { console.error('[GFO] Failed to load price memory:', e); }
+}
+
+function savePriceMemory() {
+    try {
+        // Only save items with recent data (last 25h)
+        const cutoff = Date.now() - 90000000;
+        const toSave = {};
+        for (const [id, mem] of Object.entries(state.priceMemory)) {
+            if (mem.lastUpdated > cutoff) {
+                // Keep max 288 samples per item (every 5 min for 24h)
+                const trimmed = { ...mem };
+                if (trimmed.samples && trimmed.samples.length > 288) {
+                    trimmed.samples = trimmed.samples.slice(-288);
+                }
+                toSave[id] = trimmed;
+            }
+        }
+        localStorage.setItem('gfo_price_memory', JSON.stringify(toSave));
+    } catch(e) { console.error('[GFO] Failed to save price memory:', e); }
+}
+
+function updatePriceMemory(itemId, currentPrice, volume) {
+    const now = Date.now();
+    if (!state.priceMemory[itemId]) {
+        state.priceMemory[itemId] = {
+            avg24h: currentPrice, avg4h: currentPrice,
+            high24h: currentPrice, low24h: currentPrice,
+            samples: [], lastUpdated: now
+        };
+    }
+    const mem = state.priceMemory[itemId];
+
+    // Only add a sample every 5 minutes to avoid bloat
+    const lastSample = mem.samples.length > 0 ? mem.samples[mem.samples.length - 1] : null;
+    if (!lastSample || (now - lastSample.time) > 300000) {
+        mem.samples.push({ time: now, price: currentPrice, vol: volume || 0 });
+    }
+
+    // Prune samples older than 24h
+    const cutoff24h = now - 86400000;
+    const cutoff4h = now - 14400000;
+    mem.samples = mem.samples.filter(s => s.time > cutoff24h);
+
+    // Recalculate baselines
+    if (mem.samples.length > 0) {
+        const all = mem.samples;
+        const recent4h = all.filter(s => s.time > cutoff4h);
+
+        mem.avg24h = Math.round(all.reduce((s, x) => s + x.price, 0) / all.length);
+        mem.avg4h = recent4h.length > 0
+            ? Math.round(recent4h.reduce((s, x) => s + x.price, 0) / recent4h.length)
+            : mem.avg24h;
+        mem.high24h = Math.max(...all.map(s => s.price));
+        mem.low24h = Math.min(...all.map(s => s.price));
+    }
+    mem.lastUpdated = now;
+}
+
+// Update spread history for an item (tracks buy-sell gap over time)
+function updateSpreadHistory(itemId, buyPrice, sellPrice) {
+    if (!state.spreadHistory[itemId]) state.spreadHistory[itemId] = [];
+    const spread = sellPrice - buyPrice;
+    const spreadPct = buyPrice > 0 ? (spread / buyPrice) * 100 : 0;
+    state.spreadHistory[itemId].push({ time: Date.now(), spread, spreadPct });
+    // Keep 30 min of data (at 8s intervals = ~225 entries)
+    if (state.spreadHistory[itemId].length > 225) state.spreadHistory[itemId].shift();
+}
+
+// Track dump confidence — how sure are we this is a real dump?
+function updateDumpConfidence(itemId, score) {
+    const now = Date.now();
+    if (!state.dumpConfidence[itemId]) {
+        state.dumpConfidence[itemId] = { firstSeen: now, confirmations: 0, peakScore: score, lastScore: score };
+    }
+    const dc = state.dumpConfidence[itemId];
+    dc.confirmations++;
+    dc.lastScore = score;
+    if (score > dc.peakScore) dc.peakScore = score;
+    // Reset if stale (item hasn't been a dump for 10+ min)
+    if (dc.firstSeen && (now - dc.firstSeen) > 600000 && dc.confirmations < 3) {
+        dc.firstSeen = now;
+        dc.confirmations = 1;
+        dc.peakScore = score;
+    }
+}
+
+// Save price memory periodically (every 2 minutes)
+setInterval(savePriceMemory, 120000);
 
 function loadWatchlist() {
     try {
@@ -1219,6 +1337,10 @@ async function checkDumpsLight() {
         state.priceHistory[id].push({ time: Date.now(), price: currentAvg, vol: bv + sv });
         if (state.priceHistory[id].length > 10) state.priceHistory[id].shift();
 
+        // === FRAMEWORK V2: Feed long-term memory & spread tracking ===
+        updatePriceMemory(id, currentAvg, bv + sv);
+        updateSpreadHistory(id, instaBuyPrice, instaSellPrice);
+
         // Rolling trend: has this item been dropping over multiple checks?
         const history = state.priceHistory[id] || [];
         let trendPct = 0;
@@ -1249,6 +1371,35 @@ async function checkDumpsLight() {
         if (flipProfit > 1000000) severity += 5;  // Huge profit opportunity
         if ((bv + sv) > 50) severity += 1;  // Liquid item
 
+        // === FRAMEWORK V2: Long-term crash analysis ===
+        const mem = state.priceMemory[id];
+        let crashFrom4h = 0, crashFrom24h = 0, volatility24h = 0, priceMemoryAge = 0;
+        if (mem && mem.samples.length >= 3) {
+            if (mem.avg4h > 0) crashFrom4h = ((instaBuyPrice - mem.avg4h) / mem.avg4h) * 100;
+            if (mem.avg24h > 0) crashFrom24h = ((instaBuyPrice - mem.avg24h) / mem.avg24h) * 100;
+            // Volatility = range / average over 24h (higher = more volatile = less reliable crash)
+            if (mem.avg24h > 0 && mem.high24h > mem.low24h) {
+                volatility24h = ((mem.high24h - mem.low24h) / mem.avg24h) * 100;
+            }
+            priceMemoryAge = mem.samples.length; // How many data points we have
+        }
+
+        // Spread analysis: is the spread widening (uncertainty) or tightening (recovery)?
+        const spreadHist = state.spreadHistory[id] || [];
+        let spreadTrend = 0; // negative = tightening (good), positive = widening (bad)
+        if (spreadHist.length >= 5) {
+            const recent = spreadHist.slice(-5);
+            const older = spreadHist.slice(0, Math.min(5, spreadHist.length - 5));
+            if (older.length > 0) {
+                const avgRecent = recent.reduce((s, x) => s + x.spreadPct, 0) / recent.length;
+                const avgOlder = older.reduce((s, x) => s + x.spreadPct, 0) / older.length;
+                spreadTrend = avgRecent - avgOlder;
+            }
+        }
+
+        // Buy limit total profit cap — how much can you ACTUALLY make?
+        const totalProfitCap = flipProfit * Math.min(buyLimit, Math.round((bv + sv) * 12 * 4));
+
         const summary = {
             itemId: id, name: meta.name, icon: meta.icon,
             instaBuyAt: instaBuyPrice,    // "Buy NOW at this price"
@@ -1257,6 +1408,13 @@ async function checkDumpsLight() {
             marginPct: marginPct,          // Margin as percentage
             crashPct: crashPct,            // How much it crashed (5m)
             crashFromNormal: crashFromNormal,  // How much below 1h normal
+            // === V2 fields ===
+            crashFrom4h: crashFrom4h,          // Crash vs 4h average
+            crashFrom24h: crashFrom24h,        // Crash vs 24h average
+            volatility24h: volatility24h,      // 24h price range as % of avg
+            spreadTrend: spreadTrend,          // Spread direction (neg = tightening)
+            totalProfitCap: totalProfitCap,    // Max profit given buy limit + volume
+            priceMemoryAge: priceMemoryAge,    // How much long-term data we have
             // Keep old fields for compatibility
             buyPrice: instaBuyPrice, sellPrice: instaSellPrice,
             fiveMinAvg: avgSellPrice5m || currentAvg,
@@ -1271,6 +1429,15 @@ async function checkDumpsLight() {
         // Calculate dump score using the intelligent scoring engine
         const dumpScoreResult = getDumpScore(summary);
         summary.dumpScore = dumpScoreResult.score;
+        summary.dumpLabel = dumpScoreResult.label || '';
+        summary.recoveryETA = dumpScoreResult.recoveryETA || '';
+
+        // Track dump confidence (multi-check confirmation)
+        if (dumpScoreResult.score >= 30) {
+            updateDumpConfidence(id, dumpScoreResult.score);
+        }
+        const dc = state.dumpConfidence[id];
+        summary.confirmations = dc ? dc.confirmations : 0;
 
         // ====== VOLUME & DEMAND GATE ======
         // An item is only worth showing if people actually TRADE it
@@ -1281,8 +1448,15 @@ async function checkDumpsLight() {
         const isMedDemand = estVolPerHour >= 8;          // 8+ trades/hr = tradeable
         const isLowDemand = estVolPerHour < 8;           // Under 8/hr = illiquid garbage
 
-        // DUMP DETECTION: Use intelligent dump score with profit & demand gates
-        const isDump = flipProfit >= 100000 && !isLowDemand && dumpScoreResult.score >= 35;
+        // ====== TOTAL PROFIT GATE (V2) ======
+        // Even if profit/item is high, if buy limit is 1 and volume is 0, it's worthless
+        // Require realistic total profit of at least 200K to show up
+        const minTotalProfit = totalProfitCap >= 200000;
+
+        // DUMP DETECTION: V2 — score + profit + demand + total profit cap
+        // Also require at least 2 confirmations (seen in consecutive checks) for items with borderline scores
+        const isConfirmed = dumpScoreResult.score >= 50 || (dc && dc.confirmations >= 2);
+        const isDump = flipProfit >= 100000 && !isLowDemand && minTotalProfit && dumpScoreResult.score >= 35 && isConfirmed;
 
         // PUMP DETECTION: only items worth caring about
         // Use normalValue (not current price) so we catch pumps on valuable items
@@ -1351,6 +1525,18 @@ async function checkDumpsLight() {
             delete state.priceHistory[id];
         }
     }
+    // V2: Cleanup stale dump confidence (items not seen as dumps for 10+ min)
+    for (const [id, dc] of Object.entries(state.dumpConfidence)) {
+        if (dc.firstSeen && (now - dc.firstSeen) > 600000 && !nd.some(d => d.itemId === parseInt(id))) {
+            delete state.dumpConfidence[id];
+        }
+    }
+    // V2: Cleanup stale spread history
+    for (const [id, hist] of Object.entries(state.spreadHistory)) {
+        if (hist.length > 0 && (now - hist[hist.length - 1].time) > 1800000) {
+            delete state.spreadHistory[id];
+        }
+    }
 }
 
 // ============================================
@@ -1359,129 +1545,243 @@ async function checkDumpsLight() {
 function getDumpScore(d) {
     let score = 0;
     const weights = {};
+    const reasons = []; // Human-readable reasons for this score
 
-    // === PRICE SIGNALS (40% weight) ===
-    // Crash from 1h normal — most reliable signal
-    const crashNorm = Math.abs(d.crashFromNormal || 0);
-    if (crashNorm > 10) score += 20;
-    else if (crashNorm > 5) score += 15;
-    else if (crashNorm > 3) score += 10;
-    else if (crashNorm > 2) score += 5;
+    // === PRICE SIGNALS (35 points max) ===
+
+    // Multi-timeframe crash confirmation: the more timeframes agree, the more real it is
+    const crashNorm = Math.abs(d.crashFromNormal || 0);   // vs 1h average
+    const crash5m = Math.abs(d.crashPct || 0);              // vs 5m average
+    const crash4h = Math.abs(d.crashFrom4h || 0);           // vs 4h average (V2)
+    const crash24h = Math.abs(d.crashFrom24h || 0);         // vs 24h average (V2)
+
+    // Count how many timeframes confirm the crash (multi-timeframe confirmation)
+    let timeframeConfirmations = 0;
+    if (crashNorm > 2) timeframeConfirmations++;
+    if (crash5m > 1.5) timeframeConfirmations++;
+    if (crash4h > 2) timeframeConfirmations++;
+    if (crash24h > 3) timeframeConfirmations++;
+
+    // Base crash score from 1h normal (still primary signal)
+    if (crashNorm > 15) { score += 18; reasons.push('Massive crash from normal'); }
+    else if (crashNorm > 8) { score += 14; reasons.push('Large crash from normal'); }
+    else if (crashNorm > 5) { score += 10; reasons.push('Significant dip from normal'); }
+    else if (crashNorm > 3) { score += 6; }
+    else if (crashNorm > 2) { score += 3; }
+
+    // Multi-timeframe bonus: if crash confirmed across multiple windows, it's real
+    if (timeframeConfirmations >= 3) { score += 8; reasons.push('Crash confirmed across 3+ timeframes'); }
+    else if (timeframeConfirmations >= 2) { score += 4; }
     weights.crashFromNormal = crashNorm;
+    weights.timeframeConfirmations = timeframeConfirmations;
 
-    // Crash from 5m — short-term momentum
-    const crash5m = Math.abs(d.crashPct || 0);
-    if (crash5m > 5) score += 8;
-    else if (crash5m > 2) score += 4;
-    weights.crash5m = crash5m;
+    // V2: If we have 24h data and the item is below its 24h low, that's exceptional
+    if (d.priceMemoryAge > 10 && crash24h > 5) {
+        score += 5;
+        reasons.push('Below 24h average');
+    }
 
     // Price vs alch floor — items near alch floor can't drop much more (safer flip)
     if (d.highAlch && d.instaBuyAt) {
         const alchRatio = d.instaBuyAt / d.highAlch;
-        if (alchRatio < 1.05) score += 8; // Near alch floor = safe
-        else if (alchRatio < 1.15) score += 4;
+        if (alchRatio < 1.02) { score += 8; reasons.push('At alch floor — can\'t go lower'); }
+        else if (alchRatio < 1.1) score += 4;
+        else if (alchRatio < 1.2) score += 2;
     }
 
-    // === VOLUME SIGNALS (25% weight) ===
+    // === VOLUME & LIQUIDITY SIGNALS (25 points max) ===
     const volHr = ((d.buyQuantity || 0) + (d.sellQuantity || 0)) * 12;
-    if (volHr > 200) score += 12;
-    else if (volHr > 50) score += 8;
-    else if (volHr > 20) score += 4;
+    if (volHr > 500) { score += 12; reasons.push('Extremely liquid'); }
+    else if (volHr > 200) score += 10;
+    else if (volHr > 50) score += 7;
+    else if (volHr > 20) score += 3;
     weights.volumeHr = volHr;
 
     // Sell pressure ratio — more sellers than buyers = dump in progress
     const sp = d.sellPressure || 0;
-    if (sp > 4) score += 8;
-    else if (sp > 2.5) score += 5;
-    else if (sp > 1.5) score += 2;
+    if (sp > 5) { score += 7; reasons.push('Extreme sell pressure'); }
+    else if (sp > 3) score += 5;
+    else if (sp > 2) score += 3;
+    else if (sp > 1.5) score += 1;
     weights.sellPressure = sp;
 
-    // === TREND SIGNALS (15% weight) ===
+    // V2: Spread analysis — tightening spread = market recovering, widening = still dumping
+    const spreadTrend = d.spreadTrend || 0;
+    if (spreadTrend < -1) { score += 4; reasons.push('Spread tightening — recovery starting'); }
+    else if (spreadTrend > 2) score -= 3; // Widening spread = uncertainty, less reliable
+
+    // === TREND SIGNALS (15 points max) ===
     const trend = d.trendPct || 0;
-    if (trend < -5) score += 8;
-    else if (trend < -3) score += 5;
+    if (trend < -8) { score += 8; reasons.push('Steep downward trend'); }
+    else if (trend < -5) score += 6;
+    else if (trend < -3) score += 4;
     else if (trend < -1) score += 2;
-    // Accelerating decline (trend worse than crash) = panic selling
-    if (trend < d.crashPct && trend < -2) score += 5;
+    // Accelerating decline = panic selling (trend steeper than static crash)
+    if (trend < (d.crashPct || 0) && trend < -3) { score += 4; reasons.push('Accelerating decline'); }
     weights.trend = trend;
 
-    // === PROFIT SIGNALS (15% weight) ===
+    // === PROFIT SIGNALS (15 points max) ===
     const profit = d.flipProfit || 0;
-    if (profit > 1000000) score += 10;
-    else if (profit > 500000) score += 7;
-    else if (profit > 200000) score += 4;
-    else if (profit > 100000) score += 2;
-    weights.profit = profit;
+    if (profit > 2000000) { score += 10; reasons.push('Massive profit opportunity'); }
+    else if (profit > 1000000) score += 8;
+    else if (profit > 500000) score += 6;
+    else if (profit > 200000) score += 3;
+    else if (profit > 100000) score += 1;
 
-    // === MANIPULATION DETECTION (penalty) ===
-    // If margin is suspiciously high (>20%) with low volume, likely stale/manipulated
+    // V2: Total profit cap matters more than per-item profit
+    // An item with 500K/item profit but buy limit of 1 = 500K total = meh
+    // An item with 100K/item profit but you can buy 50 = 5M total = great
+    const totalCap = d.totalProfitCap || 0;
+    if (totalCap > 10000000) score += 5;
+    else if (totalCap > 5000000) score += 3;
+    else if (totalCap > 2000000) score += 1;
+    else if (totalCap < 500000) score -= 3; // Not worth the effort
+    weights.profit = profit;
+    weights.totalCap = totalCap;
+
+    // === MANIPULATION DETECTION (penalties) ===
     const marginPct = d.marginPct || 0;
-    if (marginPct > 20 && volHr < 20) score -= 15;
-    // If buy and sell quantities are nearly identical and very low, could be wash trading
     const bq = d.buyQuantity || 0, sq = d.sellQuantity || 0;
-    if (bq > 0 && sq > 0 && Math.abs(bq - sq) <= 1 && (bq + sq) < 6) score -= 10;
-    // Price seems too good to be true — massive margin on expensive item with no volume
-    if (profit > 5000000 && volHr < 10) score -= 20;
+
+    // Suspiciously high margin with no volume = stale offer, not a real crash
+    if (marginPct > 25 && volHr < 15) { score -= 18; reasons.push('Likely stale/manipulated'); }
+    else if (marginPct > 15 && volHr < 10) score -= 12;
+
+    // Wash trading detection: identical tiny buy/sell volumes
+    if (bq > 0 && sq > 0 && Math.abs(bq - sq) <= 1 && (bq + sq) < 6) {
+        score -= 12;
+        reasons.push('Possible wash trading');
+    }
+
+    // Too good to be true: massive margin, no volume
+    if (profit > 5000000 && volHr < 10) { score -= 20; reasons.push('Too good to be true'); }
+
+    // V2: High volatility items — if item normally swings 10%+ daily, a 5% crash is noise
+    const vol24h = d.volatility24h || 0;
+    if (vol24h > 15 && crashNorm < vol24h * 0.4) {
+        score -= 8;
+        reasons.push('Normal volatility — not a real crash');
+    }
+    weights.volatility24h = vol24h;
+
+    // V2: If 5m and 1h disagree strongly, be skeptical
+    // (e.g., 5m shows pump but 1h shows crash = noise)
+    if ((d.crashPct > 0) !== (d.crashFromNormal < 0) && Math.abs(d.crashPct) > 2) {
+        score -= 5;
+    }
 
     // === RECOVERY PROBABILITY ===
-    // Items near alch floor almost always recover
-    // Items with high base demand (consumables, BIS gear) recover faster
-    // Items being dumped by bots may NOT recover
     let recoveryBonus = 0;
-    if (d.highAlch && d.instaBuyAt && d.instaBuyAt < d.highAlch * 1.1) recoveryBonus += 5;
-    if (volHr > 100) recoveryBonus += 3; // Liquid items recover faster
-    if (sp > 4 && trend < -5) recoveryBonus -= 5; // Panic selling = may keep going down
+    let recoveryETA = '';
+
+    // Alch floor = guaranteed recovery floor
+    if (d.highAlch && d.instaBuyAt && d.instaBuyAt < d.highAlch * 1.1) {
+        recoveryBonus += 5;
+        recoveryETA = 'Very likely — at alch floor';
+    }
+
+    // Very liquid items recover fast (market corrects quickly)
+    if (volHr > 200) { recoveryBonus += 4; if (!recoveryETA) recoveryETA = '~15-30 min'; }
+    else if (volHr > 50) { recoveryBonus += 2; if (!recoveryETA) recoveryETA = '~30-60 min'; }
+    else if (volHr < 15) { recoveryBonus -= 2; recoveryETA = 'Slow — low volume'; }
+
+    // Panic selling still in progress = risky, price may keep falling
+    if (sp > 4 && trend < -5) { recoveryBonus -= 6; recoveryETA = 'Risky — still dumping'; }
+    else if (sp > 3 && trend < -3) recoveryBonus -= 3;
+
+    // V2: Spread tightening = recovery already starting
+    if (spreadTrend < -1 && volHr > 30) {
+        recoveryBonus += 3;
+        recoveryETA = 'Recovery in progress';
+    }
+
     score += recoveryBonus;
 
     // === TIME-OF-DAY ADJUSTMENT ===
     const hour = new Date().getHours();
-    const isDeadHours = hour >= 2 && hour <= 7; // 2am-7am = low activity
-    const isPeakHours = hour >= 17 && hour <= 23; // 5pm-11pm = peak
+    const isDeadHours = hour >= 2 && hour <= 7;
+    const isPeakHours = hour >= 17 && hour <= 23;
     if (isDeadHours) {
-        // During dead hours, prices are more volatile but less reliable
-        // Crashes during dead hours are often just low liquidity, not real dumps
-        if (volHr < 30) score -= 10;
+        // Dead hours: low liquidity means prices are unreliable
+        if (volHr < 30) { score -= 10; reasons.push('Dead hours + low volume'); }
+        else score -= 3; // Small penalty even with volume
     }
     if (isPeakHours) {
-        // During peak hours, high-volume crashes are more meaningful
-        if (volHr > 100 && crashNorm > 3) score += 5;
+        // Peak hours: high-volume crashes are real events worth acting on
+        if (volHr > 100 && crashNorm > 3) { score += 5; reasons.push('Peak hours crash'); }
     }
     weights.timeOfDay = isPeakHours ? 'peak' : isDeadHours ? 'dead' : 'normal';
 
     // === ITEM CATEGORY BONUSES ===
     const name = (d.name || '').toLowerCase();
-    // PvM BIS gear always has demand — dumps are real opportunities
+
+    // PvM BIS gear: always has demand, dumps are prime opportunities
     const isPvmBis = ['twisted bow', 'scythe', 'rapier', 'avernic', 'torva', 'masori',
         'ancestral', 'kodai', 'harmonised', 'eldritch', 'volatile', 'inquisitor',
         'dragon hunter', 'dragon warhammer', 'primordial', 'pegasian', 'eternal',
         'bandos', 'armadyl', 'saradomin sword', 'zamorakian spear',
         'oathplate', 'virtus', 'bellator', 'venator', 'ultor', 'magus',
-        'tumeken', 'osmumten', 'lightbearer', 'elidinis',
+        'tumeken', 'osmumten', 'lightbearer', 'elidinis', 'shadow',
         'necklace of anguish', 'amulet of torture', 'tormented bracelet',
-        'bow of faerdhinen', 'blade of saeldor', 'eclipse'].some(p => name.includes(p));
-    if (isPvmBis) score += 8;
+        'bow of faerdhinen', 'blade of saeldor', 'eclipse',
+        'zaryte', 'spectral', 'arcane', 'dexterous', 'arcane prayer scroll',
+        'ferocious gloves', 'guardian boots', 'brimstone ring'].some(p => name.includes(p));
+    if (isPvmBis) { score += 10; reasons.push('PvM BIS — strong demand'); }
 
-    // Consumables always have demand — very safe flips
+    // Consumables: steady demand, safe flips
     const isConsumable = ['potion', 'brew', 'restore', 'prayer', 'stamina',
         'anglerfish', 'manta ray', 'dark crab', 'shark', 'karambwan',
         'cannonball', 'dragon dart', 'rune arrow', 'amethyst arrow',
         'blood rune', 'death rune', 'soul rune', 'wrath rune',
-        'zulrah scale', 'divine'].some(p => name.includes(p));
-    if (isConsumable && volHr > 50) score += 5;
+        'zulrah scale', 'divine', 'bastion', 'battlemage',
+        'super combat', 'ranging potion', 'anti-venom'].some(p => name.includes(p));
+    if (isConsumable && volHr > 50) { score += 6; reasons.push('High-demand consumable'); }
+    else if (isConsumable) score += 2;
 
-    // Bot-farmed items: crashes are often NOT recoverable (just more bots)
+    // Raid uniques: low volume but high value, special handling
+    const isRaidUnique = ['twisted bow', 'scythe of vitur', 'tumeken', 'masori',
+        'osmumten', 'shadow', 'kodai', 'ancestral', 'dexterous', 'arcane prayer',
+        'dragon claws', 'elder maul', 'dinh'].some(p => name.includes(p));
+    if (isRaidUnique) {
+        // Raid items have naturally low volume — don't penalize as hard
+        if (volHr < 20 && volHr >= 5) score += 3;
+        // But DO penalize if basically zero volume (stale offer)
+        if (volHr < 3) score -= 5;
+    }
+
+    // Bot-farmed items: crashes are supply floods, NOT recoverable
     const isBotItem = ['yew log', 'magic log', 'gold ore', 'iron ore', 'coal',
         'green dragonhide', 'flax', 'bow string', 'nature rune',
         'grimy guam', 'grimy tarromin', 'grimy harralander', 'grimy marrentill',
-        'black chinchompa', 'red chinchompa', 'amylase'].some(p => name.includes(p));
-    if (isBotItem) score -= 5; // Bot items: crashes may not recover
+        'black chinchompa', 'red chinchompa', 'amylase',
+        'raw lobster', 'raw swordfish', 'raw shark'].some(p => name.includes(p));
+    if (isBotItem) { score -= 7; reasons.push('Bot-farmed — crash may not recover'); }
+
+    // Merch target items: frequently manipulated by clans
+    const isMerchTarget = ['3rd age', 'party hat', 'christmas cracker', 'santa hat',
+        'green halloween', 'red halloween', 'blue halloween',
+        'pumpkin', 'easter egg', 'disk of returning'].some(p => name.includes(p));
+    if (isMerchTarget) { score -= 10; reasons.push('Known merch target — manipulation likely'); }
+
+    // === HUMAN-READABLE LABEL ===
+    const finalScore = Math.max(0, Math.min(100, score));
+    let label = '';
+    if (finalScore >= 80) label = 'EXCEPTIONAL';
+    else if (finalScore >= 65) label = 'STRONG';
+    else if (finalScore >= 50) label = 'GOOD';
+    else if (finalScore >= 35) label = 'DECENT';
+    else label = 'WEAK';
 
     return {
-        score: Math.max(0, Math.min(100, score)),
+        score: finalScore,
+        label,
         weights,
-        isPvmBis, isConsumable, isBotItem,
+        reasons: reasons.slice(0, 4), // Top 4 reasons
+        isPvmBis, isConsumable, isBotItem, isRaidUnique, isMerchTarget,
         recoveryLikely: recoveryBonus > 0,
-        isDeadHours, isPeakHours
+        recoveryETA,
+        isDeadHours, isPeakHours,
+        timeframeConfirmations
     };
 }
 
@@ -2039,8 +2339,21 @@ function renderSniperFeed() {
         const canBuy = Math.min(vol4h, buyLimit);
         const totalProfit = profit * canBuy;
 
+        // V2: Get dump score result for this item
+        const scoreResult = getDumpScore(d);
+        const scoreLabel = scoreResult.label || '';
+        const scoreLabelColor = scoreLabel === 'EXCEPTIONAL' ? '#22c55e' : scoreLabel === 'STRONG' ? '#3b82f6' : scoreLabel === 'GOOD' ? '#ff981f' : '#7a7268';
+
         // SMART CONTEXT: translate framework intelligence into plain English
         const tags = [];
+
+        // V2: Score label badge
+        if (scoreLabel) tags.push({ text: scoreLabel, color: scoreLabelColor, icon: scoreLabel === 'EXCEPTIONAL' ? '🔥' : scoreLabel === 'STRONG' ? '💪' : '📊' });
+
+        // V2: Confirmation count
+        if (d.confirmations >= 5) tags.push({ text: 'Confirmed', color: 'var(--green)', icon: '✅' });
+        else if (d.confirmations >= 2) tags.push({ text: `${d.confirmations}x seen`, color: 'var(--text-muted)', icon: '🔍' });
+
         // Speed/urgency signal
         if (d.sellPressure > 3) tags.push({ text: 'Heavy selling', color: 'var(--red)', icon: '🔴' });
         else if (d.sellPressure > 1.8) tags.push({ text: 'Sellers flooding', color: 'var(--accent)', icon: '🟠' });
@@ -2052,11 +2365,15 @@ function renderSniperFeed() {
         const volHr = (d.buyQuantity + d.sellQuantity) * 12;
         if (volHr > 100) tags.push({ text: 'Very liquid', color: 'var(--blue)', icon: '💧' });
         else if (volHr < 15) tags.push({ text: 'Low volume', color: 'var(--text-muted)', icon: '⚠️' });
+
+        // V2: Recovery ETA
+        if (scoreResult.recoveryETA) tags.push({ text: scoreResult.recoveryETA, color: 'var(--blue)', icon: '⏱️' });
+
         // Market intel
         const intel = MARKET_INTEL.getIntel(d);
         if (intel.length > 0) tags.push({ text: intel[0].text.length > 25 ? intel[0].text.slice(0,24) + '…' : intel[0].text, color: 'var(--accent)', icon: intel[0].icon });
 
-        const tagsHtml = tags.length > 0 ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;">${tags.slice(0,3).map(t => `<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:${t.color};">${t.icon} ${t.text}</span>`).join('')}</div>` : '';
+        const tagsHtml = tags.length > 0 ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;">${tags.slice(0,4).map(t => `<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:${t.color};">${t.icon} ${t.text}</span>`).join('')}</div>` : '';
 
         const buyLimitHtml = buyLimit < 100 ? `<span style="margin-left:6px; color:var(--red); font-weight:700; font-size:10px;">⚠️ Limit: ${buyLimit}</span>` : '';
 
@@ -2471,6 +2788,7 @@ document.addEventListener('keydown', e => {
 async function init() {
     loadSettings();
     loadWatchlist();
+    loadPriceMemory();
     updateStatus(false);
     await loadTopFlips(true);
     updateStatus(state.allItems.length > 0);
