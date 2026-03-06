@@ -727,7 +727,9 @@ const state = {
     notificationsEnabled: false,
     showIntel: false,  // Market intel hidden by default, expandable per-item
     lastAlertTimes: {},  // itemId-type -> timestamp for rate limiting
-    lastGlobalAlert: 0,  // global rate limit: 1 alert per 60s
+    lastGlobalAlert: 0,  // global rate limit
+    alertsThisHour: [], // timestamps of alerts sent this hour (max 6/hr)
+    discordAlertedItems: {}, // itemId -> timestamp, prevents flicker re-alerts
     refreshCountdown: 0,
     priceBaselines: {},  // { normal1h, normal5m, lastSeen } per item
     fetchCache: {},      // { [endpoint]: { data, time } } for fetch deduplication
@@ -849,69 +851,75 @@ async function sendDiscordAlert(item, type, percentChange) {
     // Only alert on dumps where someone can INSTA-BUY at buyAt and INSTA-SELL at sellFor
     // and walk away with real, meaningful profit. No tiny margins, no junk.
 
-    // Minimum profit per item: 200K GP (a few hundred thousand)
-    if (profitPerItem < 200000) return;
+    // ====== DISCORD QUALITY BAR: ONLY EXCEPTIONAL DUMPS ======
+    // Discord alerts should be rare and ALWAYS worth acting on.
+    // If someone gets a ping, they should drop everything and go to the GE.
 
-    // Item must be worth at least 100K to be a real flip target
-    if (buyAt < 100000) return;
+    // Minimum profit per item: 500K GP — must be a real opportunity
+    if (profitPerItem < 500000) return;
 
-    // The margin must be meaningful — at least 3% of buy price
-    // (prevents alerting on 10M items with 200K profit = 2% margin = too tight)
-    const marginRatio = profitPerItem / buyAt;
-    if (marginRatio < 0.03) return;
+    // Item must be worth at least 500K to flip
+    if (buyAt < 500000) return;
 
-    // Must have real crash evidence — not just normal spread
-    const crashFromNormal = item.crashFromNormal || 0;
-    const crashPct = item.crashPct || item.percentChange || 0;
-    if (crashFromNormal > -2 && crashPct > -2) return; // Not actually crashing
-
-    // Volume check: item must actually trade
     const vol5m = (item.buyQuantity || 0) + (item.sellQuantity || 0);
-    if (vol5m < 3) return; // Illiquid = can't actually execute this flip
+    if (vol5m < 5) return; // Must have real volume
 
     const vol4h = estimateVol4h(item.itemId, vol5m);
     const buyLimit = item.buyLimit || 999999;
     const amountToBuy = Math.min(vol4h, buyLimit);
     const totalProfit = profitPerItem * amountToBuy;
 
-    // Total profit must be at least 1M to be worth a Discord alert
-    if (totalProfit < 1000000) return;
+    // Total profit must be at least 3M to justify a Discord ping
+    if (totalProfit < 3000000) return;
 
-    // Confidence check: need at least MED confidence from our 6-signal scoring
+    // HIGH confidence only — all signals must align
     const conf = getDumpConfidence(item);
-    if (conf.pct < 50) return;
+    if (conf.pct < 65) return;
 
-    // Rate limit: 1 alert per item per 30 minutes
+    // ====== STRICT RATE LIMITING ======
+    // Max a couple alerts per 20 seconds means: 1 alert per 10+ minutes realistically
     const now = Date.now();
-    const key = `${item.itemId}-dump`;
-    if (state.lastAlertTimes[key] && (now - state.lastAlertTimes[key]) < 1800000) return;
-    state.lastAlertTimes[key] = now;
 
-    // Global rate limit: max 1 Discord alert per 5 minutes
-    if (state.lastGlobalAlert && (now - state.lastGlobalAlert) < 300000) return;
+    // Per-item: don't re-alert on the same item for 1 HOUR
+    const key = `${item.itemId}-dump`;
+    if (state.lastAlertTimes[key] && (now - state.lastAlertTimes[key]) < 3600000) return;
+
+    // Global: max 1 Discord alert per 10 MINUTES
+    if (state.lastGlobalAlert && (now - state.lastGlobalAlert) < 600000) return;
+
+    // Daily cap: max 6 alerts per hour to prevent any kind of spam
+    if (!state.alertsThisHour) state.alertsThisHour = [];
+    state.alertsThisHour = state.alertsThisHour.filter(t => (now - t) < 3600000);
+    if (state.alertsThisHour.length >= 6) return;
+
+    state.lastAlertTimes[key] = now;
     state.lastGlobalAlert = now;
+    state.alertsThisHour.push(now);
 
     console.log(`[GFO] Discord alert: ${item.name} — ${gp(profitPerItem)}/item × ${amountToBuy} = ${gp(totalProfit)}`);
 
-    // The embed: PROFIT FIRST. No reasoning, no percentages. Just money.
-    const limitNote = buyLimit < 999999 ? ` (GE limit: ${buyLimit.toLocaleString()})` : '';
+    // Smart context line — one short reason WHY this is a good dump
+    let context = '';
+    if (item.sellPressure > 3) context = '🔴 Heavy selling pressure';
+    else if (item.trendPct && item.trendPct < -3) context = '📉 Price still dropping';
+    else if (item.crashFromNormal && item.crashFromNormal < -5) context = '💎 Way below normal price';
+    else if (item.crashFromNormal && item.crashFromNormal < -3) context = '✅ Below normal price';
+    const intel = MARKET_INTEL.getIntel(item);
+    if (intel.length > 0 && !context) context = `${intel[0].icon} ${intel[0].text}`;
+    const contextLine = context ? `\n${context}` : '';
 
+    // The embed: DEAD SIMPLE. Item name, buy price, sell price, profit + one smart context line.
     try {
         const resp = await fetch(state.webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 embeds: [{
-                    title: `💰 ${gp(totalProfit)} Profit — ${item.name}`,
-                    description: `Insta-buy at **${gp(buyAt)}**, insta-sell at **${gp(sellFor)}**`,
+                    title: `💰 ${item.name} — ${gp(profitPerItem)}/item`,
+                    description: `Buy at **${gp(buyAt)}** → Sell at **${gp(sellFor)}**\nTotal: **${gp(totalProfit)}** (×${amountToBuy.toLocaleString()})${contextLine}`,
                     color: 0x22C55E,
                     thumbnail: item.icon ? { url: `https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}` } : undefined,
-                    fields: [
-                        { name: 'Profit/Item', value: `**${gp(profitPerItem)}**`, inline: true },
-                        { name: 'Buy', value: `**${amountToBuy.toLocaleString()}**${limitNote}`, inline: true },
-                        { name: 'Total Profit', value: `**${gp(totalProfit)}**`, inline: true },
-                    ],
-                    footer: { text: 'Grand Flip Out • grandflipout.com' },
+                    footer: { text: 'Grand Flip Out' },
                     timestamp: new Date().toISOString()
                 }]
             })
@@ -1327,10 +1335,23 @@ async function checkDumpsLight() {
             }
         });
 
-        // Discord alert: only the SINGLE best new dump (sendDiscordAlert handles all filtering)
-        if (brandNew.length > 0) {
-            const best = brandNew[0]; // Already sorted by flipProfit desc
-            sendDiscordAlert(best, 'dump', best.crashPct || best.percentChange);
+        // Discord alert: only the SINGLE best TRULY new dump
+        // Use a persistent seen-set so items that flicker in/out don't re-trigger
+        if (!state.discordAlertedItems) state.discordAlertedItems = {};
+        const trulyNew = brandNew.filter(d => {
+            const lastSeen = state.discordAlertedItems[d.itemId];
+            // Consider "truly new" only if we haven't seen this item as a dump in the last 30 min
+            return !lastSeen || (Date.now() - lastSeen) > 1800000;
+        });
+        if (trulyNew.length > 0) {
+            const best = trulyNew[0]; // Already sorted by flipProfit desc
+            state.discordAlertedItems[best.itemId] = Date.now();
+            sendDiscordAlert(best, 'dump', 0);
+        }
+        // Cleanup old entries from seen-set
+        const cutoff = Date.now() - 3600000;
+        for (const [id, time] of Object.entries(state.discordAlertedItems)) {
+            if (time < cutoff) delete state.discordAlertedItems[id];
         }
 
         // Browser notifications for high-profit dumps
@@ -1932,38 +1953,40 @@ function renderSniperFeed() {
 
     feed.innerHTML = dumps.map(d => {
         const profit = d.flipProfit || (d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000));
-        const crash = d.crashPct || d.percentChange || 0;
-        const vpressure = d.sellPressure > 3 ? '🔴 Heavy selling' : d.sellPressure > 1.5 ? '🟠 Moderate' : '';
 
-        // Get confidence score
-        const conf = getDumpConfidence(d);
-
-        // Calculate realistic buy limit
+        // Calculate what you can actually buy
         const vol4h = Math.round((d.buyQuantity + d.sellQuantity) * 12 * 4);
         const buyLimit = d.buyLimit || 999999;
         const canBuy = Math.min(vol4h, buyLimit);
         const totalProfit = profit * canBuy;
 
+        // SMART CONTEXT: translate framework intelligence into plain English
+        const tags = [];
+        // Speed/urgency signal
+        if (d.sellPressure > 3) tags.push({ text: 'Heavy selling', color: 'var(--red)', icon: '🔴' });
+        else if (d.sellPressure > 1.8) tags.push({ text: 'Sellers flooding', color: 'var(--accent)', icon: '🟠' });
+        // Trend signal
+        if (d.trendPct && d.trendPct < -3) tags.push({ text: 'Still dropping', color: 'var(--red)', icon: '📉' });
+        else if (d.crashFromNormal && d.crashFromNormal < -5) tags.push({ text: 'Way below normal', color: 'var(--green)', icon: '💎' });
+        else if (d.crashFromNormal && d.crashFromNormal < -3) tags.push({ text: 'Below normal', color: 'var(--green)', icon: '✅' });
+        // Volume signal
+        const volHr = (d.buyQuantity + d.sellQuantity) * 12;
+        if (volHr > 100) tags.push({ text: 'Very liquid', color: 'var(--blue)', icon: '💧' });
+        else if (volHr < 15) tags.push({ text: 'Low volume', color: 'var(--text-muted)', icon: '⚠️' });
+        // Market intel
         const intel = MARKET_INTEL.getIntel(d);
-        const intelToggleId = `intel-${d.itemId}`;
-        const intelHtml = intel.length > 0 ? `
-            <div style="margin-top:8px; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
-                <button class="intel-toggle" onclick="document.getElementById('${intelToggleId}').classList.toggle('intel-hidden'); event.stopPropagation();">🧠 Why?</button>
-                <div id="${intelToggleId}" class="intel-hidden" style="display:flex; gap:4px; flex-wrap:wrap;">
-                    ${intel.slice(0,3).map(i => `<span class="intel-badge ${i.tag}" title="${i.text.replace(/"/g,'&quot;')}">${i.icon} ${i.text}</span>`).join('')}
-                </div>
-            </div>
-        ` : '';
+        if (intel.length > 0) tags.push({ text: intel[0].text.length > 25 ? intel[0].text.slice(0,24) + '…' : intel[0].text, color: 'var(--accent)', icon: intel[0].icon });
 
-        const buyLimitHtml = buyLimit < 100 ? `<span style="margin-left:6px; color:var(--red); font-weight:700; font-size:10px;">⚠️ Buy limit: ${buyLimit}</span>` : '';
+        const tagsHtml = tags.length > 0 ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;">${tags.slice(0,3).map(t => `<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:${t.color};">${t.icon} ${t.text}</span>`).join('')}</div>` : '';
+
+        const buyLimitHtml = buyLimit < 100 ? `<span style="margin-left:6px; color:var(--red); font-weight:700; font-size:10px;">⚠️ Limit: ${buyLimit}</span>` : '';
 
         return `
         <div class="dp-section" style="padding:16px; cursor:pointer; border-left:4px solid ${profit >= 300000 ? 'var(--green)' : profit > 0 ? 'var(--accent)' : 'var(--red)'};" onclick="openOSRSWiki('${d.name.replace(/'/g, "\\'")}')">
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <div class="dp-item-icon" style="width:44px;height:44px;">${iconHtml(d.icon, d.name, 44)}</div>
                 <div style="flex:1;">
-                    <div style="font-weight:700; font-size:16px; color:var(--text);">${d.name}</div>
-                    ${buyLimitHtml}
+                    <div style="font-weight:700; font-size:16px; color:var(--text);">${d.name}${buyLimitHtml}</div>${tagsHtml}
                 </div>
                 <div style="text-align:right;">
                     <div style="font-size:22px; font-weight:900; color:var(--green); text-shadow:0 0 12px rgba(34,197,94,0.3);">${gp(profit)}<span style="font-size:11px; font-weight:500; color:var(--text-muted);">/item</span></div>
@@ -1987,7 +2010,7 @@ function renderSniperFeed() {
                 <span style="font-size:11px; color:var(--text-muted);">Total Profit: </span>
                 <span style="font-size:18px; font-weight:900; color:var(--green);">${gp(totalProfit)}</span>
                 ${d.buyLimit && d.buyLimit < vol4h ? `<span style="font-size:10px; color:var(--text-muted); margin-left:8px;">(GE limit: ${d.buyLimit.toLocaleString()})</span>` : ''}
-            </div>${intelHtml}
+            </div>
         </div>`;
     }).join('');
 
