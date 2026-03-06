@@ -315,6 +315,16 @@
         .intel-badge.merch-target { background:rgba(212,175,55,0.1); border-color:rgba(212,175,55,0.2); }
         .intel-badge.warning { background:rgba(239,68,68,0.1); border-color:rgba(239,68,68,0.2); }
 
+        /* === PRICE PROMINENCE === */
+        .price-hero { font-size:18px; font-weight:900; color:var(--green); text-shadow:0 0 12px rgba(34,197,94,0.3); }
+        .price-highlight { font-size:16px; font-weight:800; color:var(--text); text-shadow:0 0 8px rgba(255,152,31,0.2); }
+
+        /* === COLLAPSIBLE INTEL === */
+        .intel-toggle { background:none; border:none; color:var(--accent); cursor:pointer; font-size:12px; font-weight:600; padding:2px 4px; margin-left:4px; font-family:inherit; transition:all .2s; }
+        .intel-toggle:hover { opacity:0.8; }
+        .intel-container { display:flex; flex-direction:column; gap:4px; margin-top:6px; }
+        .intel-hidden { display:none; }
+
         .hidden { display:none !important; }
     </style>
 </head>
@@ -448,7 +458,7 @@
                         <th class="tooltip" data-tip="Profit per item after 2% GE tax">Profit/Item</th>
                         <th class="tooltip" data-tip="Margin as % of buy price">%</th>
                         <th class="tooltip" data-tip="Estimated trades per hour based on 5-min data">Volume/hr</th>
-                        <th class="tooltip" data-tip="Realistic total profit in 4 hours based on actual volume">4h Profit</th>
+                        <th class="tooltip" data-tip="Realistic total profit in 4 hours based on actual volume">Est. 4h Profit</th>
                     </tr>
                 </thead>
                 <tbody id="topFlipsBody"></tbody>
@@ -648,6 +658,14 @@
             </div>
         </div>
 
+        <div class="settings-group">
+            <label class="settings-label">Market Intel</label>
+            <div class="settings-toggle">
+                <div class="toggle-switch" id="showIntelToggle" onclick="toggleShowIntel(this)"></div>
+                <span style="font-size:13px; color:var(--text-secondary);">Show market intel by default (or click icon to expand)</span>
+            </div>
+        </div>
+
         <div class="settings-button-group">
             <button class="settings-button" onclick="testDiscordWebhook()">📨 Test Webhook</button>
             <button class="settings-button secondary" onclick="toggleSettingsModal()">Close</button>
@@ -703,6 +721,7 @@ const state = {
     webhookUrl: 'https://discord.com/api/webhooks/1479300808947531776/9ELFKUCDELZUW2cXJLJAyz5RmRtkMWT4wIoRdE2KA5gTVdUIRgqZ09bYpX6QZvLipFZe',
     autoAlertsEnabled: true,
     notificationsEnabled: false,
+    showIntel: false,  // Market intel hidden by default, expandable per-item
     lastAlertTimes: {},  // itemId-type -> timestamp for rate limiting
     refreshCountdown: 0,
 };
@@ -715,10 +734,12 @@ function loadSettings() {
     const autoAlerts = localStorage.getItem('gfo_auto_alerts');
     const watchlistSaved = localStorage.getItem('gfo_watchlist');
     const notifEnabled = localStorage.getItem('gfo_notifications_enabled');
+    const showIntel = localStorage.getItem('gfo_showIntel');
     if (saved) state.webhookUrl = saved;
     // state.webhookUrl already has the default hardcoded, so it works out of the box
     if (autoAlerts !== null) state.autoAlertsEnabled = autoAlerts === 'true';
     if (notifEnabled !== null) state.notificationsEnabled = notifEnabled === 'true';
+    if (showIntel !== null) state.showIntel = showIntel === 'true';
     if (watchlistSaved) {
         try {
             const ids = JSON.parse(watchlistSaved);
@@ -729,6 +750,8 @@ function loadSettings() {
     if (state.autoAlertsEnabled) document.getElementById('autoAlertToggle').classList.add('on');
     const notifToggle = document.getElementById('notifToggle');
     if (notifToggle && state.notificationsEnabled) notifToggle.classList.add('on');
+    const intelToggle = document.getElementById('showIntelToggle');
+    if (intelToggle && state.showIntel) intelToggle.classList.add('on');
     // Request notification permission if Notification API is available
     if ('Notification' in window && Notification.permission === 'default') {
         // Will ask when user first visits Dump Sniper tab
@@ -740,6 +763,7 @@ function saveSettings() {
     localStorage.setItem('gfo_webhook_url', state.webhookUrl);
     localStorage.setItem('gfo_auto_alerts', state.autoAlertsEnabled);
     localStorage.setItem('gfo_notifications_enabled', state.notificationsEnabled);
+    localStorage.setItem('gfo_showIntel', state.showIntel);
 }
 
 function loadWatchlist() {
@@ -806,22 +830,38 @@ function showWebhookStatus(msg, cls) {
 async function sendDiscordAlert(item, type, percentChange) {
     if (!state.webhookUrl || !state.autoAlertsEnabled) return;
 
-    // Rate limit: max 1 alert per item per 5 minutes
+    // Filter: only dumps worth 300k+ profit
+    if (type === 'dump') {
+        const margin = item.sellPrice - item.buyPrice - Math.min(Math.floor(item.sellPrice * 0.02), 5000000);
+        if (margin < 300000) return;  // Skip low-profit dumps
+        // Also skip items under 10k GP
+        if (item.buyPrice < 10000) return;
+    }
+
+    // Rate limit: max 1 alert per item per 10 minutes (600000ms)
     const now = Date.now();
     const key = `${item.itemId}-${type}`;
-    if (state.lastAlertTimes[key] && (now - state.lastAlertTimes[key]) < 300000) return;
+    if (state.lastAlertTimes[key] && (now - state.lastAlertTimes[key]) < 600000) return;
     state.lastAlertTimes[key] = now;
 
     console.log(`[GFO] Sending ${type} alert for ${item.name} (${percentChange.toFixed(1)}%)`);
 
-    const emoji = type === 'dump' ? '🔴' : '🟢';
-    const color = type === 'dump' ? 0xEF4444 : 0x22C55E;
-    const verb = type === 'dump' ? 'crashed' : 'spiked';
-    const advice = type === 'dump' ? 'Potential buy-low opportunity!' : 'Strong demand — prices rising!';
+    // Calculate flip profit
+    const profit = item.flipProfit || (item.sellPrice - item.buyPrice - Math.min(Math.floor(item.sellPrice * 0.02), 5000000));
+    const profitPerItem = Math.max(0, profit);
+
+    const emoji = type === 'dump' ? '💰' : '🟢';
+    const color = type === 'dump' ? 0x22C55E : 0x3B82F6;  // Green for dump buys (it's an opportunity!)
+    const verb = type === 'dump' ? 'DUMP' : 'PUMP';
+    const advice = type === 'dump'
+        ? `⚡ Insta-buy at **${gp(item.instaBuyAt || item.buyPrice)}** → sell for **${gp(item.sellFor || item.sellPrice)}** = **${gp(profitPerItem)} profit/item**`
+        : 'Price rising fast — consider selling!';
 
     const fields = [
-        { name: '💰 Price', value: `Buy: ${gp(item.buyPrice)}\nSell: ${gp(item.sellPrice)}`, inline: true },
-        { name: '📉 Change', value: `${percentChange > 0 ? '+' : ''}${percentChange.toFixed(1)}%`, inline: true },
+        { name: '💰 FLIP PROFIT', value: `**${gp(profitPerItem)}/item**`, inline: false },
+        { name: '⚡ Insta-Buy At', value: gp(item.instaBuyAt || item.buyPrice), inline: true },
+        { name: '💎 Sell For', value: gp(item.sellFor || item.sellPrice), inline: true },
+        { name: '📉 Crashed', value: `${Math.abs(percentChange).toFixed(1)}%`, inline: true },
         { name: '📊 Volume', value: `${(item.buyQuantity + item.sellQuantity)} / 5min`, inline: true },
     ];
 
@@ -838,21 +878,13 @@ async function sendDiscordAlert(item, type, percentChange) {
         fields.push({ name: '🧠 Why?', value: intel[0].text.slice(0, 200), inline: false });
     }
 
-    // Calculate margin for dumps
-    if (type === 'dump' && item.buyPrice && item.sellPrice) {
-        const margin = item.sellPrice - item.buyPrice - Math.min(Math.floor(item.sellPrice * 0.02), 5000000);
-        if (margin > 0) {
-            fields.push({ name: '💎 Margin', value: gp(margin) + '/item', inline: true });
-        }
-    }
-
     try {
         const resp = await fetch(state.webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 embeds: [{
-                    title: `${emoji} ${item.name} ${verb} ${Math.abs(percentChange).toFixed(1)}%`,
+                    title: `${emoji} ${verb}: ${item.name} — ${gp(profitPerItem)} profit/item`,
                     description: advice,
                     color,
                     thumbnail: item.icon ? { url: `https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}` } : undefined,
@@ -886,10 +918,19 @@ function toggleNotifications(toggle) {
     }
 }
 
+function toggleShowIntel(toggle) {
+    state.showIntel = !state.showIntel;
+    toggle.classList.toggle('on');
+    saveSettings();
+    renderTopFlips();
+    renderSniperFeed();
+}
+
 function showDumpNotification(item) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const n = new Notification(`🔴 DUMP: ${item.name} ${item.percentChange.toFixed(1)}%`, {
-        body: `Buy: ${gp(item.buyPrice)} | Sell: ${gp(item.sellPrice)} | Severity: ${(item.severity||0).toFixed(1)}`,
+    const profit = item.flipProfit || (item.sellPrice - item.buyPrice - Math.min(Math.floor(item.sellPrice * 0.02), 5000000));
+    const n = new Notification(`💰 DUMP: ${item.name} — ${gp(profit)} profit`, {
+        body: `Buy at ${gp(item.instaBuyAt || item.buyPrice)} → Sell for ${gp(item.sellFor || item.sellPrice)}`,
         icon: item.icon ? `https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}` : undefined,
         tag: `dump-${item.itemId}`,
         requireInteraction: false,
@@ -1061,6 +1102,15 @@ async function checkDumpsLight() {
         renderTopFlips();
     }
 
+    // ======= DUMP DETECTION: Find items you can BUY LOW and SELL HIGH right now =======
+    // A "dump" = item price has crashed. You insta-buy at the crashed price, then sell at normal price.
+    //
+    // Key signals:
+    //   - Insta-buy price (pi.low) = what you pay to buy the item RIGHT NOW
+    //   - Recent sell price (vi.avgHighPrice from /5m) = what people have been selling at recently
+    //   - If insta-buy is much LOWER than recent avg sell → someone dumped → buy opportunity
+    //   - Flip profit = sell price - buy price - 2% GE tax
+
     const nd = [], np = [];
     for (const [idStr, vi] of Object.entries(vols.data)) {
         const id = parseInt(idStr), meta = state.mappingById[id];
@@ -1068,29 +1118,45 @@ async function checkDumpsLight() {
         const pi = ld[idStr];
         if (!pi || !pi.high || !pi.low) continue;
 
-        const latestAvg = Math.round((pi.high + pi.low) / 2); // baseline from /latest
+        // CORE PRICES for dump flipping:
+        const instaBuyPrice = pi.low;    // What you pay to insta-buy RIGHT NOW
+        const instaSellPrice = pi.high;   // What you get when you insta-sell RIGHT NOW
+        const avgSellPrice5m = vi.avgHighPrice || 0;  // What items sold for recently (5m avg)
+        const avgBuyPrice5m = vi.avgLowPrice || 0;    // What items bought for recently (5m avg)
+
         const bv = vi.lowPriceVolume || 0, sv = vi.highPriceVolume || 0;
-        if ((bv + sv) < 5) continue; // lowered threshold from 10 to 5
+        if ((bv + sv) < 3) continue; // Need at least some volume
 
-        // Use /5m average prices for comparison (much more sensitive)
-        const fiveMinAvg = (vi.avgHighPrice && vi.avgLowPrice)
-            ? Math.round((vi.avgHighPrice + vi.avgLowPrice) / 2)
-            : null;
+        // Skip very cheap items (under 5k GP - not worth dump flipping)
+        if (instaBuyPrice < 5000 && instaSellPrice < 5000) continue;
 
-        // Track price history for this item (rolling window of 10 snapshots = ~1.3 minutes at 8s interval)
+        // THE DUMP FLIP: buy at instaBuyPrice, sell at instaSellPrice
+        // Tax = 2% of sell price, capped at 5M
+        const geTax = Math.min(Math.floor(instaSellPrice * 0.02), 5000000);
+        const flipProfit = instaSellPrice - instaBuyPrice - geTax;
+
+        // How much has the price DROPPED? Compare current insta-buy to the 5m average sell price
+        // If avgSellPrice5m = 1M and instaBuyPrice = 800K, that's a 20% crash = huge dump
+        let crashPct = 0;
+        if (avgSellPrice5m > 0 && instaBuyPrice > 0) {
+            crashPct = ((instaBuyPrice - avgSellPrice5m) / avgSellPrice5m) * 100;
+            // crashPct is NEGATIVE when price crashed (buy price below recent sell average)
+        }
+
+        // Also check: has the 5m avg BUY price dropped vs the latest trade?
+        let buyDipPct = 0;
+        if (avgBuyPrice5m > 0 && instaBuyPrice > 0) {
+            buyDipPct = ((avgBuyPrice5m - instaBuyPrice) / instaBuyPrice) * 100;
+            // buyDipPct is POSITIVE when the avg buy price is ABOVE current (price recovering = good buy)
+        }
+
+        // Track price history for trend analysis
         if (!state.priceHistory[id]) state.priceHistory[id] = [];
-        if (fiveMinAvg) {
-            state.priceHistory[id].push({ time: Date.now(), price: fiveMinAvg, vol: bv + sv });
-            if (state.priceHistory[id].length > 10) state.priceHistory[id].shift();
-        }
+        const currentAvg = Math.round((instaBuyPrice + instaSellPrice) / 2);
+        state.priceHistory[id].push({ time: Date.now(), price: currentAvg, vol: bv + sv });
+        if (state.priceHistory[id].length > 10) state.priceHistory[id].shift();
 
-        // Calculate price change: compare 5m average to latest trade price
-        let pct = 0;
-        if (fiveMinAvg && latestAvg > 0) {
-            pct = ((fiveMinAvg - latestAvg) / latestAvg) * 100;
-        }
-
-        // Also check rolling trend: compare current to oldest snapshot in history
+        // Rolling trend: has this item been dropping over multiple checks?
         const history = state.priceHistory[id] || [];
         let trendPct = 0;
         if (history.length >= 3) {
@@ -1099,42 +1165,61 @@ async function checkDumpsLight() {
             if (oldest > 0) trendPct = ((newest - oldest) / oldest) * 100;
         }
 
-        // Volume pressure analysis
+        // Volume pressure: more sellers than buyers = dump in progress
         const sellPressure = sv / Math.max(1, bv);
         const buyPressure = bv / Math.max(1, sv);
 
-        // Dump severity scoring
+        // Margin percentage (how good is this flip?)
+        const marginPct = instaBuyPrice > 0 ? (flipProfit / instaBuyPrice) * 100 : 0;
+
+        // DUMP SEVERITY: weighted score based on how good this buy opportunity is
         let severity = 0;
-        if (pct < -2) severity += Math.abs(pct);
-        if (trendPct < -2) severity += Math.abs(trendPct) * 0.5;
-        if (sellPressure > 2) severity += sellPressure;
-        if ((bv + sv) > 100) severity += 1; // bonus for liquid items
+        if (crashPct < -2) severity += Math.abs(crashPct) * 2;   // Price crashed below recent avg
+        if (trendPct < -3) severity += Math.abs(trendPct);        // Downward trend
+        if (sellPressure > 2) severity += sellPressure;            // Heavy selling
+        if (flipProfit > 100000) severity += 2;                    // Good profit opportunity
+        if (flipProfit > 500000) severity += 3;                    // Great profit opportunity
+        if ((bv + sv) > 50) severity += 1;                         // Liquid item
 
         const summary = {
             itemId: id, name: meta.name, icon: meta.icon,
-            buyPrice: pi.low, sellPrice: pi.high,
-            fiveMinAvg: fiveMinAvg || latestAvg,
-            percentChange: pct, trendPct: trendPct,
+            instaBuyAt: instaBuyPrice,    // "Buy NOW at this price"
+            sellFor: instaSellPrice,       // "Then sell for this price"
+            flipProfit: flipProfit,        // "You make this much per item"
+            marginPct: marginPct,          // Margin as percentage
+            crashPct: crashPct,            // How much it crashed
+            // Keep old fields for compatibility
+            buyPrice: instaBuyPrice, sellPrice: instaSellPrice,
+            fiveMinAvg: avgSellPrice5m || currentAvg,
+            percentChange: crashPct, trendPct: trendPct,
             buyQuantity: bv, sellQuantity: sv,
             severity: severity,
             sellPressure: sellPressure, buyPressure: buyPressure
         };
 
-        // More sensitive dump detection
-        if (pct < -2 || (sellPressure > 2.5 && pct < -0.5) || trendPct < -3 || severity > 5) {
-            nd.push(summary);
-        }
-        // More sensitive pump detection
-        if (pct > 2 || (buyPressure > 2.5 && pct > 0.5) || trendPct > 3) {
-            np.push(summary);
-        }
+        // DUMP DETECTION: item is a dump opportunity if:
+        // 1. Price crashed >2% below recent average AND flip profit > 0
+        // 2. OR heavy sell pressure with ANY downward movement AND decent profit
+        // 3. OR sustained downtrend AND profitable to flip
+        const isDump = flipProfit > 0 && (
+            crashPct < -2 ||
+            (sellPressure > 2.5 && crashPct < -0.5 && flipProfit > 50000) ||
+            (trendPct < -3 && flipProfit > 50000) ||
+            severity > 6
+        );
 
-        // Update prevPrices with fresh data for next comparison
-        state.prevPrices[id] = fiveMinAvg || latestAvg;
+        // PUMP DETECTION: price rising fast
+        const isPump = (crashPct > 2 || (buyPressure > 2.5 && crashPct > 0.5) || trendPct > 3);
+
+        if (isDump) nd.push(summary);
+        if (isPump) np.push(summary);
+
+        // Update prevPrices
+        state.prevPrices[id] = currentAvg;
     }
 
-    // Sort dumps by severity (most severe first)
-    nd.sort((a, b) => b.severity - a.severity);
+    // Sort dumps by FLIP PROFIT (most profitable first!) — this is what matters
+    nd.sort((a, b) => b.flipProfit - a.flipProfit);
     np.sort((a, b) => b.percentChange - a.percentChange);
 
     const prevDI = new Set(state.dumps.map(d=>d.itemId));
@@ -1143,7 +1228,7 @@ async function checkDumpsLight() {
         state.dumps = nd.slice(0,15); state.pumps = np.slice(0,15);
         renderDumpsPumps();
 
-        // Log new dumps/pumps
+        // Log new dumps
         const brandNew = nd.filter(d => !prevDI.has(d.itemId));
         brandNew.forEach(d => addDumpLog(d, 'dump'));
         np.forEach(p => {
@@ -1152,12 +1237,17 @@ async function checkDumpsLight() {
             }
         });
 
-        // Send Discord alerts
-        brandNew.forEach(d => sendDiscordAlert(d, 'dump', d.percentChange));
-        np.forEach(p => sendDiscordAlert(p, 'pump', p.percentChange));
+        // Discord alerts: only top 3 most profitable dumps, only if profit > 300k
+        const alertDumps = brandNew.filter(d => d.flipProfit >= 300000).slice(0, 3);
+        alertDumps.forEach(d => sendDiscordAlert(d, 'dump', d.crashPct));
 
-        // Send browser notifications for severe dumps
-        brandNew.filter(d => (d.severity || 0) > 5).forEach(d => showDumpNotification(d));
+        // Pump alerts: only if 3 or fewer
+        if (np.length <= 3) {
+            np.forEach(p => sendDiscordAlert(p, 'pump', p.percentChange));
+        }
+
+        // Browser notifications for high-profit dumps
+        brandNew.filter(d => d.flipProfit >= 200000).forEach(d => showDumpNotification(d));
     }
     // Track history for chart
     state.dpHistory.push({ time: new Date(), dumps: nd.length, pumps: np.length });
@@ -1599,15 +1689,14 @@ function renderSniperFeed() {
         const maxSev = Math.max(...dumps.map(d => d.severity || 0));
         if (maxSevEl) maxSevEl.textContent = maxSev.toFixed(1);
 
-        // Best opportunity: dump with best margin
-        const withMargins = dumps.map(d => {
-            const margin = d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000);
-            return { ...d, margin };
-        }).filter(d => d.margin > 0).sort((a, b) => b.margin - a.margin);
+        // Best opportunity: dump with best FLIP PROFIT
+        const sorted = [...dumps].sort((a, b) => (b.flipProfit || 0) - (a.flipProfit || 0));
+        const best = sorted[0];
 
-        if (withMargins.length > 0 && bestOppEl) {
-            bestOppEl.textContent = gp(withMargins[0].margin) + '/item';
-            if (bestNameEl) bestNameEl.textContent = withMargins[0].name;
+        if (best && bestOppEl) {
+            const profit = best.flipProfit || (best.sellPrice - best.buyPrice - Math.min(Math.floor(best.sellPrice * 0.02), 5000000));
+            bestOppEl.textContent = gp(profit) + '/item';
+            if (bestNameEl) bestNameEl.textContent = best.name;
         }
     } else {
         if (maxSevEl) maxSevEl.textContent = '—';
@@ -1621,46 +1710,54 @@ function renderSniperFeed() {
     }
 
     feed.innerHTML = dumps.map(d => {
-        const margin = d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000);
-        const sevPct = Math.min(100, (d.severity || 0) * 10);
+        const profit = d.flipProfit || (d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000));
+        const crash = d.crashPct || d.percentChange || 0;
+        const sevPct = Math.min(100, (d.severity || 0) * 8);
         const sevColor = sevPct > 70 ? 'var(--red)' : sevPct > 40 ? 'var(--accent)' : '#d97706';
-        const trendArrow = (d.trendPct || 0) < -1 ? '📉📉' : (d.trendPct || 0) < 0 ? '📉' : '➡️';
-        const vpressure = d.sellPressure > 3 ? '🔴 Heavy sell pressure' : d.sellPressure > 1.5 ? '🟠 Moderate sell pressure' : '🟡 Light';
+        const vpressure = d.sellPressure > 3 ? '🔴 Heavy selling' : d.sellPressure > 1.5 ? '🟠 Moderate' : '';
+
         const intel = MARKET_INTEL.getIntel(d);
-        const intelHtml = intel.length > 0 ? `<div class="intel-row" style="margin-top:8px;">${intel.slice(0,3).map(i => `<span class="intel-badge ${i.tag}" title="${i.text.replace(/"/g,'&quot;')}">${i.icon} ${i.text}</span>`).join('')}</div>` : '';
+        const intelToggleId = `intel-${d.itemId}`;
+        const intelHtml = intel.length > 0 ? `
+            <div style="margin-top:8px; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                <button class="intel-toggle" onclick="document.getElementById('${intelToggleId}').classList.toggle('intel-hidden'); event.stopPropagation();">🧠 Why?</button>
+                <div id="${intelToggleId}" class="intel-hidden" style="display:flex; gap:4px; flex-wrap:wrap;">
+                    ${intel.slice(0,3).map(i => `<span class="intel-badge ${i.tag}" title="${i.text.replace(/"/g,'&quot;')}">${i.icon} ${i.text}</span>`).join('')}
+                </div>
+            </div>
+        ` : '';
 
         return `
-        <div class="dp-section" style="padding:14px; cursor:pointer;" onclick="openOSRSWiki('${d.name.replace(/'/g, "\\'")}')">
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
-                <div class="dp-item-icon" style="width:40px;height:40px;">${iconHtml(d.icon, d.name, 40)}</div>
+        <div class="dp-section" style="padding:16px; cursor:pointer; border-left:4px solid ${profit >= 300000 ? 'var(--green)' : profit > 0 ? 'var(--accent)' : 'var(--red)'};" onclick="openOSRSWiki('${d.name.replace(/'/g, "\\'")}')">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                <div class="dp-item-icon" style="width:44px;height:44px;">${iconHtml(d.icon, d.name, 44)}</div>
                 <div style="flex:1;">
-                    <div style="font-weight:700; font-size:15px; color:var(--text);">${d.name}</div>
-                    <div style="font-size:11px; color:var(--text-muted);">Severity: ${(d.severity||0).toFixed(1)} • ${vpressure}</div>
+                    <div style="font-weight:700; font-size:16px; color:var(--text);">${d.name}</div>
+                    <div style="font-size:11px; color:var(--red); font-weight:600;">Crashed ${Math.abs(crash).toFixed(1)}% ${vpressure ? '• ' + vpressure : ''}</div>
                 </div>
                 <div style="text-align:right;">
-                    <div style="font-size:20px; font-weight:800; color:var(--red);">${d.percentChange.toFixed(1)}%</div>
-                    <div style="font-size:11px; color:var(--text-muted);">${trendArrow} trend ${(d.trendPct||0).toFixed(1)}%</div>
+                    <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px;">Flip Profit</div>
+                    <div class="price-hero" style="font-size:22px;">${gp(profit)}</div>
                 </div>
             </div>
-            <div style="display:flex; gap:8px; margin-bottom:8px;">
-                <div style="flex:1; background:rgba(0,0,0,0.25); border-radius:6px; padding:8px; text-align:center;">
-                    <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.3px;">Buy</div>
-                    <div class="price-green" style="font-size:13px; font-weight:700;">${gp(d.buyPrice)}</div>
+            <div style="display:flex; gap:0; margin-bottom:10px; background:rgba(0,0,0,0.3); border-radius:8px; overflow:hidden;">
+                <div style="flex:1; padding:10px 12px; text-align:center; border-right:1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--green); letter-spacing:.5px; font-weight:600;">⚡ Insta-Buy At</div>
+                    <div style="font-size:18px; font-weight:900; color:var(--green); margin-top:4px;">${gp(d.instaBuyAt || d.buyPrice)}</div>
                 </div>
-                <div style="flex:1; background:rgba(0,0,0,0.25); border-radius:6px; padding:8px; text-align:center;">
-                    <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.3px;">Sell</div>
-                    <div class="price-red" style="font-size:13px; font-weight:700;">${gp(d.sellPrice)}</div>
-                </div>
-                <div style="flex:1; background:rgba(0,0,0,0.25); border-radius:6px; padding:8px; text-align:center;">
-                    <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.3px;">Margin</div>
-                    <div style="font-size:13px; font-weight:700; color:${margin > 0 ? 'var(--green)' : 'var(--red)'};">${gp(margin)}</div>
-                </div>
-                <div style="flex:1; background:rgba(0,0,0,0.25); border-radius:6px; padding:8px; text-align:center;">
-                    <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.3px;">Vol/8s</div>
-                    <div style="font-size:13px; font-weight:700; color:var(--blue);">${d.buyQuantity + d.sellQuantity}</div>
+                <div style="flex:0 0 40px; display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--accent);">→</div>
+                <div style="flex:1; padding:10px 12px; text-align:center; border-left:1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--accent); letter-spacing:.5px; font-weight:600;">💰 Sell For</div>
+                    <div style="font-size:18px; font-weight:900; color:var(--accent); margin-top:4px;">${gp(d.sellFor || d.sellPrice)}</div>
                 </div>
             </div>
-            <div style="background:var(--bg-input); border-radius:4px; height:6px; overflow:hidden;">
+            <div style="display:flex; gap:8px; font-size:11px; color:var(--text-muted);">
+                <span>📊 Vol: ${d.buyQuantity + d.sellQuantity}/5m</span>
+                <span>📉 Drop: ${Math.abs(crash).toFixed(1)}%</span>
+                ${(d.trendPct || 0) < -1 ? `<span style="color:var(--red);">📉 Trending down ${Math.abs(d.trendPct).toFixed(1)}%</span>` : ''}
+                <span style="margin-left:auto; color:var(--text-muted);">Severity: ${(d.severity||0).toFixed(1)}</span>
+            </div>
+            <div style="background:var(--bg-input); border-radius:4px; height:4px; overflow:hidden; margin-top:8px;">
                 <div style="height:100%; width:${sevPct}%; background:${sevColor}; border-radius:4px; transition:width 0.3s;"></div>
             </div>${intelHtml}
         </div>`;
@@ -1672,12 +1769,12 @@ function renderSniperFeed() {
 
 function renderSniperCharts(dumps) {
     if (dumps.length > 0) {
-        const top8 = dumps.slice(0, 8);
+        const top8 = [...dumps].sort((a,b) => (b.flipProfit||0) - (a.flipProfit||0)).slice(0, 8);
         updateChart('chartSniperOpp', 'bar', {
             labels: top8.map(d => d.name.length > 14 ? d.name.slice(0,13)+'...' : d.name),
             datasets: [
-                { label: 'Drop %', data: top8.map(d => Math.abs(d.percentChange)), backgroundColor: 'rgba(239,68,68,0.6)', borderRadius: 4 },
-                { label: 'Severity', data: top8.map(d => d.severity || 0), backgroundColor: 'rgba(255,152,31,0.6)', borderRadius: 4 },
+                { label: 'Flip Profit (K)', data: top8.map(d => Math.round((d.flipProfit || 0) / 1000)), backgroundColor: 'rgba(34,197,94,0.6)', borderRadius: 4 },
+                { label: 'Crash %', data: top8.map(d => Math.abs(d.crashPct || d.percentChange || 0)), backgroundColor: 'rgba(239,68,68,0.6)', borderRadius: 4 },
             ]
         }, { indexAxis:'y', plugins:{legend:{labels:{color:'#b8b0a5'}}}, scales:{ x:{ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}}, y:{ticks:{color:'#b8b0a5',font:{size:11}},grid:{display:false}} }});
     }
@@ -1724,17 +1821,25 @@ function renderTopFlips() {
             const rb = realisticBuys(item);
             const volumeLimited = item.buyLimit && (volPerHour(item) * 4) < item.buyLimit;
             const intel = MARKET_INTEL.getIntel(item);
-            const intelHtml = intel.length > 0 ? `<div class="intel-row">${intel.slice(0,2).map(i => `<span class="intel-badge ${i.tag}" title="${i.text.replace(/"/g,'&quot;')}">${i.icon} ${i.text.length > 40 ? i.text.slice(0,38)+'...' : i.text}</span>`).join('')}</div>` : '';
+            const intelToggleId = `intel-topflips-${item.itemId}`;
+            const intelHtml = intel.length > 0 ? `
+                <div style="margin-top:4px; display:flex; align-items:center; gap:4px;">
+                    <button class="intel-toggle" style="padding:0; margin:0;" onclick="document.getElementById('${intelToggleId}').classList.toggle('intel-hidden'); event.stopPropagation();">🧠</button>
+                    <div id="${intelToggleId}" class="${state.showIntel ? '' : 'intel-hidden'}" style="display:${state.showIntel ? 'flex' : 'none'}; gap:4px; flex-wrap:wrap;">
+                        ${intel.slice(0,2).map(i => `<span class="intel-badge ${i.tag}" title="${i.text.replace(/"/g,'&quot;')}" style="font-size:9px;">${i.icon} ${i.text.length > 40 ? i.text.slice(0,38)+'...' : i.text}</span>`).join('')}
+                    </div>
+                </div>
+            ` : '';
             return `<tr onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
                 <td onclick="event.stopPropagation(); toggleFav(${item.itemId},event.target.closest('button'))"><button class="fav-btn ${state.watchlist.has(item.itemId)?'on':''}" data-id="${item.itemId}" onclick="toggleFav(${item.itemId},this)">★</button></td>
                 <td class="item-name-cell" style="max-width:300px;white-space:normal;"><span class="item-row-icon">${iconHtml(item.icon,item.name,32)}</span>${item.name}${intelHtml}</td>
                 <td><span class="verdict-pill ${v.cls}" title="${v.tip}">${v.text}</span></td>
-                <td class="price-green">${gp(item.buyPrice)}</td>
-                <td class="price-red">${gp(item.sellPrice)}</td>
+                <td style="font-size:16px; font-weight:800; color:var(--green);">${gp(item.buyPrice)}</td>
+                <td style="font-size:16px; font-weight:800; color:var(--red);">${gp(item.sellPrice)}</td>
                 <td class="price-gold">${gp(item.margin)}</td>
                 <td>${item.marginPct}%</td>
                 <td><span class="vol-context">${formatVolPerHour(item)}</span></td>
-                <td class="realistic-profit">${gp(rp)}${volumeLimited ? '<br><span class="capped-warning">vol limited (~' + rb.toLocaleString() + ' avail)</span>' : ''}</td>
+                <td class="price-hero">${gp(rp)}${volumeLimited ? '<br><span class="capped-warning">vol limited (~' + rb.toLocaleString() + ' avail)</span>' : ''}</td>
             </tr>`;
         }).join('') : '<tr><td colspan="9" class="empty-state">No items found</td></tr>';
     }
@@ -1745,19 +1850,27 @@ function renderTopFlips() {
             const v = getVerdict(item);
             const rp = realistic4hProfit(item);
             const intel = MARKET_INTEL.getIntel(item);
-            const topIntel = intel.length > 0 ? `<div style="margin-top:6px;text-align:center;"><span class="intel-badge ${intel[0].tag}" title="${intel[0].text.replace(/"/g,'&quot;')}" style="font-size:9px;">${intel[0].icon} ${intel[0].text.length > 30 ? intel[0].text.slice(0,28)+'...' : intel[0].text}</span></div>` : '';
+            const intelToggleId = `intel-card-${item.itemId}`;
+            const topIntel = intel.length > 0 ? `
+                <div style="margin-top:6px; text-align:center;">
+                    <button class="intel-toggle" style="padding:0;" onclick="document.getElementById('${intelToggleId}').classList.toggle('intel-hidden'); event.stopPropagation();">🧠</button>
+                    <div id="${intelToggleId}" class="${state.showIntel ? '' : 'intel-hidden'}" style="display:${state.showIntel ? 'flex' : 'none'}; gap:4px; flex-wrap:wrap; justify-content:center;">
+                        <span class="intel-badge ${intel[0].tag}" title="${intel[0].text.replace(/"/g,'&quot;')}" style="font-size:9px;">${intel[0].icon} ${intel[0].text.length > 30 ? intel[0].text.slice(0,28)+'...' : intel[0].text}</span>
+                    </div>
+                </div>
+            ` : '';
             return `
             <div class="item-card" onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
                 <button class="card-fav ${state.watchlist.has(item.itemId)?'on':''}" onclick="event.stopPropagation(); toggleFav(${item.itemId},this)">★</button>
                 <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
                 <div class="card-name">${item.name}</div>
                 <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>${topIntel}
-                <div class="card-prices">
-                    <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:12px;font-weight:700;">${gp(item.buyPrice)}</div></div>
-                    <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:12px;font-weight:700;">${gp(item.sellPrice)}</div></div>
+                <div class="card-prices" style="grid-template-columns:1fr 1fr;">
+                    <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:16px;font-weight:800;">${gp(item.buyPrice)}</div></div>
+                    <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:16px;font-weight:800;">${gp(item.sellPrice)}</div></div>
                 </div>
                 <div class="card-price-box" style="margin-bottom:6px;"><div class="card-price-label">Profit/Item</div><div class="price-gold" style="font-size:12px;font-weight:700;">${gp(item.margin)} (${item.marginPct}%)</div></div>
-                <div class="card-profit" style="background:rgba(34,197,94,0.1);color:var(--green);">${gp(rp)} / 4h<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;">${formatVolPerHour(item)}</span></div>
+                <div class="card-profit" style="background:rgba(34,197,94,0.15); color:var(--green); border:1px solid rgba(34,197,94,0.3); font-size:16px;">${gp(rp)}<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;"> / 4h</span></div>
             </div>`;
         }).join('');
     }
@@ -1765,12 +1878,34 @@ function renderTopFlips() {
 
 function renderDumpsPumps() {
     const dc = document.getElementById('dumpsContainer'), pc = document.getElementById('pumpsContainer');
-    if (dc) dc.innerHTML = state.dumps.length > 0 ? state.dumps.map(d => `
-        <div class="dp-item"><div class="dp-item-icon">${iconHtml(d.icon,d.name,32)}</div><div class="dp-item-name">${d.name}</div><div class="dp-change neg">${d.percentChange.toFixed(1)}%</div></div>
-    `).join('') : '<div class="empty-state" style="padding:20px;"><p>No dumps detected</p></div>';
-    if (pc) pc.innerHTML = state.pumps.length > 0 ? state.pumps.map(p => `
-        <div class="dp-item"><div class="dp-item-icon">${iconHtml(p.icon,p.name,32)}</div><div class="dp-item-name">${p.name}</div><div class="dp-change pos">+${p.percentChange.toFixed(1)}%</div></div>
-    `).join('') : '<div class="empty-state" style="padding:20px;"><p>No pumps detected</p></div>';
+    if (dc) dc.innerHTML = state.dumps.length > 0 ? state.dumps.map(d => {
+        const profit = d.flipProfit || (d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000));
+        return `
+        <div class="dp-item" style="flex-wrap:wrap; gap:6px;">
+            <div class="dp-item-icon">${iconHtml(d.icon,d.name,32)}</div>
+            <div class="dp-item-name" style="min-width:100px;">${d.name}</div>
+            <div style="display:flex; gap:6px; align-items:center; font-size:12px; margin-left:auto;">
+                <span style="color:var(--green); font-weight:700;">Buy ${gp(d.instaBuyAt || d.buyPrice)}</span>
+                <span style="color:var(--text-muted);">→</span>
+                <span style="color:var(--accent); font-weight:700;">Sell ${gp(d.sellFor || d.sellPrice)}</span>
+                <span style="color:var(--green); font-weight:800; font-size:13px; background:rgba(34,197,94,0.1); padding:2px 8px; border-radius:6px;">+${gp(profit)}</span>
+            </div>
+            <div class="dp-change neg" style="min-width:50px; text-align:right;">${(d.crashPct || d.percentChange || 0).toFixed(1)}%</div>
+        </div>
+    `}).join('') : '<div class="empty-state" style="padding:20px;"><p>No dumps detected — scanning every 8s</p></div>';
+    if (pc) pc.innerHTML = state.pumps.length > 0 ? state.pumps.map(p => {
+        return `
+        <div class="dp-item">
+            <div class="dp-item-icon">${iconHtml(p.icon,p.name,32)}</div>
+            <div class="dp-item-name">${p.name}</div>
+            <div style="display:flex; gap:6px; align-items:center; font-size:12px; margin-left:auto;">
+                <span style="color:var(--green); font-weight:700;">${gp(p.buyPrice)}</span>
+                <span style="color:var(--text-muted);">→</span>
+                <span style="color:var(--accent); font-weight:700;">${gp(p.sellPrice)}</span>
+            </div>
+            <div class="dp-change pos" style="margin-left:10px;">+${(p.percentChange || 0).toFixed(1)}%</div>
+        </div>
+    `}).join('') : '<div class="empty-state" style="padding:20px;"><p>No pumps detected</p></div>';
 
     const allMovers = [...state.dumps, ...state.pumps].sort((a,b) => Math.abs(b.percentChange) - Math.abs(a.percentChange)).slice(0, 12);
     if (allMovers.length > 0) {
