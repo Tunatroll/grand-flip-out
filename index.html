@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+h<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Grand Flip Out — OSRS Flipping Dashboard</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23ff981f'/><text x='50' y='68' text-anchor='middle' font-size='55' fill='%231a1410' font-weight='bold'>G</text></svg>">
+    <link rel="icon" href="dhata:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23ff981f'/><text x='50' y='68' text-anchor='middle' font-size='55' fill='%231a1410' font-weight='bold'>G</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
@@ -329,6 +329,178 @@
         .intel-toggle { background:none; border:none; color:var(--accent); cursor:pointer; font-size:12px; font-weight:600; padding:2px 4px; margin-left:4px; font-family:inherit; transition:all .2s; }
         .intel-toggle:hover { opacity:0.8; }
         .intel-container { display:flex; flex-direction:column; gap:4px; margin-top:6px; }
+
+                /* === GEMINI ENHANCEMENTS === */
+
+                /* Cash Stack Filter */
+                .cash-stack-filter {
+                                display: flex;
+                                align-items: center;
+                                gap: 10px;
+                                padding: 8px 16px;
+                                background: var(--bg-card);
+                                border-radius: var(--radius);
+                                border: 1px solid var(--border);
+                                margin-bottom: 12px;
+                }
+                .cash-stack-filter label {
+                                color: var(--gold);
+                                font-weight: 600;
+                                font-size: 14px;
+                                white-space: nowrap;
+                }
+                .cash-stack-filter input {
+                                background: var(--bg-input);
+                                border: 1px solid var(--border);
+                                border-radius: var(--radius);
+                                color: var(--text);
+                                padding: 6px 12px;
+                                font-size: 14px;
+                                width: 140px;
+                }
+                .cash-stack-filter input:focus {
+                                outline: none;
+                                border-color: var(--accent);
+                                box-shadow: 0 0 6px var(--accent-glow);
+                }
+
+                /* F2P/P2P Toggle */
+                .membership-toggle {
+                                display: flex;
+                                gap: 4px;
+                                background: var(--bg-input);
+                                    border-radius: var(--radius);
+                                padding: 2px;
+                }
+                .membership-toggle button {
+                                padding: 5px 14px;
+                                border: none;
+                                border-radius: 8px;
+                                background: transparent;
+                                color: var(--text-secondary);
+                    font-size: 13px;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                }
+                .membership-toggle button.active {
+                                background: var(--accent);
+                                color: var(--bg-dark);
+                                font-weight: 600;
+                }
+
+                /* Tooltip Help Icons */
+                .help-tip {
+                                display: inline-flex;
+                                align-items: center;
+                                justify-content: center;
+                                width: 16px;
+                                height: 16px;
+                                border-radius: 50%;
+                                background: var(--border);
+                                color: var(--text-secondary);
+                                font-size: 10px;
+                                font-weight: bold;
+                                cursor: help;
+                                position: relative;
+                                margin-left: 4px;
+                                vertical-align: middle;
+                }
+                .help-tip:hover::after {
+                                content: attr(data-tip);
+                                position: absolute;
+                                bottom: 125%;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                background: var(--bg-dark);
+                                color: var(--text);
+                                padding: 8px 12px;
+                                border-radius: 8px;
+                                font-size: 12px;
+                                font-weight: 400;
+                                white-space: normal;
+                                width: 220px;
+                                text-align: center;
+                                z-index: 999;
+                                border: 1px solid var(--border);
+                                box-shadow: var(--shadow);
+                                pointer-events: none;
+                }
+
+                /* ROI Badge */
+                .roi-badge {
+                                display: inline-block;
+                                padding: 2px 7px;
+                                border-radius: 6px;
+                                font-size: 11px;
+                                font-weight: 600;
+                                background: rgba(59,130,246,0.15);
+                                color: var(--blue);
+                }
+
+                /* Risk Indicator */
+                .risk-badge {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 3px;
+                                padding: 2px 8px;
+                                border-radius: 6px;
+                                font-size: 11px;
+                                font-weight: 600;
+                }
+                .risk-safe { background: rgba(34,197,94,0.15); color: var(--green); }
+                .risk-moderate { background: rgba(255,152,31,0.15); color: var(--accent); }
+                .risk-risky { background: rgba(239,68,68,0.15); color: var(--red); }
+
+                /* Volume vs Limit Bar */
+                .vol-limit-bar {
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                                font-size: 11px;
+                }
+                .vol-limit-track {
+                                width: 50px;
+                                height: 4px;
+                                background: var(--bg-input);
+                                border-radius: 2px;
+                                overflow: hidden;
+                }
+                .vol-limit-fill {
+                                height: 100%;
+                                border-radius: 2px;
+                                transition: width 0.3s;
+                }
+
+                /* GE Limit Display */
+                .ge-limit-tag {
+                                font-size: 10px;
+                                color: var(--text-muted);
+                                opacity: 0.7;
+                }
+
+                /* Sparkline Canvas */
+                .sparkline-container {
+                                margin-top: 4px;
+                                height: 24px;
+                                width: 100%;
+                }
+                .sparkline-container canvas {
+                                width: 100%;
+                                height: 100%;
+                }
+
+                /* Enhanced Card Clickability */
+                .item-card[data-item-id] { cursor: pointer; }
+                .item-card[data-item-id]:hover { border-color: var(--accent); }
+
+                /* Margin Display Enhancement */
+                .margin-detail {
+                                display: flex;
+                                gap: 8px;
+                                font-size: 11px;
+                                margin-top: 2px;
+                }
+                .margin-detail span { opacity: 0.8; }
         .intel-hidden { display:none; }
 
         .hidden { display:none !important; }
@@ -394,15 +566,15 @@
         <!-- Summary Stats -->
         <div class="dash-row" id="dashStats">
             <div class="stat-card" title="Total number of items being tracked with live prices"><div class="stat-icon">📦</div><div class="stat-label">Items Tracked</div><div class="stat-value accent" id="statItems">—</div><div class="stat-sub">with live buy+sell prices</div></div>
-            <div class="stat-card" title="Best flip opportunity in 4 hours based on realistic volume"><div class="stat-icon">💎</div><div class="stat-label">Best Realistic Flip</div><div class="stat-value green" id="statBestProfit">—</div><div class="stat-sub" id="statBestName">loading...</div></div>
-            <div class="stat-card" title="Items currently crashing in price — buy low opportunities"><div class="stat-icon">📉</div><div class="stat-label">Active Dumps</div><div class="stat-value" style="color:var(--red)" id="statDumps">0</div><div class="stat-sub">price crash opportunities</div></div>
-            <div class="stat-card" title="Items currently spiking in price"><div class="stat-icon">📈</div><div class="stat-label">Active Pumps</div><div class="stat-value green" id="statPumps">0</div><div class="stat-sub">prices rising fast</div></div>
+            <div class="stat-card" title="Best flip opportunity in 4 hours based on realistic volume"><div class="stat-icon">💎</div><div class="stat-label">Best Realistic Flip<span class="help-tip" data-tip="The single most profitable flip you can complete in 4 hours, factoring in GE buy limits and real trade volume.">?</span></div><div class="stat-value green" id="statBestProfit">—</div><div class="stat-sub" id="statBestName">loading...</div></div>
+            <div class="stat-card" title="Items currently crashing in price — buy low opportunities"><div class="stat-icon">📉</div><div class="stat-label">Active Dumps<span class="help-tip" data-tip="Items currently crashing in price — potential buy-low opportunities if the price recovers.">?</span></div><div class="stat-value" style="color:var(--red)" id="statDumps">0</div><div class="stat-sub">price crash opportunities</div></div>
+            <div class="stat-card" title="Items currently spiking in price"><div class="stat-icon">📈</div><div class="stat-label">Active Pumps<span class="help-tip" data-tip="Items spiking in price with unusual buy pressure — prices are rising fast.">?</span></div><div class="stat-value green" id="statPumps">0</div><div class="stat-sub">prices rising fast</div></div>
         </div>
 
         <!-- Charts -->
         <div class="chart-row">
             <div class="chart-box">
-                <h3>Top 10 — Realistic 4-Hour Profit</h3>
+                <h3>Top 10 — Realistic 4-Hour Profit<span class="help-tip" data-tip="Profit capped by the GE 4-hour buy limit and estimated trade volume — not theoretical max.">?</span></h3>
                 <canvas id="chartMargins"></canvas>
             </div>
             <div class="chart-box">
@@ -417,6 +589,15 @@
             </div>
             <div class="chart-box">
                 <h3>Profit/Item vs Volume/hr (Top 50)</h3>
+                                <div class="cash-stack-filter">
+                                                        <label>💰 My Cash Stack:</label>
+                                                    <input type="text" id="cashStackInput" placeholder="e.g. 50m" oninput="applyCashFilter()">
+                                                    <div class="membership-toggle">
+                                                                            <button class="active" onclick="setMembership('all')">All</button>button>
+                                                                            <button onclick="setMembership('p2p')">P2P</button>button>
+                                                                            <button onclick="setMembership('f2p')">F2P</button>button>
+                                                    </div>
+                                </div></label>
                 <canvas id="chartScatter"></canvas>
             </div>
         </div>
@@ -425,7 +606,7 @@
     <!-- ===== TOP FLIPS TAB ===== -->
     <div id="top-flips" class="tab-panel">
         <div class="explain-banner">
-            <strong>Top Flips</strong> shows the most profitable items you can actually flip right now. Sorted by realistic 4-hour profit — items at the top make the most money based on <em>real</em> trading volume, not theoretical buy limits. If an item trades 3 times in 5 minutes, we won't pretend you can buy 10,000 of them.
+            <strong>Top Flips</strong> shows the most profitable items you can actually flip right now. Sorted by Realistic 4-Hour Profit<span class="help-tip" data-tip="Profit capped by the GE 4-hour buy limit and estimated trade volume — not theoretical max.">?</span> — items at the top make the most money based on <em>real</em> trading volume, not theoretical buy limits. If an item trades 3 times in 5 minutes, we won't pretend you can buy 10,000 of them.
         </div>
         <div class="controls-bar">
             <select class="ctrl-select" id="sortDropdown">
@@ -4500,6 +4681,365 @@ async function init() {
     setTimeout(smartRefresh, state.fullRefreshInterval);
 }
 window.addEventListener('DOMContentLoaded', init);
-</script>
+    </script>
+                <script>
+                              // ============================================
+    // GEMINI-RECOMMENDED ENHANCEMENTS v1.0
+    // ROI, Risk, Cash Filter, F2P/P2P, Tooltips,
+                    // Volume/Limit, Sparklines, Clickable Cards
+                    // ============================================
+                                                                              (function() {
+                        'use strict';
+
+        // --- STATE ---
+        let cashStackGP = 0;
+        let membershipFilter = 'all';
+        const priceHistory = {};
+
+        // --- F2P ITEMS (common f2p tradeable item IDs) ---
+                        const F2P_ITEMS = new Set([
+            // Runes
+            554,555,556,557,558,559,560,561,562,563,564,565,566,
+            // Common F2P gear & resources
+            1205,1215,1291,1307,1323,1333,// swords
+                            1117,1119,1121,1123,1125,1127,// platebodies
+                            1153,1155,1157,1159,1161,1163,// full helms
+            // Ores & bars
+            436,438,440,442,444,446,448,449,450,451,452,453,
+                            // Logs
+            1511,1513,1515,1517,1519,1521,
+                            // Fish
+            315,317,319,321,323,325,327,329,331,333,335,337,339,341,343,345,347,349,351,353,355,357,359,361,363,365,
+                            // Food
+            379,385,373,391,397,
+            // Cowhide, bones, etc
+            1739,1741,526,528,530,532,534,536,
+                            // Common f2p items
+            1931,1929,1927,1925,1923,
+        ]);
+
+                        // --- HELPER: Parse GP string like "50m", "2.5b", "500k" ---
+                        function parseGPString(str) {
+            if (!str) return 0;
+                            str = str.toLowerCase().replace(/,/g, '').trim();
+            const num = parseFloat(str);
+                            if (isNaN(num)) return 0;
+            if (str.endsWith('b')) return num * 1000000000;
+                            if (str.endsWith('m')) return num * 1000000;
+                            if (str.endsWith('k')) return num * 1000;
+            return num;
+                    }
+
+                        // --- CASH STACK FILTER ---
+                        window.applyCashFilter = function() {
+                            const input = document.getElementById('cashStackInput');
+            cashStackGP = parseGPString(input ? input.value : '');
+            renderTopFlips(true);
+    };
+
+                        // --- MEMBERSHIP TOGGLE ---
+                        window.setMembership = function(mode) {
+                                                                                      membershipFilter = mode;
+            const btns = document.querySelectorAll('.membership-toggle button');
+            btns.forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderTopFlips(true);
+                                                                                  };
+
+                        // --- ROI CALCULATION ---
+        function calcROI(item) {
+            if (!item.buyPrice || item.buyPrice <= 0) return 0;
+            const rb = realisticBuys(item);
+            const investment = item.buyPrice * rb;
+                                                                                      const profit = realistic4hProfit(item);
+            return investment > 0 ? (profit / investment * 100) : 0;
+        }
+
+                        // --- RISK SCORE ---
+                        function getRiskLevel(item) {
+            const vol = volPerHour(item);
+            const margin = item.margin || 0;
+                            const price = item.sellPrice || 1;
+            const marginPct = margin / price;
+            const limit = item.buyLimit || 1;
+
+                            // High margin % + low volume = risky
+            // Low margin % + high volume = safe
+            let riskScore = 0;
+            if (marginPct > 0.10) riskScore += 3;
+                            else if (marginPct > 0.05) riskScore += 2;
+                            else if (marginPct > 0.02) riskScore += 1;
+
+            if (vol < limit * 0.1) riskScore += 3;
+            else if (vol < limit * 0.3) riskScore += 2;
+            else if (vol < limit * 0.5) riskScore += 1;
+
+                            if (riskScore >= 4) return { level: 'risky', emoji: '🔴', text: 'Risky' };
+            if (riskScore >= 2) return { level: 'moderate', emoji: '🟡', text: 'Moderate' };
+            return { level: 'safe', emoji: '🟢', text: 'Safe' };
+                    }
+
+        // --- VOLUME vs LIMIT RATIO ---
+                        function getVolLimitRatio(item) {
+                            const vol = volPerHour(item) * 4;
+                            const limit = item.buyLimit || 1;
+            return Math.min(vol / limit, 2);
+    }
+
+                                      // --- PRICE HISTORY TRACKING (for sparklines) ---
+                        function trackPrice(itemId, price) {
+                            if (!priceHistory[itemId]) priceHistory[itemId] = [];
+                            priceHistory[itemId].push(price);
+            if (priceHistory[itemId].length > 20) priceHistory[itemId].shift();
+                        }
+
+                        // --- SPARKLINE DRAWING ---
+                        function drawSparkline(canvas, data, color) {
+                            if (!canvas || !data || data.length < 2) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth * 2;
+                            const h = canvas.height = canvas.offsetHeight * 2;
+                            ctx.clearRect(0, 0, w, h);
+
+            const min = Math.min(...data);
+                            const max = Math.max(...data);
+                            const range = max - min || 1;
+
+            ctx.beginPath();
+                            ctx.strokeStyle = color || '#22c55e';
+            ctx.lineWidth = 2;
+            data.forEach((val, i) => {
+                                const x = (i / (data.length - 1)) * w;
+                const y = h - ((val - min) / range) * h * 0.8 - h * 0.1;
+                if (i === 0) ctx.moveTo(x, y);
+                                else ctx.lineTo(x, y);
+                            });
+            ctx.stroke();
+        }
+
+        // --- OVERRIDE: Enhance renderTopFlips ---
+                        const _origRenderTopFlips = renderTopFlips;
+        renderTopFlips = function(force) {
+            // Apply cash stack filter
+            const origItems = state.allItems;
+            if (cashStackGP > 0 || membershipFilter !== 'all') {
+                state.allItems = origItems.filter(item => {
+                    if (cashStackGP > 0 && item.buyPrice > cashStackGP) return false;
+                    if (membershipFilter === 'f2p' && !F2P_ITEMS.has(item.itemId)) return false;
+                    if (membershipFilter === 'p2p' && F2P_ITEMS.has(item.itemId)) return false;
+                    return true;
+                    });
+                            }
+
+            _origRenderTopFlips(force);
+                            state.allItems = origItems;
+
+                            // After rendering, enhance the table rows and cards
+                            enhanceTopFlipsDisplay();
+                        };
+
+                        // --- ENHANCE TABLE ROWS ---
+                        function enhanceTopFlipsDisplay() {
+            // Enhance table rows
+                                                  const rows = document.querySelectorAll('#topFlipsBody tr');
+                                                                                      rows.forEach(row => {
+                const nameCell = row.querySelector('.item-name-cell');
+                if (!nameCell) return;
+                const itemName = nameCell.textContent.trim().split('\n')[0].trim();
+
+                // Find the matching item
+                                const item = state.allItems.find(i => i.name === itemName);
+                if (!item) return;
+
+                // Track price for sparklines
+                trackPrice(item.itemId, item.sellPrice);
+
+                                // Add ROI badge if not already present
+                                if (!row.querySelector('.roi-badge')) {
+                                    const roi = calcROI(item);
+                                    const roiCell = row.querySelector('.realistic-profit') || row.cells[row.cells.length - 1];
+                                    if (roiCell && roi > 0) {
+                        const badge = document.createElement('span');
+                                        badge.className = 'roi-badge';
+                                        badge.title = 'Return on Investment for this flip';
+                                        badge.textContent = roi.toFixed(1) + '% ROI';
+                        roiCell.appendChild(document.createElement('br'));
+                        roiCell.appendChild(badge);
+                    }
+                                }
+
+                // Add risk badge if not already present
+                if (!row.querySelector('.risk-badge')) {
+                    const risk = getRiskLevel(item);
+                    const verdictCell = row.querySelector('.verdict-pill');
+                    if (verdictCell && verdictCell.parentElement) {
+                                        const badge = document.createElement('span');
+                        badge.className = 'risk-badge risk-' + risk.level;
+                        badge.textContent = risk.emoji + ' ' + risk.text;
+                        badge.style.marginLeft = '6px';
+                        verdictCell.parentElement.appendChild(badge);
+                    }
+                }
+
+                                // Add GE limit tag
+                if (!row.querySelector('.ge-limit-tag') && item.buyLimit) {
+                                    const nameEl = row.querySelector('.item-name-cell');
+                                    if (nameEl) {
+                        const tag = document.createElement('div');
+                                        tag.className = 'ge-limit-tag';
+                                        tag.textContent = 'Limit: ' + item.buyLimit.toLocaleString() + '/4h';
+                        nameEl.appendChild(tag);
+                    }
+                }
+
+                // Add volume/limit bar
+                if (!row.querySelector('.vol-limit-bar') && item.buyLimit) {
+                                    const volCell = row.querySelector('td:nth-child(5)') || row.querySelector('.vol-context');
+                    if (volCell) {
+                        const ratio = getVolLimitRatio(item);
+                        const pct = Math.min(ratio * 50, 100);
+                        const color = ratio >= 1 ? 'var(--green)' : ratio >= 0.3 ? 'var(--accent)' : 'var(--red)';
+                                        const bar = document.createElement('div');
+                                        bar.className = 'vol-limit-bar';
+                                        bar.innerHTML = '<div class="vol-limit-track"><div class="vol-limit-fill" style="width:' + pct + '%;background:' + color + '"></div></div><span>' + (ratio * 100).toFixed(0) + '%</span>';
+                        volCell.appendChild(bar);
+                    }
+                    }
+    });
+
+            // Enhance card view
+            const cards = document.querySelectorAll('#gridView .item-card');
+            cards.forEach(card => {
+                const nameEl = card.querySelector('.card-name');
+                if (!nameEl) return;
+                const itemName = nameEl.textContent.trim();
+                const item = state.allItems.find(i => i.name === itemName);
+                                if (!item) return;
+
+                                // Make card clickable
+                                                                                          card.setAttribute('data-item-id', item.itemId);
+                if (!card._clickBound) {
+                                    card.addEventListener('click', function(e) {
+                                        if (e.target.closest('.fav-btn') || e.target.closest('button')) return;
+                        openOSRSWiki(item.name);
+                    });
+                    card._clickBound = true;
+                                }
+
+                // Add ROI to card
+                                if (!card.querySelector('.roi-badge')) {
+                                    const roi = calcROI(item);
+                                    const profitEl = card.querySelector('.card-profit');
+                                    if (profitEl && roi > 0) {
+                                        const badge = document.createElement('span');
+                                        badge.className = 'roi-badge';
+                                        badge.style.marginLeft = '8px';
+                                        badge.textContent = roi.toFixed(1) + '% ROI';
+                                        profitEl.appendChild(badge);
+    }
+    }
+
+                                // Add risk badge to card
+                                if (!card.querySelector('.risk-badge')) {
+                                    const risk = getRiskLevel(item);
+                                    const jtiEl = card.querySelector('.card-jti');
+                                    if (jtiEl) {
+                        const badge = document.createElement('span');
+                                        badge.className = 'risk-badge risk-' + risk.level;
+                                        badge.textContent = risk.emoji + ' ' + risk.text;
+                        badge.style.marginLeft = '6px';
+                                        jtiEl.appendChild(badge);
+                    }
+                    }
+
+                                // Add GE limit
+                if (!card.querySelector('.ge-limit-tag') && item.buyLimit) {
+                                    const nameParent = nameEl.parentElement;
+                                    if (nameParent) {
+                                        const tag = document.createElement('div');
+                                        tag.className = 'ge-limit-tag';
+                                        tag.textContent = 'GE Limit: ' + item.buyLimit.toLocaleString() + '/4h';
+                                        nameParent.appendChild(tag);
+    }
+    }
+    });
+                    }
+
+                        // --- ENHANCE DASHBOARD STAT CARDS WITH SPARKLINES ---
+        const _origRenderDashboard = renderDashboard;
+        renderDashboard = function() {
+                            _origRenderDashboard();
+
+                            // Track best flip item for sparkline
+                            if (state.allItems && state.allItems.length > 0) {
+                                                                                                                                                 const best = state.allItems.reduce((a, b) =>
+                    realistic4hProfit(a) > realistic4hProfit(b) ? a : b
+                                );
+                                if (best) {
+                                    trackPrice(best.itemId, best.sellPrice);
+                                    // Add sparkline to best flip card
+                                    const bestCard = document.getElementById('statBestProfit');
+                                    if (bestCard) {
+                        const parent = bestCard.closest('.stat-card');
+                                        if (parent && !parent.querySelector('.sparkline-container')) {
+                            const container = document.createElement('div');
+                                            container.className = 'sparkline-container';
+                            const canvas = document.createElement('canvas');
+                                                                                                      container.appendChild(canvas);
+                                            parent.appendChild(container);
+                    }
+                                        const canvas = parent ? parent.querySelector('.sparkline-container canvas') : null;
+                        const history = priceHistory[best.itemId];
+                                        if (canvas && history && history.length >= 2) {
+                                            drawSparkline(canvas, history, '#22c55e');
+                    }
+                    }
+                    }
+                    }
+                    };
+
+                        // --- ADD ROI SORT OPTION ---
+                        setTimeout(function() {
+                            const sortDD = document.getElementById('sortDropdown');
+            if (sortDD && !sortDD.querySelector('option[value="roi"]')) {
+                                const opt = document.createElement('option');
+                                opt.value = 'roi';
+                                opt.textContent = 'Sort: ROI %';
+                                sortDD.appendChild(opt);
+            }
+
+            // Add event listener for ROI sort
+                            if (sortDD) {
+                                const origChange = sortDD.onchange;
+                                sortDD.addEventListener('change', function() {
+                                    if (this.value === 'roi') {
+                                        state.currentSort = 'roi';
+                                        renderTopFlips(true);
+                    }
+                    });
+                    }
+                    }, 2000);
+
+                        // --- PATCH SORT TO HANDLE ROI ---
+        const _origSort = state ? undefined : undefined;
+                        const origRTF2 = renderTopFlips;
+                        // We already overrode renderTopFlips above. Let's also patch the sort.
+        // The sort happens inside renderTopFlips based on state.currentSort
+                        // We need to intercept when sort is 'roi'
+                        // Since we wrapped renderTopFlips, let's also handle the sorting there.
+
+                        // Actually, let me re-wrap to add ROI sorting
+        const _prevRTF = renderTopFlips;
+                        renderTopFlips = function(force) {
+                            // If sorting by ROI, temporarily sort allItems
+                            if (state.currentSort === 'roi') {
+                                state.allItems.sort((a, b) => calcROI(b) - calcROI(a));
+                    }
+                            _prevRTF(force);
+        };
+
+        console.log('[Grand Flip Out] Gemini enhancements loaded: ROI, Risk Indicators, Cash Stack Filter, F2P/P2P Toggle, Tooltips, Volume/Limit, Sparklines');
+                    })();
+    </script>
 </body>
 </html>
