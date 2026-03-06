@@ -517,7 +517,7 @@
             <div class="stat-card" title="Items currently crashing"><div class="stat-icon">🎯</div><div class="stat-label">Active Targets</div><div class="stat-value" style="color:var(--red)" id="sniperTargets">0</div></div>
             <div class="stat-card" title="Best total profit opportunity"><div class="stat-icon">💰</div><div class="stat-label">Best Total Profit</div><div class="stat-value green" id="sniperMaxCrash">—</div></div>
             <div class="stat-card" title="Best buy opportunity from dumps"><div class="stat-icon">💎</div><div class="stat-label">Best Opportunity</div><div class="stat-value green" id="sniperBestOpp">—</div><div class="stat-sub" id="sniperBestName">scanning...</div></div>
-            <div class="stat-card" title="Scan frequency"><div class="stat-icon">⏱️</div><div class="stat-label">Scan Rate</div><div class="stat-value accent">8s</div><div class="stat-sub">auto-scanning</div></div>
+            <div class="stat-card" title="Overall GE market direction"><div class="stat-icon" id="regimeIcon">🔍</div><div class="stat-label">Market</div><div class="stat-value" id="regimeLabel" style="font-size:14px;">Analyzing...</div><div class="stat-sub" id="regimeSub">collecting data</div></div>
         </div>
 
         <div id="sniperFeed" style="display:flex; flex-direction:column; gap:10px;">
@@ -1226,6 +1226,335 @@ async function fetchWikiCached(ep, maxAge = 5000) {
     return data;
 }
 
+// ============================================
+// MARKET REGIME DETECTION
+// ============================================
+// Tracks overall GE market state: are prices generally rising, falling, or stable?
+// This affects how we interpret individual item crashes.
+// If the whole market is dumping, individual item crashes are less meaningful.
+// If the market is stable and ONE item crashes, that's a real opportunity.
+
+const MARKET_REGIME = {
+    state: 'unknown',     // 'bull', 'bear', 'stable', 'volatile', 'unknown'
+    strength: 0,          // 0-100, how strong the regime signal is
+    avgDrift: 0,          // average price drift across all items
+    risingCount: 0,       // items with rising prices
+    fallingCount: 0,      // items with falling prices
+    lastUpdate: 0,
+    history: [],          // [{time, state, strength}] - last 30 readings
+
+    update(items) {
+        if (!items || items.length < 20) return;
+        const now = Date.now();
+        // Only update every 30 seconds
+        if (now - this.lastUpdate < 30000) return;
+        this.lastUpdate = now;
+
+        let rising = 0, falling = 0, stable = 0;
+        let totalDrift = 0;
+
+        for (const item of items) {
+            const mem = state.priceMemory[item.itemId];
+            if (!mem || mem.samples.length < 3) continue;
+
+            // Compare current price to 30-min-ago price
+            const thirtyMinAgo = now - 1800000;
+            const oldSample = mem.samples.find(s => s.time > thirtyMinAgo);
+            if (!oldSample) continue;
+
+            const currentPrice = (item.buyPrice + item.sellPrice) / 2;
+            const drift = ((currentPrice - oldSample.price) / oldSample.price) * 100;
+            totalDrift += drift;
+
+            if (drift > 1) rising++;
+            else if (drift < -1) falling++;
+            else stable++;
+        }
+
+        const total = rising + falling + stable;
+        if (total < 10) return;
+
+        this.risingCount = rising;
+        this.fallingCount = falling;
+        this.avgDrift = totalDrift / total;
+
+        // Determine regime
+        const risingPct = rising / total;
+        const fallingPct = falling / total;
+
+        if (fallingPct > 0.5 && this.avgDrift < -1) {
+            this.state = 'bear';
+            this.strength = Math.min(100, Math.round(fallingPct * 100));
+        } else if (risingPct > 0.5 && this.avgDrift > 1) {
+            this.state = 'bull';
+            this.strength = Math.min(100, Math.round(risingPct * 100));
+        } else if (Math.abs(this.avgDrift) > 2) {
+            this.state = 'volatile';
+            this.strength = Math.min(100, Math.round(Math.abs(this.avgDrift) * 20));
+        } else {
+            this.state = 'stable';
+            this.strength = Math.min(100, Math.round((1 - Math.abs(this.avgDrift) / 2) * 100));
+        }
+
+        this.history.push({ time: now, state: this.state, strength: this.strength, drift: this.avgDrift });
+        if (this.history.length > 60) this.history.shift();
+    },
+
+    // Get regime-adjusted score modifier for dump scoring
+    // In a bear market, crashes are less special (everything is crashing)
+    // In a stable/bull market, a crash stands out more
+    getDumpModifier() {
+        if (this.state === 'bear') return -8;     // Penalize dumps in bear market
+        if (this.state === 'volatile') return -4;  // Slight penalty in chaos
+        if (this.state === 'stable') return 5;     // Bonus: crash in stable market = real
+        if (this.state === 'bull') return 8;       // Big bonus: crash in bull market = opportunity
+        return 0;
+    },
+
+    // Human-readable regime description
+    getLabel() {
+        switch (this.state) {
+            case 'bear': return { text: 'Market Falling', icon: '📉', color: 'var(--red)' };
+            case 'bull': return { text: 'Market Rising', icon: '📈', color: 'var(--green)' };
+            case 'volatile': return { text: 'Market Chaotic', icon: '🌊', color: 'var(--accent)' };
+            case 'stable': return { text: 'Market Stable', icon: '⚖️', color: 'var(--blue)' };
+            default: return { text: 'Analyzing...', icon: '🔍', color: 'var(--text-muted)' };
+        }
+    }
+};
+
+// ============================================
+// STALE DATA DETECTION
+// ============================================
+// The OSRS Wiki API sometimes returns data that's minutes or hours old.
+// If highTime/lowTime is old, the price is unreliable.
+// A flip based on stale data will fail because the real price has moved.
+
+function getDataFreshness(pi) {
+    if (!pi) return { fresh: false, age: Infinity, label: 'No data' };
+    const now = Math.floor(Date.now() / 1000);
+    const highAge = pi.highTime ? (now - pi.highTime) : Infinity;
+    const lowAge = pi.lowTime ? (now - pi.lowTime) : Infinity;
+    const age = Math.min(highAge, lowAge);
+
+    if (age < 60) return { fresh: true, age, label: 'Live', penalty: 0 };
+    if (age < 300) return { fresh: true, age, label: 'Recent', penalty: 0 };
+    if (age < 600) return { fresh: true, age, label: '~' + Math.round(age / 60) + 'min ago', penalty: -3 };
+    if (age < 1800) return { fresh: false, age, label: Math.round(age / 60) + 'min stale', penalty: -10 };
+    if (age < 3600) return { fresh: false, age, label: Math.round(age / 60) + 'min stale', penalty: -20 };
+    return { fresh: false, age, label: '1hr+ stale', penalty: -30 };
+}
+
+// ============================================
+// FLIP EXECUTION INTELLIGENCE
+// ============================================
+// Predicts how long a flip will actually take and how much competition you face.
+// A flip that takes 4 hours to fill is worse than one that fills in 5 minutes.
+
+function getFlipExecution(item) {
+    const vol5m = (item.buyQuantity || 0) + (item.sellQuantity || 0);
+    const volHr = vol5m * 12;
+    const buyLimit = item.buyLimit || 999999;
+    const profit = item.flipProfit || item.margin || 0;
+
+    // Time to fill estimate (how long until your GE offer completes)
+    let fillTimeMin = 0;
+    if (volHr > 500) fillTimeMin = 1;         // Instant
+    else if (volHr > 100) fillTimeMin = 5;    // Very fast
+    else if (volHr > 50) fillTimeMin = 15;    // Quick
+    else if (volHr > 20) fillTimeMin = 30;    // Moderate
+    else if (volHr > 10) fillTimeMin = 60;    // Slow
+    else fillTimeMin = 120;                    // Very slow
+
+    // Competition estimate — high margin + high volume = crowded flip
+    // Other flippers are likely already on this
+    let competition = 'low';
+    if (profit > 200000 && volHr > 100) competition = 'high';
+    else if (profit > 100000 && volHr > 50) competition = 'medium';
+    else if (profit > 500000 && volHr > 20) competition = 'medium';
+
+    // When competition is high, your actual margin shrinks because
+    // other flippers undercut you
+    let competitionPenalty = 0;
+    if (competition === 'high') competitionPenalty = -5;
+    else if (competition === 'medium') competitionPenalty = -2;
+
+    // Effective hourly profit rate (accounts for fill time)
+    const canBuyPer4h = Math.min(buyLimit, Math.round(volHr * 4));
+    const totalProfit4h = profit * canBuyPer4h;
+    const gpPerHour = totalProfit4h / 4;
+
+    // Capital efficiency — how much GP do you need tied up vs what you earn?
+    const capitalNeeded = (item.instaBuyAt || item.buyPrice || 0) * Math.min(buyLimit, Math.round(volHr * 0.5));
+    const capitalEfficiency = capitalNeeded > 0 ? (totalProfit4h / capitalNeeded) * 100 : 0;
+
+    // Risk: chance the flip goes bad (price moves against you while waiting)
+    let riskLevel = 'low';
+    const spreadHist = state.spreadHistory[item.itemId] || [];
+    if (spreadHist.length >= 5) {
+        const spreads = spreadHist.slice(-5).map(s => s.spreadPct);
+        const spreadVariance = spreads.reduce((s, x) => s + Math.pow(x - spreads.reduce((a, b) => a + b, 0) / spreads.length, 2), 0) / spreads.length;
+        if (spreadVariance > 5) riskLevel = 'high';
+        else if (spreadVariance > 2) riskLevel = 'medium';
+    }
+    // Slow-filling items are riskier (price can move during long fill)
+    if (fillTimeMin > 60) riskLevel = riskLevel === 'low' ? 'medium' : 'high';
+
+    return {
+        fillTimeMin,
+        fillTimeLabel: fillTimeMin <= 1 ? 'Instant' : fillTimeMin <= 5 ? '~5 min' : fillTimeMin <= 15 ? '~15 min' : fillTimeMin <= 30 ? '~30 min' : fillTimeMin <= 60 ? '~1 hr' : '1+ hr',
+        competition,
+        competitionPenalty,
+        gpPerHour,
+        capitalNeeded,
+        capitalEfficiency,
+        riskLevel,
+        canBuyPer4h
+    };
+}
+
+// ============================================
+// ITEM CORRELATION ENGINE
+// ============================================
+// Items that move together = same root cause.
+// If all GWD items are crashing, it's a GWD event/bot wave, not individual item dumps.
+// If ONE item crashes while its group is stable, that's a real opportunity.
+
+const ITEM_GROUPS = {
+    groups: [
+        { name: 'Bandos GWD', items: ['bandos chestplate', 'bandos tassets', 'bandos boots', 'bandos godsword'] },
+        { name: 'Armadyl GWD', items: ['armadyl chestplate', 'armadyl chainskirt', 'armadyl helmet', 'armadyl godsword', 'armadyl crossbow'] },
+        { name: 'Saradomin GWD', items: ['saradomin sword', 'saradomin godsword', 'saradomin hilt', 'armadyl crossbow'] },
+        { name: 'Zamorak GWD', items: ['zamorakian spear', 'zamorakian hasta', 'zamorak godsword', 'staff of the dead'] },
+        { name: 'CoX Uniques', items: ['twisted bow', 'kodai', 'ancestral', 'dexterous prayer scroll', 'arcane prayer scroll', 'dragon claws', 'elder maul', 'dinh'] },
+        { name: 'ToB Uniques', items: ['scythe of vitur', 'rapier', 'avernic', 'sanguinesti staff', 'justiciar'] },
+        { name: 'ToA Uniques', items: ['tumeken', 'osmumten', 'masori', 'lightbearer', 'elidinis'] },
+        { name: 'Zenyte Jewelry', items: ['tormented bracelet', 'amulet of torture', 'necklace of anguish', 'ring of suffering', 'zenyte shard'] },
+        { name: 'Torva', items: ['torva full helm', 'torva platebody', 'torva platelegs'] },
+        { name: 'Virtus', items: ['virtus mask', 'virtus robe top', 'virtus robe bottom'] },
+        { name: 'DKS Rings', items: ['berserker ring', 'warrior ring', 'seers ring', 'archers ring'] },
+        { name: 'Zulrah Drops', items: ['toxic blowpipe', 'serpentine visage', 'magic fang', 'tanzanite fang'] },
+        { name: 'Potions', items: ['super restore', 'saradomin brew', 'prayer potion', 'stamina potion', 'super combat', 'ranging potion'] },
+        { name: 'Runes', items: ['blood rune', 'death rune', 'soul rune', 'wrath rune', 'nature rune'] },
+        { name: 'PvM Ammo', items: ['dragon dart', 'amethyst arrow', 'dragon arrow', 'ruby bolt', 'diamond bolt'] },
+    ],
+
+    // Find which group(s) an item belongs to
+    getGroups(itemName) {
+        const name = (itemName || '').toLowerCase();
+        return this.groups.filter(g => g.items.some(i => name.includes(i)));
+    },
+
+    // Check if an item's group is also crashing (group crash vs solo crash)
+    isGroupCrash(itemName) {
+        const groups = this.getGroups(itemName);
+        if (groups.length === 0) return { isGroup: false };
+
+        for (const group of groups) {
+            let groupCrashing = 0, groupTotal = 0;
+            for (const memberName of group.items) {
+                // Find this item in dumps
+                const dump = state.dumps.find(d => (d.name || '').toLowerCase().includes(memberName));
+                if (dump) groupCrashing++;
+                groupTotal++;
+            }
+            if (groupCrashing >= 2 && groupCrashing >= groupTotal * 0.5) {
+                return { isGroup: true, group: group.name, crashingCount: groupCrashing, totalCount: groupTotal };
+            }
+        }
+        return { isGroup: false };
+    }
+};
+
+// ============================================
+// VOLUME TIME-OF-DAY WEIGHTING
+// ============================================
+// OSRS has predictable volume patterns: dead at 3am UTC, peak at 8pm UTC.
+// Naive "5m vol * 12 = hourly" breaks at night (overestimates) and peaks (underestimates).
+
+function getTimeOfDayVolumeMultiplier() {
+    // OSRS runs on UK time. Get current UTC hour.
+    const utcHour = new Date().getUTCHours();
+
+    // Approximate OSRS player activity pattern (relative to peak)
+    // These are rough multipliers based on typical MMORPG daily patterns
+    const hourlyActivity = {
+        0: 0.55, 1: 0.40, 2: 0.30, 3: 0.25, 4: 0.22, 5: 0.20,
+        6: 0.25, 7: 0.35, 8: 0.45, 9: 0.55, 10: 0.65, 11: 0.72,
+        12: 0.78, 13: 0.82, 14: 0.85, 15: 0.88, 16: 0.92, 17: 0.95,
+        18: 1.00, 19: 1.00, 20: 1.00, 21: 0.95, 22: 0.85, 23: 0.70
+    };
+
+    const currentActivity = hourlyActivity[utcHour] || 0.5;
+    const avgActivity = Object.values(hourlyActivity).reduce((a, b) => a + b, 0) / 24;
+
+    // Return a correction factor: if current hour is 50% of average,
+    // multiply the observed volume by 2x to estimate daily average
+    return avgActivity / currentActivity;
+}
+
+// Improved volume estimation that accounts for time of day
+function estimateVol4hAdjusted(itemId, current5mVol) {
+    const base = estimateVol4h(itemId, current5mVol);
+    const todMultiplier = getTimeOfDayVolumeMultiplier();
+
+    // Blend: 70% time-adjusted, 30% raw (don't over-correct)
+    const adjusted = Math.round(base * (0.3 + 0.7 * todMultiplier));
+
+    // Never estimate higher than 3x the raw estimate (sanity cap)
+    return Math.min(adjusted, base * 3);
+}
+
+// ============================================
+// RISK SCORING
+// ============================================
+// How likely is it that a flip goes wrong?
+// Factors: volatility, fill time, competition, data staleness, market regime
+
+function getFlipRiskScore(item, freshness) {
+    let risk = 0; // 0-100, higher = riskier
+
+    // Data staleness risk
+    if (freshness && freshness.penalty) risk += Math.abs(freshness.penalty);
+
+    // Volume risk: low volume = hard to fill = price can move on you
+    const volHr = ((item.buyQuantity || 0) + (item.sellQuantity || 0)) * 12;
+    if (volHr < 10) risk += 25;
+    else if (volHr < 30) risk += 15;
+    else if (volHr < 50) risk += 8;
+
+    // Spread volatility risk
+    const spreadHist = state.spreadHistory[item.itemId] || [];
+    if (spreadHist.length >= 5) {
+        const spreads = spreadHist.slice(-5).map(s => s.spreadPct);
+        const avg = spreads.reduce((a, b) => a + b, 0) / spreads.length;
+        const variance = spreads.reduce((s, x) => s + Math.pow(x - avg, 2), 0) / spreads.length;
+        if (variance > 8) risk += 20;
+        else if (variance > 4) risk += 10;
+        else if (variance > 2) risk += 5;
+    }
+
+    // Market regime risk
+    if (MARKET_REGIME.state === 'bear') risk += 10;
+    else if (MARKET_REGIME.state === 'volatile') risk += 15;
+
+    // Margin too good risk (suspicious)
+    const marginPct = item.marginPct || 0;
+    if (marginPct > 20) risk += 15;
+    else if (marginPct > 10) risk += 5;
+
+    // Buy limit risk: low buy limit = tiny position = not worth the effort
+    const buyLimit = item.buyLimit || 999999;
+    if (buyLimit <= 4) risk += 15;
+    else if (buyLimit <= 8) risk += 8;
+
+    return {
+        score: Math.max(0, Math.min(100, risk)),
+        label: risk >= 60 ? 'HIGH RISK' : risk >= 35 ? 'MODERATE' : risk >= 15 ? 'LOW RISK' : 'SAFE',
+        color: risk >= 60 ? 'var(--red)' : risk >= 35 ? 'var(--accent)' : risk >= 15 ? 'var(--blue)' : 'var(--green)'
+    };
+}
+
 async function checkDumpsLight() {
     const [vols, latestResp, vol1h] = await Promise.all([
         fetchWikiCached('/5m', 5000),
@@ -1254,6 +1583,9 @@ async function checkDumpsLight() {
         state.items = state.allItems.slice(0, 200);
         renderTopFlips();
     }
+
+    // Update market regime
+    MARKET_REGIME.update(state.allItems);
 
     // ======= DUMP DETECTION: Find items you can BUY LOW and SELL HIGH right now =======
     // A "dump" = item price has crashed. You insta-buy at the crashed price, then sell at normal price.
@@ -1398,7 +1730,12 @@ async function checkDumpsLight() {
         }
 
         // Buy limit total profit cap — how much can you ACTUALLY make?
-        const totalProfitCap = flipProfit * Math.min(buyLimit, Math.round((bv + sv) * 12 * 4));
+        // Use time-of-day adjusted volume for more accurate estimates
+        const vol4hAdj = estimateVol4hAdjusted(id, bv + sv);
+        const totalProfitCap = flipProfit * Math.min(buyLimit, vol4hAdj);
+
+        // Stale data check
+        const freshness = getDataFreshness(pi);
 
         const summary = {
             itemId: id, name: meta.name, icon: meta.icon,
@@ -1415,6 +1752,7 @@ async function checkDumpsLight() {
             spreadTrend: spreadTrend,          // Spread direction (neg = tightening)
             totalProfitCap: totalProfitCap,    // Max profit given buy limit + volume
             priceMemoryAge: priceMemoryAge,    // How much long-term data we have
+            freshness: freshness,              // Data staleness info
             // Keep old fields for compatibility
             buyPrice: instaBuyPrice, sellPrice: instaSellPrice,
             fiveMinAvg: avgSellPrice5m || currentAvg,
@@ -1665,9 +2003,29 @@ function getDumpScore(d) {
     weights.volatility24h = vol24h;
 
     // V2: If 5m and 1h disagree strongly, be skeptical
-    // (e.g., 5m shows pump but 1h shows crash = noise)
     if ((d.crashPct > 0) !== (d.crashFromNormal < 0) && Math.abs(d.crashPct) > 2) {
         score -= 5;
+    }
+
+    // V3: Stale data penalty — unreliable prices = unreliable flip
+    if (d.freshness && d.freshness.penalty) {
+        score += d.freshness.penalty; // penalty is negative
+        if (d.freshness.penalty <= -10) reasons.push('Stale price data — ' + d.freshness.label);
+    }
+
+    // V3: Market regime adjustment
+    const regimeModifier = MARKET_REGIME.getDumpModifier();
+    score += regimeModifier;
+    if (regimeModifier >= 5) reasons.push('Crash in ' + MARKET_REGIME.state + ' market');
+    else if (regimeModifier <= -5) reasons.push('Whole market dumping');
+
+    // V3: Item correlation — solo crash vs group crash
+    const groupCrash = ITEM_GROUPS.isGroupCrash(d.name);
+    if (groupCrash.isGroup) {
+        score -= 5; // Group crash = systemic, less special
+        reasons.push(groupCrash.group + ' group crash');
+    } else if (ITEM_GROUPS.getGroups(d.name).length > 0) {
+        score += 3; // Solo crash within a group = stand-out opportunity
     }
 
     // === RECOVERY PROBABILITY ===
@@ -2300,6 +2658,20 @@ function renderSniperFeed() {
     const highConfDumps = dumps.filter(d => getDumpScore(d).score >= 70);
     if (badgeEl) badgeEl.textContent = highConfDumps.length > 0 ? highConfDumps.length : '';
 
+    // V3: Update market regime indicator
+    const regime = MARKET_REGIME.getLabel();
+    const regimeIcon = document.getElementById('regimeIcon');
+    const regimeLabel = document.getElementById('regimeLabel');
+    const regimeSub = document.getElementById('regimeSub');
+    if (regimeIcon) regimeIcon.textContent = regime.icon;
+    if (regimeLabel) { regimeLabel.textContent = regime.text; regimeLabel.style.color = regime.color; }
+    if (regimeSub) {
+        const r = MARKET_REGIME;
+        if (r.state !== 'unknown') {
+            regimeSub.textContent = `${r.risingCount} rising · ${r.fallingCount} falling`;
+        }
+    }
+
     if (dumps.length > 0) {
         // Show the best total profit opportunity (real money, real number)
         const bestTotal = Math.max(...dumps.map(d => {
@@ -2344,11 +2716,25 @@ function renderSniperFeed() {
         const scoreLabel = scoreResult.label || '';
         const scoreLabelColor = scoreLabel === 'EXCEPTIONAL' ? '#22c55e' : scoreLabel === 'STRONG' ? '#3b82f6' : scoreLabel === 'GOOD' ? '#ff981f' : '#7a7268';
 
+        // V3: Execution intelligence & risk
+        const execInfo = getFlipExecution(d);
+        const riskInfo = getFlipRiskScore(d, d.freshness);
+
         // SMART CONTEXT: translate framework intelligence into plain English
         const tags = [];
 
         // V2: Score label badge
         if (scoreLabel) tags.push({ text: scoreLabel, color: scoreLabelColor, icon: scoreLabel === 'EXCEPTIONAL' ? '🔥' : scoreLabel === 'STRONG' ? '💪' : '📊' });
+
+        // V3: Risk badge
+        if (riskInfo.score >= 35) tags.push({ text: riskInfo.label, color: riskInfo.color, icon: riskInfo.score >= 60 ? '⛔' : '⚠️' });
+
+        // V3: Fill time
+        if (execInfo.fillTimeMin > 30) tags.push({ text: 'Slow fill ' + execInfo.fillTimeLabel, color: 'var(--text-muted)', icon: '🐢' });
+        else if (execInfo.fillTimeMin <= 5) tags.push({ text: 'Fast fill', color: 'var(--green)', icon: '⚡' });
+
+        // V3: Competition warning
+        if (execInfo.competition === 'high') tags.push({ text: 'Crowded flip', color: 'var(--accent)', icon: '👥' });
 
         // V2: Confirmation count
         if (d.confirmations >= 5) tags.push({ text: 'Confirmed', color: 'var(--green)', icon: '✅' });
@@ -2369,11 +2755,14 @@ function renderSniperFeed() {
         // V2: Recovery ETA
         if (scoreResult.recoveryETA) tags.push({ text: scoreResult.recoveryETA, color: 'var(--blue)', icon: '⏱️' });
 
+        // V3: Stale data warning
+        if (d.freshness && !d.freshness.fresh) tags.push({ text: d.freshness.label, color: 'var(--red)', icon: '🕐' });
+
         // Market intel
         const intel = MARKET_INTEL.getIntel(d);
         if (intel.length > 0) tags.push({ text: intel[0].text.length > 25 ? intel[0].text.slice(0,24) + '…' : intel[0].text, color: 'var(--accent)', icon: intel[0].icon });
 
-        const tagsHtml = tags.length > 0 ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;">${tags.slice(0,4).map(t => `<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:${t.color};">${t.icon} ${t.text}</span>`).join('')}</div>` : '';
+        const tagsHtml = tags.length > 0 ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;">${tags.slice(0,5).map(t => `<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:${t.color};">${t.icon} ${t.text}</span>`).join('')}</div>` : '';
 
         const buyLimitHtml = buyLimit < 100 ? `<span style="margin-left:6px; color:var(--red); font-weight:700; font-size:10px;">⚠️ Limit: ${buyLimit}</span>` : '';
 
@@ -2402,10 +2791,16 @@ function renderSniperFeed() {
                     <div style="font-size:18px; font-weight:900; color:var(--accent); margin-top:4px;">${gp(d.sellFor || d.sellPrice)}</div>
                 </div>
             </div>
-            <div style="background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.25); border-radius:8px; padding:10px; text-align:center;">
-                <span style="font-size:11px; color:var(--text-muted);">Total Profit: </span>
-                <span style="font-size:18px; font-weight:900; color:var(--green);">${gp(totalProfit)}</span>
-                ${d.buyLimit && d.buyLimit < vol4h ? `<span style="font-size:10px; color:var(--text-muted); margin-left:8px;">(GE limit: ${d.buyLimit.toLocaleString()})</span>` : ''}
+            <div style="display:flex; gap:6px; margin-bottom:0;">
+                <div style="flex:2; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.25); border-radius:8px; padding:10px; text-align:center;">
+                    <span style="font-size:11px; color:var(--text-muted);">Total Profit: </span>
+                    <span style="font-size:18px; font-weight:900; color:var(--green);">${gp(totalProfit)}</span>
+                    ${d.buyLimit && d.buyLimit < vol4h ? `<span style="font-size:10px; color:var(--text-muted); margin-left:8px;">(GE limit: ${d.buyLimit.toLocaleString()})</span>` : ''}
+                </div>
+                <div style="flex:1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; text-align:center;">
+                    <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px;">GP/Hour</div>
+                    <div style="font-size:14px; font-weight:800; color:var(--accent); margin-top:2px;">${gp(execInfo.gpPerHour)}</div>
+                </div>
             </div>
         </div>`;
     }).join('');
