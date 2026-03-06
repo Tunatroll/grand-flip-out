@@ -1555,6 +1555,372 @@ function getFlipRiskScore(item, freshness) {
     };
 }
 
+// ============================================
+// GE TAX OPTIMIZATION ENGINE
+// ============================================
+// GE tax = 2% of sell price, capped at 5M GP.
+// Items selling above 250M hit the cap — their effective tax rate drops.
+// Items right below the cap get taxed harder relative to their price.
+// This matters for high-value flips.
+
+const GE_TAX = {
+    calculate(sellPrice) {
+        return Math.min(Math.floor(sellPrice * 0.02), 5000000);
+    },
+
+    // Effective tax rate as a fraction (not percentage)
+    effectiveRate(sellPrice) {
+        if (sellPrice <= 0) return 0;
+        return this.calculate(sellPrice) / sellPrice;
+    },
+
+    // How much does the item need to move for you to break even after tax?
+    breakEvenSpread(sellPrice) {
+        const tax = this.calculate(sellPrice);
+        // You need: sellPrice - buyPrice > tax, so buyPrice < sellPrice - tax
+        // Minimum spread = tax + 1gp
+        return tax + 1;
+    },
+
+    // Is this item in the "tax sweet spot"?
+    // Items above 250M pay the same flat 5M tax as a 250M item
+    // So a 500M item pays 1% effective tax, a 1B item pays 0.5%
+    getTaxContext(sellPrice) {
+        if (sellPrice >= 500000000) return { label: 'Very low tax', advantage: true, effectivePct: (this.effectiveRate(sellPrice) * 100).toFixed(2) };
+        if (sellPrice >= 250000000) return { label: 'Tax capped', advantage: true, effectivePct: (this.effectiveRate(sellPrice) * 100).toFixed(2) };
+        if (sellPrice >= 100000000) return { label: 'Near tax cap', advantage: false, effectivePct: '2.00' };
+        return { label: '', advantage: false, effectivePct: '2.00' };
+    }
+};
+
+// ============================================
+// PRICE PATTERN RECOGNITION
+// ============================================
+// Detects common OSRS GE price patterns using short-term price history.
+// These patterns tell you WHERE in the dump cycle an item is.
+
+const PRICE_PATTERNS = {
+    detect(itemId) {
+        const history = state.priceHistory[itemId] || [];
+        const mem = state.priceMemory[itemId];
+        if (history.length < 5) return { pattern: 'insufficient_data', label: 'Collecting data', icon: '🔍', confidence: 0 };
+
+        const prices = history.map(h => h.price);
+        const latest = prices[prices.length - 1];
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        const range = max - min;
+        if (range === 0) return { pattern: 'flat', label: 'Flat — no movement', icon: '➡️', confidence: 80 };
+
+        const firstHalf = prices.slice(0, Math.floor(prices.length / 2));
+        const secondHalf = prices.slice(Math.floor(prices.length / 2));
+        const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+        const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+
+        // Find local minima
+        const minima = [];
+        for (let i = 1; i < prices.length - 1; i++) {
+            if (prices[i] <= prices[i - 1] && prices[i] <= prices[i + 1]) {
+                minima.push({ index: i, price: prices[i] });
+            }
+        }
+
+        // DOUBLE BOTTOM: price hits a low, bounces, hits roughly the same low again
+        // Strong reversal signal — good time to buy
+        if (minima.length >= 2) {
+            const last2 = minima.slice(-2);
+            const priceDiff = Math.abs(last2[0].price - last2[1].price);
+            const avgMin = (last2[0].price + last2[1].price) / 2;
+            if (priceDiff / avgMin < 0.03 && latest > avgMin * 1.01) {
+                return { pattern: 'double_bottom', label: 'Double bottom — likely recovery', icon: '📈', confidence: 75, action: 'BUY' };
+            }
+        }
+
+        // FALLING KNIFE: consistent downward trend, no sign of stopping
+        // DO NOT catch a falling knife
+        const isConsistentDrop = prices.every((p, i) => i === 0 || p <= prices[i - 1] * 1.005);
+        if (isConsistentDrop && avgSecond < avgFirst * 0.97) {
+            return { pattern: 'falling_knife', label: 'Falling knife — wait for bottom', icon: '🔪', confidence: 70, action: 'WAIT' };
+        }
+
+        // V-RECOVERY: sharp drop followed by sharp rise
+        // If you're in it, hold. If you're not, too late.
+        const midPoint = Math.floor(prices.length / 2);
+        const droppedToMid = prices[midPoint] < prices[0] * 0.95;
+        const recoveredFromMid = latest > prices[midPoint] * 1.03;
+        if (droppedToMid && recoveredFromMid) {
+            return { pattern: 'v_recovery', label: 'V-recovery underway', icon: '✅', confidence: 65, action: 'BUY' };
+        }
+
+        // DEAD CAT BOUNCE: drops hard, small bounce, then drops more
+        // The bounce tricks you into thinking it's recovering
+        if (minima.length >= 1) {
+            const firstMin = minima[0];
+            const bouncedUp = prices.slice(firstMin.index, firstMin.index + 3).some(p => p > firstMin.price * 1.02);
+            const droppedAgain = latest < firstMin.price * 1.01;
+            if (bouncedUp && droppedAgain && firstMin.index < prices.length - 2) {
+                return { pattern: 'dead_cat_bounce', label: 'Dead cat bounce — keep falling', icon: '🐱', confidence: 60, action: 'WAIT' };
+            }
+        }
+
+        // STABILIZING: was volatile but range is tightening
+        if (history.length >= 6) {
+            const earlyRange = Math.max(...prices.slice(0, 3)) - Math.min(...prices.slice(0, 3));
+            const lateRange = Math.max(...prices.slice(-3)) - Math.min(...prices.slice(-3));
+            if (earlyRange > 0 && lateRange < earlyRange * 0.4) {
+                return { pattern: 'stabilizing', label: 'Price stabilizing', icon: '⚖️', confidence: 65, action: 'BUY' };
+            }
+        }
+
+        // SLOW BLEED: gradually declining, not dramatic
+        if (avgSecond < avgFirst * 0.99 && avgSecond > avgFirst * 0.95) {
+            return { pattern: 'slow_bleed', label: 'Slow decline', icon: '📉', confidence: 55, action: 'WAIT' };
+        }
+
+        // RISING: price trending up
+        if (avgSecond > avgFirst * 1.02) {
+            return { pattern: 'rising', label: 'Price rising', icon: '📈', confidence: 60, action: 'SELL' };
+        }
+
+        return { pattern: 'choppy', label: 'Choppy — no clear pattern', icon: '🌊', confidence: 40 };
+    }
+};
+
+// ============================================
+// FLIP HISTORY & LEARNING
+// ============================================
+// Tracks what dumps we've detected, what happened to them, and learns.
+// Did the price recover? How fast? Was the dump score accurate?
+// This data improves future predictions.
+
+const FLIP_TRACKER = {
+    // Stored in localStorage
+    history: [],  // [{ itemId, name, detectedAt, detectedPrice, scoreAtDetection, outcomePrice, outcomeTime, profit, recovered }]
+    maxEntries: 200,
+
+    load() {
+        try {
+            const saved = localStorage.getItem('gfo_flip_history');
+            if (saved) this.history = JSON.parse(saved);
+        } catch {}
+    },
+
+    save() {
+        try {
+            localStorage.setItem('gfo_flip_history', JSON.stringify(this.history.slice(-this.maxEntries)));
+        } catch {}
+    },
+
+    // Record a new dump detection
+    recordDump(item) {
+        // Don't duplicate
+        const exists = this.history.find(h => h.itemId === item.itemId && (Date.now() - h.detectedAt) < 3600000);
+        if (exists) return;
+
+        this.history.push({
+            itemId: item.itemId,
+            name: item.name,
+            detectedAt: Date.now(),
+            detectedBuyPrice: item.instaBuyAt || item.buyPrice,
+            detectedSellPrice: item.sellFor || item.sellPrice,
+            flipProfit: item.flipProfit,
+            scoreAtDetection: item.dumpScore || 0,
+            outcomePrice: null,
+            outcomeTime: null,
+            recovered: null,
+            actualProfit: null
+        });
+        this.save();
+    },
+
+    // Check past dumps to see if they recovered (learning loop)
+    updateOutcomes() {
+        const now = Date.now();
+        let changed = false;
+        for (const entry of this.history) {
+            // Only check entries from 30min-4hr ago that don't have outcomes yet
+            if (entry.outcomePrice !== null) continue;
+            const age = now - entry.detectedAt;
+            if (age < 1800000) continue; // Too soon to know
+            if (age > 14400000) {
+                // 4+ hours, give up on tracking
+                entry.recovered = false;
+                entry.outcomePrice = 0;
+                entry.outcomeTime = now;
+                changed = true;
+                continue;
+            }
+
+            // Check if this item's current price has recovered
+            const mem = state.priceMemory[entry.itemId];
+            if (mem && mem.samples.length > 0) {
+                const currentPrice = mem.samples[mem.samples.length - 1].price;
+                const recoveryTarget = entry.detectedSellPrice; // Did it reach the sell price?
+
+                if (currentPrice >= recoveryTarget * 0.98) {
+                    // Price recovered to near sell price — the dump flip would have worked
+                    entry.recovered = true;
+                    entry.outcomePrice = currentPrice;
+                    entry.outcomeTime = now;
+                    entry.actualProfit = currentPrice - entry.detectedBuyPrice - GE_TAX.calculate(currentPrice);
+                    changed = true;
+                }
+            }
+        }
+        if (changed) this.save();
+    },
+
+    // Get accuracy stats: what % of our dump calls actually recovered?
+    getStats() {
+        const completed = this.history.filter(h => h.recovered !== null);
+        if (completed.length === 0) return { total: 0, wins: 0, winRate: 0, avgProfit: 0, bestScore: 0 };
+
+        const wins = completed.filter(h => h.recovered);
+        const avgProfit = wins.length > 0 ? Math.round(wins.reduce((s, h) => s + (h.actualProfit || 0), 0) / wins.length) : 0;
+
+        // What score threshold gives best win rate?
+        const scoreGroups = {};
+        for (const entry of completed) {
+            const bucket = Math.floor(entry.scoreAtDetection / 10) * 10;
+            if (!scoreGroups[bucket]) scoreGroups[bucket] = { wins: 0, total: 0 };
+            scoreGroups[bucket].total++;
+            if (entry.recovered) scoreGroups[bucket].wins++;
+        }
+
+        return {
+            total: completed.length,
+            wins: wins.length,
+            winRate: Math.round((wins.length / completed.length) * 100),
+            avgProfit,
+            scoreGroups,
+            recent10: completed.slice(-10)
+        };
+    }
+};
+
+// ============================================
+// BUY LIMIT WINDOW TRACKING
+// ============================================
+// GE buy limits reset every 4 hours. If you bought 8 bandos chestplates
+// at 2pm, you can't buy more until 6pm.
+// Track when limits were used so users know when they can flip again.
+
+const BUY_LIMIT_TRACKER = {
+    // { itemId: { lastBought: timestamp, quantityBought: number, limitResetAt: timestamp } }
+    limits: {},
+
+    load() {
+        try {
+            const saved = localStorage.getItem('gfo_buy_limits');
+            if (saved) this.limits = JSON.parse(saved);
+            // Clean up expired entries
+            const now = Date.now();
+            for (const [id, data] of Object.entries(this.limits)) {
+                if (data.limitResetAt && data.limitResetAt < now) delete this.limits[id];
+            }
+        } catch {}
+    },
+
+    save() {
+        try { localStorage.setItem('gfo_buy_limits', JSON.stringify(this.limits)); } catch {}
+    },
+
+    // Record that user bought an item (called when user clicks "I bought this")
+    recordPurchase(itemId, quantity, buyLimit) {
+        const now = Date.now();
+        if (!this.limits[itemId]) {
+            this.limits[itemId] = { lastBought: now, quantityBought: quantity, limitResetAt: now + 14400000, buyLimit };
+        } else {
+            this.limits[itemId].quantityBought += quantity;
+            // Don't extend the reset timer — it's based on first purchase
+        }
+        this.save();
+    },
+
+    // How many can the user still buy?
+    getRemainingLimit(itemId, buyLimit) {
+        const data = this.limits[itemId];
+        if (!data) return buyLimit;
+        if (Date.now() > data.limitResetAt) {
+            delete this.limits[itemId];
+            return buyLimit;
+        }
+        return Math.max(0, buyLimit - data.quantityBought);
+    },
+
+    // When does the limit reset?
+    getResetTime(itemId) {
+        const data = this.limits[itemId];
+        if (!data || Date.now() > data.limitResetAt) return null;
+        const remaining = data.limitResetAt - Date.now();
+        const hours = Math.floor(remaining / 3600000);
+        const mins = Math.floor((remaining % 3600000) / 60000);
+        return { ms: remaining, label: hours > 0 ? `${hours}h ${mins}m` : `${mins}m` };
+    }
+};
+
+// ============================================
+// SMART ALERT PRIORITIZATION
+// ============================================
+// Ranks dumps not just by profit but by overall actionability.
+// A dump you can act on RIGHT NOW with fast fills and low risk
+// beats a higher-profit dump that's stale, illiquid, or at buy limit.
+
+function getActionabilityScore(item) {
+    let score = 0;
+
+    // Base: flip profit (normalized to 0-25 points)
+    const profit = item.flipProfit || 0;
+    if (profit > 2000000) score += 25;
+    else if (profit > 1000000) score += 20;
+    else if (profit > 500000) score += 15;
+    else if (profit > 200000) score += 10;
+    else score += 5;
+
+    // Speed: how fast can you execute? (0-20 points)
+    const exec = getFlipExecution(item);
+    if (exec.fillTimeMin <= 1) score += 20;
+    else if (exec.fillTimeMin <= 5) score += 15;
+    else if (exec.fillTimeMin <= 15) score += 10;
+    else if (exec.fillTimeMin <= 30) score += 5;
+
+    // Risk: lower risk = higher actionability (0-20 points)
+    const risk = getFlipRiskScore(item, item.freshness);
+    score += Math.max(0, 20 - Math.floor(risk.score / 5));
+
+    // Data freshness (0-15 points)
+    if (item.freshness) {
+        if (item.freshness.fresh && item.freshness.age < 60) score += 15;
+        else if (item.freshness.fresh) score += 10;
+        else score += 0;
+    }
+
+    // Confirmation bonus (0-10 points)
+    if (item.confirmations >= 5) score += 10;
+    else if (item.confirmations >= 3) score += 7;
+    else if (item.confirmations >= 2) score += 4;
+
+    // GP/hr efficiency (0-10 points)
+    if (exec.gpPerHour > 500000) score += 10;
+    else if (exec.gpPerHour > 200000) score += 7;
+    else if (exec.gpPerHour > 100000) score += 4;
+
+    // Pattern bonus: if price pattern suggests BUY, that's actionable
+    const pattern = PRICE_PATTERNS.detect(item.itemId);
+    if (pattern.action === 'BUY') score += 8;
+    else if (pattern.action === 'WAIT') score -= 5;
+
+    // Market regime modifier
+    score += MARKET_REGIME.getDumpModifier();
+
+    return {
+        score: Math.max(0, Math.min(100, score)),
+        exec,
+        risk,
+        pattern
+    };
+}
+
 async function checkDumpsLight() {
     const [vols, latestResp, vol1h] = await Promise.all([
         fetchWikiCached('/5m', 5000),
@@ -1811,9 +2177,11 @@ async function checkDumpsLight() {
         state.prevPrices[id] = currentAvg;
     }
 
-    // Sort dumps by FLIP PROFIT (most profitable first!) — this is what matters
-    nd.sort((a, b) => b.flipProfit - a.flipProfit);
-    np.sort((a, b) => (b.sellPrice || 0) - (a.sellPrice || 0)); // Sort pumps by value, not %
+    // V4: Sort dumps by ACTIONABILITY (most act-on-able first, not just raw profit)
+    // Factors: profit, speed, risk, freshness, confirmation, GP/hr, price pattern, market regime
+    nd.forEach(d => { d._actionScore = getActionabilityScore(d).score; });
+    nd.sort((a, b) => b._actionScore - a._actionScore);
+    np.sort((a, b) => (b.sellPrice || 0) - (a.sellPrice || 0));
 
     const prevDI = new Set(state.dumps.map(d=>d.itemId));
     const changed = nd.length !== state.dumps.length || nd.some(d => !prevDI.has(d.itemId));
@@ -1821,9 +2189,9 @@ async function checkDumpsLight() {
         state.dumps = nd.slice(0,15); state.pumps = np.slice(0,15);
         renderDumpsPumps();
 
-        // Log new dumps
+        // Log new dumps + record in flip tracker for learning
         const brandNew = nd.filter(d => !prevDI.has(d.itemId));
-        brandNew.forEach(d => addDumpLog(d, 'dump'));
+        brandNew.forEach(d => { addDumpLog(d, 'dump'); FLIP_TRACKER.recordDump(d); });
         np.forEach(p => {
             if (!new Set(state.dpHistory.flatMap(h => h.pumps || [])).has(p.itemId)) {
                 addDumpLog(p, 'pump');
@@ -1875,6 +2243,9 @@ async function checkDumpsLight() {
             delete state.spreadHistory[id];
         }
     }
+
+    // V4: Update flip tracker outcomes (did past dumps recover?)
+    FLIP_TRACKER.updateOutcomes();
 }
 
 // ============================================
@@ -2026,6 +2397,29 @@ function getDumpScore(d) {
         reasons.push(groupCrash.group + ' group crash');
     } else if (ITEM_GROUPS.getGroups(d.name).length > 0) {
         score += 3; // Solo crash within a group = stand-out opportunity
+    }
+
+    // V4: Price pattern integration
+    const pattern = PRICE_PATTERNS.detect(d.itemId || 0);
+    if (pattern.action === 'BUY' && pattern.confidence >= 65) {
+        score += 6;
+        reasons.push(pattern.label);
+    } else if (pattern.action === 'WAIT' && pattern.confidence >= 60) {
+        score -= 4;
+        reasons.push(pattern.label);
+    }
+
+    // V4: Historical win rate — if we've tracked flips for this score range,
+    // adjust based on how often dumps at this score level actually worked
+    const stats = FLIP_TRACKER.getStats();
+    if (stats.total >= 10) {
+        const bucket = Math.floor(score / 10) * 10;
+        const group = stats.scoreGroups[bucket];
+        if (group && group.total >= 3) {
+            const winRate = group.wins / group.total;
+            if (winRate > 0.7) { score += 3; reasons.push('High historical win rate'); }
+            else if (winRate < 0.3) { score -= 3; reasons.push('Low historical win rate'); }
+        }
     }
 
     // === RECOVERY PROBABILITY ===
@@ -2288,11 +2682,34 @@ function getVerdict(item) {
     const vph = volPerHour(item);
     const profit4h = realistic4hProfit(item);
     const margin = item.margin || 0;
+    const bp = item.buyPrice || 0;
+    const exec = getFlipExecution(item);
+    const risk = getFlipRiskScore(item, getDataFreshness({ highTime: item.highTime, lowTime: item.lowTime }));
+
+    // Dead: nobody trades this
     if (vph < 12) return { text:'Dead', cls:'dead', tip:'Almost no one is trading this' };
+
+    // High risk: data is stale or conditions are bad
+    if (risk.score >= 60) return { text:'Risky', cls:'slow', tip: 'High risk — ' + (risk.score >= 60 ? 'stale data, volatile spread, or bad market' : 'proceed with caution') };
+
+    // Slow: low activity or tiny profits
     if (vph < 60 || profit4h < 10000) return { text:'Slow', cls:'slow', tip:'Low activity — small profits' };
-    if (profit4h < 100000 || vph < 200) return { text:'Decent', cls:'decent', tip:'Okay flip — moderate volume' };
-    if (profit4h < 500000) return { text:'Good Flip', cls:'good', tip:'Solid margins with real volume' };
-    return { text:'Great Flip', cls:'great', tip:'High profit with strong volume' };
+
+    // Factor in GP/hr rate, not just raw 4h profit
+    const gphr = exec.gpPerHour || 0;
+
+    // Great: high GP/hr, good volume, reasonable risk
+    if (gphr > 500000 && vph >= 200 && risk.score < 35) return { text:'Elite Flip', cls:'great', tip: gp(gphr) + '/hr — fast fills, strong volume, low risk' };
+    if (profit4h >= 500000 && risk.score < 40) return { text:'Great Flip', cls:'great', tip: gp(gphr) + '/hr — high profit with good volume' };
+
+    // Good: solid returns
+    if (profit4h >= 100000 && vph >= 200) return { text:'Good Flip', cls:'good', tip: gp(gphr) + '/hr — solid margins and volume' };
+    if (gphr > 200000 && risk.score < 35) return { text:'Good Flip', cls:'good', tip: gp(gphr) + '/hr — decent earning rate' };
+
+    // Decent: it works but nothing special
+    if (profit4h >= 50000) return { text:'Decent', cls:'decent', tip: gp(gphr) + '/hr — okay flip, moderate returns' };
+
+    return { text:'Slow', cls:'slow', tip:'Low returns — consider better options' };
 }
 function formatVolPerHour(item) {
     const vph = volPerHour(item);
@@ -2758,11 +3175,22 @@ function renderSniperFeed() {
         // V3: Stale data warning
         if (d.freshness && !d.freshness.fresh) tags.push({ text: d.freshness.label, color: 'var(--red)', icon: '🕐' });
 
+        // V4: Price pattern
+        const pattern = PRICE_PATTERNS.detect(d.itemId);
+        if (pattern.confidence >= 60 && pattern.pattern !== 'insufficient_data' && pattern.pattern !== 'choppy') {
+            const patColor = pattern.action === 'BUY' ? 'var(--green)' : pattern.action === 'WAIT' ? 'var(--red)' : 'var(--text-muted)';
+            tags.push({ text: pattern.label, color: patColor, icon: pattern.icon });
+        }
+
+        // V4: Tax context for expensive items
+        const taxCtx = GE_TAX.getTaxContext(d.sellFor || d.sellPrice);
+        if (taxCtx.advantage) tags.push({ text: taxCtx.label, color: 'var(--green)', icon: '💎' });
+
         // Market intel
         const intel = MARKET_INTEL.getIntel(d);
         if (intel.length > 0) tags.push({ text: intel[0].text.length > 25 ? intel[0].text.slice(0,24) + '…' : intel[0].text, color: 'var(--accent)', icon: intel[0].icon });
 
-        const tagsHtml = tags.length > 0 ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;">${tags.slice(0,5).map(t => `<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:${t.color};">${t.icon} ${t.text}</span>`).join('')}</div>` : '';
+        const tagsHtml = tags.length > 0 ? `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;">${tags.slice(0,6).map(t => `<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:${t.color};">${t.icon} ${t.text}</span>`).join('')}</div>` : '';
 
         const buyLimitHtml = buyLimit < 100 ? `<span style="margin-left:6px; color:var(--red); font-weight:700; font-size:10px;">⚠️ Limit: ${buyLimit}</span>` : '';
 
@@ -3184,6 +3612,8 @@ async function init() {
     loadSettings();
     loadWatchlist();
     loadPriceMemory();
+    FLIP_TRACKER.load();
+    BUY_LIMIT_TRACKER.load();
     updateStatus(false);
     await loadTopFlips(true);
     updateStatus(state.allItems.length > 0);
