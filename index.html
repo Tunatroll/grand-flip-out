@@ -872,9 +872,9 @@ async function sendDiscordAlert(item, type, percentChange) {
     // Total profit must be at least 3M to justify a Discord ping
     if (totalProfit < 3000000) return;
 
-    // HIGH confidence only — all signals must align
-    const conf = getDumpConfidence(item);
-    if (conf.pct < 65) return;
+    // Use intelligent dump score — only alert on high-quality dumps
+    const dumpScore = getDumpScore(item);
+    if (dumpScore.score < 60) return;
 
     // ====== STRICT RATE LIMITING ======
     // Max a couple alerts per 20 seconds means: 1 alert per 10+ minutes realistically
@@ -1264,8 +1264,13 @@ async function checkDumpsLight() {
             buyQuantity: bv, sellQuantity: sv,
             buyLimit: buyLimit,
             severity: severity,
-            sellPressure: sellPressure, buyPressure: buyPressure
+            sellPressure: sellPressure, buyPressure: buyPressure,
+            highAlch: meta.highalch || 0
         };
+
+        // Calculate dump score using the intelligent scoring engine
+        const dumpScoreResult = getDumpScore(summary);
+        summary.dumpScore = dumpScoreResult.score;
 
         // ====== VOLUME & DEMAND GATE ======
         // An item is only worth showing if people actually TRADE it
@@ -1276,20 +1281,8 @@ async function checkDumpsLight() {
         const isMedDemand = estVolPerHour >= 8;          // 8+ trades/hr = tradeable
         const isLowDemand = estVolPerHour < 8;           // Under 8/hr = illiquid garbage
 
-        // DUMP DETECTION: Only show dumps that are WORTH YOUR TIME
-        // Requirements: real profit, real crash evidence, real volume
-        const isDump = flipProfit >= 100000 && !isLowDemand && (
-            // High-value crash with good profit
-            (crashFromNormal < -3 && flipProfit >= 200000) ||
-            // Meaningful crash with great profit
-            (crashPct < -2 && flipProfit >= 200000 && isMedDemand) ||
-            // Heavy selling pressure on a profitable item
-            (sellPressure > 2.5 && crashPct < -1 && flipProfit >= 300000 && isMedDemand) ||
-            // Sustained downtrend on expensive items
-            (trendPct < -3 && flipProfit >= 300000 && isHighDemand) ||
-            // Extremely profitable regardless (1M+/item = always show)
-            (flipProfit >= 1000000 && totalVol5m >= 3)
-        );
+        // DUMP DETECTION: Use intelligent dump score with profit & demand gates
+        const isDump = flipProfit >= 100000 && !isLowDemand && dumpScoreResult.score >= 35;
 
         // PUMP DETECTION: only items worth caring about
         // Use normalValue (not current price) so we catch pumps on valuable items
@@ -1361,39 +1354,135 @@ async function checkDumpsLight() {
 }
 
 // ============================================
-// DUMP CONFIDENCE SCORING
+// DUMP SCORING ENGINE
 // ============================================
-function getDumpConfidence(d) {
-    let signals = 0, total = 0;
+function getDumpScore(d) {
+    let score = 0;
+    const weights = {};
 
-    // Signal 1: Price below 1h average
-    total++;
-    if (d.crashFromNormal && d.crashFromNormal < -2) signals++;
+    // === PRICE SIGNALS (40% weight) ===
+    // Crash from 1h normal — most reliable signal
+    const crashNorm = Math.abs(d.crashFromNormal || 0);
+    if (crashNorm > 10) score += 20;
+    else if (crashNorm > 5) score += 15;
+    else if (crashNorm > 3) score += 10;
+    else if (crashNorm > 2) score += 5;
+    weights.crashFromNormal = crashNorm;
 
-    // Signal 2: Price below 5m average
-    total++;
-    if (d.crashPct && d.crashPct < -1) signals++;
+    // Crash from 5m — short-term momentum
+    const crash5m = Math.abs(d.crashPct || 0);
+    if (crash5m > 5) score += 8;
+    else if (crash5m > 2) score += 4;
+    weights.crash5m = crash5m;
 
-    // Signal 3: Sell pressure (more sellers than buyers)
-    total++;
-    if (d.sellPressure > 1.5) signals++;
+    // Price vs alch floor — items near alch floor can't drop much more (safer flip)
+    if (d.highAlch && d.instaBuyAt) {
+        const alchRatio = d.instaBuyAt / d.highAlch;
+        if (alchRatio < 1.05) score += 8; // Near alch floor = safe
+        else if (alchRatio < 1.15) score += 4;
+    }
 
-    // Signal 4: Downward trend over multiple checks
-    total++;
-    if (d.trendPct && d.trendPct < -1) signals++;
+    // === VOLUME SIGNALS (25% weight) ===
+    const volHr = ((d.buyQuantity || 0) + (d.sellQuantity || 0)) * 12;
+    if (volHr > 200) score += 12;
+    else if (volHr > 50) score += 8;
+    else if (volHr > 20) score += 4;
+    weights.volumeHr = volHr;
 
-    // Signal 5: Positive flip profit (it's actually profitable)
-    total++;
-    if (d.flipProfit > 0) signals++;
+    // Sell pressure ratio — more sellers than buyers = dump in progress
+    const sp = d.sellPressure || 0;
+    if (sp > 4) score += 8;
+    else if (sp > 2.5) score += 5;
+    else if (sp > 1.5) score += 2;
+    weights.sellPressure = sp;
 
-    // Signal 6: Decent volume (not illiquid garbage)
-    total++;
-    if ((d.buyQuantity + d.sellQuantity) >= 10) signals++;
+    // === TREND SIGNALS (15% weight) ===
+    const trend = d.trendPct || 0;
+    if (trend < -5) score += 8;
+    else if (trend < -3) score += 5;
+    else if (trend < -1) score += 2;
+    // Accelerating decline (trend worse than crash) = panic selling
+    if (trend < d.crashPct && trend < -2) score += 5;
+    weights.trend = trend;
 
-    const pct = Math.round((signals / total) * 100);
-    if (pct >= 80) return { text: 'HIGH', cls: 'conf-high', pct };
-    if (pct >= 50) return { text: 'MED', cls: 'conf-med', pct };
-    return { text: 'LOW', cls: 'conf-low', pct };
+    // === PROFIT SIGNALS (15% weight) ===
+    const profit = d.flipProfit || 0;
+    if (profit > 1000000) score += 10;
+    else if (profit > 500000) score += 7;
+    else if (profit > 200000) score += 4;
+    else if (profit > 100000) score += 2;
+    weights.profit = profit;
+
+    // === MANIPULATION DETECTION (penalty) ===
+    // If margin is suspiciously high (>20%) with low volume, likely stale/manipulated
+    const marginPct = d.marginPct || 0;
+    if (marginPct > 20 && volHr < 20) score -= 15;
+    // If buy and sell quantities are nearly identical and very low, could be wash trading
+    const bq = d.buyQuantity || 0, sq = d.sellQuantity || 0;
+    if (bq > 0 && sq > 0 && Math.abs(bq - sq) <= 1 && (bq + sq) < 6) score -= 10;
+    // Price seems too good to be true — massive margin on expensive item with no volume
+    if (profit > 5000000 && volHr < 10) score -= 20;
+
+    // === RECOVERY PROBABILITY ===
+    // Items near alch floor almost always recover
+    // Items with high base demand (consumables, BIS gear) recover faster
+    // Items being dumped by bots may NOT recover
+    let recoveryBonus = 0;
+    if (d.highAlch && d.instaBuyAt && d.instaBuyAt < d.highAlch * 1.1) recoveryBonus += 5;
+    if (volHr > 100) recoveryBonus += 3; // Liquid items recover faster
+    if (sp > 4 && trend < -5) recoveryBonus -= 5; // Panic selling = may keep going down
+    score += recoveryBonus;
+
+    // === TIME-OF-DAY ADJUSTMENT ===
+    const hour = new Date().getHours();
+    const isDeadHours = hour >= 2 && hour <= 7; // 2am-7am = low activity
+    const isPeakHours = hour >= 17 && hour <= 23; // 5pm-11pm = peak
+    if (isDeadHours) {
+        // During dead hours, prices are more volatile but less reliable
+        // Crashes during dead hours are often just low liquidity, not real dumps
+        if (volHr < 30) score -= 10;
+    }
+    if (isPeakHours) {
+        // During peak hours, high-volume crashes are more meaningful
+        if (volHr > 100 && crashNorm > 3) score += 5;
+    }
+    weights.timeOfDay = isPeakHours ? 'peak' : isDeadHours ? 'dead' : 'normal';
+
+    // === ITEM CATEGORY BONUSES ===
+    const name = (d.name || '').toLowerCase();
+    // PvM BIS gear always has demand — dumps are real opportunities
+    const isPvmBis = ['twisted bow', 'scythe', 'rapier', 'avernic', 'torva', 'masori',
+        'ancestral', 'kodai', 'harmonised', 'eldritch', 'volatile', 'inquisitor',
+        'dragon hunter', 'dragon warhammer', 'primordial', 'pegasian', 'eternal',
+        'bandos', 'armadyl', 'saradomin sword', 'zamorakian spear',
+        'oathplate', 'virtus', 'bellator', 'venator', 'ultor', 'magus',
+        'tumeken', 'osmumten', 'lightbearer', 'elidinis',
+        'necklace of anguish', 'amulet of torture', 'tormented bracelet',
+        'bow of faerdhinen', 'blade of saeldor', 'eclipse'].some(p => name.includes(p));
+    if (isPvmBis) score += 8;
+
+    // Consumables always have demand — very safe flips
+    const isConsumable = ['potion', 'brew', 'restore', 'prayer', 'stamina',
+        'anglerfish', 'manta ray', 'dark crab', 'shark', 'karambwan',
+        'cannonball', 'dragon dart', 'rune arrow', 'amethyst arrow',
+        'blood rune', 'death rune', 'soul rune', 'wrath rune',
+        'zulrah scale', 'divine'].some(p => name.includes(p));
+    if (isConsumable && volHr > 50) score += 5;
+
+    // Bot-farmed items: crashes are often NOT recoverable (just more bots)
+    const isBotItem = ['yew log', 'magic log', 'gold ore', 'iron ore', 'coal',
+        'green dragonhide', 'flax', 'bow string', 'nature rune',
+        'grimy guam', 'grimy tarromin', 'grimy harralander', 'grimy marrentill',
+        'black chinchompa', 'red chinchompa', 'amylase'].some(p => name.includes(p));
+    if (isBotItem) score -= 5; // Bot items: crashes may not recover
+
+    return {
+        score: Math.max(0, Math.min(100, score)),
+        weights,
+        isPvmBis, isConsumable, isBotItem,
+        recoveryLikely: recoveryBonus > 0,
+        isDeadHours, isPeakHours
+    };
 }
 
 function addDumpLog(item, type) {
@@ -1907,8 +1996,8 @@ function renderSniperFeed() {
     const badgeEl = document.getElementById('sniperBadge');
 
     if (targetsEl) targetsEl.textContent = dumps.length;
-    // Badge shows HIGH-confidence dumps only
-    const highConfDumps = dumps.filter(d => getDumpConfidence(d).pct >= 80);
+    // Badge shows high-quality dumps only (strong dump score)
+    const highConfDumps = dumps.filter(d => getDumpScore(d).score >= 70);
     if (badgeEl) badgeEl.textContent = highConfDumps.length > 0 ? highConfDumps.length : '';
 
     if (dumps.length > 0) {
