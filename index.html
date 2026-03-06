@@ -898,17 +898,7 @@ async function sendDiscordAlert(item, type, percentChange) {
 
     console.log(`[GFO] Discord alert: ${item.name} — ${gp(profitPerItem)}/item × ${amountToBuy} = ${gp(totalProfit)}`);
 
-    // Smart context line — one short reason WHY this is a good dump
-    let context = '';
-    if (item.sellPressure > 3) context = '🔴 Heavy selling pressure';
-    else if (item.trendPct && item.trendPct < -3) context = '📉 Price still dropping';
-    else if (item.crashFromNormal && item.crashFromNormal < -5) context = '💎 Way below normal price';
-    else if (item.crashFromNormal && item.crashFromNormal < -3) context = '✅ Below normal price';
-    const intel = MARKET_INTEL.getIntel(item);
-    if (intel.length > 0 && !context) context = `${intel[0].icon} ${intel[0].text}`;
-    const contextLine = context ? `\n${context}` : '';
-
-    // The embed: DEAD SIMPLE. Item name, buy price, sell price, profit + one smart context line.
+    // Discord = PURE SIGNAL. Item, buy, sell, profit. Nothing else.
     try {
         const resp = await fetch(state.webhookUrl, {
             method: 'POST',
@@ -916,7 +906,7 @@ async function sendDiscordAlert(item, type, percentChange) {
             body: JSON.stringify({
                 embeds: [{
                     title: `💰 ${item.name} — ${gp(profitPerItem)}/item`,
-                    description: `Buy at **${gp(buyAt)}** → Sell at **${gp(sellFor)}**\nTotal: **${gp(totalProfit)}** (×${amountToBuy.toLocaleString()})${contextLine}`,
+                    description: `Buy **${gp(buyAt)}** → Sell **${gp(sellFor)}** → **${gp(totalProfit)}** total`,
                     color: 0x22C55E,
                     thumbnail: item.icon ? { url: `https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}` } : undefined,
                     footer: { text: 'Grand Flip Out' },
