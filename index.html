@@ -518,6 +518,7 @@
             <div class="stat-card" title="Best total profit opportunity"><div class="stat-icon">💰</div><div class="stat-label">Best Total Profit</div><div class="stat-value green" id="sniperMaxCrash">—</div></div>
             <div class="stat-card" title="Best buy opportunity from dumps"><div class="stat-icon">💎</div><div class="stat-label">Best Opportunity</div><div class="stat-value green" id="sniperBestOpp">—</div><div class="stat-sub" id="sniperBestName">scanning...</div></div>
             <div class="stat-card" title="Overall GE market direction"><div class="stat-icon" id="regimeIcon">🔍</div><div class="stat-label">Market</div><div class="stat-value" id="regimeLabel" style="font-size:14px;">Analyzing...</div><div class="stat-sub" id="regimeSub">collecting data</div></div>
+            <div class="stat-card" title="OSRS time context"><div class="stat-icon" id="calendarIcon">🕐</div><div class="stat-label">Session</div><div class="stat-value" id="calendarLabel" style="font-size:12px;">Loading...</div><div class="stat-sub" id="calendarSub"></div></div>
         </div>
 
         <div id="sniperFeed" style="display:flex; flex-direction:column; gap:10px;">
@@ -2233,6 +2234,9 @@ async function checkDumpsLight() {
     // Update market regime
     MARKET_REGIME.update(state.allItems);
 
+    // V5: Update nature rune price for alch calculations
+    ALCH_CALC.updateNatPrice();
+
     // ======= DUMP DETECTION: Find items you can BUY LOW and SELL HIGH right now =======
     // A "dump" = item price has crashed. You insta-buy at the crashed price, then sell at normal price.
     //
@@ -2383,6 +2387,11 @@ async function checkDumpsLight() {
         // Stale data check
         const freshness = getDataFreshness(pi);
 
+        // V5: Volume acceleration & margin trend for this item
+        const volAccel = getVolumeAcceleration(id);
+        const marginTrend = getMarginTrend(id);
+        const alchInfo = ALCH_CALC.getAlchProfit({ highAlch: meta.highalch || 0, instaBuyAt: instaBuyPrice, buyPrice: instaBuyPrice, flipProfit });
+
         const summary = {
             itemId: id, name: meta.name, icon: meta.icon,
             instaBuyAt: instaBuyPrice,    // "Buy NOW at this price"
@@ -2399,6 +2408,10 @@ async function checkDumpsLight() {
             totalProfitCap: totalProfitCap,    // Max profit given buy limit + volume
             priceMemoryAge: priceMemoryAge,    // How much long-term data we have
             freshness: freshness,              // Data staleness info
+            // === V5 fields ===
+            volAccel: volAccel,                // Volume acceleration data
+            marginTrend: marginTrend,          // Margin compression/expansion
+            alchInfo: alchInfo,                // High alch profit info
             // Keep old fields for compatibility
             buyPrice: instaBuyPrice, sellPrice: instaSellPrice,
             fiveMinAvg: avgSellPrice5m || currentAvg,
@@ -2689,6 +2702,31 @@ function getDumpScore(d) {
         reasons.push(pattern.label);
     }
 
+    // V5: Volume acceleration — dump still worsening vs recovery starting
+    const va = d.volAccel || (d.itemId ? getVolumeAcceleration(d.itemId) : null);
+    if (va && va.label) {
+        if (va.label === 'Recovery accelerating') { score += 5; reasons.push('Recovery accelerating'); }
+        else if (va.label === 'Spread tightening') { score += 3; }
+        else if (va.label === 'Dump accelerating') { score -= 4; reasons.push('Dump still accelerating'); }
+        else if (va.label === 'Spread widening') { score -= 2; }
+    }
+
+    // V5: Margin trend — compressing margins = more competition, expanding = opportunity
+    const mt = d.marginTrend || (d.itemId ? getMarginTrend(d.itemId) : null);
+    if (mt) {
+        if (mt === 'expanding') { score += 3; reasons.push('Margins expanding'); }
+        else if (mt === 'compressing') { score -= 2; }
+    }
+
+    // V5: Alch floor safety net — if you can alch for profit, risk is minimal
+    const ai = d.alchInfo;
+    if (ai && ai.worth && ai.betterThanFlip) {
+        score += 4;
+        reasons.push('Alch profit backup: ' + gp(ai.profit));
+    } else if (ai && ai.worth) {
+        score += 2; // Alch is profitable but GE flip is better
+    }
+
     // V4: Historical win rate — if we've tracked flips for this score range,
     // adjust based on how often dumps at this score level actually worked
     const stats = FLIP_TRACKER.getStats();
@@ -2729,20 +2767,38 @@ function getDumpScore(d) {
 
     score += recoveryBonus;
 
-    // === TIME-OF-DAY ADJUSTMENT ===
-    const hour = new Date().getHours();
-    const isDeadHours = hour >= 2 && hour <= 7;
-    const isPeakHours = hour >= 17 && hour <= 23;
+    // === TIME-OF-DAY ADJUSTMENT (V5: Now uses OSRS_CALENDAR) ===
+    const calCtx = OSRS_CALENDAR.getContext();
+    const calTypes = calCtx.map(c => c.type);
+    const hour = new Date().getUTCHours();
+    const isDeadHours = calTypes.includes('dead_hours');
+    const isPeakHours = calTypes.includes('peak');
+    const isUpdateDay = calTypes.includes('update_day') || calTypes.includes('update_live');
+    const isPostUpdate = calTypes.includes('post_update');
+
     if (isDeadHours) {
-        // Dead hours: low liquidity means prices are unreliable
         if (volHr < 30) { score -= 10; reasons.push('Dead hours + low volume'); }
-        else score -= 3; // Small penalty even with volume
+        else score -= 3;
     }
     if (isPeakHours) {
-        // Peak hours: high-volume crashes are real events worth acting on
         if (volHr > 100 && crashNorm > 3) { score += 5; reasons.push('Peak hours crash'); }
     }
-    weights.timeOfDay = isPeakHours ? 'peak' : isDeadHours ? 'dead' : 'normal';
+    // V5: Wednesday update day — prices are erratic during/after updates
+    if (isUpdateDay) {
+        score -= 6;
+        reasons.push('Update day — prices unreliable');
+    }
+    // V5: Post-update = meta shift opportunity (new BIS items spike, old ones crash)
+    if (isPostUpdate && crashNorm > 5) {
+        score += 4;
+        reasons.push('Post-update crash — possible meta shift');
+    }
+    // V5: Monday morning dip is a known pattern — crashes are more real
+    if (calTypes.includes('monday_dip') && crashNorm > 3) {
+        score += 3;
+        reasons.push('Monday sell-off — pattern confirmed');
+    }
+    weights.timeOfDay = isPeakHours ? 'peak' : isDeadHours ? 'dead' : isUpdateDay ? 'update' : 'normal';
 
     // === ITEM CATEGORY BONUSES ===
     const name = (d.name || '').toLowerCase();
@@ -3352,7 +3408,7 @@ function renderSniperFeed() {
 
     if (targetsEl) targetsEl.textContent = dumps.length;
     // Badge shows high-quality dumps only (strong dump score)
-    const highConfDumps = dumps.filter(d => getDumpScore(d).score >= 70);
+    const highConfDumps = dumps.filter(d => (d.dumpScore || 0) >= 70);
     if (badgeEl) badgeEl.textContent = highConfDumps.length > 0 ? highConfDumps.length : '';
 
     // V3: Update market regime indicator
@@ -3394,6 +3450,18 @@ function renderSniperFeed() {
         if (bestNameEl) bestNameEl.textContent = 'scanning...';
     }
 
+    // V5: OSRS Calendar context
+    const calStatus = OSRS_CALENDAR.getStatus();
+    const calIconEl = document.getElementById('calendarIcon');
+    const calLabelEl = document.getElementById('calendarLabel');
+    const calSubEl = document.getElementById('calendarSub');
+    if (calIconEl) calIconEl.textContent = calStatus.icon;
+    if (calLabelEl) calLabelEl.textContent = calStatus.label || calStatus.text || '';
+    if (calSubEl) {
+        const allCtx = OSRS_CALENDAR.getContext();
+        calSubEl.textContent = allCtx.length > 1 ? allCtx[1].label : (calStatus.impact || '');
+    }
+
     if (dumps.length === 0) {
         feed.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><p>No dumps detected — market looks stable. Scanning every 8 seconds...</p></div>';
         return;
@@ -3408,9 +3476,8 @@ function renderSniperFeed() {
         const canBuy = Math.min(vol4h, buyLimit);
         const totalProfit = profit * canBuy;
 
-        // V2: Get dump score result for this item
-        const scoreResult = getDumpScore(d);
-        const scoreLabel = scoreResult.label || '';
+        // V2: Get dump score — use cached label from checkDumpsLight when available
+        const scoreLabel = d.dumpLabel || (getDumpScore(d).label || '');
         const scoreLabelColor = scoreLabel === 'EXCEPTIONAL' ? '#22c55e' : scoreLabel === 'STRONG' ? '#3b82f6' : scoreLabel === 'GOOD' ? '#ff981f' : '#7a7268';
 
         // V3: Execution intelligence & risk
@@ -3450,7 +3517,7 @@ function renderSniperFeed() {
         else if (volHr < 15) tags.push({ text: 'Low volume', color: 'var(--text-muted)', icon: '⚠️' });
 
         // V2: Recovery ETA
-        if (scoreResult.recoveryETA) tags.push({ text: scoreResult.recoveryETA, color: 'var(--blue)', icon: '⏱️' });
+        if (d.recoveryETA) tags.push({ text: d.recoveryETA, color: 'var(--blue)', icon: '⏱️' });
 
         // V3: Stale data warning
         if (d.freshness && !d.freshness.fresh) tags.push({ text: d.freshness.label, color: 'var(--red)', icon: '🕐' });
@@ -3465,6 +3532,22 @@ function renderSniperFeed() {
         // V4: Tax context for expensive items
         const taxCtx = GE_TAX.getTaxContext(d.sellFor || d.sellPrice);
         if (taxCtx.advantage) tags.push({ text: taxCtx.label, color: 'var(--green)', icon: '💎' });
+
+        // V5: Volume acceleration tag
+        if (d.volAccel && d.volAccel.label) {
+            const vaColor = d.volAccel.label.includes('Recovery') || d.volAccel.label.includes('tightening') ? 'var(--green)' : 'var(--red)';
+            tags.push({ text: d.volAccel.label, color: vaColor, icon: d.volAccel.acceleration > 0 ? '📈' : '📉' });
+        }
+
+        // V5: Margin trend tag
+        if (d.marginTrend === 'expanding') tags.push({ text: 'Margins expanding', color: 'var(--green)', icon: '📊' });
+        else if (d.marginTrend === 'compressing') tags.push({ text: 'Margins shrinking', color: 'var(--accent)', icon: '📊' });
+
+        // V5: Alch backup tag
+        if (d.alchInfo && d.alchInfo.worth) {
+            if (d.alchInfo.betterThanFlip) tags.push({ text: 'Alch backup ' + gp(d.alchInfo.profit), color: 'var(--green)', icon: '🔮' });
+            else tags.push({ text: 'Alch floor ' + gp(d.alchInfo.alchValue), color: 'var(--text-muted)', icon: '🔮' });
+        }
 
         // Market intel
         const intel = MARKET_INTEL.getIntel(d);
