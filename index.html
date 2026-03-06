@@ -395,8 +395,8 @@
         <div class="dash-row" id="dashStats">
             <div class="stat-card" title="Total number of items being tracked with live prices"><div class="stat-icon">📦</div><div class="stat-label">Items Tracked</div><div class="stat-value accent" id="statItems">—</div><div class="stat-sub">with live buy+sell prices</div></div>
             <div class="stat-card" title="Best flip opportunity in 4 hours based on realistic volume"><div class="stat-icon">💎</div><div class="stat-label">Best Realistic Flip</div><div class="stat-value green" id="statBestProfit">—</div><div class="stat-sub" id="statBestName">loading...</div></div>
-            <div class="stat-card" title="Items currently crashing more than 3% in price"><div class="stat-icon">📉</div><div class="stat-label">Active Dumps</div><div class="stat-value" style="color:var(--red)" id="statDumps">0</div><div class="stat-sub">items crashing &gt;3%</div></div>
-            <div class="stat-card" title="Items currently spiking in price"><div class="stat-icon">📈</div><div class="stat-label">Active Pumps</div><div class="stat-value green" id="statPumps">0</div><div class="stat-sub">items spiking &gt;3%</div></div>
+            <div class="stat-card" title="Items currently crashing in price — buy low opportunities"><div class="stat-icon">📉</div><div class="stat-label">Active Dumps</div><div class="stat-value" style="color:var(--red)" id="statDumps">0</div><div class="stat-sub">price crash opportunities</div></div>
+            <div class="stat-card" title="Items currently spiking in price"><div class="stat-icon">📈</div><div class="stat-label">Active Pumps</div><div class="stat-value green" id="statPumps">0</div><div class="stat-sub">prices rising fast</div></div>
         </div>
 
         <!-- Charts -->
@@ -416,7 +416,7 @@
                 <canvas id="chartVolume"></canvas>
             </div>
             <div class="chart-box">
-                <h3>Margin % vs Volume/hr (Top 50 items)</h3>
+                <h3>Profit/Item vs Volume/hr (Top 50)</h3>
                 <canvas id="chartScatter"></canvas>
             </div>
         </div>
@@ -431,7 +431,7 @@
             <select class="ctrl-select" id="sortDropdown">
                 <option value="realistic">Sort: Realistic Profit (4h)</option>
                 <option value="margin">Sort: Profit/Item (GP)</option>
-                <option value="margin-pct">Sort: Margin %</option>
+                <option value="margin-pct">Sort: Margin (GP)</option>
                 <option value="volume">Sort: Volume</option>
                 <option value="price">Sort: Price</option>
             </select>
@@ -497,7 +497,7 @@
 
         <div class="chart-row" style="margin-top:16px;">
             <div class="chart-box">
-                <h3>Biggest Price Movers (% Change)</h3>
+                <h3>Biggest Price Movers (GP)</h3>
                 <canvas id="chartMovers"></canvas>
             </div>
             <div class="chart-box">
@@ -592,7 +592,7 @@
             <div class="cmd-grid">
                 <div class="cmd-card"><div class="cmd-name">/price [item]</div><div class="cmd-desc">Look up live price &amp; profit margins</div></div>
                 <div class="cmd-card"><div class="cmd-name">/top [sort] [limit]</div><div class="cmd-desc">Best items by profit, margin, or volume</div></div>
-                <div class="cmd-card"><div class="cmd-name">/dumps</div><div class="cmd-desc">Items crashing &gt;5% right now</div></div>
+                <div class="cmd-card"><div class="cmd-name">/dumps</div><div class="cmd-desc">Best buy-low opportunities right now</div></div>
                 <div class="cmd-card"><div class="cmd-name">/pumps</div><div class="cmd-desc">Items with unusual buy pressure</div></div>
                 <div class="cmd-card"><div class="cmd-name">/analyze [item]</div><div class="cmd-desc">Full flip analysis with realistic profit</div></div>
                 <div class="cmd-card"><div class="cmd-name">/recipe</div><div class="cmd-desc">Profitable processing recipes</div></div>
@@ -845,18 +845,41 @@ async function sendDiscordAlert(item, type, percentChange) {
     const sellFor = item.sellFor || item.sellPrice;
     const profitPerItem = item.flipProfit || (sellFor - buyAt - Math.min(Math.floor(sellFor * 0.02), 5000000));
 
-    // AGGRESSIVE FILTER: Only post dumps that are genuinely worth dropping everything for
-    if (profitPerItem < 500000) return;   // Under 500k/item? Not worth a Discord ping
-    if (buyAt < 50000) return;            // Item under 50k? Not a real dump flip
+    // ====== STRICT QUALITY FILTER ======
+    // Only alert on dumps where someone can INSTA-BUY at buyAt and INSTA-SELL at sellFor
+    // and walk away with real, meaningful profit. No tiny margins, no junk.
 
+    // Minimum profit per item: 200K GP (a few hundred thousand)
+    if (profitPerItem < 200000) return;
+
+    // Item must be worth at least 100K to be a real flip target
+    if (buyAt < 100000) return;
+
+    // The margin must be meaningful — at least 3% of buy price
+    // (prevents alerting on 10M items with 200K profit = 2% margin = too tight)
+    const marginRatio = profitPerItem / buyAt;
+    if (marginRatio < 0.03) return;
+
+    // Must have real crash evidence — not just normal spread
+    const crashFromNormal = item.crashFromNormal || 0;
+    const crashPct = item.crashPct || item.percentChange || 0;
+    if (crashFromNormal > -2 && crashPct > -2) return; // Not actually crashing
+
+    // Volume check: item must actually trade
     const vol5m = (item.buyQuantity || 0) + (item.sellQuantity || 0);
+    if (vol5m < 3) return; // Illiquid = can't actually execute this flip
+
     const vol4h = estimateVol4h(item.itemId, vol5m);
     const buyLimit = item.buyLimit || 999999;
     const amountToBuy = Math.min(vol4h, buyLimit);
     const totalProfit = profitPerItem * amountToBuy;
 
-    // Total profit must be at least 2M to be worth a Discord alert
-    if (totalProfit < 2000000) return;
+    // Total profit must be at least 1M to be worth a Discord alert
+    if (totalProfit < 1000000) return;
+
+    // Confidence check: need at least MED confidence from our 6-signal scoring
+    const conf = getDumpConfidence(item);
+    if (conf.pct < 50) return;
 
     // Rate limit: 1 alert per item per 30 minutes
     const now = Date.now();
@@ -870,7 +893,7 @@ async function sendDiscordAlert(item, type, percentChange) {
 
     console.log(`[GFO] Discord alert: ${item.name} — ${gp(profitPerItem)}/item × ${amountToBuy} = ${gp(totalProfit)}`);
 
-    // The embed: JUST the actionable info. Buy price, amount, profit.
+    // The embed: PROFIT FIRST. No reasoning, no percentages. Just money.
     const limitNote = buyLimit < 999999 ? ` (GE limit: ${buyLimit.toLocaleString()})` : '';
 
     try {
@@ -879,17 +902,16 @@ async function sendDiscordAlert(item, type, percentChange) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 embeds: [{
-                    title: `💰 ${item.name}`,
+                    title: `💰 ${gp(totalProfit)} Profit — ${item.name}`,
+                    description: `Insta-buy at **${gp(buyAt)}**, insta-sell at **${gp(sellFor)}**`,
                     color: 0x22C55E,
                     thumbnail: item.icon ? { url: `https://oldschool.runescape.wiki/images/${encodeURIComponent(item.icon.replace(/ /g, '_'))}` } : undefined,
                     fields: [
-                        { name: 'Buy At', value: `**${gp(buyAt)}**`, inline: true },
-                        { name: 'Sell For', value: `**${gp(sellFor)}**`, inline: true },
-                        { name: 'Volume', value: `**${amountToBuy.toLocaleString()}**${limitNote}`, inline: true },
                         { name: 'Profit/Item', value: `**${gp(profitPerItem)}**`, inline: true },
+                        { name: 'Buy', value: `**${amountToBuy.toLocaleString()}**${limitNote}`, inline: true },
                         { name: 'Total Profit', value: `**${gp(totalProfit)}**`, inline: true },
                     ],
-                    footer: { text: 'Grand Flip Out' },
+                    footer: { text: 'Grand Flip Out • grandflipout.com' },
                     timestamp: new Date().toISOString()
                 }]
             })
@@ -1228,15 +1250,14 @@ async function checkDumpsLight() {
             sellPressure: sellPressure, buyPressure: buyPressure
         };
 
-        // DUMP DETECTION: item is a dump opportunity if:
-        // 1. Price crashed >2% below recent average AND flip profit > 0
-        // 2. OR heavy sell pressure with ANY downward movement AND decent profit
-        // 3. OR sustained downtrend AND profitable to flip
-        const isDump = flipProfit > 0 && (
-            crashPct < -2 ||
-            (sellPressure > 2.5 && crashPct < -0.5 && flipProfit > 50000) ||
-            (trendPct < -3 && flipProfit > 50000) ||
-            severity > 6
+        // DUMP DETECTION: Only show dumps where you can actually make hundreds of thousands of GP
+        // Must have REAL profit AND real crash evidence
+        const isDump = flipProfit >= 50000 && (
+            (crashPct < -2 && flipProfit >= 100000) ||
+            (crashFromNormal < -3 && flipProfit >= 100000) ||
+            (sellPressure > 2.5 && crashPct < -0.5 && flipProfit >= 150000) ||
+            (trendPct < -3 && flipProfit >= 150000) ||
+            (severity > 8 && flipProfit >= 100000)
         );
 
         // PUMP DETECTION: price rising fast
@@ -1327,12 +1348,16 @@ function getDumpConfidence(d) {
 }
 
 function addDumpLog(item, type) {
+    const profit = item.flipProfit || (item.sellPrice - item.buyPrice - Math.min(Math.floor(item.sellPrice * 0.02), 5000000));
     state.dumpLog.push({
         time: new Date(),
         itemId: item.itemId,
         name: item.name,
         icon: item.icon,
         percentChange: item.percentChange,
+        flipProfit: profit,
+        buyPrice: item.instaBuyAt || item.buyPrice,
+        sellPrice: item.sellFor || item.sellPrice,
         type: type
     });
     if (state.dumpLog.length > 100) state.dumpLog.shift();
@@ -1346,19 +1371,23 @@ function renderDumpLog() {
         container.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:16px; font-size:12px;">Logs will appear here...</div>';
         return;
     }
-    container.innerHTML = state.dumpLog.slice().reverse().map(entry => `
+    container.innerHTML = state.dumpLog.slice().reverse().map(entry => {
+        const profitDisplay = entry.flipProfit ? gp(Math.abs(entry.flipProfit)) : gp(0);
+        const profitColor = entry.type === 'dump' ? 'var(--green)' : 'var(--accent)';
+        const profitLabel = entry.type === 'dump' ? `+${profitDisplay}/item` : `${gp(entry.sellPrice || 0)}`;
+        return `
         <div class="dumplog-entry">
             <div class="dumplog-entry-icon">${iconHtml(entry.icon, entry.name, 28)}</div>
             <div class="dumplog-entry-info">
                 <div class="dumplog-entry-name">${entry.name}</div>
                 <div style="display: flex; gap: 8px; align-items: center;">
-                    <span class="dumplog-entry-pct" style="color:${entry.percentChange < 0 ? 'var(--red)' : 'var(--green)'};">${entry.percentChange.toFixed(1)}%</span>
+                    <span style="color:${profitColor}; font-weight:700; font-size:12px;">${profitLabel}</span>
                     <span class="dumplog-entry-type ${entry.type}">${entry.type}</span>
                 </div>
             </div>
             <div class="dumplog-entry-time">${entry.time.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}</div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 }
 
 async function loadDumpsPumps() {
@@ -1803,9 +1832,9 @@ function renderCharts() {
 
     const top50 = items.slice(0, 50);
     updateChart('chartScatter', 'scatter', {
-        datasets: [{ label:'Items', data: top50.map(i => ({ x:volPerHour(i), y:i.marginPct, name:i.name })),
+        datasets: [{ label:'Items', data: top50.map(i => ({ x:volPerHour(i), y:Math.round(i.margin/1000), name:i.name })),
             backgroundColor:'rgba(255,152,31,0.5)', borderColor:'#ff981f', pointRadius:5, pointHoverRadius:8 }]
-    }, { plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw.name}: ${ctx.raw.y}% margin, ~${ctx.raw.x}/hr`}}}, scales:{ x:{title:{display:true,text:'Volume per Hour (est.)',color:'#7a7268'},ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}}, y:{title:{display:true,text:'Margin %',color:'#7a7268'},ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}} }});
+    }, { plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw.name}: ${gp(ctx.raw.y*1000)}/item, ~${ctx.raw.x}/hr`}}}, scales:{ x:{title:{display:true,text:'Volume per Hour (est.)',color:'#7a7268'},ticks:{color:'#7a7268'},grid:{color:'rgba(255,152,31,0.08)'}}, y:{title:{display:true,text:'Profit/Item (K GP)',color:'#7a7268'},ticks:{color:'#7a7268',callback:v=>gp(v*1000)},grid:{color:'rgba(255,152,31,0.08)'}} }});
 }
 
 function updateChart(canvasId, type, data, options) {
@@ -2076,16 +2105,16 @@ function renderDumpsPumps() {
                 <span style="color:var(--text-muted);">→</span>
                 <span style="color:var(--accent); font-weight:700;">${gp(p.sellPrice)}</span>
             </div>
-            <div class="dp-change pos" style="margin-left:10px;">+${(p.percentChange || 0).toFixed(1)}%</div>
+            <div class="dp-change pos" style="margin-left:10px; color:var(--green); font-weight:700;">${gp(p.sellPrice || 0)}</div>
         </div>
     `}).join('') : '<div class="empty-state" style="padding:20px;"><p>No pumps detected</p></div>';
 
-    const allMovers = [...state.dumps, ...state.pumps].sort((a,b) => Math.abs(b.percentChange) - Math.abs(a.percentChange)).slice(0, 12);
+    const allMovers = [...state.dumps, ...state.pumps].sort((a,b) => Math.abs(b.flipProfit || (b.sellPrice - b.buyPrice)) - Math.abs(a.flipProfit || (a.sellPrice - a.buyPrice))).slice(0, 12);
     if (allMovers.length > 0) {
         updateChart('chartMovers', 'bar', {
             labels: allMovers.map(m => m.name.length > 12 ? m.name.slice(0,11)+'...' : m.name),
-            datasets: [{ data: allMovers.map(m => m.percentChange), backgroundColor: allMovers.map(m => m.percentChange < 0 ? 'rgba(239,68,68,0.7)' : 'rgba(34,197,94,0.7)'), borderRadius:4 }]
-        }, { indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#7a7268',callback:v=>v+'%'},grid:{color:'rgba(255,152,31,0.08)'}}, y:{ticks:{color:'#b8b0a5',font:{size:11}},grid:{display:false}} }});
+            datasets: [{ data: allMovers.map(m => { const p = m.flipProfit || (m.sellPrice - m.buyPrice); return m.percentChange < 0 ? -Math.abs(p)/1000 : Math.abs(p)/1000; }), backgroundColor: allMovers.map(m => m.percentChange < 0 ? 'rgba(239,68,68,0.7)' : 'rgba(34,197,94,0.7)'), borderRadius:4 }]
+        }, { indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#7a7268',callback:v=>gp(Math.abs(v*1000))},grid:{color:'rgba(255,152,31,0.08)'}}, y:{ticks:{color:'#b8b0a5',font:{size:11}},grid:{display:false}} }});
     }
 
     if (state.dpHistory.length > 1) {
