@@ -315,6 +315,12 @@
         .intel-badge.merch-target { background:rgba(212,175,55,0.1); border-color:rgba(212,175,55,0.2); }
         .intel-badge.warning { background:rgba(239,68,68,0.1); border-color:rgba(239,68,68,0.2); }
 
+        /* === CONFIDENCE BADGES === */
+        .conf-badge { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+        .conf-high { background:rgba(34,197,94,0.2); color:var(--green); border:1px solid rgba(34,197,94,0.3); }
+        .conf-med { background:rgba(255,152,31,0.15); color:var(--accent); border:1px solid rgba(255,152,31,0.25); }
+        .conf-low { background:rgba(239,68,68,0.1); color:var(--red); border:1px solid rgba(239,68,68,0.2); }
+
         /* === PRICE PROMINENCE === */
         .price-hero { font-size:18px; font-weight:900; color:var(--green); text-shadow:0 0 12px rgba(34,197,94,0.3); }
         .price-highlight { font-size:16px; font-weight:800; color:var(--text); text-shadow:0 0 8px rgba(255,152,31,0.2); }
@@ -724,6 +730,10 @@ const state = {
     showIntel: false,  // Market intel hidden by default, expandable per-item
     lastAlertTimes: {},  // itemId-type -> timestamp for rate limiting
     refreshCountdown: 0,
+    priceBaselines: {},  // { normal1h, normal5m, lastSeen } per item
+    fetchCache: {},      // { [endpoint]: { data, time } } for fetch deduplication
+    lastRenderHash: '',  // for renderTopFlips optimization
+    lastDumpsHash: '',   // for renderDumpsPumps optimization
 };
 
 // ============================================
@@ -1077,8 +1087,23 @@ async function loadTopFlips(force = false) {
     renderAll(); // Always render — never skip updates
 }
 
+// ============================================
+// FETCH CACHING
+// ============================================
+async function fetchWikiCached(ep, maxAge = 5000) {
+    const cached = state.fetchCache[ep];
+    if (cached && (Date.now() - cached.time) < maxAge) return cached.data;
+    const data = await fetchWiki(ep);
+    if (data) state.fetchCache[ep] = { data, time: Date.now() };
+    return data;
+}
+
 async function checkDumpsLight() {
-    const [vols, latestResp] = await Promise.all([fetchWiki('/5m'), fetchWiki('/latest')]);
+    const [vols, latestResp, vol1h] = await Promise.all([
+        fetchWikiCached('/5m', 5000),
+        fetchWikiCached('/latest', 5000),
+        fetchWikiCached('/1h', 5000)
+    ]);
     if (!vols || !vols.data) return;
 
     // Always update latest prices for freshness
@@ -1107,8 +1132,8 @@ async function checkDumpsLight() {
     //
     // Key signals:
     //   - Insta-buy price (pi.low) = what you pay to buy the item RIGHT NOW
-    //   - Recent sell price (vi.avgHighPrice from /5m) = what people have been selling at recently
-    //   - If insta-buy is much LOWER than recent avg sell → someone dumped → buy opportunity
+    //   - 1h average sell price (vi1h.avgHighPrice from /1h) = baseline for "normal" price
+    //   - If insta-buy is much LOWER than 1h average → real crash → buy opportunity
     //   - Flip profit = sell price - buy price - 2% GE tax
 
     const nd = [], np = [];
@@ -1118,11 +1143,16 @@ async function checkDumpsLight() {
         const pi = ld[idStr];
         if (!pi || !pi.high || !pi.low) continue;
 
+        // Get 1h baseline for this item (smooth out noise)
+        const vi1h = vol1h && vol1h.data ? vol1h.data[idStr] : null;
+
         // CORE PRICES for dump flipping:
         const instaBuyPrice = pi.low;    // What you pay to insta-buy RIGHT NOW
         const instaSellPrice = pi.high;   // What you get when you insta-sell RIGHT NOW
         const avgSellPrice5m = vi.avgHighPrice || 0;  // What items sold for recently (5m avg)
+        const avgSellPrice1h = vi1h ? (vi1h.avgHighPrice || 0) : avgSellPrice5m;  // 1h average (better baseline)
         const avgBuyPrice5m = vi.avgLowPrice || 0;    // What items bought for recently (5m avg)
+        const buyLimit = meta.limit || 0;
 
         const bv = vi.lowPriceVolume || 0, sv = vi.highPriceVolume || 0;
         if ((bv + sv) < 3) continue; // Need at least some volume
@@ -1135,19 +1165,23 @@ async function checkDumpsLight() {
         const geTax = Math.min(Math.floor(instaSellPrice * 0.02), 5000000);
         const flipProfit = instaSellPrice - instaBuyPrice - geTax;
 
-        // How much has the price DROPPED? Compare current insta-buy to the 5m average sell price
-        // If avgSellPrice5m = 1M and instaBuyPrice = 800K, that's a 20% crash = huge dump
+        // Use 1h average as baseline for crash detection (more accurate than 5m)
+        let crashFromNormal = 0;
+        const normalPrice = avgSellPrice1h > 0 ? avgSellPrice1h : avgSellPrice5m;
+        if (normalPrice > 0 && instaBuyPrice > 0) {
+            crashFromNormal = ((instaBuyPrice - normalPrice) / normalPrice) * 100;
+        }
+
+        // Also track 5m crash for compatibility
         let crashPct = 0;
         if (avgSellPrice5m > 0 && instaBuyPrice > 0) {
             crashPct = ((instaBuyPrice - avgSellPrice5m) / avgSellPrice5m) * 100;
-            // crashPct is NEGATIVE when price crashed (buy price below recent sell average)
         }
 
         // Also check: has the 5m avg BUY price dropped vs the latest trade?
         let buyDipPct = 0;
         if (avgBuyPrice5m > 0 && instaBuyPrice > 0) {
             buyDipPct = ((avgBuyPrice5m - instaBuyPrice) / instaBuyPrice) * 100;
-            // buyDipPct is POSITIVE when the avg buy price is ABOVE current (price recovering = good buy)
         }
 
         // Track price history for trend analysis
@@ -1172,14 +1206,19 @@ async function checkDumpsLight() {
         // Margin percentage (how good is this flip?)
         const marginPct = instaBuyPrice > 0 ? (flipProfit / instaBuyPrice) * 100 : 0;
 
-        // DUMP SEVERITY: weighted score based on how good this buy opportunity is
+        // Store price baselines for this item
+        state.priceBaselines[id] = { normal1h: avgSellPrice1h, normal5m: avgSellPrice5m, lastSeen: Date.now() };
+
+        // DUMP SEVERITY: Better scoring using 1h baseline
         let severity = 0;
-        if (crashPct < -2) severity += Math.abs(crashPct) * 2;   // Price crashed below recent avg
-        if (trendPct < -3) severity += Math.abs(trendPct);        // Downward trend
-        if (sellPressure > 2) severity += sellPressure;            // Heavy selling
-        if (flipProfit > 100000) severity += 2;                    // Good profit opportunity
-        if (flipProfit > 500000) severity += 3;                    // Great profit opportunity
-        if ((bv + sv) > 50) severity += 1;                         // Liquid item
+        if (crashFromNormal < -3) severity += Math.abs(crashFromNormal) * 1.5;  // Big crash from 1h normal
+        if (crashFromNormal < -5) severity += 3;  // Extra bonus for 5%+ crashes
+        if (trendPct < -2) severity += Math.abs(trendPct) * 0.5;  // Downward trend
+        if (sellPressure > 2) severity += sellPressure * 0.5;  // Heavy selling
+        if (flipProfit > 100000) severity += 2;  // Good profit opportunity
+        if (flipProfit > 500000) severity += 3;  // Great profit opportunity
+        if (flipProfit > 1000000) severity += 5;  // Huge profit opportunity
+        if ((bv + sv) > 50) severity += 1;  // Liquid item
 
         const summary = {
             itemId: id, name: meta.name, icon: meta.icon,
@@ -1187,12 +1226,14 @@ async function checkDumpsLight() {
             sellFor: instaSellPrice,       // "Then sell for this price"
             flipProfit: flipProfit,        // "You make this much per item"
             marginPct: marginPct,          // Margin as percentage
-            crashPct: crashPct,            // How much it crashed
+            crashPct: crashPct,            // How much it crashed (5m)
+            crashFromNormal: crashFromNormal,  // How much below 1h normal
             // Keep old fields for compatibility
             buyPrice: instaBuyPrice, sellPrice: instaSellPrice,
             fiveMinAvg: avgSellPrice5m || currentAvg,
             percentChange: crashPct, trendPct: trendPct,
             buyQuantity: bv, sellQuantity: sv,
+            buyLimit: buyLimit,
             severity: severity,
             sellPressure: sellPressure, buyPressure: buyPressure
         };
@@ -1252,6 +1293,50 @@ async function checkDumpsLight() {
     // Track history for chart
     state.dpHistory.push({ time: new Date(), dumps: nd.length, pumps: np.length });
     if (state.dpHistory.length > 60) state.dpHistory.shift();
+
+    // Cleanup: remove price history for items not seen in 5 minutes
+    const now = Date.now();
+    for (const [id, history] of Object.entries(state.priceHistory)) {
+        if (history.length > 0 && (now - history[history.length - 1].time) > 300000) {
+            delete state.priceHistory[id];
+        }
+    }
+}
+
+// ============================================
+// DUMP CONFIDENCE SCORING
+// ============================================
+function getDumpConfidence(d) {
+    let signals = 0, total = 0;
+
+    // Signal 1: Price below 1h average
+    total++;
+    if (d.crashFromNormal && d.crashFromNormal < -2) signals++;
+
+    // Signal 2: Price below 5m average
+    total++;
+    if (d.crashPct && d.crashPct < -1) signals++;
+
+    // Signal 3: Sell pressure (more sellers than buyers)
+    total++;
+    if (d.sellPressure > 1.5) signals++;
+
+    // Signal 4: Downward trend over multiple checks
+    total++;
+    if (d.trendPct && d.trendPct < -1) signals++;
+
+    // Signal 5: Positive flip profit (it's actually profitable)
+    total++;
+    if (d.flipProfit > 0) signals++;
+
+    // Signal 6: Decent volume (not illiquid garbage)
+    total++;
+    if ((d.buyQuantity + d.sellQuantity) >= 10) signals++;
+
+    const pct = Math.round((signals / total) * 100);
+    if (pct >= 80) return { text: 'HIGH', cls: 'conf-high', pct };
+    if (pct >= 50) return { text: 'MED', cls: 'conf-med', pct };
+    return { text: 'LOW', cls: 'conf-low', pct };
 }
 
 function addDumpLog(item, type) {
@@ -1363,12 +1448,30 @@ function gp(v) { if (!v) return '0 gp'; const a = Math.abs(v); if (a >= 1000000)
 function gpFull(v) { return v ? Math.abs(v).toLocaleString() + ' gp' : '0 gp'; }
 
 function volPerHour(item) { return (item.buyQuantity + item.sellQuantity) * 12; }
+// Smarter volume estimation using rolling average from price history
+function estimateVol4h(itemId, current5mVol) {
+    const history = state.priceHistory[itemId] || [];
+    if (history.length < 3) {
+        // Not enough data, use conservative estimate
+        return Math.round(current5mVol * 12 * 4 * 0.5); // 50% haircut
+    }
+    // Average volume across all snapshots
+    const avgVol = history.reduce((sum, h) => sum + h.vol, 0) / history.length;
+    // Use the LOWER of current and average (conservative)
+    const conservativeVol = Math.min(current5mVol, avgVol);
+    return Math.round(conservativeVol * 12 * 4);
+}
 function realisticBuys(item) {
-    const vol4h = volPerHour(item) * 4;
+    const vol4h = estimateVol4h(item.itemId, item.buyQuantity + item.sellQuantity);
     const limit = item.buyLimit || 999999;
     return Math.min(limit, Math.floor(vol4h));
 }
 function realistic4hProfit(item) { return item.margin * realisticBuys(item); }
+// Hash function for rendering optimization
+function itemsHash(items) {
+    return items.slice(0, 20).map(i => `${i.itemId}:${i.buyPrice}:${i.sellPrice}`).join('|');
+}
+
 function getVerdict(item) {
     const vph = volPerHour(item);
     const profit4h = realistic4hProfit(item);
@@ -1683,7 +1786,9 @@ function renderSniperFeed() {
     const badgeEl = document.getElementById('sniperBadge');
 
     if (targetsEl) targetsEl.textContent = dumps.length;
-    if (badgeEl) badgeEl.textContent = dumps.length > 0 ? dumps.length : '';
+    // Badge shows HIGH-confidence dumps only
+    const highConfDumps = dumps.filter(d => getDumpConfidence(d).pct >= 80);
+    if (badgeEl) badgeEl.textContent = highConfDumps.length > 0 ? highConfDumps.length : '';
 
     if (dumps.length > 0) {
         const maxSev = Math.max(...dumps.map(d => d.severity || 0));
@@ -1716,6 +1821,15 @@ function renderSniperFeed() {
         const sevColor = sevPct > 70 ? 'var(--red)' : sevPct > 40 ? 'var(--accent)' : '#d97706';
         const vpressure = d.sellPressure > 3 ? '🔴 Heavy selling' : d.sellPressure > 1.5 ? '🟠 Moderate' : '';
 
+        // Get confidence score
+        const conf = getDumpConfidence(d);
+
+        // Calculate realistic buy limit
+        const vol4h = Math.round((d.buyQuantity + d.sellQuantity) * 12 * 4);
+        const buyLimit = d.buyLimit || 999999;
+        const canBuy = Math.min(vol4h, buyLimit);
+        const totalProfit = profit * canBuy;
+
         const intel = MARKET_INTEL.getIntel(d);
         const intelToggleId = `intel-${d.itemId}`;
         const intelHtml = intel.length > 0 ? `
@@ -1727,13 +1841,18 @@ function renderSniperFeed() {
             </div>
         ` : '';
 
+        const buyLimitHtml = buyLimit < 100 ? `<span style="margin-left:6px; color:var(--red); font-weight:700; font-size:10px;">⚠️ Buy limit: ${buyLimit}</span>` : '';
+
         return `
         <div class="dp-section" style="padding:16px; cursor:pointer; border-left:4px solid ${profit >= 300000 ? 'var(--green)' : profit > 0 ? 'var(--accent)' : 'var(--red)'};" onclick="openOSRSWiki('${d.name.replace(/'/g, "\\'")}')">
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <div class="dp-item-icon" style="width:44px;height:44px;">${iconHtml(d.icon, d.name, 44)}</div>
                 <div style="flex:1;">
-                    <div style="font-weight:700; font-size:16px; color:var(--text);">${d.name}</div>
-                    <div style="font-size:11px; color:var(--red); font-weight:600;">Crashed ${Math.abs(crash).toFixed(1)}% ${vpressure ? '• ' + vpressure : ''}</div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <div style="font-weight:700; font-size:16px; color:var(--text);">${d.name}</div>
+                        <span class="conf-badge ${conf.cls}">${conf.text} ${conf.pct}%</span>
+                    </div>
+                    <div style="font-size:11px; color:var(--red); font-weight:600;">Crashed ${Math.abs(crash).toFixed(1)}% ${vpressure ? '• ' + vpressure : ''}${buyLimitHtml}</div>
                 </div>
                 <div style="text-align:right;">
                     <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px;">Flip Profit</div>
@@ -1751,11 +1870,12 @@ function renderSniperFeed() {
                     <div style="font-size:18px; font-weight:900; color:var(--accent); margin-top:4px;">${gp(d.sellFor || d.sellPrice)}</div>
                 </div>
             </div>
-            <div style="display:flex; gap:8px; font-size:11px; color:var(--text-muted);">
-                <span>📊 Vol: ${d.buyQuantity + d.sellQuantity}/5m</span>
+            <div style="display:flex; gap:8px; font-size:11px; color:var(--text-muted); flex-wrap:wrap; margin-bottom:8px;">
+                <span>📊 Vol: ${d.buyQuantity + d.sellQuantity}/5m (est. ${Math.round(vol4h/1000)}K in 4h)</span>
+                <span>🛒 Can Buy: ${canBuy.toLocaleString()}${d.buyLimit && d.buyLimit < vol4h ? ` (limited by ${d.buyLimit})` : ''}</span>
+                <span>💰 Total: <strong>${gp(totalProfit)}</strong></span>
                 <span>📉 Drop: ${Math.abs(crash).toFixed(1)}%</span>
                 ${(d.trendPct || 0) < -1 ? `<span style="color:var(--red);">📉 Trending down ${Math.abs(d.trendPct).toFixed(1)}%</span>` : ''}
-                <span style="margin-left:auto; color:var(--text-muted);">Severity: ${(d.severity||0).toFixed(1)}</span>
             </div>
             <div style="background:var(--bg-input); border-radius:4px; height:4px; overflow:hidden; margin-top:8px;">
                 <div style="height:100%; width:${sevPct}%; background:${sevColor}; border-radius:4px; transition:width 0.3s;"></div>
@@ -1796,7 +1916,7 @@ function renderSniperCharts(dumps) {
     }
 }
 
-function renderTopFlips() {
+function renderTopFlips(force = false) {
     let items = [...state.items];
     if (state.currentFilter) items = items.filter(i => i.name.toLowerCase().includes(state.currentFilter.toLowerCase()));
     if (state.verdictFilter !== 'all') {
@@ -1812,6 +1932,11 @@ function renderTopFlips() {
         case 'price': items.sort((a,b) => b.sellPrice - a.sellPrice); break;
         default: items.sort((a,b) => realistic4hProfit(b) - realistic4hProfit(a));
     }
+
+    // Skip re-render if data hasn't changed
+    const hash = itemsHash(items);
+    if (hash === state.lastRenderHash && !force) return;
+    state.lastRenderHash = hash;
 
     const tbody = document.getElementById('topFlipsBody');
     if (tbody) {
@@ -1877,6 +2002,15 @@ function renderTopFlips() {
 }
 
 function renderDumpsPumps() {
+    // Skip re-render if dump/pump data hasn't changed
+    const dumpsHash = state.dumps.map(d => `${d.itemId}:${d.flipProfit}`).join('|');
+    if (dumpsHash === state.lastDumpsHash && state.pumps.length === 0) {
+        // Still update charts
+        renderSniperCharts(state.dumps);
+        return;
+    }
+    state.lastDumpsHash = dumpsHash;
+
     const dc = document.getElementById('dumpsContainer'), pc = document.getElementById('pumpsContainer');
     if (dc) dc.innerHTML = state.dumps.length > 0 ? state.dumps.map(d => {
         const profit = d.flipProfit || (d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000));
