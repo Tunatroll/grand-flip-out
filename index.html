@@ -445,6 +445,139 @@
             border-color: rgba(0,0,0,0.12);
         }
 
+        /* === COLORBLIND MODE === */
+        body.colorblind-mode {
+            --green: #2563eb;
+            --green-dim: rgba(37, 99, 235, 0.15);
+            --red: #e67700;
+            --red-dim: rgba(230, 119, 0, 0.15);
+        }
+        /* Colorblind pattern fills */
+        body.colorblind-mode .dp-section.dumps {
+            background: repeating-linear-gradient(45deg, var(--bg-card), var(--bg-card) 10px, rgba(230,119,0,0.05) 10px, rgba(230,119,0,0.05) 20px);
+        }
+        .colorblind-toggle { background:none; border:none; cursor:pointer; font-size:18px; color:var(--text-secondary); padding:6px; transition:all .2s; }
+        .colorblind-toggle:hover { color:var(--accent); }
+        .colorblind-toggle.active { color:var(--accent); }
+
+        /* === WELCOME BANNER === */
+        .welcome-banner { background:linear-gradient(135deg,rgba(255,152,31,0.12),rgba(255,152,31,0.08)); border:1px solid var(--border-strong); border-radius:var(--radius-lg); padding:20px 24px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+        .welcome-banner h3 { font-size:16px; font-weight:700; color:var(--text); margin-bottom:4px; }
+        .welcome-banner p { font-size:13px; color:var(--text-secondary); margin-bottom:8px; line-height:1.5; }
+        .welcome-banner p strong { color:var(--accent); }
+        .welcome-banner button { background:linear-gradient(135deg,var(--accent),var(--gold)); color:#1a1410; border:none; border-radius:var(--radius); padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; transition:all .2s; font-family:inherit; }
+        .welcome-banner button:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(255,152,31,0.3); }
+
+        /* === ERROR BANNER === */
+        .error-banner { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius); padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--red); font-size:13px; }
+        .error-banner button { background:var(--red); color:white; border:none; border-radius:4px; padding:6px 12px; font-size:11px; font-weight:600; cursor:pointer; transition:all .2s; font-family:inherit; }
+        .error-banner button:hover { opacity:0.9; }
+
+        /* === SKELETON LOADERS === */
+        .skeleton-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px; animation:skeleton-shimmer 2s infinite; }
+        .skeleton-title { height:16px; background:var(--bg-surface); border-radius:4px; margin-bottom:12px; animation:skeleton-shimmer 2s infinite; }
+        .skeleton-text { height:12px; background:var(--bg-surface); border-radius:3px; margin-bottom:8px; animation:skeleton-shimmer 2s infinite; }
+
+        /* === FILTER RESET BUTTON === */
+        .reset-filters-btn { background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius); padding:8px 14px; color:var(--text-secondary); font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; font-family:inherit; }
+        .reset-filters-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+        /* === FAVORITE BUTTON ANIMATION === */
+        .fav-btn { transition:all .15s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .fav-btn.scale-pop { animation:favScale .3s ease-out; }
+        @keyframes favScale { 0% { transform:scale(1); } 50% { transform:scale(1.3); } 100% { transform:scale(1); } }
+
+        /* === TAB TRANSITIONS === */
+        .tab-panel { animation:fadeInTab .3s ease-in-out; }
+        @keyframes fadeInTab { 0% { opacity:0; } 100% { opacity:1; } }
+
+        /* === UPDATED TIMESTAMP === */
+        .last-updated-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:16px; font-size:11px; color:var(--text-muted); }
+        .last-updated-badge .dot { width:6px; height:6px; border-radius:50%; background:var(--green); }
+
+        /* === SEARCH IMPROVEMENTS === */
+        .search-result-count { font-size:11px; color:var(--text-muted); padding:8px 12px; border-top:1px solid var(--border); text-align:center; }
+        .search-clear-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px 8px; transition:color .2s; }
+        .search-clear-btn:hover { color:var(--accent); }
+
+        /* JOURNAL FORM FIX */
+        #journal input { background:var(--bg-input) !important; }
+
+        /* === MOBILE HEADER COMPACT === */
+        @media(max-width:768px) {
+            .site-header { padding:8px 12px; }
+            .header-inner { gap:10px; }
+            .logo h1 { font-size:16px; }
+            .logo-icon { width:36px; height:36px; font-size:18px; }
+            .header-search { display:none; }
+            .search-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:500; }
+            .search-overlay.active { display:flex; align-items:flex-start; justify-content:center; padding-top:100px; }
+            .search-overlay input { width:90%; max-width:500px; }
+            .header-right { gap:8px; }
+            .theme-toggle, .colorblind-toggle { font-size:16px; padding:4px; }
+            .settings-btn { font-size:16px; padding:4px; }
+            .refresh-info { display:none; }
+        }
+
+        @media(max-width:600px) {
+            .nav-tab { font-size:11px; padding:8px 8px; }
+            .tab-icon { display:inline; margin-right:3px; font-size:14px; }
+            .nav-tab span:not(.tab-icon) { display:none; }
+            .nav-tab[data-tab="dashboard"]::after { content:"Dash"; display:inline; }
+            .nav-tab[data-tab="top-flips"]::after { content:"Top"; display:inline; }
+            .nav-tab[data-tab="dumps-pumps"]::after { content:"D&P"; display:inline; }
+            .nav-tab[data-tab="dump-sniper"]::after { content:"Snipe"; display:inline; }
+            .nav-tab[data-tab="watchlist"]::after { content:"Watch"; display:inline; }
+            .nav-tab[data-tab="recipes"]::after { content:"Recipe"; display:inline; }
+            .nav-tab[data-tab="special"]::after { content:"Special"; display:inline; }
+            .nav-tab[data-tab="alchemy"]::after { content:"Alch"; display:inline; }
+            .nav-tab[data-tab="intelligence"]::after { content:"Learn"; display:inline; }
+            .nav-tab[data-tab="journal"]::after { content:"Journal"; display:inline; }
+            .nav-tab[data-tab="discord"]::after { content:"Discord"; display:inline; }
+            .nav-tab[data-tab="plugin"]::after { content:"Plugin"; display:inline; }
+        }
+
+        /* === ITEM CARD SIZE IMPROVEMENTS === */
+        .item-grid { grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
+
+        /* === TABLE VISIBILITY ON MOBILE === */
+        @media(max-width:768px) {
+            #tableView { display:none !important; }
+        }
+
+        /* === MODAL MOBILE IMPROVEMENTS === */
+        @media(max-width:768px) {
+            .item-modal-panel { width:98%; border-radius:16px 16px 0 0; max-height:95vh; }
+            .item-modal-header { border-radius:16px 16px 0 0; }
+        }
+
+        /* JOURNAL FORM FIX */
+        #journal input:focus { outline:none; border-color:var(--accent) !important; box-shadow:0 0 0 2px rgba(255,152,31,0.15) !important; }
+
+        /* === TOOLTIP ENHANCEMENTS === */
+        .tooltip { position:relative; cursor:help; }
+        .tooltip::after { content:attr(data-tip); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:#1a1410; border:1px solid var(--border-strong); color:var(--text); font-size:11px; padding:8px 12px; border-radius:6px; white-space:normal; max-width:200px; opacity:0; pointer-events:none; transition:opacity .15s; z-index:200; }
+        .tooltip:hover::after { opacity:1; }
+
+        /* === NAV GROUPS WITH SEPARATORS === */
+        .nav-group-separator { display:none; }
+        @media(min-width:601px) {
+            .nav-tab[data-tab="watchlist"]::after,
+            .nav-tab[data-tab="recipes"]::after,
+            .nav-tab[data-tab="intelligence"]::after,
+            .nav-tab[data-tab="plugin"]::after {
+                content:"";
+                display:block;
+                height:24px;
+                width:1px;
+                background:var(--border);
+                position:absolute;
+                right:-8px;
+                top:50%;
+                transform:translateY(-50%);
+            }
+        }
+
         /* === JOURNAL FORM INPUTS === */
         #journal input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(255,152,31,0.15); }
 
@@ -546,6 +679,7 @@
                 <span class="countdown-display" id="countdownDisplay" style="display:none;">Next in: <span id="countdownValue">5m</span></span>
             </div>
             <button class="theme-toggle" title="Toggle Dark/Light theme" onclick="toggleTheme()">🌙</button>
+            <button class="colorblind-toggle" title="Toggle Colorblind Mode" onclick="toggleColorblindMode()" id="colorblindToggle">🔴</button>
             <button class="settings-btn" title="Keyboard shortcuts" onclick="toggleHelpModal()">?</button>
             <button class="settings-btn" title="Settings" onclick="toggleSettingsModal()">⚙️</button>
         </div>
@@ -581,6 +715,22 @@
 
 <!-- PAGE -->
 <main class="page">
+
+    <!-- ERROR BANNER -->
+    <div class="error-banner" id="errorBanner" style="display:none;">
+        ⚠️ Connection issue — showing cached data.
+        <button onclick="location.reload()">Retry</button>
+    </div>
+
+    <!-- WELCOME BANNER -->
+    <div class="welcome-banner" id="welcomeBanner" style="display:none;">
+        <div>
+            <h3>Welcome to Grand Flip Out</h3>
+            <p>Real-time OSRS Grand Exchange data to help you learn market mechanics.</p>
+            <p>Start with the <strong>Top Flips</strong> tab, or explore <strong>Learn</strong> to understand how prices work.</p>
+        </div>
+        <button onclick="dismissWelcome()">Got it</button>
+    </div>
 
     <!-- ===== DASHBOARD TAB ===== -->
     <div id="dashboard" class="tab-panel active">
@@ -5272,6 +5422,8 @@ async function autoDiscoverRecipes(known, startId) {
 // ============================================
 function gp(v) { if (!v) return '0 gp'; const a = Math.abs(v); if (a >= 1000000) return (v/1000000).toFixed(1) + 'M'; if (a >= 1000) return (v/1000).toFixed(1) + 'K'; return v.toLocaleString() + ' gp'; }
 function gpFull(v) { return v ? Math.abs(v).toLocaleString() + ' gp' : '0 gp'; }
+function arrowPrefix(value) { return value > 0 ? '▲ ' : value < 0 ? '▼ ' : ''; }
+function shapePrefix(verdict) { const shapes = { 'great': '● ', 'good': '◆ ', 'decent': '◆ ', 'slow': '◇ ', 'dead': '✗ ' }; return shapes[verdict] || ''; }
 
 function volPerHour(item) { return (item.buyQuantity + item.sellQuantity) * 12; }
 // Smarter volume estimation using rolling average from price history
@@ -6061,16 +6213,16 @@ function renderSniperFeed() {
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <div class="dp-item-icon" style="width:44px;height:44px;">${iconHtml(d.icon, d.name, 44)}</div>
                 <div style="flex:1;">
-                    <div style="font-weight:700; font-size:16px; color:var(--text);">${d.name}${buyLimitHtml}</div>${tagsHtml}
+                    <div style="font-weight:700; font-size:16px; color:var(--text);">▼ ${d.name}${buyLimitHtml}</div>${tagsHtml}
                 </div>
                 <div style="text-align:right;">
-                    <div style="font-size:22px; font-weight:900; color:var(--green); text-shadow:0 0 12px rgba(34,197,94,0.3);">${gp(profit)}<span style="font-size:11px; font-weight:500; color:var(--text-muted);">/item</span></div>
+                    <div style="font-size:22px; font-weight:900; color:var(--green); text-shadow:0 0 12px rgba(34,197,94,0.3);">▲ ${gp(profit)}<span style="font-size:11px; font-weight:500; color:var(--text-muted);">/item</span></div>
                 </div>
             </div>
             <div style="display:flex; gap:0; margin-bottom:10px; background:rgba(0,0,0,0.3); border-radius:8px; overflow:hidden;">
                 <div style="flex:1; padding:10px 12px; text-align:center; border-right:1px solid rgba(255,255,255,0.05);">
                     <div style="font-size:9px; text-transform:uppercase; color:var(--green); letter-spacing:.5px; font-weight:600;">Buy At</div>
-                    <div style="font-size:18px; font-weight:900; color:var(--green); margin-top:4px;">${gp(d.instaBuyAt || d.buyPrice)}</div>
+                    <div style="font-size:18px; font-weight:900; color:var(--green); margin-top:4px;">▲ ${gp(d.instaBuyAt || d.buyPrice)}</div>
                 </div>
                 <div style="flex:1; padding:10px 12px; text-align:center; border-right:1px solid rgba(255,255,255,0.05);">
                     <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px; font-weight:600;">Buy</div>
@@ -6078,18 +6230,18 @@ function renderSniperFeed() {
                 </div>
                 <div style="flex:1; padding:10px 12px; text-align:center;">
                     <div style="font-size:9px; text-transform:uppercase; color:var(--accent); letter-spacing:.5px; font-weight:600;">Sell For</div>
-                    <div style="font-size:18px; font-weight:900; color:var(--accent); margin-top:4px;">${gp(d.sellFor || d.sellPrice)}</div>
+                    <div style="font-size:18px; font-weight:900; color:var(--accent); margin-top:4px;">▼ ${gp(d.sellFor || d.sellPrice)}</div>
                 </div>
             </div>
             <div style="display:flex; gap:6px; margin-bottom:0;">
                 <div style="flex:2; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.25); border-radius:8px; padding:10px; text-align:center;">
                     <span style="font-size:11px; color:var(--text-muted);">Total Profit: </span>
-                    <span style="font-size:18px; font-weight:900; color:var(--green);">${gp(totalProfit)}</span>
+                    <span style="font-size:18px; font-weight:900; color:var(--green);">▲ ${gp(totalProfit)}</span>
                     ${d.buyLimit && d.buyLimit < vol4h ? `<span style="font-size:10px; color:var(--text-muted); margin-left:8px;">(GE limit: ${d.buyLimit.toLocaleString()})</span>` : ''}
                 </div>
                 <div style="flex:1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px; text-align:center;">
                     <div style="font-size:9px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px;">GP/Hour</div>
-                    <div style="font-size:14px; font-weight:800; color:var(--accent); margin-top:2px;">${gp(execInfo.gpPerHour)}</div>
+                    <div style="font-size:14px; font-weight:800; color:var(--accent); margin-top:2px;">▲ ${gp(execInfo.gpPerHour)}</div>
                 </div>
             </div>
         </div>`;
@@ -6198,9 +6350,9 @@ function renderTopFlips(force = false) {
             return `<tr onclick="openItemModal(${item.itemId})" style="cursor:pointer;" title="Click to view full analysis">
                 <td onclick="event.stopPropagation(); toggleFav(${item.itemId},event.target.closest('button'))"><button class="fav-btn ${state.watchlist.has(item.itemId)?'on':''}" data-id="${item.itemId}" onclick="toggleFav(${item.itemId},this)">★</button></td>
                 <td class="item-name-cell" style="max-width:300px;white-space:normal;"><span class="item-row-icon">${iconHtml(item.icon,item.name,32)}</span>${item.name}${intelHtml}</td>
-                <td><span class="verdict-pill ${v.cls}" title="${v.tip}">${v.text}</span></td>
-                <td style="font-size:16px; font-weight:800; color:var(--green);">${gp(item.buyPrice)}</td>
-                <td style="font-size:16px; font-weight:800; color:var(--red);">${gp(item.sellPrice)}</td>
+                <td><span class="verdict-pill ${v.cls}" title="${v.tip}">${shapePrefix(v.cls)}${v.text}</span></td>
+                <td style="font-size:16px; font-weight:800; color:var(--green);">▲ ${gp(item.buyPrice)}</td>
+                <td style="font-size:16px; font-weight:800; color:var(--red);">▼ ${gp(item.sellPrice)}</td>
                 <td class="price-gold" style="font-size:14px; font-weight:800;">${gp(item.margin)}</td>
                 <td style="font-size:12px; font-weight:700; color:${item.buyPrice > 0 && (item.margin/item.buyPrice*100) >= 5 ? 'var(--green)' : item.buyPrice > 0 && (item.margin/item.buyPrice*100) >= 2 ? 'var(--accent)' : 'var(--text-muted)'};">${item.buyPrice > 0 ? (item.margin/item.buyPrice*100).toFixed(1)+'%' : '—'}</td>
                 <td><canvas id="spark-${item.itemId}" width="80" height="28" style="vertical-align:middle;"></canvas></td>
@@ -6257,10 +6409,10 @@ function renderTopFlips(force = false) {
                     ${healthBadge}
                     <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
                     <div class="card-name">${item.name}</div>
-                    <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>${topIntel}
+                    <div class="card-jti"><span class="verdict-pill ${v.cls}">${shapePrefix(v.cls)}${v.text}</span></div>${topIntel}
                     <div class="card-prices" style="grid-template-columns:1fr 1fr;">
-                        <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:16px;font-weight:800;">${gp(item.buyPrice)}</div></div>
-                        <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:16px;font-weight:800;">${gp(item.sellPrice)}</div></div>
+                        <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:16px;font-weight:800;">▲ ${gp(item.buyPrice)}</div></div>
+                        <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:16px;font-weight:800;">▼ ${gp(item.sellPrice)}</div></div>
                     </div>
                     <div class="card-price-box" style="margin-bottom:6px;"><div class="card-price-label">Profit/Item</div><div class="price-gold" style="font-size:14px;font-weight:800;">${gp(item.margin)}</div></div>
                     <div class="card-profit" style="background:rgba(34,197,94,0.15); color:var(--green); border:1px solid rgba(34,197,94,0.3); font-size:16px;">${gp(rp)}<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;"> / 4h</span></div>
@@ -6289,12 +6441,12 @@ function renderDumpsPumps() {
         return `
         <div class="dp-item" style="flex-wrap:wrap; gap:6px;">
             <div class="dp-item-icon">${iconHtml(d.icon,d.name,32)}</div>
-            <div class="dp-item-name" style="min-width:100px;">${d.name}</div>
+            <div class="dp-item-name" style="min-width:100px;">▼ ${d.name}</div>
             <div style="display:flex; gap:6px; align-items:center; font-size:12px; margin-left:auto;">
-                <span style="color:var(--green); font-weight:700;">Buy ${gp(d.instaBuyAt || d.buyPrice)}</span>
+                <span style="color:var(--green); font-weight:700;">▲ Buy ${gp(d.instaBuyAt || d.buyPrice)}</span>
                 <span style="color:var(--text-muted);">→</span>
-                <span style="color:var(--accent); font-weight:700;">Sell ${gp(d.sellFor || d.sellPrice)}</span>
-                <span style="color:var(--green); font-weight:800; font-size:13px; background:rgba(34,197,94,0.1); padding:2px 8px; border-radius:6px;">+${gp(profit)}</span>
+                <span style="color:var(--accent); font-weight:700;">▼ Sell ${gp(d.sellFor || d.sellPrice)}</span>
+                <span style="color:var(--green); font-weight:800; font-size:13px; background:rgba(34,197,94,0.1); padding:2px 8px; border-radius:6px;">▲ +${gp(profit)}</span>
             </div>
         </div>
     `}).join('') : '<div class="empty-state" style="padding:20px;"><p>No dumps detected — scanning every 8s</p></div>';
@@ -6302,13 +6454,13 @@ function renderDumpsPumps() {
         return `
         <div class="dp-item">
             <div class="dp-item-icon">${iconHtml(p.icon,p.name,32)}</div>
-            <div class="dp-item-name">${p.name}</div>
+            <div class="dp-item-name">▲ ${p.name}</div>
             <div style="display:flex; gap:6px; align-items:center; font-size:12px; margin-left:auto;">
-                <span style="color:var(--green); font-weight:700;">${gp(p.buyPrice)}</span>
+                <span style="color:var(--green); font-weight:700;">▲ ${gp(p.buyPrice)}</span>
                 <span style="color:var(--text-muted);">→</span>
-                <span style="color:var(--accent); font-weight:700;">${gp(p.sellPrice)}</span>
+                <span style="color:var(--accent); font-weight:700;">▼ ${gp(p.sellPrice)}</span>
             </div>
-            <div class="dp-change pos" style="margin-left:10px; color:var(--green); font-weight:700;">${gp(p.sellPrice || 0)}</div>
+            <div class="dp-change pos" style="margin-left:10px; color:var(--green); font-weight:700;">▲ ${gp(p.sellPrice || 0)}</div>
         </div>
     `}).join('') : '<div class="empty-state" style="padding:20px;"><p>No pumps detected</p></div>';
 
@@ -6480,7 +6632,11 @@ function renderSpecial(cat, data, container) {
 // ============================================
 function toggleFav(id, btn) {
     if (state.watchlist.has(id)) state.watchlist.delete(id); else state.watchlist.add(id);
-    if (btn) btn.classList.toggle('on');
+    if (btn) {
+        btn.classList.toggle('on');
+        btn.classList.add('scale-pop');
+        setTimeout(() => btn.classList.remove('scale-pop'), 300);
+    }
     saveWatchlist();
     renderWatchlist();
 }
@@ -6646,13 +6802,13 @@ function openItemModal(itemId) {
     document.getElementById('modalIcon').innerHTML = iconHtml(item.icon, item.name, 56);
     document.getElementById('modalItemName').textContent = item.name;
     const verdict = getVerdict(item);
-    document.getElementById('modalSubtitle').innerHTML = `<span class="verdict-pill ${verdict.cls}">${verdict.text}</span> · ID: ${item.itemId}`;
+    document.getElementById('modalSubtitle').innerHTML = `<span class="verdict-pill ${verdict.cls}">${shapePrefix(verdict.cls)}${verdict.text}</span> · ID: ${item.itemId}`;
     // Prices
-    document.getElementById('modalBuy').textContent = gp(item.buyPrice);
-    document.getElementById('modalSell').textContent = gp(item.sellPrice);
+    document.getElementById('modalBuy').textContent = '▲ ' + gp(item.buyPrice);
+    document.getElementById('modalSell').textContent = '▼ ' + gp(item.sellPrice);
     const tax = Math.min(Math.floor((item.sellPrice || 0) * 0.02), 5000000);
     const profitPerItem = (item.margin || 0);
-    document.getElementById('modalProfit').textContent = gp(profitPerItem);
+    document.getElementById('modalProfit').textContent = arrowPrefix(profitPerItem) + gp(profitPerItem);
     document.getElementById('modalProfit').style.color = profitPerItem > 0 ? 'var(--green)' : 'var(--red)';
     // Large sparkline
     const snapshots = state.priceSnapshots[item.itemId];
@@ -7318,6 +7474,35 @@ function initTheme() {
     }
 }
 
+function toggleColorblindMode() {
+    const isEnabled = document.body.classList.toggle('colorblind-mode');
+    localStorage.setItem('colorblindMode', isEnabled ? 'on' : 'off');
+    const btn = document.getElementById('colorblindToggle');
+    btn.classList.toggle('active', isEnabled);
+    TOASTS.show('Accessibility', isEnabled ? 'Colorblind Mode ON (Blue/Orange)' : 'Colorblind Mode OFF', 'info', 2000);
+}
+
+function initColorblindMode() {
+    const colorblind = localStorage.getItem('colorblindMode') === 'on';
+    if (colorblind) {
+        document.body.classList.add('colorblind-mode');
+        const btn = document.getElementById('colorblindToggle');
+        btn.classList.add('active');
+    }
+}
+
+function dismissWelcome() {
+    document.getElementById('welcomeBanner').style.display = 'none';
+    localStorage.setItem('welcomeDismissed', 'true');
+}
+
+function initWelcomeBanner() {
+    const dismissed = localStorage.getItem('welcomeDismissed');
+    if (!dismissed) {
+        document.getElementById('welcomeBanner').style.display = 'flex';
+    }
+}
+
 // ============================================
 // HELP MODAL
 // ============================================
@@ -7400,6 +7585,8 @@ document.getElementById('itemModal').addEventListener('click', e => {
 // ============================================
 async function init() {
     initTheme();  // Initialize dark/light theme
+    initColorblindMode();  // Initialize colorblind mode
+    initWelcomeBanner();  // Show welcome banner if first visit
     await PRICE_DB.init();
     PRICE_DB.cleanup(30); // Clean entries older than 30 days on startup
     loadSettings();

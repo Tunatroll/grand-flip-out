@@ -12,7 +12,7 @@ from utils import (
     OSRS_GOLD, OSRS_GREEN, OSRS_RED,
     format_gp, format_gp_short, format_vol_per_hour,
     vol_per_hour, realistic_buys, realistic_4h_profit, get_verdict, VERDICT_EMOJI,
-    get_item_intelligence, ITEM_INTELLIGENCE
+    get_item_intelligence, ITEM_INTELLIGENCE, PaginatedView
 )
 
 
@@ -180,38 +180,42 @@ class Analysis(commands.Cog):
         # Sort by distance to floor (ascending)
         near_floor_items.sort(key=lambda x: x['pct'])
 
-        # Build embed
-        embed = discord.Embed(
-            title="🏛️ Items Near Floor Prices",
-            description=f"**{len(near_floor_items)}** items currently trading within 10% of known NPC buy prices",
-            color=OSRS_GOLD
-        )
-
-        for item in near_floor_items[:8]:
-            floor_distance = f"{item['pct']:+.1f}%" if item['pct'] != 0 else "AT FLOOR"
-            item_str = (
-                f"Current: **{format_gp(item['current'])}**\n"
-                f"Floor: **{format_gp(item['floor'])}** ({floor_distance})\n"
-                f"Margin: {format_gp(item['margin'])}\n"
-                f"_{item['reason']}_"
+        # Create paginated embeds (4 items per page)
+        pages = []
+        page_size = 4
+        for page_num in range(0, len(near_floor_items), page_size):
+            page_items = near_floor_items[page_num:page_num + page_size]
+            embed = discord.Embed(
+                title="🏛️ Items Near Floor Prices",
+                description=f"**{len(near_floor_items)}** items currently trading within 10% of known NPC buy prices",
+                color=OSRS_GOLD
             )
-            embed.add_field(
-                name=f"💰 {item['name']}",
-                value=item_str,
-                inline=False
-            )
+            embed.description += f"\nPage {len(pages) + 1}/{(len(near_floor_items) + page_size - 1) // page_size}"
 
-        if len(near_floor_items) > 8:
-            embed.add_field(
-                name="... and more",
-                value=f"**+{len(near_floor_items) - 8}** more items near floor. Run `/analyze` on any of them for details.",
-                inline=False
-            )
+            for item in page_items:
+                floor_distance = f"{item['pct']:+.1f}%" if item['pct'] != 0 else "AT FLOOR"
+                item_str = (
+                    f"Current: **{format_gp(item['current'])}**\n"
+                    f"Floor: **{format_gp(item['floor'])}** ({floor_distance})\n"
+                    f"Margin: {format_gp(item['margin'])}\n"
+                    f"_{item['reason']}_"
+                )
+                embed.add_field(
+                    name=f"💰 {item['name']}",
+                    value=item_str,
+                    inline=False
+                )
 
-        embed.set_footer(text="These items are currently trading near known NPC buy prices. See the data and decide for yourself.")
-        embed.timestamp = datetime.now()
+            embed.set_footer(text="These items are currently trading near known NPC buy prices. See the data and decide for yourself.")
+            embed.timestamp = datetime.now()
+            pages.append(embed)
 
-        await interaction.followup.send(embed=embed)
+        if len(pages) > 1:
+            view = PaginatedView(pages, interaction.user.id)
+        else:
+            view = None
+
+        await interaction.followup.send(embed=pages[0], view=view)
 
     @app_commands.command(name="calc", description="Calculate flip profit for an item with realistic market analysis")
     @app_commands.describe(item_name="Name of the item")

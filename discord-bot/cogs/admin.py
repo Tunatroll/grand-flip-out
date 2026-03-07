@@ -17,6 +17,118 @@ from utils import (
     vol_per_hour, realistic_buys, realistic_4h_profit, get_verdict, VERDICT_EMOJI
 )
 
+
+class HelpView(discord.ui.View):
+    """Interactive help menu with category selection"""
+    def __init__(self, timeout=300):
+        super().__init__(timeout=timeout)
+
+    @discord.ui.select(
+        placeholder="Choose a command category...",
+        options=[
+            discord.SelectOption(label="Market Data", description="/price, /top, /dumps, /compare, /hotlist", emoji="📊"),
+            discord.SelectOption(label="Analysis Tools", description="/analyze, /floors, /calc, /stats", emoji="🔍"),
+            discord.SelectOption(label="Trading Tools", description="/flip, /watchlist, /alert, /portfolio", emoji="💰"),
+            discord.SelectOption(label="Admin Commands", description="/setchannel, /help", emoji="⚙️"),
+        ]
+    )
+    async def category_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        category = select.values[0]
+
+        category_embeds = {
+            "Market Data": discord.Embed(
+                title="📊 Market Data Commands",
+                color=OSRS_GOLD,
+                description="Fetch live prices and market analysis"
+            ).add_field(
+                name="/price <item>",
+                value="Look up current buy/sell prices and profit margins for an item",
+                inline=False
+            ).add_field(
+                name="/top [sort] [limit]",
+                value="Show top flipping opportunities sorted by realistic profit, margin, or volume",
+                inline=False
+            ).add_field(
+                name="/dumps",
+                value="Show items with wide buy/sell spreads (dump opportunities)",
+                inline=False
+            ).add_field(
+                name="/compare <item1> <item2>",
+                value="Compare two items side-by-side with all metrics",
+                inline=False
+            ).add_field(
+                name="/hotlist",
+                value="See the most profitable items trading right now",
+                inline=False
+            ).set_footer(text="Use /price to get started!"),
+
+            "Analysis Tools": discord.Embed(
+                title="🔍 Analysis & Learning Commands",
+                color=OSRS_GOLD,
+                description="Understand supply/demand dynamics and make informed decisions"
+            ).add_field(
+                name="/analyze <item>",
+                value="Learn supply/demand drivers, price floors, and market psychology for an item",
+                inline=False
+            ).add_field(
+                name="/floors",
+                value="See items trading near known NPC buy prices (potential buy signals)",
+                inline=False
+            ).add_field(
+                name="/calc <item>",
+                value="Detailed flip profit analysis with volume, margins, and risk assessment",
+                inline=False
+            ).add_field(
+                name="/stats",
+                value="Market overview: profitable flips, trading volume, and bot statistics",
+                inline=False
+            ).set_footer(text="Educational analysis helps you flip smarter"),
+
+            "Trading Tools": discord.Embed(
+                title="💰 Trading Tools",
+                color=OSRS_GOLD,
+                description="Calculate, track, and automate your trading decisions"
+            ).add_field(
+                name="/flip <item> [qty] [buy] [sell]",
+                value="Calculate flip profit with custom quantities and prices",
+                inline=False
+            ).add_field(
+                name="/watchlist [add/remove/show] [item]",
+                value="Build a personal watchlist of items to flip",
+                inline=False
+            ).add_field(
+                name="/alert [add/remove/list] [item] [opts]",
+                value="Set price alerts to get notified when items meet your flip criteria",
+                inline=False
+            ).add_field(
+                name="/portfolio [add/view/remove] [item] [qty] [price]",
+                value="Track your active flip positions and P&L",
+                inline=False
+            ).set_footer(text="Automate your flipping workflow"),
+
+            "Admin Commands": discord.Embed(
+                title="⚙️ Admin Commands",
+                color=OSRS_GOLD,
+                description="Server management and bot configuration"
+            ).add_field(
+                name="/setchannel [set/clear]",
+                value="Configure a channel to receive daily market summaries (admin only)",
+                inline=False
+            ).add_field(
+                name="/help",
+                value="Show this command list with interactive navigation",
+                inline=False
+            ).set_footer(text="Admin commands require admin permissions"),
+        }
+
+        embed = category_embeds[category]
+        embed.timestamp = datetime.now()
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+
 # Market summary channel storage
 MARKET_SUMMARY_CHANNEL_FILE = 'market_summary_channel.json'
 
@@ -101,7 +213,7 @@ class Admin(commands.Cog):
 
     @app_commands.command(name="help", description="Show bot commands and features")
     async def help_command(self, interaction: discord.Interaction):
-        """Show help information"""
+        """Show help information with interactive menu"""
         await interaction.response.defer()
 
         embed = discord.Embed(
@@ -111,48 +223,25 @@ class Admin(commands.Cog):
             timestamp=datetime.now()
         )
 
-        # Market Commands
         embed.add_field(
             name="📊 Market Data",
-            value=(
-                "`/price <item>` — Look up item price and margins\n"
-                "`/top [sort] [limit]` — Top flips (realistic/margin/volume)\n"
-                "`/dumps` — Items with wide buy/sell spreads\n"
-                "`/compare <item1> <item2>` — Side-by-side item comparison\n"
-                "`/hotlist` — Most profitable items right now"
-            ),
-            inline=False
+            value="Price lookups and market analysis tools",
+            inline=True
         )
-
-        # Analysis Commands
         embed.add_field(
-            name="📚 Analysis & Learning",
-            value=(
-                "`/analyze <item>` — Understand supply/demand dynamics\n"
-                "`/floors` — Items trading near NPC buy prices\n"
-                "`/calc <item>` — Detailed flip profit analysis\n"
-                "`/stats` — Market statistics and overview"
-            ),
-            inline=False
+            name="🔍 Analysis Tools",
+            value="Learn supply/demand and make informed decisions",
+            inline=True
         )
-
-        # Trading Commands
         embed.add_field(
             name="💰 Trading Tools",
-            value=(
-                "`/flip <item> [qty] [buy] [sell]` — Calculate flip profit\n"
-                "`/watchlist [add/remove/show] [item]` — Manage watchlist\n"
-                "`/alert [add/remove/list] [item] [opts]` — Price alerts\n"
-                "`/portfolio [add/view/remove] [item] [qty] [price]` — Track positions"
-            ),
-            inline=False
+            value="Calculate, track, and automate your trades",
+            inline=True
         )
-
-        # Admin Commands
         embed.add_field(
-            name="⚙️ Admin",
-            value="`/setchannel [set/clear]` — Configure market summary channel (admin only)",
-            inline=False
+            name="⚙️ Admin Commands",
+            value="Server configuration and management",
+            inline=True
         )
 
         embed.add_field(
@@ -161,8 +250,10 @@ class Admin(commands.Cog):
             inline=False
         )
 
-        embed.set_footer(text="Grand Flip Out | Use /price <item> to get started")
-        await interaction.followup.send(embed=embed)
+        embed.set_footer(text="Grand Flip Out | Select a category below to learn more")
+
+        view = HelpView()
+        await interaction.followup.send(embed=embed, view=view)
 
     @tasks.loop(hours=24)
     async def post_market_summary(self):

@@ -267,3 +267,64 @@ def format_vol_per_hour(item_data):
 VERDICT_EMOJI = {
     "Great Flip": "🟢", "Good Flip": "🟡", "Decent": "🟠", "Slow": "🔴", "Dead": "⚫"
 }
+
+
+# ============================================
+# INTERACTIVE VIEWS FOR DISCORD UI
+# ============================================
+
+import discord
+
+class PaginatedView(discord.ui.View):
+    """Button-based pagination for list commands"""
+    def __init__(self, pages, author_id, timeout=120):
+        super().__init__(timeout=timeout)
+        self.pages = pages
+        self.current = 0
+        self.author_id = author_id
+
+    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            return await interaction.response.send_message("Not your command", ephemeral=True)
+        self.current = max(0, self.current - 1)
+        await interaction.response.edit_message(embed=self.pages[self.current], view=self)
+
+    @discord.ui.button(label="▶ Next", style=discord.ButtonStyle.secondary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            return await interaction.response.send_message("Not your command", ephemeral=True)
+        self.current = min(len(self.pages) - 1, self.current + 1)
+        await interaction.response.edit_message(embed=self.pages[self.current], view=self)
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+
+
+class ConfirmView(discord.ui.View):
+    """Confirmation buttons for destructive actions"""
+    def __init__(self, author_id, timeout=30):
+        super().__init__(timeout=timeout)
+        self.value = None
+        self.author_id = author_id
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            return await interaction.response.send_message("Not your command", ephemeral=True)
+        self.value = True
+        await interaction.response.defer()
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            return await interaction.response.send_message("Not your command", ephemeral=True)
+        self.value = False
+        await interaction.response.defer()
+        self.stop()
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True

@@ -14,7 +14,7 @@ from utils import (
     OSRS_GOLD, OSRS_GREEN, OSRS_RED, OSRS_BLUE,
     format_gp, format_gp_short, format_vol_per_hour,
     vol_per_hour, realistic_buys, realistic_4h_profit, get_verdict, VERDICT_EMOJI,
-    GE_TAX_RATE, GE_MAX_TAX
+    GE_TAX_RATE, GE_MAX_TAX, PaginatedView, ConfirmView
 )
 
 # File paths for data persistence
@@ -192,23 +192,37 @@ class Trading(commands.Cog):
                 await interaction.followup.send("Your watchlist is empty. Use `/watchlist add <item>` to add items!")
                 return
 
-            embed = discord.Embed(title=f"{interaction.user.name}'s Watchlist", color=OSRS_GOLD, timestamp=datetime.now())
-            for wn in wl[uid][:20]:
-                item = self.bot.wiki_client.find_item_by_name(wn)
-                if item:
-                    v = get_verdict(item)
-                    rp = realistic_4h_profit(item)
-                    embed.add_field(
-                        name=f"{VERDICT_EMOJI.get(v,'')} {wn}",
-                        value=(
-                            f"Buy: **{format_gp(item['buy_price'])}** → Sell: **{format_gp(item['sell_price'])}**\n"
-                            f"Profit: {format_gp(item['margin'])}/item → {format_gp(rp)}/4h\n"
-                            f"Vol: {format_vol_per_hour(item)}"
-                        ),
-                        inline=True
-                    )
-            embed.set_footer(text="Grand Flip Out")
-            await interaction.followup.send(embed=embed)
+            # Create paginated embeds (4 items per page)
+            pages = []
+            page_size = 4
+            for page_num in range(0, len(wl[uid]), page_size):
+                page_items = wl[uid][page_num:page_num + page_size]
+                embed = discord.Embed(title=f"{interaction.user.name}'s Watchlist", color=OSRS_GOLD, timestamp=datetime.now())
+                embed.description = f"Page {len(pages) + 1}/{(len(wl[uid]) + page_size - 1) // page_size}"
+
+                for wn in page_items:
+                    item = self.bot.wiki_client.find_item_by_name(wn)
+                    if item:
+                        v = get_verdict(item)
+                        rp = realistic_4h_profit(item)
+                        embed.add_field(
+                            name=f"{VERDICT_EMOJI.get(v,'')} {wn}",
+                            value=(
+                                f"Buy: **{format_gp(item['buy_price'])}** → Sell: **{format_gp(item['sell_price'])}**\n"
+                                f"Profit: {format_gp(item['margin'])}/item → {format_gp(rp)}/4h\n"
+                                f"Vol: {format_vol_per_hour(item)}"
+                            ),
+                            inline=True
+                        )
+                embed.set_footer(text="Grand Flip Out")
+                pages.append(embed)
+
+            if len(pages) > 1:
+                view = PaginatedView(pages, interaction.user.id)
+            else:
+                view = None
+
+            await interaction.followup.send(embed=pages[0], view=view)
 
         elif action == "add":
             if not item_name:
@@ -283,22 +297,36 @@ class Trading(commands.Cog):
                 await interaction.followup.send("You don't have any alerts set. Use `/alert add` to create one!")
                 return
 
-            embed = discord.Embed(title=f"{interaction.user.name}'s Price Alerts", color=OSRS_BLUE, timestamp=datetime.now())
-            for idx, alert in enumerate(alerts[uid], 1):
-                item_name = alert.get('item_name', 'Unknown')
-                margin = alert.get('margin_pct', 2)
-                min_p = alert.get('min_profit', 100000)
-                min_v = alert.get('min_volume', 5000)
-                target_p = alert.get('target_price', 0)
-                enabled = "✓" if alert.get('enabled', True) else "✗"
+            # Create paginated embeds (4 alerts per page)
+            pages = []
+            page_size = 4
+            for page_num in range(0, len(alerts[uid]), page_size):
+                page_items = alerts[uid][page_num:page_num + page_size]
+                embed = discord.Embed(title=f"{interaction.user.name}'s Price Alerts", color=OSRS_BLUE, timestamp=datetime.now())
+                embed.description = f"Page {len(pages) + 1}/{(len(alerts[uid]) + page_size - 1) // page_size}"
 
-                conditions = f"Margin ≥ {margin}% | Profit ≥ {format_gp(min_p)} | Volume ≥ {min_v:,}/day"
-                if target_p > 0:
-                    conditions += f" | Alert if below {format_gp(target_p)}"
-                embed.add_field(name=f"{idx}. {enabled} {item_name}", value=conditions, inline=False)
+                for idx, alert in enumerate(page_items, page_num + 1):
+                    item_name = alert.get('item_name', 'Unknown')
+                    margin = alert.get('margin_pct', 2)
+                    min_p = alert.get('min_profit', 100000)
+                    min_v = alert.get('min_volume', 5000)
+                    target_p = alert.get('target_price', 0)
+                    enabled = "✓" if alert.get('enabled', True) else "✗"
 
-            embed.set_footer(text="Use /alert remove <item> to delete")
-            await interaction.followup.send(embed=embed)
+                    conditions = f"Margin ≥ {margin}% | Profit ≥ {format_gp(min_p)} | Volume ≥ {min_v:,}/day"
+                    if target_p > 0:
+                        conditions += f" | Alert if below {format_gp(target_p)}"
+                    embed.add_field(name=f"{idx}. {enabled} {item_name}", value=conditions, inline=False)
+
+                embed.set_footer(text="Use /alert remove <item> to delete")
+                pages.append(embed)
+
+            if len(pages) > 1:
+                view = PaginatedView(pages, interaction.user.id)
+            else:
+                view = None
+
+            await interaction.followup.send(embed=pages[0], view=view)
 
         elif action == "add":
             if not item:
@@ -348,14 +376,27 @@ class Trading(commands.Cog):
                 return
 
             item_id = item_data['id']
-            initial_count = len(alerts[uid])
-            alerts[uid] = [a for a in alerts[uid] if a.get('item_id') != item_id]
+            has_alert = any(a.get('item_id') == item_id for a in alerts[uid])
 
-            if len(alerts[uid]) < initial_count:
-                save_user_alerts(alerts)
-                await interaction.followup.send(f"Removed alert for **{item_data['name']}**.")
-            else:
+            if not has_alert:
                 await interaction.followup.send(f"You don't have an alert for **{item_data['name']}**.")
+                return
+
+            # Confirmation view
+            view = ConfirmView(interaction.user.id)
+            await interaction.followup.send(f"Are you sure you want to remove the alert for **{item_data['name']}**?", view=view)
+
+            try:
+                await asyncio.wait_for(view.wait(), timeout=30.0)
+            except asyncio.TimeoutError:
+                return
+
+            if view.value:
+                alerts[uid] = [a for a in alerts[uid] if a.get('item_id') != item_id]
+                save_user_alerts(alerts)
+                await interaction.followup.send(f"✅ Removed alert for **{item_data['name']}**.")
+            else:
+                await interaction.followup.send("Cancelled.")
 
         else:
             await interaction.followup.send("Use 'add', 'remove', or 'list'.")
@@ -391,45 +432,69 @@ class Trading(commands.Cog):
                 await interaction.followup.send("Your portfolio is empty. Use `/portfolio add` to track positions!")
                 return
 
-            embed = discord.Embed(title=f"{interaction.user.name}'s Portfolio", color=OSRS_GOLD, timestamp=datetime.now())
+            # Create paginated embeds (3 positions per page)
+            pages = []
+            page_size = 3
             total_invested = 0
             total_current = 0
 
+            # Calculate totals
             for pos in portfolios[uid]:
                 item_id = pos.get('item_id')
-                item_name = pos.get('item_name', 'Unknown')
                 qty = pos.get('quantity', 0)
                 buy_p = pos.get('buy_price', 0)
-
                 item_data = self.bot.wiki_client._build_item_data(item_id)
                 current_p = item_data.get('sell_price', 0) if item_data else 0
-
                 invested = buy_p * qty
                 current_val = current_p * qty
-                pnl = current_val - invested
-
                 total_invested += invested
                 total_current += current_val
 
-                pnl_pct = (pnl / invested * 100) if invested > 0 else 0
-                pnl_emoji = "🟢" if pnl > 0 else "🔴" if pnl < 0 else "⚪"
+            for page_num in range(0, len(portfolios[uid]), page_size):
+                page_items = portfolios[uid][page_num:page_num + page_size]
+                embed = discord.Embed(title=f"{interaction.user.name}'s Portfolio", color=OSRS_GOLD, timestamp=datetime.now())
+                embed.description = f"Page {len(pages) + 1}/{(len(portfolios[uid]) + page_size - 1) // page_size}"
 
-                embed.add_field(
-                    name=f"{pnl_emoji} {item_name} x{qty:,}",
-                    value=f"Bought: {format_gp(buy_p)}/ea → Current: {format_gp(current_p)}/ea\nP&L: {format_gp(pnl)} ({pnl_pct:+.1f}%)",
-                    inline=False
-                )
+                for pos in page_items:
+                    item_id = pos.get('item_id')
+                    item_name = pos.get('item_name', 'Unknown')
+                    qty = pos.get('quantity', 0)
+                    buy_p = pos.get('buy_price', 0)
 
+                    item_data = self.bot.wiki_client._build_item_data(item_id)
+                    current_p = item_data.get('sell_price', 0) if item_data else 0
+
+                    invested = buy_p * qty
+                    current_val = current_p * qty
+                    pnl = current_val - invested
+
+                    pnl_pct = (pnl / invested * 100) if invested > 0 else 0
+                    pnl_emoji = "🟢" if pnl > 0 else "🔴" if pnl < 0 else "⚪"
+
+                    embed.add_field(
+                        name=f"{pnl_emoji} {item_name} x{qty:,}",
+                        value=f"Bought: {format_gp(buy_p)}/ea → Current: {format_gp(current_p)}/ea\nP&L: {format_gp(pnl)} ({pnl_pct:+.1f}%)",
+                        inline=False
+                    )
+
+                pages.append(embed)
+
+            # Add summary to last page
             total_pnl = total_current - total_invested
             total_pnl_pct = (total_pnl / total_invested * 100) if total_invested > 0 else 0
-            embed.add_field(
+            pages[-1].add_field(
                 name="Portfolio Summary",
                 value=f"Invested: {format_gp(total_invested)}\nCurrent: {format_gp(total_current)}\nTotal P&L: {format_gp(total_pnl)} ({total_pnl_pct:+.1f}%)",
                 inline=False
             )
+            pages[-1].set_footer(text="Grand Flip Out | Portfolio Tracker")
 
-            embed.set_footer(text="Grand Flip Out | Portfolio Tracker")
-            await interaction.followup.send(embed=embed)
+            if len(pages) > 1:
+                view = PaginatedView(pages, interaction.user.id)
+            else:
+                view = None
+
+            await interaction.followup.send(embed=pages[0], view=view)
 
         elif action == "add":
             if not all([item, quantity, buy_price]):
@@ -461,13 +526,25 @@ class Trading(commands.Cog):
                 await interaction.followup.send(f"Couldn't find '{item}'.")
                 return
 
-            initial_count = len(portfolios[uid])
-            portfolios[uid] = [p for p in portfolios[uid] if p.get('item_id') != item_data['id']]
-
-            if len(portfolios[uid]) < initial_count:
-                await interaction.followup.send(f"Removed **{item_data['name']}** from portfolio")
-            else:
+            has_position = any(p.get('item_id') == item_data['id'] for p in portfolios[uid])
+            if not has_position:
                 await interaction.followup.send(f"**{item_data['name']}** not in portfolio")
+                return
+
+            # Confirmation view
+            view = ConfirmView(interaction.user.id)
+            await interaction.followup.send(f"Are you sure you want to remove **{item_data['name']}** from your portfolio?", view=view)
+
+            try:
+                await asyncio.wait_for(view.wait(), timeout=30.0)
+            except asyncio.TimeoutError:
+                return
+
+            if view.value:
+                portfolios[uid] = [p for p in portfolios[uid] if p.get('item_id') != item_data['id']]
+                await interaction.followup.send(f"✅ Removed **{item_data['name']}** from portfolio")
+            else:
+                await interaction.followup.send("Cancelled.")
 
         else:
             await interaction.followup.send("Use 'add', 'view', or 'remove'.")
