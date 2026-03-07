@@ -98,7 +98,20 @@ public class GrandFlipOutOverlay extends Overlay
             .build());
 
         long profit = flipTracker.getSessionProfit().get();
-        Color profitColor = profit >= 0 ? Color.GREEN : Color.RED;
+        // Color coding: green for profit, orange for break-even, red for loss
+        Color profitColor;
+        if (profit > 0)
+        {
+            profitColor = Color.GREEN;
+        }
+        else if (profit == 0)
+        {
+            profitColor = new Color(0xFF, 0xA5, 0x00); // Orange
+        }
+        else
+        {
+            profitColor = Color.RED;
+        }
 
         panelComponent.getChildren().add(LineComponent.builder()
             .left("Session Profit:")
@@ -112,10 +125,31 @@ public class GrandFlipOutOverlay extends Overlay
             .build());
 
         double avg = flipTracker.getAverageProfitPerFlip();
+        Color avgColor;
+        if (avg > 0)
+        {
+            avgColor = Color.GREEN;
+        }
+        else if (avg == 0)
+        {
+            avgColor = new Color(0xFF, 0xA5, 0x00); // Orange
+        }
+        else
+        {
+            avgColor = Color.RED;
+        }
+
         panelComponent.getChildren().add(LineComponent.builder()
             .left("Avg/Flip:")
             .right(formatGp((long) avg))
-            .rightColor(avg >= 0 ? Color.GREEN : Color.RED)
+            .rightColor(avgColor)
+            .build());
+
+        // Show current margin clearly
+        panelComponent.getChildren().add(LineComponent.builder()
+            .left("Margin ROI:")
+            .right(String.format("%.1f%%", flipTracker.getAverageProfitPerFlip() > 0 ?
+                (flipTracker.getAverageProfitPerFlip() / Math.max(1, flipTracker.getSessionFlipCount().get())) : 0))
             .build());
 
         // Show active flips count
@@ -156,10 +190,24 @@ public class GrandFlipOutOverlay extends Overlay
                 .build());
 
             long margin = agg.getConsensusMargin();
+            Color marginColor;
+            if (margin > 0)
+            {
+                marginColor = Color.GREEN;
+            }
+            else if (margin == 0)
+            {
+                marginColor = new Color(0xFF, 0xA5, 0x00); // Orange for break-even
+            }
+            else
+            {
+                marginColor = Color.RED;
+            }
+
             panelComponent.getChildren().add(LineComponent.builder()
                 .left("  Margin:")
                 .right(formatGp(margin))
-                .rightColor(margin > 0 ? Color.GREEN : Color.RED)
+                .rightColor(marginColor)
                 .build());
 
             if (config.overlayShowVolume())
@@ -170,16 +218,30 @@ public class GrandFlipOutOverlay extends Overlay
                     .build());
             }
 
-            // Expected profit for this flip
+            // Expected profit for this flip with color coding
             long expectedSell = agg.getBestHighPrice();
             long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity();
             long tax = Math.min((long) (expectedSell * 0.02), 5_000_000L) * flip.getQuantity();
             expectedProfit -= tax;
 
+            Color profitColor;
+            if (expectedProfit > 0)
+            {
+                profitColor = Color.GREEN;
+            }
+            else if (expectedProfit == 0)
+            {
+                profitColor = new Color(0xFF, 0xA5, 0x00); // Orange
+            }
+            else
+            {
+                profitColor = Color.RED;
+            }
+
             panelComponent.getChildren().add(LineComponent.builder()
                 .left("  Exp. Profit:")
                 .right(formatGp(expectedProfit))
-                .rightColor(expectedProfit >= 0 ? Color.GREEN : Color.RED)
+                .rightColor(profitColor)
                 .build());
         }
     }

@@ -139,9 +139,13 @@ public class GrandFlipOutPanel extends PluginPanel
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
+        // Top panel: search and filters
+        JPanel topPanel = new JPanel(new BorderLayout(5, 5));
+        topPanel.setBorder(new EmptyBorder(8, 8, 4, 8));
+        topPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
         // Search bar
         JPanel searchPanel = new JPanel(new BorderLayout(5, 0));
-        searchPanel.setBorder(new EmptyBorder(8, 8, 8, 8));
         searchPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
         searchField = new JTextField();
@@ -153,7 +157,27 @@ public class GrandFlipOutPanel extends PluginPanel
         searchBtn.addActionListener(e -> searchItems());
         searchPanel.add(searchBtn, BorderLayout.EAST);
 
-        panel.add(searchPanel, BorderLayout.NORTH);
+        topPanel.add(searchPanel, BorderLayout.CENTER);
+
+        // Category filter buttons
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
+        filterPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        String[] categories = {"All", "Weapons", "Armor", "Consumables", "Resources"};
+        for (String cat : categories)
+        {
+            JButton catBtn = new JButton(cat);
+            catBtn.setFont(catBtn.getFont().deriveFont(10f));
+            catBtn.addActionListener(e -> {
+                searchField.setText("");
+                // TODO: Filter by category
+                searchItems();
+            });
+            filterPanel.add(catBtn);
+        }
+
+        topPanel.add(filterPanel, BorderLayout.SOUTH);
+        panel.add(topPanel, BorderLayout.NORTH);
 
         // Results
         priceResultsPanel = new JPanel();
@@ -610,6 +634,11 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             FlipSuggestionEngine.FlipSuggestion s = suggestions.get(i);
             JPanel card = buildSuggestionCard(s, i + 1);
+            // Alternating row colors for readability
+            if (i % 2 == 0)
+            {
+                card.setBackground(new Color(50, 50, 50));
+            }
             suggestionsPanel.add(card);
             suggestionsPanel.add(Box.createVerticalStrut(4));
         }
@@ -661,6 +690,11 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             com.fliphelper.model.FlipItem flip = completed.get(i);
             JPanel card = buildHistoryCard(flip);
+            // Alternating row colors
+            if (i % 2 == 0)
+            {
+                card.setBackground(new Color(50, 50, 50));
+            }
             historyPanel.add(card);
             historyPanel.add(Box.createVerticalStrut(2));
         }
@@ -820,6 +854,11 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             PriceAggregate agg = results.get(i);
             JPanel card = buildPriceCard(agg);
+            // Alternating row colors for better readability
+            if (i % 2 == 0)
+            {
+                card.setBackground(new Color(50, 50, 50));
+            }
             priceResultsPanel.add(card);
             priceResultsPanel.add(Box.createVerticalStrut(4));
         }

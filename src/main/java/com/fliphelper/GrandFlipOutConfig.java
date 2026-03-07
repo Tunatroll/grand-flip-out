@@ -105,7 +105,7 @@ public interface GrandFlipOutConfig extends Config
     @Range(min = 60, max = 600)
     default int priceRefreshInterval()
     {
-        return 120;
+        return 60;
     }
 
     @ConfigItem(
@@ -562,6 +562,87 @@ public interface GrandFlipOutConfig extends Config
     default SuggestionSort suggestionSortBy()
     {
         return SuggestionSort.PROFIT_PER_LIMIT;
+    }
+
+    @ConfigItem(
+        keyName = "minProfitThreshold",
+        name = "Min Profit Threshold (gp)",
+        description = "Only show suggestions with profit per item above this amount",
+        section = suggestionsSection,
+        position = 5
+    )
+    @Range(min = 1, max = 1000000)
+    default int minProfitThreshold()
+    {
+        return 1000;
+    }
+
+    // ==================== NOTIFICATIONS ====================
+
+    @ConfigSection(
+        name = "Notifications",
+        description = "Configure notification preferences",
+        position = 8
+    )
+    String notificationsSection = "notifications";
+
+    @ConfigItem(
+        keyName = "enableSoundAlerts",
+        name = "Enable Sound Alerts",
+        description = "Play a sound for dump alerts and price notifications",
+        section = notificationsSection,
+        position = 0
+    )
+    default boolean enableSoundAlerts()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "notifyDumpDetection",
+        name = "Notify on Dump Detection",
+        description = "Send chat notification when a dump is detected",
+        section = notificationsSection,
+        position = 1
+    )
+    default boolean notifyDumpDetection()
+    {
+        return true;
+    }
+
+    // ==================== OVERLAY POSITION ====================
+
+    @ConfigItem(
+        keyName = "overlayPosition",
+        name = "Overlay Position",
+        description = "Where to display the overlay (TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT)",
+        section = overlaySection,
+        position = 4
+    )
+    default OverlayPositionType overlayPosition()
+    {
+        return OverlayPositionType.TOP_LEFT;
+    }
+
+    enum OverlayPositionType
+    {
+        TOP_LEFT("Top Left"),
+        TOP_RIGHT("Top Right"),
+        BOTTOM_LEFT("Bottom Left"),
+        BOTTOM_RIGHT("Bottom Right");
+
+        private final String displayName;
+
+        OverlayPositionType(String displayName)
+        {
+            this.displayName = displayName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return displayName;
+        }
     }
 
     enum SuggestionSort
