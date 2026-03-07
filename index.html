@@ -501,6 +501,14 @@
                 <canvas id="chartScatter"></canvas>
             </div>
         </div>
+
+        <!-- Quick Picks -->
+        <div class="chart-box" style="margin-top:16px;">
+            <h3>⚡ Quick Picks — Best Flips Right Now</h3>
+            <div id="quickPicksGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; margin-top:10px;">
+                <div style="padding:20px; text-align:center; color:var(--text-muted);">Loading...</div>
+            </div>
+        </div>
     </div>
 
     <!-- ===== TOP FLIPS TAB ===== -->
@@ -557,6 +565,7 @@
                         <th class="tooltip" data-tip="Instant buy (offer) price">Buy</th>
                         <th class="tooltip" data-tip="Instant sell (offer) price">Sell</th>
                         <th class="tooltip" data-tip="Your profit per item (tax already included)">Profit/Item</th>
+                        <th class="tooltip" data-tip="Return on investment per flip">ROI</th>
                         <th class="tooltip" data-tip="Recent price trend (sparkline)">Trend</th>
                         <th class="tooltip" data-tip="Estimated trades per hour">Vol/hr</th>
                         <th class="tooltip" data-tip="Realistic total profit in 4 hours">Est. 4h Profit</th>
@@ -690,15 +699,19 @@
             <div class="cmd-grid">
                 <div class="cmd-card"><div class="cmd-name">/price [item]</div><div class="cmd-desc">Look up live price &amp; profit margins</div></div>
                 <div class="cmd-card"><div class="cmd-name">/top [sort] [limit]</div><div class="cmd-desc">Best items by profit, margin, or volume</div></div>
+                <div class="cmd-card"><div class="cmd-name">/flip [item] [qty]</div><div class="cmd-desc">Calculate flip profit with tax, ROI &amp; GP/hr</div></div>
+                <div class="cmd-card"><div class="cmd-name">/hotlist</div><div class="cmd-desc">Top 10 most profitable flips right now</div></div>
+                <div class="cmd-card"><div class="cmd-name">/suggest [capital]</div><div class="cmd-desc">Personalized flip picks for your budget</div></div>
+                <div class="cmd-card"><div class="cmd-name">/tax [item/price]</div><div class="cmd-desc">Calculate GE tax (supports k/m)</div></div>
                 <div class="cmd-card"><div class="cmd-name">/dumps</div><div class="cmd-desc">Best buy-low opportunities right now</div></div>
                 <div class="cmd-card"><div class="cmd-name">/pumps</div><div class="cmd-desc">Items with unusual buy pressure</div></div>
                 <div class="cmd-card"><div class="cmd-name">/analyze [item]</div><div class="cmd-desc">Full flip analysis with realistic profit</div></div>
                 <div class="cmd-card"><div class="cmd-name">/recipe</div><div class="cmd-desc">Profitable processing recipes</div></div>
                 <div class="cmd-card"><div class="cmd-name">/watchlist</div><div class="cmd-desc">Manage your personal watchlist</div></div>
+                <div class="cmd-card"><div class="cmd-name">/alert [item] [price]</div><div class="cmd-desc">Set price alerts — get DM'd when triggered</div></div>
                 <div class="cmd-card"><div class="cmd-name">/compare [a] [b]</div><div class="cmd-desc">Side-by-side item comparison</div></div>
                 <div class="cmd-card"><div class="cmd-name">/market</div><div class="cmd-desc">Overall GE market summary</div></div>
                 <div class="cmd-card"><div class="cmd-name">/sinks</div><div class="cmd-desc">GP sink items (high sell vol)</div></div>
-                <div class="cmd-card"><div class="cmd-name">/invite</div><div class="cmd-desc">Get the bot invite link</div></div>
                 <div class="cmd-card"><div class="cmd-name">/setup</div><div class="cmd-desc">Bot info, status &amp; all commands</div></div>
             </div>
         </div>
@@ -4089,6 +4102,31 @@ function renderDashboard() {
     document.getElementById('statDumps').textContent = state.dumps.length;
     document.getElementById('statPumps').textContent = state.pumps.length;
     renderCharts();
+    renderQuickPicks();
+}
+
+function renderQuickPicks() {
+    const grid = document.getElementById('quickPicksGrid');
+    if (!grid) return;
+    const top5 = state.allItems.slice(0, 5);
+    if (top5.length === 0) { grid.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted); grid-column:1/-1;">Waiting for data...</div>'; return; }
+    grid.innerHTML = top5.map((item, i) => {
+        const rp = realistic4hProfit(item);
+        const v = getVerdict(item);
+        const roi = item.buyPrice > 0 ? (item.margin / item.buyPrice * 100).toFixed(1) : '0';
+        return `<div style="background:var(--bg-surface); border:1px solid ${i === 0 ? 'var(--accent)' : 'var(--border)'}; border-radius:var(--radius); padding:14px; cursor:pointer; transition:all .2s;" onclick="openItemModal(${item.itemId})" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='${i === 0 ? 'var(--accent)' : 'var(--border)'}';this.style.transform='none'">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span class="item-row-icon" style="width:28px;height:28px;">${iconHtml(item.icon, item.name, 28)}</span>
+                <span style="font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${item.name}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+                <span class="verdict-pill ${v.cls}" style="font-size:10px;padding:2px 8px;">${v.text}</span>
+                <span style="font-size:11px;color:var(--text-muted);">ROI ${roi}%</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Buy: <span class="price-green">${gp(item.buyPrice)}</span> → Sell: <span style="color:var(--accent);font-weight:700;">${gp(item.sellPrice)}</span></div>
+            <div style="font-size:16px;font-weight:800;color:var(--green);">${gp(rp)}<span style="font-size:10px;font-weight:400;color:var(--text-muted);"> / 4h</span></div>
+        </div>`;
+    }).join('');
 }
 
 function renderCharts() {
@@ -4473,11 +4511,12 @@ function renderTopFlips(force = false) {
                 <td style="font-size:16px; font-weight:800; color:var(--green);">${gp(item.buyPrice)}</td>
                 <td style="font-size:16px; font-weight:800; color:var(--red);">${gp(item.sellPrice)}</td>
                 <td class="price-gold" style="font-size:14px; font-weight:800;">${gp(item.margin)}</td>
+                <td style="font-size:12px; font-weight:700; color:${item.buyPrice > 0 && (item.margin/item.buyPrice*100) >= 5 ? 'var(--green)' : item.buyPrice > 0 && (item.margin/item.buyPrice*100) >= 2 ? 'var(--accent)' : 'var(--text-muted)'};">${item.buyPrice > 0 ? (item.margin/item.buyPrice*100).toFixed(1)+'%' : '—'}</td>
                 <td><canvas id="spark-${item.itemId}" width="80" height="28" style="vertical-align:middle;"></canvas></td>
                 <td><span class="vol-context">${formatVolPerHour(item)}</span></td>
                 <td class="price-hero">${gp(rp)}${volumeLimited ? '<br><span class="capped-warning">vol limited (~' + rb.toLocaleString() + ' avail)</span>' : ''}</td>
             </tr>`;
-        }).join('') : '<tr><td colspan="9" class="empty-state">No items found</td></tr>';
+        }).join('') : '<tr><td colspan="10" class="empty-state">No items found</td></tr>';
 
         // Draw sparklines after DOM update
         requestAnimationFrame(() => {
@@ -4857,7 +4896,7 @@ const SESSION = {
 let _modalItemData = null;
 
 function openItemModal(itemId) {
-    const item = state.allItems.find(i => String(i.id) === String(itemId));
+    const item = state.allItems.find(i => String(i.itemId) === String(itemId));
     if (!item) return;
     _modalItemData = item;
     const modal = document.getElementById('itemModal');
@@ -4865,7 +4904,7 @@ function openItemModal(itemId) {
     document.getElementById('modalIcon').innerHTML = iconHtml(item.icon, item.name, 56);
     document.getElementById('modalItemName').textContent = item.name;
     const verdict = getVerdict(item);
-    document.getElementById('modalSubtitle').innerHTML = `<span class="verdict-pill ${verdict.cls}">${verdict.text}</span> · ID: ${item.id}`;
+    document.getElementById('modalSubtitle').innerHTML = `<span class="verdict-pill ${verdict.cls}">${verdict.text}</span> · ID: ${item.itemId}`;
     // Prices
     document.getElementById('modalBuy').textContent = gp(item.buyPrice);
     document.getElementById('modalSell').textContent = gp(item.sellPrice);
@@ -4874,7 +4913,7 @@ function openItemModal(itemId) {
     document.getElementById('modalProfit').textContent = gp(profitPerItem);
     document.getElementById('modalProfit').style.color = profitPerItem > 0 ? 'var(--green)' : 'var(--red)';
     // Large sparkline
-    const snapshots = state.priceSnapshots[item.id];
+    const snapshots = state.priceSnapshots[item.itemId];
     if (snapshots && snapshots.length > 1) {
         setTimeout(() => drawSparkline('modalSparkline', snapshots), 50);
         document.getElementById('modalSparkline').style.display = '';
@@ -4898,17 +4937,17 @@ function openItemModal(itemId) {
         statsHtml += `<div class="modal-stat"><div class="modal-stat-label">GP/Hour</div><div class="modal-stat-value" style="color:var(--accent)">${gp(exec.gpPerHour || 0)}/hr</div></div>`;
     }
     // Alch profit if available
-    if (typeof ALCH_CALC !== 'undefined' && item.id) {
-        const alch = ALCH_CALC.getProfit(item.id);
+    if (typeof ALCH_CALC !== 'undefined') {
+        const alch = ALCH_CALC.getAlchProfit(item);
         if (alch && alch.profit !== 0) {
-            statsHtml += `<div class="modal-stat"><div class="modal-stat-label">High Alch Profit</div><div class="modal-stat-value" style="color:${alch.profit > 0 ? 'var(--green)' : 'var(--red)'}">${gp(alch.profit)}</div></div>`;
+            statsHtml += `<div class="modal-stat"><div class="modal-stat-label">High Alch Profit</div><div class="modal-stat-value" style="color:${alch.profit > 0 ? 'var(--green)' : 'var(--red)'}">${gp(alch.profit)}${alch.betterThanFlip ? ' <span style="font-size:9px;color:var(--accent);">ALCH BETTER</span>' : ''}</div></div>`;
         }
     }
     document.getElementById('modalStats').innerHTML = statsHtml;
     // Intel
     let intelHtml = '';
     if (typeof MARKET_INTEL !== 'undefined') {
-        const intel = MARKET_INTEL.getIntel(item.id, item.name, item);
+        const intel = MARKET_INTEL.getIntel(item);
         if (intel && intel.length > 0) {
             intelHtml = intel.map(i => `<span class="intel-badge ${i.type || ''}" title="${i.detail || ''}">${i.icon || '📊'} ${i.text}</span>`).join('');
         }
@@ -4927,7 +4966,7 @@ function closeItemModal() {
 
 function toggleWatchlistFromModal() {
     if (!_modalItemData) return;
-    const id = _modalItemData.id;
+    const id = _modalItemData.itemId;
     if (state.watchlist.has(id)) state.watchlist.delete(id); else state.watchlist.add(id);
     saveWatchlist();
     renderWatchlist();

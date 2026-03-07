@@ -1348,7 +1348,7 @@ async def flip_command(interaction: discord.Interaction, item_name: str, quantit
 
     bp = buy_price or data['buy_price']
     sp = sell_price or data['sell_price']
-    buy_limit = data.get('buy_limit', 0) or 100
+    buy_limit = data.get('ge_limit', 0) or 100
     qty = quantity or buy_limit
 
     # GE tax: 2% of sell price, capped at 5M per item
@@ -1360,7 +1360,7 @@ async def flip_command(interaction: discord.Interaction, item_name: str, quantit
 
     # Estimate fill time based on volume
     vol_per_hour = 0
-    vols = api_client.volume_data.get(str(item['id']), {})
+    vols = api_client.volume_data.get(item['id'], {})
     total_vol = (vols.get('buyVol', 0) or 0) + (vols.get('sellVol', 0) or 0)
     vol_per_hour = total_vol * 12  # 5min sample × 12
 
@@ -1374,7 +1374,7 @@ async def flip_command(interaction: discord.Interaction, item_name: str, quantit
 
     color = OSRS_GREEN if profit_per_item > 0 else OSRS_RED
     embed = discord.Embed(title=f"Flip Calculator — {item['name']}", color=color)
-    embed.set_thumbnail(url=api_client.get_item_icon_url(item['id']))
+    embed.set_thumbnail(url=get_item_icon_url(item['id'], item.get('name', '')))
     embed.add_field(name="Buy Price", value=f"{bp:,} gp", inline=True)
     embed.add_field(name="Sell Price", value=f"{sp:,} gp", inline=True)
     embed.add_field(name="GE Tax", value=f"{tax_per_item:,} gp/ea", inline=True)
@@ -1443,7 +1443,7 @@ async def tax_command(interaction: discord.Interaction, item_name: str, quantity
     profit_after = (sp - tax_per) * qty
 
     embed = discord.Embed(title=f"GE Tax — {item['name']}", color=OSRS_GOLD)
-    embed.set_thumbnail(url=api_client.get_item_icon_url(item['id']))
+    embed.set_thumbnail(url=get_item_icon_url(item['id'], item.get('name', '')))
     embed.add_field(name="Sell Price", value=f"{sp:,} gp", inline=True)
     embed.add_field(name="Tax/Item", value=f"{tax_per:,} gp (2%)", inline=True)
     embed.add_field(name="Quantity", value=f"{qty:,}", inline=True)
@@ -1467,8 +1467,7 @@ async def hotlist_command(interaction: discord.Interaction):
 
     # Build item list with profit calculations
     hot_items = []
-    for item_id_str, prices in api_client.latest_prices.items():
-        item_id = int(item_id_str)
+    for item_id, prices in api_client.latest_prices.items():
         info = api_client.item_mapping.get(item_id)
         if not info:
             continue
@@ -1482,7 +1481,7 @@ async def hotlist_command(interaction: discord.Interaction):
             continue
 
         # Volume check
-        vols = api_client.volume_data.get(item_id_str, {})
+        vols = api_client.volume_data.get(item_id, {})
         total_vol = (vols.get('buyVol', 0) or 0) + (vols.get('sellVol', 0) or 0)
         vol_per_hour = total_vol * 12
 
@@ -1552,8 +1551,7 @@ async def suggest_command(interaction: discord.Interaction, capital: str):
 
     # Build item list with profit calculations
     suggestions = []
-    for item_id_str, prices in api_client.latest_prices.items():
-        item_id = int(item_id_str)
+    for item_id, prices in api_client.latest_prices.items():
         info = api_client.item_mapping.get(item_id)
         if not info:
             continue
@@ -1573,7 +1571,7 @@ async def suggest_command(interaction: discord.Interaction, capital: str):
         if spread_pct < 2:  # Min 2% spread after tax to be worth it
             continue
 
-        vols = api_client.volume_data.get(item_id_str, {})
+        vols = api_client.volume_data.get(item_id, {})
         total_vol = (vols.get('buyVol', 0) or 0) + (vols.get('sellVol', 0) or 0)
         vol_per_hour = total_vol * 12
 
