@@ -45,6 +45,176 @@ EXCLUDED_ITEMS = {'old school bond'}
 def is_excluded(name: str) -> bool:
     return name.lower().strip() in EXCLUDED_ITEMS
 
+# ============================================
+# ITEM INTELLIGENCE KNOWLEDGE BASE
+# ============================================
+ITEM_INTELLIGENCE = {
+    'blood rune': {
+        'floor_price': 200,
+        'floor_reason': "Ali's Wares in Al Kharid buys at 200gp each",
+        'demand_drivers': ['Blood Runecrafting supply boost', 'Altar construction training', 'Essence runners buying'],
+        'supply_info': 'Blood Runecrafting, Nex drops, Theatre of Blood loot, NPC purchase floor',
+        'synergies': ['Blood essence', 'Daeyalt essence', 'Small pouch'],
+        'analysis_example': 'Blood runes have a hard floor at 200gp due to Ali\'s Wares. When GE price approaches this floor, buy signal is strong. Supply from blood RC is limited by botting crackdowns, creating regular cycles.',
+        'notable_conditions': 'Price within 10% of 200gp floor — indicates strong demand vs supply shortage',
+        'category': 'rune'
+    },
+    'death rune': {
+        'floor_price': 180,
+        'floor_reason': "Ali's Wares in Al Kharid buys at 180gp each",
+        'demand_drivers': ['Ancients barrage/burst training', 'PvM high-level spells', 'Herb tar crafting'],
+        'supply_info': 'High Alchemy of death items, Monster drops, NPC purchase floor',
+        'synergies': ['Chaos rune', 'Air rune', 'Curse spellbooks'],
+        'analysis_example': 'Death runes are consumed heavily in high-level PvM content and Ancients training. The 180gp floor from Ali\'s makes this a consistent buy zone. When supply tightens, prices spike 20-30% above floor.',
+        'notable_conditions': 'Price near 180gp floor suggests oversupply; wait for demand spike in PvM seasons',
+        'category': 'rune'
+    },
+    'nature rune': {
+        'floor_price': 90,
+        'floor_reason': "Lundail (Al Kharid) and Ali's Wares NPC buy floors",
+        'demand_drivers': ['High Alchemy demand (alching items)', 'Crafting Amulet of nature', 'Spellbook swapping'],
+        'supply_info': 'Monster drops, Runecrafting, NPC purchase floor',
+        'synergies': ['Dragon bones', 'Onyx', 'Jewelry alching', 'Crafting demand'],
+        'analysis_example': 'Nature runes are essential for high alching. Price tightly bound to alchable items like dragon bones. When alch profit spikes, nature rune demand increases, pushing price up from floor.',
+        'notable_conditions': 'Price at floor (90gp) while dragon bones high = strong upside as alchers buy',
+        'category': 'rune'
+    },
+    'cosmic rune': {
+        'floor_price': 50,
+        'floor_reason': 'Vendor buy price creates soft floor',
+        'demand_drivers': ['Runecrafting training', 'Magic training spells', 'Crafting cosmics'],
+        'supply_info': 'Runecrafting drops, Monster loot, Shop purchases',
+        'synergies': ['Essence runners', 'Portal chambers'],
+        'analysis_example': 'Cosmic runes have stable demand from training and magic gear. Supply varies with runecrafting popularity. Less volatile than blood/death runes but consistent 10-15% margins.',
+        'notable_conditions': 'Below 50gp rare; indicates oversupply from RC bots',
+        'category': 'rune'
+    },
+    'eclectic impling jar': {
+        'floor_price': None,
+        'floor_reason': 'Dual demand structure supports price floor',
+        'demand_drivers': ['Clue scroll hunting (eclectic imps catch scrolls)', 'Jar generator ingredients (only 1 of 3 imps used)', 'Collection log completionists'],
+        'supply_info': 'Implings found in wilderness and populated areas, player catches, jar generators create output',
+        'synergies': ['Nature impling jar', 'Essence impling jar', 'Jar generators'],
+        'analysis_example': 'Eclectic implings are UNIQUE: they\'re the ONLY imp used in jar generators AND catch clue scrolls. This dual demand keeps prices stable. Only 3 imps are jar generator ingredients.',
+        'notable_conditions': 'Drops below 2,000gp = likely oversupply from implings rotations; wait for clue demand spike',
+        'category': 'imp_jar'
+    },
+    'nature impling jar': {
+        'floor_price': None,
+        'floor_reason': 'Jar generator ingredient — one of only 3 imps used',
+        'demand_drivers': ['Jar generator ingredient (critical bottleneck)', 'Clue scroll hunting for nature imps', 'Collection log', 'Passive income staking'],
+        'supply_info': 'Nature implings found in woodlands, jar generators as output, player catches',
+        'synergies': ['Eclectic impling jar', 'Essence impling jar', 'Jar generator demand cycles'],
+        'analysis_example': 'Nature implings are one of only 3 imps used as jar generator ingredients. This creates consistent baseline demand. Supply is limited because impling spawn is constrained.',
+        'notable_conditions': 'Price drops with high impling activity; rises when jar generator demand increases',
+        'category': 'imp_jar'
+    },
+    'essence impling jar': {
+        'floor_price': None,
+        'floor_reason': 'Jar generator ingredient — one of only 3 imps used',
+        'demand_drivers': ['Jar generator ingredient (essential)', 'Runecrafting training demand cycles', 'Passive income staking', 'Collection log'],
+        'supply_info': 'Essence implings from rune essence areas, jar generators output, player catches',
+        'synergies': ['Eclectic impling jar', 'Nature impling jar', 'Jar generator market phases'],
+        'analysis_example': 'Essence implings compete with Eclectic & Nature for the critical jar generator demand. All 3 imp types are necessary, creating supply/demand tension. When one becomes scarce, prices for all 3 rise.',
+        'notable_conditions': 'All 3 imps drop together = jar generator demand weak; rise together = high demand',
+        'category': 'imp_jar'
+    },
+    'blood essence': {
+        'floor_price': None,
+        'floor_reason': 'Supply tied to blood runecrafting consumption',
+        'demand_drivers': ['Blood runecrafting ingredient (1 essence per 10 runes yields +1 extra)', 'Runecrafting efficiency gains', 'Passive AFK RC training'],
+        'supply_info': 'Dropped by blood RC creatures at Ourania Altar',
+        'synergies': ['Blood rune demand', 'Daeyalt essence', 'RC training seasons'],
+        'analysis_example': 'Blood essence is undervalued because its value proposition is misunderstood. It boosts RC output by 10% when used. When blood rune prices spike (indict PvM demand), essences become scarce and expensive.',
+        'notable_conditions': 'Low price while blood runes are high = buy essences ahead of RC meta shifts',
+        'category': 'essence'
+    },
+    'dragon bones': {
+        'floor_price': None,
+        'floor_reason': 'Determined by alchemy output and supply',
+        'demand_drivers': ['Prayer training (largest demand driver)', 'High alchemy (nature rune cost)', 'PvM boss drops create supply', 'Daily volume extremely high'],
+        'supply_info': 'Dragon slayer tasks, Boss drops (Dragons, Cerberus, etc.), Wilderness sources',
+        'synergies': ['Nature rune prices', 'Prayer training cycles', 'Superior dragon bones'],
+        'analysis_example': 'Dragon bones are the most stable flip in OSRS due to predictable daily volume. Prayer training demand never stops. Margins are thin but volume is massive — good for bulk trading.',
+        'notable_conditions': 'Price crashes below alch value = flipping window opens for high-volume traders',
+        'category': 'prayer'
+    },
+    'superior dragon bones': {
+        'floor_price': None,
+        'floor_reason': 'Premium to dragon bones based on experience gain (50% more XP)',
+        'demand_drivers': ['High-level Prayer training (mains rushing 99)', 'Quest cape grinding', 'Ironman training'],
+        'supply_info': 'Cerberus exclusive drop (rare), limited supply cycles with Cerberus meta',
+        'synergies': ['Dragon bones', 'Prayer flasks', 'Ectoplasm'],
+        'analysis_example': 'Superior bones are Cerberus-exclusive. When Cerberus is meta, supply floods and prices crash. During dry spells, supply dries up. Highly volatile but 3-4x daily volume multiplier creates profit margins.',
+        'notable_conditions': 'Price premium narrows to <30% over regular dragon bones = oversupply from Cerberus, time to sell',
+        'category': 'prayer'
+    },
+    'cannonballs': {
+        'floor_price': 5,
+        'floor_reason': 'Crafting cost ceiling (mithril bar + gunpowder costs ~5gp per ball)',
+        'demand_drivers': ['Slayer training (cannonball usage is massive)', 'PvM bursting', 'Melee training efficiency'],
+        'supply_info': 'Crafting (steel bars + gunpowder), Monster drops, Player crafting',
+        'synergies': ['Mithril bars', 'Steel bars', 'Gunpowder'],
+        'analysis_example': 'Cannonballs are consumed at massive daily volume in Slayer. Demand is predictable and stable. The crafting cost sets a hard floor. Best for high-volume, low-margin flipping.',
+        'notable_conditions': 'Below 5gp floor = buy and arbitrage back above floor immediately',
+        'category': 'other'
+    },
+    'ranarr weed': {
+        'floor_price': None,
+        'floor_reason': 'Determined by Herblore training demand and supply',
+        'demand_drivers': ['Herblore training (staple herb)', 'Herblore contract demand', 'Stamina/Super energy pots', 'Restoration pots'],
+        'supply_info': 'Herb farming, Monster drops (Ranarr seeds grown)',
+        'synergies': ['Herb seeds', 'Snapdragon', 'Toadflax', 'Herblore training cycles'],
+        'analysis_example': 'Ranarr is the most consistent herblore ingredient for training. Supply cycles with herb farming seasons. Demand is constant from training and potions. Good margins during supply shortages.',
+        'notable_conditions': 'Price dips when herb seeds drop in price (more supply coming); rises when seeds scarce',
+        'category': 'herb'
+    },
+    'snapdragon': {
+        'floor_price': None,
+        'floor_reason': 'High-tier herb driven by farming demand',
+        'demand_drivers': ['Herblore training (stamina/super energy)', 'Prayer pot demand (high-level PvM)', 'Potion flasking'],
+        'supply_info': 'Herb farming (snapdragon seeds), Monster drops',
+        'synergies': ['Snapdragon seeds', 'Stamina potions', 'Prayer potions'],
+        'analysis_example': 'Snapdragon prices follow farming cycles. When herb seeds are cheap, farmers plant more, supply increases 2 weeks later. Best entry points are before farming seasons.',
+        'notable_conditions': 'Price spikes after farming event announcements; drops when fresh supply enters market',
+        'category': 'herb'
+    },
+    'zulrah scales': {
+        'floor_price': None,
+        'floor_reason': 'Determined by DPS in degradable gear demand',
+        'demand_drivers': ['Gear degradation (equipment sinks)', 'Ranged gear maintenance (blowpipe, crossbows)', 'PvM supply cost'],
+        'supply_info': 'Zulrah exclusive drops, Boss-only source',
+        'synergies': ['Toxic blowpipe demand', 'Gear repair costs', 'PvM activity levels'],
+        'analysis_example': 'Zulrah scales are a consumable sink for PvM players. Demand spikes when PvM is meta and players use BiS gear. Supply is Zulrah kill-rate dependent. Great for following PvM trends.',
+        'notable_conditions': 'Price drops when Zulrah botting increases; rises when raid content drops',
+        'category': 'other'
+    },
+    'amethyst arrows': {
+        'floor_price': 2,
+        'floor_reason': 'Crafting cost (amethyst + feathers) creates floor',
+        'demand_drivers': ['Ranged training (arrows consumed)', 'Slayer cannoning', 'PvM budget ranged'],
+        'supply_info': 'Arrow crafting (amethyst chunks + feathers), Monster drops',
+        'synergies': ['Amethyst shards', 'Feathers', 'Runite arrows'],
+        'analysis_example': 'Amethyst arrows are mid-tier ranged consumables. Demand steady from training and slayer. Supply cycles with amethyst availability. Margins tight but volume is moderate.',
+        'notable_conditions': 'Below crafting cost = buy and craft arbitrage immediately',
+        'category': 'ranged'
+    },
+    'stamina potion': {
+        'floor_price': None,
+        'floor_reason': 'Ingredient cost (snapdragon + amylase) sets soft floor',
+        'demand_drivers': ['Skilling (universal stamina use)', 'PvM dodging mechanics', 'Runecrafting efficiency', 'Woodcutting/Fishing AFK training'],
+        'supply_info': 'Herblore crafting from snapdragon',
+        'synergies': ['Snapdragon', 'Amylase crystal', 'Energy potions'],
+        'analysis_example': 'Stamina pots have universal demand across all PvE and PvP. The demand is truly constant. Supply is limited by herblore popularity. Very stable flip margins.',
+        'notable_conditions': 'Price below ingredient cost = craft immediately for arbitrage; indicates supply overstock',
+        'category': 'potions'
+    }
+}
+
+def get_item_intelligence(item_name: str) -> Optional[dict]:
+    """Retrieve intelligence data for an item"""
+    return ITEM_INTELLIGENCE.get(item_name.lower())
+
 # Intents
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -1130,6 +1300,16 @@ async def top_command(interaction: discord.Interaction, sort: str = "realistic",
             line1 = f"{emoji} Buy: **{format_gp(buy_p)}** → Sell: **{format_gp(sell_p)}**"
             line2 = f"Profit: **{format_gp(margin_val)}**/item → **{format_gp(rp)}**/4h ({rb:,} buyable)"
             line3 = f"Vol: {format_vol_per_hour(item)}"
+
+            # Add intelligence if available
+            intel = get_item_intelligence(n)
+            if intel and intel.get('floor_price'):
+                current_price = item.get('current_price', 0)
+                floor_price = intel['floor_price']
+                pct_to_floor = ((current_price - floor_price) / floor_price * 100) if floor_price > 0 else 0
+                if pct_to_floor <= 10:
+                    line3 += f" | 💡 **NEAR FLOOR** ({pct_to_floor:+.0f}%)"
+
             return f"{i}. {n}", f"{line1}\n{line2}\n{line3}"
 
         pages = build_paginated_embeds(items, f"Top Flips — {sort_label}", per_page=5, format_fn=format_top)
@@ -1219,11 +1399,11 @@ async def recipe_command(interaction: discord.Interaction):
     await interaction.followup.send(embed=embed)
 
 
-@bot.tree.command(name="analyze", description="Full flip analysis with realistic profit for an item")
+@bot.tree.command(name="calc", description="Calculate flip profit for an item with realistic market analysis")
 @app_commands.describe(item_name="Name of the item")
 @app_commands.autocomplete(item_name=item_name_autocomplete)
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def analyze_command(interaction: discord.Interaction, item_name: str):
+async def calc_command(interaction: discord.Interaction, item_name: str):
     await interaction.response.defer()
     item = api_client.find_item_by_name(item_name)
     if not item:
@@ -2806,6 +2986,174 @@ async def setchannel_command(interaction: discord.Interaction, action: str):
 
     else:
         await interaction.followup.send("Use: `/setchannel set` or `/setchannel clear`")
+
+
+# ============================================
+# INTELLIGENCE COMMANDS
+# ============================================
+@bot.tree.command(name="analyze", description="Analyze an item: learn the framework for thinking critically about prices")
+@app_commands.describe(item="Item name (e.g., Blood rune, Eclectic impling jar)")
+async def analyze_intel_command(interaction: discord.Interaction, item: str):
+    """Educational analysis tool: learn how to evaluate items by understanding supply, demand, and price floors"""
+    await interaction.response.defer()
+
+    # Find the item
+    item_data = wiki_client.find_item_by_name(item)
+    if not item_data:
+        await interaction.followup.send(f"❌ Item '{item}' not found in market data.", ephemeral=True)
+        return
+
+    # Get intelligence data
+    intel = get_item_intelligence(item_data['name'])
+    if not intel:
+        await interaction.followup.send(f"ℹ️ No special intelligence available for **{item_data['name']}**. Use `/price` for current market data.", ephemeral=True)
+        return
+
+    # Build embed
+    embed = discord.Embed(
+        title=f"📚 How to Think About: {item_data['name']}",
+        description=intel.get('analysis_example', 'N/A'),
+        color=OSRS_GOLD
+    )
+
+    # Floor price and reason
+    if intel.get('floor_price'):
+        pct_to_floor = ((item_data['current_price'] - intel['floor_price']) / intel['floor_price'] * 100) if intel['floor_price'] > 0 else 0
+        embed.add_field(
+            name="🏛️ Price Floor Information",
+            value=f"NPC Buy Price: **{format_gp(intel['floor_price'])}/ea**\n_{intel.get('floor_reason', 'N/A')}_",
+            inline=False
+        )
+        embed.add_field(
+            name="Current Price Context",
+            value=f"Current: **{format_gp(item_data['current_price'])}**\nRelative to floor: **{pct_to_floor:+.1f}%**",
+            inline=True
+        )
+
+    # Demand drivers
+    if intel.get('demand_drivers'):
+        embed.add_field(
+            name="🔍 What Creates Demand?",
+            value="\n".join(f"• {d}" for d in intel['demand_drivers'][:4]),
+            inline=False
+        )
+
+    # Supply
+    if intel.get('supply_info'):
+        embed.add_field(
+            name="📦 Where Does Supply Come From?",
+            value=intel['supply_info'],
+            inline=False
+        )
+
+    # Synergies
+    if intel.get('synergies'):
+        embed.add_field(
+            name="🔗 Related Items",
+            value=", ".join(intel['synergies'][:5]),
+            inline=False
+        )
+
+    # Notable conditions
+    if intel.get('notable_conditions'):
+        embed.add_field(
+            name="⚡ Notable Conditions",
+            value=intel['notable_conditions'],
+            inline=False
+        )
+
+    # Category
+    embed.add_field(
+        name="📋 Category",
+        value=intel.get('category', 'Other').title(),
+        inline=True
+    )
+
+    # Current market stats
+    embed.add_field(
+        name="💰 Market Snapshot",
+        value=f"Buy: {format_gp(item_data['buy_price'])}\nSell: {format_gp(item_data['sell_price'])}\nMargin: {format_gp(item_data['margin'])}",
+        inline=True
+    )
+
+    embed.set_footer(text="This is educational analysis, not trading advice. Always do your own research.")
+    embed.timestamp = datetime.now()
+
+    await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="floors", description="Show items trading near known NPC buy prices (floor prices)")
+async def floors_command(interaction: discord.Interaction):
+    """Display items currently trading near their known price floors — neutral market data"""
+    await interaction.response.defer()
+
+    # Scan all items in knowledge base for those near floor
+    near_floor_items = []
+
+    for item_name, intel in ITEM_INTELLIGENCE.items():
+        if not intel.get('floor_price'):
+            continue
+
+        # Find item data
+        item_data = wiki_client.find_item_by_name(item_name)
+        if not item_data:
+            continue
+
+        current_price = item_data['current_price']
+        floor_price = intel['floor_price']
+        pct_to_floor = ((current_price - floor_price) / floor_price * 100) if floor_price > 0 else 0
+
+        # Within 10% of floor = interesting data point
+        if pct_to_floor <= 10:
+            near_floor_items.append({
+                'name': item_name,
+                'current': current_price,
+                'floor': floor_price,
+                'pct': pct_to_floor,
+                'reason': intel.get('floor_reason', ''),
+                'margin': item_data['margin'],
+                'spread': item_data['sell_price'] - item_data['buy_price']
+            })
+
+    if not near_floor_items:
+        await interaction.followup.send("✅ No items currently near floor price. Market is healthy.")
+        return
+
+    # Sort by distance to floor (ascending)
+    near_floor_items.sort(key=lambda x: x['pct'])
+
+    # Build embed
+    embed = discord.Embed(
+        title="🏛️ Items Near Floor Prices",
+        description=f"**{len(near_floor_items)}** items currently trading within 10% of known NPC buy prices",
+        color=OSRS_GOLD
+    )
+
+    for item in near_floor_items[:8]:  # Show top 8
+        floor_distance = f"{item['pct']:+.1f}%" if item['pct'] != 0 else "AT FLOOR"
+        item_str = (
+            f"Current: **{format_gp(item['current'])}**\n"
+            f"Floor: **{format_gp(item['floor'])}** ({floor_distance})\n"
+            f"Margin: {format_gp(item['margin'])}\n"
+            f"_{item['reason']}_"
+        )
+        embed.add_field(
+            name=f"💰 {item['name']}",
+            value=item_str,
+            inline=False
+        )
+
+    if len(near_floor_items) > 8:
+        embed.add_field(
+            name="... and more",
+            value=f"**+{len(near_floor_items) - 8}** more items near floor. Run `/analyze` on any of them for details.",
+            inline=False
+        )
+
+    embed.set_footer(text="These items are currently trading near known NPC buy prices. See the data and decide for yourself.")
+    embed.timestamp = datetime.now()
+
+    await interaction.followup.send(embed=embed)
 
 
 @tasks.loop(hours=24)

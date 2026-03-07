@@ -448,6 +448,29 @@
         /* === JOURNAL FORM INPUTS === */
         #journal input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(255,152,31,0.15); }
 
+        /* === INTELLIGENCE CARDS === */
+        .intel-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; transition:all .2s; }
+        .intel-card:hover { border-color:var(--accent); box-shadow:0 0 16px var(--accent-glow); }
+        .intel-card-header { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+        .intel-card-icon { width:40px; height:40px; border-radius:8px; background:var(--bg-surface); display:flex; align-items:center; justify-content:center; overflow:hidden; box-shadow:0 0 8px rgba(255,152,31,0.15); flex-shrink:0; }
+        .intel-card-icon img { width:100%; height:100%; object-fit:contain; }
+        .intel-card-title { flex:1; }
+        .intel-card-title h3 { font-size:15px; font-weight:700; color:var(--text); margin-bottom:2px; }
+        .intel-card-category { font-size:10px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px; }
+        .intel-floor-badge { display:inline-block; background:rgba(255,152,31,0.2); border:1px solid rgba(255,152,31,0.3); color:var(--accent); padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; margin-left:8px; }
+        .intel-section { margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+        .intel-section:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+        .intel-section-label { font-size:11px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px; font-weight:600; margin-bottom:6px; }
+        .intel-tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:0; }
+        .intel-tag { display:inline-block; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.2); color:#4ade80; padding:4px 10px; border-radius:6px; font-size:11px; }
+        .intel-text { font-size:12px; color:var(--text-secondary); line-height:1.5; }
+        .intel-thesis { font-size:13px; color:var(--text-secondary); line-height:1.6; font-style:italic; }
+        .intel-price-comparison { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+        .intel-price-box { background:var(--bg-surface); border-radius:var(--radius); padding:12px; text-align:center; }
+        .intel-price-label { font-size:10px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.3px; margin-bottom:4px; }
+        .intel-price-value { font-size:16px; font-weight:700; color:var(--text); }
+        .intel-signal { display:inline-block; background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.3); color:#ff6b6b; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:700; margin-top:8px; }
+
         @media(max-width:768px) {
             .toast-container { right:10px; left:10px; }
             .toast { min-width:0; }
@@ -540,6 +563,7 @@
         <button class="nav-tab" data-tab="recipes"><span class="tab-icon">🔬</span>Recipes</button>
         <button class="nav-tab" data-tab="special"><span class="tab-icon">💎</span>Special Items</button>
         <button class="nav-tab" data-tab="alchemy"><span class="tab-icon">🔥</span>Alchemy</button>
+        <button class="nav-tab" data-tab="intelligence"><span class="tab-icon">📚</span>Learn</button>
         <button class="nav-tab" data-tab="journal"><span class="tab-icon">📓</span>Journal</button>
         <button class="nav-tab" data-tab="discord"><span class="tab-icon">💬</span>Discord</button>
         <button class="nav-tab" data-tab="plugin"><span class="tab-icon">🔌</span>Plugin</button>
@@ -834,6 +858,31 @@
         <div id="alchScannerGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px;"></div>
     </div>
 
+    <!-- ===== INTELLIGENCE TAB ===== -->
+    <div id="intelligence" class="tab-panel">
+        <div class="explain-banner">
+            <strong>📚 Market Logic</strong> — Learn to think like experienced flippers. Understanding WHY prices move helps you find opportunities others miss. Every item has supply sources, demand drivers, and price floors. Master this framework and develop your own flipping instincts.
+        </div>
+        <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+            <input type="text" id="intelSearchInput" placeholder="Search items... (e.g., Blood rune, Eclectic impling)" style="flex:1; min-width:200px; background:var(--bg-input); border:1px solid var(--border); padding:8px 12px; border-radius:var(--radius); color:var(--text); font-size:13px;">
+            <select id="intelCategoryFilter" onchange="renderIntelligence()" style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 10px; border-radius:var(--radius); font-size:12px; font-family:inherit;">
+                <option value="">All Categories</option>
+                <option value="rune">Runes (NPC Floor)</option>
+                <option value="imp_jar">Imp Jars (Jar Generators)</option>
+                <option value="essence">Essence & Runners</option>
+                <option value="herb">Herbs & Seeds</option>
+                <option value="prayer">Prayer Training</option>
+                <option value="ranged">Ranged Consumables</option>
+                <option value="potions">Potions</option>
+                <option value="other">Other</option>
+            </select>
+            <label style="font-size:12px; color:var(--text-secondary); display:flex; align-items:center; gap:4px;">
+                <input type="checkbox" id="intelShowFloorOnly" onchange="renderIntelligence()"> Near Floor Only
+            </label>
+        </div>
+        <div id="intelligenceGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px;"></div>
+    </div>
+
     <!-- ===== FLIP JOURNAL TAB ===== -->
     <div id="journal" class="tab-panel">
         <div class="explain-banner">
@@ -907,7 +956,8 @@
                 <div class="cmd-card"><div class="cmd-name">/tax [item/price]</div><div class="cmd-desc">Calculate GE tax (supports k/m)</div></div>
                 <div class="cmd-card"><div class="cmd-name">/dumps</div><div class="cmd-desc">Best buy-low opportunities right now</div></div>
                 <div class="cmd-card"><div class="cmd-name">/pumps</div><div class="cmd-desc">Items with unusual buy pressure</div></div>
-                <div class="cmd-card"><div class="cmd-name">/analyze [item]</div><div class="cmd-desc">Full flip analysis with realistic profit</div></div>
+                <div class="cmd-card"><div class="cmd-name">/analyze [item]</div><div class="cmd-desc">Learn to think about items critically (supply, demand, floors)</div></div>
+                <div class="cmd-card"><div class="cmd-name">/calc [item]</div><div class="cmd-desc">Calculate flip profit with realistic market analysis</div></div>
                 <div class="cmd-card"><div class="cmd-name">/recipe</div><div class="cmd-desc">Profitable processing recipes</div></div>
                 <div class="cmd-card"><div class="cmd-name">/watchlist</div><div class="cmd-desc">Manage your personal watchlist</div></div>
                 <div class="cmd-card"><div class="cmd-name">/alert [item] [price]</div><div class="cmd-desc">Set price alerts — get DM'd when triggered</div></div>
@@ -5934,8 +5984,9 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         tab.classList.add('active');
         document.getElementById(tab.dataset.tab).classList.add('active');
-        // Render journal stats when switching to journal tab
+        // Render content when switching tabs
         if (tab.dataset.tab === 'journal') renderJournal();
+        if (tab.dataset.tab === 'intelligence') renderIntelligence();
     });
 });
 
@@ -6197,14 +6248,34 @@ function openItemModal(itemId) {
     }
 
     document.getElementById('modalStats').innerHTML = statsHtml;
-    // Intel
+    // Intel - combine MARKET_INTEL and ITEM_INTELLIGENCE
     let intelHtml = '';
+
+    // Check ITEM_INTELLIGENCE first (knowledge base)
+    const itemIntel = ITEM_INTELLIGENCE[item.name.toLowerCase()];
+    if (itemIntel) {
+        // Floor price info
+        if (itemIntel.floor_price) {
+            const pctToFloor = ((item.avgPrice - itemIntel.floor_price) / itemIntel.floor_price) * 100;
+            const nearFloor = pctToFloor <= 10;
+            intelHtml += `<span class="intel-badge" title="${itemIntel.floor_reason}">🚨 ${nearFloor ? 'NEAR FLOOR' : 'Floor: ' + gp(itemIntel.floor_price)}</span>`;
+        }
+        // Demand drivers
+        if (itemIntel.demand_drivers && itemIntel.demand_drivers.length > 0) {
+            intelHtml += itemIntel.demand_drivers.slice(0, 2).map(d => `<span class="intel-badge" title="${d}">📈 ${d.substring(0, 20)}...</span>`).join('');
+        }
+        // Category
+        intelHtml += `<span class="intel-badge" title="Category">${itemIntel.category === 'rune' ? '🔵' : itemIntel.category === 'imp_jar' ? '🦟' : itemIntel.category === 'essence' ? '💜' : itemIntel.category === 'prayer' ? '💀' : itemIntel.category === 'herb' ? '🌿' : '📦'} ${itemIntel.category}</span>`;
+    }
+
+    // Add MARKET_INTEL badges if available
     if (typeof MARKET_INTEL !== 'undefined') {
         const intel = MARKET_INTEL.getIntel(item);
         if (intel && intel.length > 0) {
-            intelHtml = intel.map(i => `<span class="intel-badge ${i.type || ''}" title="${i.detail || ''}">${i.icon || '📊'} ${i.text}</span>`).join('');
+            intelHtml += intel.map(i => `<span class="intel-badge ${i.type || ''}" title="${i.detail || ''}">${i.icon || '📊'} ${i.text}</span>`).join('');
         }
     }
+
     intelHtml = intelHtml || '<span style="color:var(--text-muted); font-size:12px;">No special intel for this item.</span>';
     document.getElementById('modalIntel').innerHTML = intelHtml;
     // Load timeseries chart
@@ -6398,6 +6469,308 @@ function formatTimeAgo(ts) {
     if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
     return Math.floor(diff / 86400000) + 'd ago';
 }
+
+// ============================================
+// ITEM INTELLIGENCE KNOWLEDGE BASE
+// ============================================
+const ITEM_INTELLIGENCE = {
+    'blood rune': {
+        floor_price: 200,
+        floor_reason: "Ali's Wares in Al Kharid buys at 200gp each",
+        demand_drivers: ['Blood Runecrafting supply boost', 'Altar construction training', 'Essence runners buying'],
+        supply_info: 'Blood Runecrafting, Nex drops, Theatre of Blood loot, NPC purchase floor',
+        synergies: ['Blood essence', 'Daeyalt essence', 'Small pouch'],
+        analysis_example: 'Blood runes have a hard floor at 200gp due to Ali\'s Wares. When GE price approaches this floor, buy signal is strong. Supply from blood RC is limited by botting crackdowns, creating regular cycles.',
+        notable_conditions: 'Price within 10% of 200gp floor — indicates strong demand vs supply shortage',
+        category: 'rune'
+    },
+    'death rune': {
+        floor_price: 180,
+        floor_reason: "Ali's Wares in Al Kharid buys at 180gp each",
+        demand_drivers: ['Ancients barrage/burst training', 'PvM high-level spells', 'Herb tar crafting'],
+        supply_info: 'High Alchemy of death items, Monster drops, NPC purchase floor',
+        synergies: ['Chaos rune', 'Air rune', 'Curse spellbooks'],
+        analysis_example: 'Death runes are consumed heavily in high-level PvM content and Ancients training. The 180gp floor from Ali\'s makes this a consistent buy zone. When supply tightens, prices spike 20-30% above floor.',
+        notable_conditions: 'Price near 180gp floor suggests oversupply; wait for demand spike in PvM seasons',
+        category: 'rune'
+    },
+    'nature rune': {
+        floor_price: 90,
+        floor_reason: "Lundail (Al Kharid) and Ali's Wares NPC buy floors",
+        demand_drivers: ['High Alchemy demand (alching items)', 'Crafting Amulet of nature', 'Spellbook swapping'],
+        supply_info: 'Monster drops, Runecrafting, NPC purchase floor',
+        synergies: ['Dragon bones', 'Onyx', 'Jewelry alching', 'Crafting demand'],
+        analysis_example: 'Nature runes are essential for high alching. Price tightly bound to alchable items like dragon bones. When alch profit spikes, nature rune demand increases, pushing price up from floor.',
+        notable_conditions: 'Price at floor (90gp) while dragon bones high = strong upside as alchers buy',
+        category: 'rune'
+    },
+    'cosmic rune': {
+        floor_price: 50,
+        floor_reason: 'Vendor buy price creates soft floor',
+        demand_drivers: ['Runecrafting training', 'Magic training spells', 'Crafting cosmics'],
+        supply_info: 'Runecrafting drops, Monster loot, Shop purchases',
+        synergies: ['Essence runners', 'Portal chambers'],
+        analysis_example: 'Cosmic runes have stable demand from training and magic gear. Supply varies with runecrafting popularity. Less volatile than blood/death runes but consistent 10-15% margins.',
+        notable_conditions: 'Below 50gp rare; indicates oversupply from RC bots',
+        category: 'rune'
+    },
+    'eclectic impling jar': {
+        floor_price: null,
+        floor_reason: 'Dual demand structure supports price floor',
+        demand_drivers: ['Clue scroll hunting (eclectic imps catch scrolls)', 'Jar generator ingredients (only 1 of 3 imps used)', 'Collection log completionists'],
+        supply_info: 'Implings found in wilderness and populated areas, player catches, jar generators create output',
+        synergies: ['Nature impling jar', 'Essence impling jar', 'Jar generators'],
+        analysis_example: 'Eclectic implings are UNIQUE: they\'re the ONLY imp used in jar generators AND catch clue scrolls. This dual demand keeps prices stable. Only 3 imps are jar generator ingredients.',
+        notable_conditions: 'Drops below 2,000gp = likely oversupply from implings rotations; wait for clue demand spike',
+        category: 'imp_jar'
+    },
+    'nature impling jar': {
+        floor_price: null,
+        floor_reason: 'Jar generator ingredient — one of only 3 imps used',
+        demand_drivers: ['Jar generator ingredient (critical bottleneck)', 'Clue scroll hunting for nature imps', 'Collection log',  'Passive income staking'],
+        supply_info: 'Nature implings found in woodlands, jar generators as output, player catches',
+        synergies: ['Eclectic impling jar', 'Essence impling jar', 'Jar generator demand cycles'],
+        analysis_example: 'Nature implings are one of only 3 imps used as jar generator ingredients. This creates consistent baseline demand. Supply is limited because impling spawn is constrained.',
+        notable_conditions: 'Price drops with high impling activity; rises when jar generator demand increases',
+        category: 'imp_jar'
+    },
+    'essence impling jar': {
+        floor_price: null,
+        floor_reason: 'Jar generator ingredient — one of only 3 imps used',
+        demand_drivers: ['Jar generator ingredient (essential)', 'Runecrafting training demand cycles', 'Passive income staking', 'Collection log'],
+        supply_info: 'Essence implings from rune essence areas, jar generators output, player catches',
+        synergies: ['Eclectic impling jar', 'Nature impling jar', 'Jar generator market phases'],
+        analysis_example: 'Essence implings compete with Eclectic & Nature for the critical jar generator demand. All 3 imp types are necessary, creating supply/demand tension. When one becomes scarce, prices for all 3 rise.',
+        notable_conditions: 'All 3 imps drop together = jar generator demand weak; rise together = high demand',
+        category: 'imp_jar'
+    },
+    'blood essence': {
+        floor_price: null,
+        floor_reason: 'Supply tied to blood runecrafting consumption',
+        demand_drivers: ['Blood runecrafting ingredient (1 essence per 10 runes yields +1 extra)', 'Runecrafting efficiency gains', 'Passive AFK RC training'],
+        supply_info: 'Dropped by blood RC creatures at Ourania Altar',
+        synergies: ['Blood rune demand', 'Daeyalt essence', 'RC training seasons'],
+        analysis_example: 'Blood essence is undervalued because its value proposition is misunderstood. It boosts RC output by 10% when used. When blood rune prices spike (indict PvM demand), essences become scarce and expensive.',
+        notable_conditions: 'Low price while blood runes are high = buy essences ahead of RC meta shifts',
+        category: 'essence'
+    },
+    'dragon bones': {
+        floor_price: null,
+        floor_reason: 'Determined by alchemy output and supply',
+        demand_drivers: ['Prayer training (largest demand driver)', 'High alchemy (nature rune cost)', 'PvM boss drops create supply', 'Daily volume extremely high'],
+        supply_info: 'Dragon slayer tasks, Boss drops (Dragons, Cerberus, etc.), Wilderness sources',
+        synergies: ['Nature rune prices', 'Prayer training cycles', 'Superior dragon bones'],
+        analysis_example: 'Dragon bones are the most stable flip in OSRS due to predictable daily volume. Prayer training demand never stops. Margins are thin but volume is massive — good for bulk trading.',
+        notable_conditions: 'Price crashes below alch value = flipping window opens for high-volume traders',
+        category: 'prayer'
+    },
+    'superior dragon bones': {
+        floor_price: null,
+        floor_reason: 'Premium to dragon bones based on experience gain (50% more XP)',
+        demand_drivers: ['High-level Prayer training (mains rushing 99)', 'Quest cape grinding', 'Ironman training'],
+        supply_info: 'Cerberus exclusive drop (rare), limited supply cycles with Cerberus meta',
+        synergies: ['Dragon bones', 'Prayer flasks', 'Ectoplasm'],
+        analysis_example: 'Superior bones are Cerberus-exclusive. When Cerberus is meta, supply floods and prices crash. During dry spells, supply dries up. Highly volatile but 3-4x daily volume multiplier creates profit margins.',
+        notable_conditions: 'Price premium narrows to <30% over regular dragon bones = oversupply from Cerberus, time to sell',
+        category: 'prayer'
+    },
+    'cannonballs': {
+        floor_price: 5,
+        floor_reason: 'Crafting cost ceiling (mithril bar + gunpowder costs ~5gp per ball)',
+        demand_drivers: ['Slayer training (cannonball usage is massive)', 'PvM bursting', 'Melee training efficiency'],
+        supply_info: 'Crafting (steel bars + gunpowder), Monster drops, Player crafting',
+        synergies: ['Mithril bars', 'Steel bars', 'Gunpowder'],
+        analysis_example: 'Cannonballs are consumed at massive daily volume in Slayer. Demand is predictable and stable. The crafting cost sets a hard floor. Best for high-volume, low-margin flipping.',
+        notable_conditions: 'Below 5gp floor = buy and arbitrage back above floor immediately',
+        category: 'other'
+    },
+    'ranarr weed': {
+        floor_price: null,
+        floor_reason: 'Determined by Herblore training demand and supply',
+        demand_drivers: ['Herblore training (staple herb)', 'Herblore contract demand', 'Stamina/Super energy pots', 'Restoration pots'],
+        supply_info: 'Herb farming, Monster drops (Ranarr seeds grown)',
+        synergies: ['Herb seeds', 'Snapdragon', 'Toadflax', 'Herblore training cycles'],
+        analysis_example: 'Ranarr is the most consistent herblore ingredient for training. Supply cycles with herb farming seasons. Demand is constant from training and potions. Good margins during supply shortages.',
+        notable_conditions: 'Price dips when herb seeds drop in price (more supply coming); rises when seeds scarce',
+        category: 'herb'
+    },
+    'snapdragon': {
+        floor_price: null,
+        floor_reason: 'High-tier herb driven by farming demand',
+        demand_drivers: ['Herblore training (stamina/super energy)', 'Prayer pot demand (high-level PvM)', 'Potion flasking'],
+        supply_info: 'Herb farming (snapdragon seeds), Monster drops',
+        synergies: ['Snapdragon seeds', 'Stamina potions', 'Prayer potions'],
+        analysis_example: 'Snapdragon prices follow farming cycles. When herb seeds are cheap, farmers plant more, supply increases 2 weeks later. Best entry points are before farming seasons.',
+        notable_conditions: 'Price spikes after farming event announcements; drops when fresh supply enters market',
+        category: 'herb'
+    },
+    'zulrah scales': {
+        floor_price: null,
+        floor_reason: 'Determined by DPS in degradable gear demand',
+        demand_drivers: ['Gear degradation (equipment sinks)', 'Ranged gear maintenance (blowpipe, crossbows)', 'PvM supply cost'],
+        supply_info: 'Zulrah exclusive drops, Boss-only source',
+        synergies: ['Toxic blowpipe demand', 'Gear repair costs', 'PvM activity levels'],
+        analysis_example: 'Zulrah scales are a consumable sink for PvM players. Demand spikes when PvM is meta and players use BiS gear. Supply is Zulrah kill-rate dependent. Great for following PvM trends.',
+        notable_conditions: 'Price drops when Zulrah botting increases; rises when raid content drops',
+        category: 'other'
+    },
+    'amethyst arrows': {
+        floor_price: 2,
+        floor_reason: 'Crafting cost (amethyst + feathers) creates floor',
+        demand_drivers: ['Ranged training (arrows consumed)', 'Slayer cannoning', 'PvM budget ranged'],
+        supply_info: 'Arrow crafting (amethyst chunks + feathers), Monster drops',
+        synergies: ['Amethyst shards', 'Feathers', 'Runite arrows'],
+        analysis_example: 'Amethyst arrows are mid-tier ranged consumables. Demand steady from training and slayer. Supply cycles with amethyst availability. Margins tight but volume is moderate.',
+        notable_conditions: 'Below crafting cost = buy and craft arbitrage immediately',
+        category: 'ranged'
+    },
+    'stamina potion': {
+        floor_price: null,
+        floor_reason: 'Ingredient cost (snapdragon + amylase) sets soft floor',
+        demand_drivers: ['Skilling (universal stamina use)', 'PvM dodging mechanics', 'Runecrafting efficiency', 'Woodcutting/Fishing AFK training'],
+        supply_info: 'Herblore crafting from snapdragon',
+        synergies: ['Snapdragon', 'Amylase crystal', 'Energy potions'],
+        analysis_example: 'Stamina pots have universal demand across all PvE and PvP. The demand is truly constant. Supply is limited by herblore popularity. Very stable flip margins.',
+        notable_conditions: 'Price below ingredient cost = craft immediately for arbitrage; indicates supply overstock',
+        category: 'potions'
+    }
+};
+
+// ============================================
+// INTELLIGENCE TAB RENDERING
+// ============================================
+function renderIntelligence() {
+    const grid = document.getElementById('intelligenceGrid');
+    const searchVal = document.getElementById('intelSearchInput')?.value.toLowerCase() || '';
+    const categoryFilter = document.getElementById('intelCategoryFilter')?.value || '';
+    const showFloorOnly = document.getElementById('intelShowFloorOnly')?.checked || false;
+
+    let items = Object.entries(ITEM_INTELLIGENCE);
+
+    // Filter by search
+    if (searchVal) {
+        items = items.filter(([name]) => name.toLowerCase().includes(searchVal));
+    }
+
+    // Filter by category
+    if (categoryFilter) {
+        items = items.filter(([, intel]) => intel.category === categoryFilter);
+    }
+
+    // Filter by floor price (if checked)
+    if (showFloorOnly) {
+        items = items.filter(([name, intel]) => {
+            if (!intel.floor_price) return false;
+            const itemData = state.allItems.find(i => i.name.toLowerCase() === name.toLowerCase());
+            if (!itemData) return false;
+            const pctToFloor = ((itemData.avgPrice - intel.floor_price) / intel.floor_price) * 100;
+            return pctToFloor <= 10; // Within 10% of floor
+        });
+    }
+
+    grid.innerHTML = '';
+
+    if (items.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px 20px; color:var(--text-muted);">No items match your filters. Try adjusting your search or category.</div>';
+        return;
+    }
+
+    items.forEach(([itemName, intel]) => {
+        const itemData = state.allItems.find(i => i.name.toLowerCase() === itemName.toLowerCase());
+        const currentPrice = itemData?.avgPrice || null;
+        const currentIcon = itemData?.icon || '';
+
+        let floorHtml = '';
+        if (intel.floor_price) {
+            const pctToFloor = currentPrice ? ((currentPrice - intel.floor_price) / intel.floor_price) * 100 : 0;
+            const nearFloor = pctToFloor <= 10;
+            floorHtml = `<span class="intel-floor-badge">${nearFloor ? '🎯 ' : ''}${intel.floor_reason.split(' ').slice(0,3).join(' ')}</span>`;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'intel-card';
+        card.innerHTML = `
+            <div class="intel-card-header">
+                <div class="intel-card-icon"><img src="${currentIcon}" alt="${itemName}"></div>
+                <div class="intel-card-title">
+                    <h3>${itemName}</h3>
+                    <div class="intel-card-category">${intel.category}</div>
+                </div>
+                ${floorHtml}
+            </div>
+
+            ${intel.floor_price ? `
+                <div class="intel-section">
+                    <div class="intel-section-label">Floor Price & Reason</div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                        <span style="font-size:14px; font-weight:700; color:var(--green);">${gp(intel.floor_price)}</span>
+                        <span style="font-size:12px; color:var(--text-secondary);">${intel.floor_reason}</span>
+                    </div>
+                </div>
+            ` : ''}
+
+            ${currentPrice ? `
+                <div class="intel-section">
+                    <div class="intel-section-label">Current Price vs Floor</div>
+                    <div class="intel-price-comparison">
+                        <div class="intel-price-box">
+                            <div class="intel-price-label">GE Price</div>
+                            <div class="intel-price-value" style="color:var(--accent);">${gp(currentPrice)}</div>
+                        </div>
+                        <div class="intel-price-box">
+                            <div class="intel-price-label">Floor</div>
+                            <div class="intel-price-value" style="color:var(--green);">${intel.floor_price ? gp(intel.floor_price) : '—'}</div>
+                        </div>
+                    </div>
+                    ${intel.floor_price && currentPrice ? `<div style="font-size:12px; color:var(--text-secondary); margin-top:8px;">📊 <strong>${pctToFloor.toFixed(1)}%</strong> above floor — ${pctToFloor <= 10 ? 'currently near known NPC buy price' : 'not near floor support level'}</div>` : ''}
+                </div>
+            ` : ''}
+
+            <div class="intel-section">
+                <div class="intel-section-label">🔍 Analysis Example</div>
+                <div class="intel-thesis" style="font-style:normal; color:var(--text-secondary);">Here's how experienced flippers think about this item:<br><br>${intel.analysis_example}</div>
+            </div>
+
+            <div class="intel-section">
+                <div class="intel-section-label">Demand Drivers</div>
+                <div class="intel-tags">
+                    ${intel.demand_drivers.map(d => `<div class="intel-tag">${d}</div>`).join('')}
+                </div>
+            </div>
+
+            <div class="intel-section">
+                <div class="intel-section-label">Supply</div>
+                <div class="intel-text">${intel.supply_info}</div>
+            </div>
+
+            ${intel.synergies && intel.synergies.length > 0 ? `
+                <div class="intel-section">
+                    <div class="intel-section-label">Related Items</div>
+                    <div class="intel-tags">
+                        ${intel.synergies.map(s => `<div class="intel-tag">${s}</div>`).join('')}
+                    </div>
+                </div>
+            ` : ''}
+
+            ${intel.notable_conditions ? `
+                <div class="intel-section">
+                    <div class="intel-section-label">⚡ Notable Conditions</div>
+                    <div class="intel-text">${intel.notable_conditions}</div>
+                </div>
+            ` : ''}
+        `;
+
+        grid.appendChild(card);
+    });
+}
+
+// Event listener for intelligence search
+document.addEventListener('DOMContentLoaded', () => {
+    const intelSearchInput = document.getElementById('intelSearchInput');
+    if (intelSearchInput) {
+        intelSearchInput.addEventListener('input', renderIntelligence);
+    }
+});
 
 // ============================================
 // THEME TOGGLE
