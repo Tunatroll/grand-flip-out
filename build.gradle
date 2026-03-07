@@ -33,18 +33,14 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
-// Build a fat JAR with all runtime dependencies
 jar {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
     manifest {
         attributes(
             'Plugin-Id': 'grand-flip-out',
             'Plugin-Provider': 'Tunatroll',
             'Plugin-Version': version,
-            'Plugin-Description': 'Smart OSRS Grand Exchange flipping companion with JTI scoring, technical analysis, bot economy tracking, and SmartAdvisor intelligence.'
+            'Plugin-Description':
+                'GE flipping with JTI scoring and analysis.'
         )
     }
 }
