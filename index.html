@@ -1267,6 +1267,9 @@
                 </div>
             </div>
             <div class="modal-stats-grid" id="modalStats"></div>
+            <div id="modalLifeline" style="display:none; margin:12px 0; padding:14px; background:var(--bg-surface); border-radius:var(--radius); border:1px solid var(--border);">
+                <div style="font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:8px;">📈 Price Lifeline (Historical)</div>
+            </div>
             <div class="modal-section-title">Market Intelligence</div>
             <div class="modal-intel-tags" id="modalIntel"></div>
         </div>
@@ -1434,7 +1437,7 @@ const state = {
 const PRICE_DB = {
     db: null,
     DB_NAME: 'GFO_PriceHistory',
-    DB_VERSION: 1,
+    DB_VERSION: 2,
 
     async init() {
         return new Promise((resolve, reject) => {
@@ -1449,6 +1452,10 @@ const PRICE_DB = {
                 if (!db.objectStoreNames.contains('dailyStats')) {
                     const statsStore = db.createObjectStore('dailyStats', { keyPath: ['itemId', 'date'] });
                     statsStore.createIndex('byItem', 'itemId', { unique: false });
+                }
+                // V2: Lifelines store — persistent historical data per item
+                if (!db.objectStoreNames.contains('lifelines')) {
+                    const lifeStore = db.createObjectStore('lifelines', { keyPath: 'itemId' });
                 }
             };
             request.onsuccess = () => { this.db = request.result; resolve(); };
@@ -1549,6 +1556,188 @@ const PRICE_DB = {
                 request.onerror = () => resolve([]);
             } catch (e) { resolve([]); }
         });
+    },
+
+    // ============================================
+    // LIFELINE SYSTEM — Persistent Historical Price Data
+    // ============================================
+    // Fetches full 365-day history from OSRS Wiki timeseries API ONCE per item,
+    // stores it permanently in IndexedDB, then only appends current prices going forward.
+    // This means the historical "lifeline" never needs to be re-fetched.
+
+    async getLifeline(itemId) {
+        if (!this.db) return null;
+        return new Promise((resolve) => {
+            try {
+                const tx = this.db.transaction('lifelines', 'readonly');
+                const request = tx.objectStore('lifelines').get(itemId);
+                request.onsuccess = () => resolve(request.result || null);
+                request.onerror = () => resolve(null);
+            } catch (e) { resolve(null); }
+        });
+    },
+
+    async saveLifeline(itemId, lifelineData) {
+        if (!this.db) return;
+        try {
+            const tx = this.db.transaction('lifelines', 'readwrite');
+            tx.objectStore('lifelines').put({ itemId, ...lifelineData });
+        } catch (e) { /* ignore */ }
+    },
+
+    async updateLifelinePrice(itemId, currentBuy, currentSell, volume) {
+        if (!this.db) return;
+        const existing = await this.getLifeline(itemId);
+        if (!existing) return; // No lifeline yet — need to fetch first
+
+        const now = Date.now();
+        const today = new Date().toISOString().split('T')[0];
+
+        // Append to daily prices if we haven't recorded today yet
+        const lastEntry = existing.dailyPrices[existing.dailyPrices.length - 1];
+        if (!lastEntry || lastEntry.date !== today) {
+            existing.dailyPrices.push({
+                date: today,
+                timestamp: now,
+                avgHighPrice: currentSell,
+                avgLowPrice: currentBuy,
+                highPriceVolume: volume,
+                lowPriceVolume: volume
+            });
+        } else {
+            // Update today's entry with latest data
+            lastEntry.avgHighPrice = currentSell;
+            lastEntry.avgLowPrice = currentBuy;
+            lastEntry.highPriceVolume = Math.max(lastEntry.highPriceVolume || 0, volume);
+            lastEntry.timestamp = now;
+        }
+
+        // Update computed stats
+        const prices = existing.dailyPrices;
+        const allHighs = prices.map(p => p.avgHighPrice).filter(p => p > 0);
+        const allLows = prices.map(p => p.avgLowPrice).filter(p => p > 0);
+        existing.allTimeHigh = Math.max(...allHighs);
+        existing.allTimeLow = Math.min(...allLows);
+        existing.lastUpdated = now;
+
+        // Recalculate 30d and 90d averages from the tail
+        const last30 = prices.slice(-30);
+        const last90 = prices.slice(-90);
+        existing.avg30d = Math.round(last30.reduce((s, p) => s + ((p.avgHighPrice + p.avgLowPrice) / 2), 0) / last30.length);
+        existing.avg90d = Math.round(last90.reduce((s, p) => s + ((p.avgHighPrice + p.avgLowPrice) / 2), 0) / last90.length);
+
+        await this.saveLifeline(itemId, existing);
+        return existing;
+    }
+};
+
+// ============================================
+// LIFELINE MANAGER — Fetches & maintains item lifelines
+// ============================================
+const LIFELINE = {
+    _fetchQueue: [],
+    _fetching: false,
+
+    async ensureLifeline(itemId) {
+        const existing = await PRICE_DB.getLifeline(itemId);
+        if (existing && existing.dailyPrices && existing.dailyPrices.length > 30) {
+            return existing; // Already have a good lifeline
+        }
+        // Need to fetch from Wiki API
+        return await this.fetchAndStore(itemId);
+    },
+
+    async fetchAndStore(itemId) {
+        try {
+            const resp = await fetch(
+                `https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=24h&id=${itemId}`,
+                { headers: { 'User-Agent': 'GrandFlipOut - OSRS flipping dashboard' } }
+            );
+            if (!resp.ok) return null;
+            const json = await resp.json();
+            const data = json.data || [];
+            if (data.length === 0) return null;
+
+            // Transform API data into lifeline format
+            const dailyPrices = data.map(d => ({
+                date: new Date(d.timestamp * 1000).toISOString().split('T')[0],
+                timestamp: d.timestamp * 1000,
+                avgHighPrice: d.avgHighPrice || 0,
+                avgLowPrice: d.avgLowPrice || 0,
+                highPriceVolume: d.highPriceVolume || 0,
+                lowPriceVolume: d.lowPriceVolume || 0
+            })).filter(d => d.avgHighPrice > 0 || d.avgLowPrice > 0);
+
+            if (dailyPrices.length === 0) return null;
+
+            const allHighs = dailyPrices.map(p => p.avgHighPrice).filter(p => p > 0);
+            const allLows = dailyPrices.map(p => p.avgLowPrice).filter(p => p > 0);
+            const last30 = dailyPrices.slice(-30);
+            const last90 = dailyPrices.slice(-90);
+
+            const lifeline = {
+                dailyPrices,
+                allTimeHigh: allHighs.length ? Math.max(...allHighs) : 0,
+                allTimeLow: allLows.length ? Math.min(...allLows) : 0,
+                avg30d: last30.length ? Math.round(last30.reduce((s, p) => s + ((p.avgHighPrice + p.avgLowPrice) / 2), 0) / last30.length) : 0,
+                avg90d: last90.length ? Math.round(last90.reduce((s, p) => s + ((p.avgHighPrice + p.avgLowPrice) / 2), 0) / last90.length) : 0,
+                fetchedAt: Date.now(),
+                lastUpdated: Date.now(),
+                dataPoints: dailyPrices.length
+            };
+
+            await PRICE_DB.saveLifeline(itemId, lifeline);
+            return lifeline;
+        } catch (e) {
+            console.warn('Lifeline fetch failed for', itemId, e);
+            return null;
+        }
+    },
+
+    // Background: fetch lifelines for top items progressively
+    async backgroundFetch(items, batchSize = 3) {
+        const toFetch = [];
+        for (const item of items.slice(0, 50)) {
+            const existing = await PRICE_DB.getLifeline(item.itemId);
+            if (!existing || !existing.dailyPrices || existing.dailyPrices.length < 10) {
+                toFetch.push(item.itemId);
+            }
+        }
+        // Fetch in small batches to avoid rate limiting
+        for (let i = 0; i < toFetch.length; i += batchSize) {
+            const batch = toFetch.slice(i, i + batchSize);
+            await Promise.all(batch.map(id => this.fetchAndStore(id)));
+            if (i + batchSize < toFetch.length) {
+                await new Promise(r => setTimeout(r, 1000)); // 1s between batches
+            }
+        }
+    },
+
+    // Get lifeline summary for display
+    async getSummary(itemId, currentPrice) {
+        const ll = await PRICE_DB.getLifeline(itemId);
+        if (!ll || !ll.dailyPrices || ll.dailyPrices.length < 2) return null;
+
+        const mid = (ll.allTimeHigh + ll.allTimeLow) / 2;
+        const range = ll.allTimeHigh - ll.allTimeLow;
+        const positionInRange = range > 0 ? ((currentPrice - ll.allTimeLow) / range * 100) : 50;
+
+        // Price trend (last 7 daily points)
+        const recent = ll.dailyPrices.slice(-7);
+        const firstAvg = (recent[0].avgHighPrice + recent[0].avgLowPrice) / 2;
+        const lastAvg = (recent[recent.length - 1].avgHighPrice + recent[recent.length - 1].avgLowPrice) / 2;
+        const weekTrend = firstAvg > 0 ? ((lastAvg - firstAvg) / firstAvg * 100) : 0;
+
+        return {
+            allTimeHigh: ll.allTimeHigh,
+            allTimeLow: ll.allTimeLow,
+            avg30d: ll.avg30d,
+            avg90d: ll.avg90d,
+            positionInRange: Math.max(0, Math.min(100, positionInRange)),
+            weekTrend,
+            dataPoints: ll.dailyPrices.length,
+            daysOfHistory: ll.dailyPrices.length
+        };
     }
 };
 
@@ -2073,6 +2262,16 @@ async function loadTopFlips(force = false) {
     state.allItems = items; state.items = items.slice(0, 200);
     // Persist snapshots to IndexedDB for cross-session history
     PRICE_DB.saveBatch(state.allItems.slice(0, 500)); // Top 500 items
+    // Update lifeline prices for items we already have lifelines for
+    for (const item of state.allItems.slice(0, 100)) {
+        const vol = (item.buyQuantity || 0) + (item.sellQuantity || 0);
+        PRICE_DB.updateLifelinePrice(item.itemId, item.buyPrice, item.sellPrice, vol);
+    }
+    // Background fetch lifelines for top items (won't re-fetch if already stored)
+    if (state.allItems.length > 0 && !state._lifelineFetchStarted) {
+        state._lifelineFetchStarted = true;
+        setTimeout(() => LIFELINE.backgroundFetch(state.allItems), 5000);
+    }
     state.isConnected = true; state.lastFullRefresh = Date.now(); state.lastRefreshTime = Date.now();
     updateStatus(true); updateAPIStatus(true);
     renderAll(); // Always render — never skip updates
@@ -6913,6 +7112,31 @@ function openItemModal(itemId) {
             Buy: <span style="color:${freshColor(lowAge)}">${freshLabel(lowAge)}</span> · Sell: <span style="color:${freshColor(highAge)}">${freshLabel(highAge)}</span>
         </div></div>`;
     }
+    // === LIFELINE — Historical Price Context ===
+    // Fetch lifeline in background, display when ready
+    LIFELINE.ensureLifeline(item.itemId).then(async ll => {
+        if (!ll) return;
+        const summary = await LIFELINE.getSummary(item.itemId, (item.buyPrice + item.sellPrice) / 2);
+        if (!summary) return;
+        const lifeDiv = document.getElementById('modalLifeline');
+        if (!lifeDiv) return;
+        const posColor = summary.positionInRange < 25 ? 'var(--green)' : summary.positionInRange > 75 ? 'var(--red)' : 'var(--accent)';
+        const trendIcon = summary.weekTrend > 1 ? '▲' : summary.weekTrend < -1 ? '▼' : '—';
+        const trendColor = summary.weekTrend > 1 ? 'var(--green)' : summary.weekTrend < -1 ? 'var(--red)' : 'var(--text-muted)';
+        lifeDiv.innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;">
+                <div class="modal-stat"><div class="modal-stat-label">365-Day High</div><div class="modal-stat-value">${gp(summary.allTimeHigh)}</div></div>
+                <div class="modal-stat"><div class="modal-stat-label">365-Day Low</div><div class="modal-stat-value">${gp(summary.allTimeLow)}</div></div>
+                <div class="modal-stat"><div class="modal-stat-label">30-Day Avg</div><div class="modal-stat-value">${gp(summary.avg30d)}</div></div>
+                <div class="modal-stat"><div class="modal-stat-label">90-Day Avg</div><div class="modal-stat-value">${gp(summary.avg90d)}</div></div>
+                <div class="modal-stat"><div class="modal-stat-label">Position in Range</div><div class="modal-stat-value" style="color:${posColor}">${summary.positionInRange.toFixed(0)}% of yearly range</div></div>
+                <div class="modal-stat"><div class="modal-stat-label">7-Day Trend</div><div class="modal-stat-value" style="color:${trendColor}">${trendIcon} ${summary.weekTrend > 0 ? '+' : ''}${summary.weekTrend.toFixed(1)}%</div></div>
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${summary.daysOfHistory} days of data · Lifeline stored locally</div>
+        `;
+        lifeDiv.style.display = 'block';
+    }).catch(() => {});
+
     // === ADVANCED ANALYTICS ===
     // Fill rate estimation
     const fillEst = ANALYTICS.getFillEstimate(item);
