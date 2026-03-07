@@ -40,39 +40,12 @@ public class MultiAccountDashboard
 	private final Path dataFilePath;
 	private final Gson gson;
 
-	public MultiAccountDashboard(String dataDir)
+	public MultiAccountDashboard(String dataDir, Gson gson)
 	{
 		this.accounts = new ConcurrentHashMap<>();
 		this.dataFilePath = Paths.get(dataDir, "multi_account_data.json");
-		this.gson = createGson();
+		this.gson = gson;
 		loadFromFile();
-	}
-
-	/**
-	 * Creates Gson instance with Instant adapter for serialization/deserialization.
-	 */
-	private Gson createGson()
-	{
-		return new GsonBuilder()
-			.registerTypeAdapter(Instant.class, new JsonDeserializer<Instant>()
-			{
-				@Override
-				public Instant deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
-					throws JsonParseException
-				{
-					return Instant.parse(json.getAsString());
-				}
-			})
-			.registerTypeAdapter(Instant.class, new JsonSerializer<Instant>()
-			{
-				@Override
-				public JsonElement serialize(Instant src, Type typeOfSrc, JsonSerializationContext context)
-				{
-					return new JsonPrimitive(src.toString());
-				}
-			})
-			.setPrettyPrinting()
-			.create();
 	}
 
 	/**

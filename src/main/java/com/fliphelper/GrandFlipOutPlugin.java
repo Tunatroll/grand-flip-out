@@ -5,6 +5,7 @@ import com.fliphelper.model.FlipState;
 import com.fliphelper.model.TradeRecord;
 import com.fliphelper.tracker.*;
 import com.fliphelper.ui.GrandFlipOutPanel;
+import com.google.gson.Gson;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -87,6 +88,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     @Inject
     private OkHttpClient okHttpClient;
 
+    @Inject
+    private Gson gson;
+
     private PriceService priceService;
     private FlipTracker flipTracker;
     private FlipSuggestionEngine suggestionEngine;
@@ -127,8 +131,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         DATA_DIR.mkdirs();
 
         // Initialize core services
-        priceService = new PriceService(okHttpClient, config);
-        flipTracker = new FlipTracker(config, DATA_DIR);
+        priceService = new PriceService(okHttpClient, config, gson);
+        flipTracker = new FlipTracker(config, DATA_DIR, gson);
         suggestionEngine = new FlipSuggestionEngine(priceService, config);
 
         // Initialize dump detection, knowledge engine, and market intelligence
@@ -141,17 +145,17 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         investmentHorizonAnalyzer = new InvestmentHorizonAnalyzer(priceService);
 
         // Initialize multi-account dashboard (up to 10 accounts)
-        multiAccountDashboard = new MultiAccountDashboard(DATA_DIR.getAbsolutePath());
+        multiAccountDashboard = new MultiAccountDashboard(DATA_DIR.getAbsolutePath(), gson);
         if (config.enableMultiAccount())
         {
             initializeAccounts();
         }
 
         // Initialize session, risk, slot, and margin systems
-        sessionManager = new SessionManager(DATA_DIR.getAbsolutePath());
+        sessionManager = new SessionManager(DATA_DIR.getAbsolutePath(), gson);
         riskManager = new RiskManager();
         slotOptimizer = new SlotOptimizer();
-        marginCheckTracker = new MarginCheckTracker(DATA_DIR.getAbsolutePath());
+        marginCheckTracker = new MarginCheckTracker(DATA_DIR.getAbsolutePath(), gson);
 
         // Initialize SmartAdvisor — the unified intelligence brain
         smartAdvisor = new SmartAdvisor(

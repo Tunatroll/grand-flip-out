@@ -27,15 +27,9 @@ public class SessionManager {
     private final Gson gson;
     private final File dataFile;
 
-    public SessionManager(String dataDirectory) {
+    public SessionManager(String dataDirectory, Gson gson) {
         this.sessionHistory = Collections.synchronizedList(new ArrayList<>());
-        this.gson = new GsonBuilder()
-                .registerTypeAdapter(Instant.class,
-                        (JsonSerializer<Instant>) (src, typeOfSrc, context) -> context.serialize(src.toString()))
-                .registerTypeAdapter(Instant.class,
-                        (JsonDeserializer<Instant>) (json, typeOfT, context) -> Instant.parse(json.getAsString()))
-                .setPrettyPrinting()
-                .create();
+        this.gson = gson;
         this.dataFile = new File(dataDirectory, SESSIONS_FILE);
         loadSessionHistory();
     }

@@ -25,10 +25,10 @@ public class MarginCheckTracker {
     private final Gson gson;
     private final File dataFile;
 
-    public MarginCheckTracker(String dataDirectory) {
+    public MarginCheckTracker(String dataDirectory, Gson gson) {
         this.activeChecks = new ConcurrentHashMap<>();
         this.checkHistory = Collections.synchronizedList(new ArrayList<>());
-        this.gson = new GsonBuilder().setPrettyPrinting().create();
+        this.gson = gson;
         this.dataFile = new File(dataDirectory, MARGIN_CHECKS_FILE);
         loadCheckHistory();
     }

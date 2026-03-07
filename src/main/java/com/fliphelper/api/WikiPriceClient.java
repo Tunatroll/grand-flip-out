@@ -28,10 +28,10 @@ import java.util.Map;
 public class WikiPriceClient
 {
     private static final String BASE_URL = "https://prices.runescape.wiki/api/v1/osrs";
-    private static final Gson GSON = new Gson();
 
     private final OkHttpClient httpClient;
     private final String userAgent;
+    private final Gson gson;
 
     // Cached data
     private Map<Integer, PriceData> latestPrices = new HashMap<>();
@@ -40,10 +40,11 @@ public class WikiPriceClient
     private List<ItemMapping> itemMappings = new ArrayList<>();
     private Map<Integer, ItemMapping> mappingById = new HashMap<>();
 
-    public WikiPriceClient(OkHttpClient httpClient, String userAgent)
+    public WikiPriceClient(OkHttpClient httpClient, String userAgent, Gson gson)
     {
         this.httpClient = httpClient;
         this.userAgent = userAgent;
+        this.gson = gson;
     }
 
     /**
@@ -71,7 +72,7 @@ public class WikiPriceClient
 
             String bodyString = body.string();
             Type listType = new TypeToken<List<ItemMapping>>() {}.getType();
-            itemMappings = GSON.fromJson(bodyString, listType);
+            itemMappings = gson.fromJson(bodyString, listType);
 
             mappingById.clear();
             for (ItemMapping mapping : itemMappings)

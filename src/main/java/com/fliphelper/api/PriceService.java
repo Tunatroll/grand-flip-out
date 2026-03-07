@@ -6,6 +6,7 @@ import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.model.PriceData;
 import com.fliphelper.model.PriceSource;
 import com.fliphelper.tracker.PriceHistoryCollector;
+import com.google.gson.Gson;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
@@ -37,10 +38,10 @@ public class PriceService
 
     private boolean mappingsLoaded = false;
 
-    public PriceService(OkHttpClient httpClient, GrandFlipOutConfig config)
+    public PriceService(OkHttpClient httpClient, GrandFlipOutConfig config, Gson gson)
     {
         this.config = config;
-        this.wikiClient = new WikiPriceClient(httpClient, config.userAgent());
+        this.wikiClient = new WikiPriceClient(httpClient, config.userAgent(), gson);
         this.runeLiteClient = new RuneLitePriceClient(httpClient);
         this.officialGeClient = new OfficialGePriceClient(httpClient);
         this.historyCollector = new PriceHistoryCollector(this);

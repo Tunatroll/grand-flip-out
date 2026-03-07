@@ -6,7 +6,7 @@ import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.tracker.FlipTracker;
 import net.runelite.api.Client;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.api.widgets.ComponentID;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -66,7 +66,7 @@ public class GrandFlipOutOverlay extends Overlay
             return null;
         }
 
-        Widget geWidget = client.getWidget(WidgetInfo.GRAND_EXCHANGE_WINDOW_CONTAINER);
+        Widget geWidget = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
         boolean geOpen = geWidget != null && !geWidget.isHidden();
 
         panelComponent.getChildren().clear();

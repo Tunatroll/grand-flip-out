@@ -26,12 +26,9 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FlipTracker
 {
-    private static final Gson GSON = new GsonBuilder()
-        .setPrettyPrinting()
-        .create();
-
     private final GrandFlipOutConfig config;
     private final File dataDir;
+    private final Gson gson;
 
     @Getter
     private final Map<Integer, FlipItem> activeFlips = new ConcurrentHashMap<>();
@@ -48,10 +45,11 @@ public class FlipTracker
     @Getter
     private final AtomicInteger sessionFlipCount = new AtomicInteger(0);
 
-    public FlipTracker(GrandFlipOutConfig config, File dataDir)
+    public FlipTracker(GrandFlipOutConfig config, File dataDir, Gson gson)
     {
         this.config = config;
         this.dataDir = dataDir;
+        this.gson = gson;
 
         if (config.persistHistory())
         {
@@ -244,7 +242,7 @@ public class FlipTracker
             dataDir.mkdirs();
             try (Writer writer = new FileWriter(historyFile))
             {
-                GSON.toJson(completedFlips, writer);
+                gson.toJson(completedFlips, writer);
             }
             log.debug("Saved {} flip records to history", completedFlips.size());
         }
@@ -262,7 +260,7 @@ public class FlipTracker
             try (Reader reader = new FileReader(historyFile))
             {
                 Type listType = new TypeToken<List<FlipItem>>() {}.getType();
-                List<FlipItem> loaded = GSON.fromJson(reader, listType);
+                List<FlipItem> loaded = gson.fromJson(reader, listType);
                 if (loaded != null)
                 {
                     completedFlips.addAll(loaded);
