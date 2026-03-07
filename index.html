@@ -5777,6 +5777,21 @@ function iconHtml(icon, name, size=32) {
     if (!icon) return `<div style="width:${size}px;height:${size}px;display:grid;place-items:center;font-size:${size*0.6}px;color:var(--gold);">$</div>`;
     return `<img src="${iconUrl(icon)}" alt="${name||''}" style="width:${size}px;height:${size}px;object-fit:contain;" onerror="this.outerHTML='<div style=\\'width:${size}px;height:${size}px;display:grid;place-items:center;font-size:${size*0.6}px;color:var(--gold);\\'>$</div>'">`;
 }
+// Mini sparkline SVG from price samples
+function miniSparkline(itemId, width=60, height=20) {
+    const mem = state.priceMemory[itemId];
+    if (!mem || !mem.samples || mem.samples.length < 2) return '';
+    const prices = mem.samples.slice(-12).map(s => s.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = max - min || 1;
+    const step = width / (prices.length - 1);
+    const points = prices.map((p, i) => `${(i * step).toFixed(1)},${(height - ((p - min) / range) * height).toFixed(1)}`).join(' ');
+    const trend = prices[prices.length - 1] >= prices[0];
+    const color = trend ? 'var(--green)' : 'var(--red)';
+    return `<svg width="${width}" height="${height}" style="display:block;"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
 function updateStatus(on) {
     document.getElementById('statusDot').className = 'status-dot ' + (on ? 'on' : 'off');
     document.getElementById('statusText').textContent = on ? 'Live' : 'Offline';
@@ -5911,7 +5926,10 @@ function renderQuickPicks() {
                 <span style="font-size:11px;color:var(--text-muted);">ROI ${roi}%</span>
             </div>
             <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Buy: <span class="price-green">${gp(item.buyPrice)}</span> → Sell: <span style="color:var(--accent);font-weight:700;">${gp(item.sellPrice)}</span></div>
-            <div style="font-size:16px;font-weight:800;color:var(--green);">${gp(rp)}<span style="font-size:10px;font-weight:400;color:var(--text-muted);"> / 4h</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div style="font-size:16px;font-weight:800;color:var(--green);">${gp(rp)}<span style="font-size:10px;font-weight:400;color:var(--text-muted);"> / 4h</span></div>
+                <div style="opacity:0.8;">${miniSparkline(item.itemId)}</div>
+            </div>
         </div>`;
     }).join('');
 }
@@ -7546,12 +7564,37 @@ function startCountdownTimer() {
         const elapsed = (Date.now() - state.lastRefreshTime) / 1000;
         const until_next = Math.max(0, 300 - Math.floor(elapsed));
 
-        // Update "Last updated" display
+        // Update "Last updated" display with freshness color
         const mins = Math.floor(elapsed / 60);
         const secs = Math.floor(elapsed % 60);
         const display = mins > 0 ? `${mins}m ${secs}s ago` : `${secs}s ago`;
         const lastUpdateEl = document.getElementById('lastUpdateTime');
-        if (lastUpdateEl) lastUpdateEl.textContent = display;
+        if (lastUpdateEl) {
+            lastUpdateEl.textContent = display;
+            // Color-coded freshness: green (<1m), yellow (1-5m), red (>5m)
+            if (elapsed < 60) {
+                lastUpdateEl.style.color = 'var(--green)';
+            } else if (elapsed < 300) {
+                lastUpdateEl.style.color = 'var(--accent)';
+            } else {
+                lastUpdateEl.style.color = 'var(--red)';
+            }
+        }
+
+        // Update status dot freshness
+        const statusDot = document.getElementById('statusDot');
+        if (statusDot && statusDot.classList.contains('on')) {
+            if (elapsed > 600) {
+                statusDot.style.background = 'var(--red)';
+                statusDot.style.boxShadow = '0 0 6px var(--red)';
+            } else if (elapsed > 300) {
+                statusDot.style.background = 'var(--accent)';
+                statusDot.style.boxShadow = '0 0 6px var(--accent)';
+            } else {
+                statusDot.style.background = '';
+                statusDot.style.boxShadow = '';
+            }
+        }
 
         // Update countdown display
         const cntdownEl = document.getElementById('countdownValue');
