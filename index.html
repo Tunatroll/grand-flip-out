@@ -558,6 +558,14 @@
                 <div style="padding:20px; text-align:center; color:var(--text-muted);">Loading...</div>
             </div>
         </div>
+
+        <!-- Category Heatmap -->
+        <div class="chart-box" style="margin-top:16px;">
+            <h3>🗺️ Category Heatmap — Where's the Profit?</h3>
+            <div id="categoryHeatmap" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px; margin-top:10px;">
+                <div style="padding:20px; text-align:center; color:var(--text-muted); grid-column:1/-1;">Loading...</div>
+            </div>
+        </div>
     </div>
 
     <!-- ===== TOP FLIPS TAB ===== -->
@@ -1655,6 +1663,45 @@ const MARKET_REGIME = {
             case 'stable': return { text: 'Market Stable', icon: '⚖️', color: 'var(--blue)' };
             default: return { text: 'Analyzing...', icon: '🔍', color: 'var(--text-muted)' };
         }
+    },
+
+    // Render the market regime banner on dashboard
+    render() {
+        const items = state.allItems;
+        const banner = document.getElementById('marketRegimeBanner');
+        if (!banner || items.length < 10) return;
+
+        // Use existing state + spread analysis for rich display
+        const label = this.getLabel();
+        let wideSpread = 0, tightSpread = 0;
+        for (const item of items) {
+            const spreadPct = item.buyPrice > 0 ? ((item.sellPrice - item.buyPrice) / item.buyPrice * 100) : 0;
+            if (spreadPct > 10) wideSpread++;
+            else if (spreadPct < 2) tightSpread++;
+        }
+        const volatility = Math.round((wideSpread / items.length) * 100);
+        const dumpsActive = state.dumps.length;
+
+        let detail;
+        switch (this.state) {
+            case 'bear': detail = `${this.fallingCount} items falling, avg drift ${this.avgDrift.toFixed(1)}%. ${dumpsActive} dumps — be selective, not everything is a buy.`; break;
+            case 'bull': detail = `${this.risingCount} items rising, avg drift +${this.avgDrift.toFixed(1)}%. Good conditions — crashes in a bull market are real opportunities.`; break;
+            case 'volatile': detail = `${wideSpread} items with wide spreads, ${this.risingCount} rising, ${this.fallingCount} falling. High risk/reward — check volume before committing.`; break;
+            case 'stable': detail = `Tight spreads on ${tightSpread} items. Focus on high-volume reliable flips. ${dumpsActive} dump${dumpsActive !== 1 ? 's' : ''} worth watching.`; break;
+            default: detail = `Analyzing market... ${items.length} items tracked.`;
+        }
+
+        const colorMap = { bear: 'rgba(239,68,68,0.1)', bull: 'rgba(34,197,94,0.1)', volatile: 'rgba(245,158,11,0.1)', stable: 'rgba(34,197,94,0.08)', unknown: 'rgba(255,152,31,0.05)' };
+        const borderMap = { bear: 'rgba(239,68,68,0.4)', bull: 'rgba(34,197,94,0.4)', volatile: 'rgba(245,158,11,0.4)', stable: 'rgba(34,197,94,0.3)', unknown: 'rgba(255,152,31,0.2)' };
+
+        banner.style.display = 'flex';
+        banner.style.background = colorMap[this.state] || colorMap.unknown;
+        banner.style.borderColor = borderMap[this.state] || borderMap.unknown;
+
+        document.getElementById('regimeIcon').textContent = label.icon;
+        document.getElementById('regimeTitle').textContent = label.text;
+        document.getElementById('regimeDetail').textContent = detail;
+        document.getElementById('regimeVolatility').textContent = volatility + '%';
     }
 };
 
@@ -2724,86 +2771,149 @@ const PRICE_PATTERNS = {
 };
 
 // ============================================
-// MARKET REGIME DETECTION
+// ADVANCED ANALYTICS ENGINE
 // ============================================
-const MARKET_REGIME = {
-    lastRegime: null,
-
-    analyze() {
-        const items = state.allItems;
-        if (items.length < 10) return null;
-
-        // Count spread distributions
-        let wideSpread = 0, tightSpread = 0, negSpread = 0;
-        let totalVolPerHr = 0;
-        let dumpsActive = state.dumps.length;
-        let highMarginCount = 0;
-
-        for (const item of items) {
-            const spreadPct = item.buyPrice > 0 ? ((item.sellPrice - item.buyPrice) / item.buyPrice * 100) : 0;
-            if (spreadPct > 10) wideSpread++;
-            else if (spreadPct < 2) tightSpread++;
-            if (item.margin < 0) negSpread++;
-            if (item.margin > 50000) highMarginCount++;
-            totalVolPerHr += volPerHour(item);
-        }
-
-        const widePct = (wideSpread / items.length) * 100;
-        const tightPct = (tightSpread / items.length) * 100;
-        const volatility = Math.round(widePct);
-
-        let regime, icon, color, border, detail;
-
-        if (dumpsActive > 5 && widePct > 30) {
-            regime = 'CRASH';
-            icon = '🔴';
-            color = 'rgba(239,68,68,0.1)';
-            border = 'rgba(239,68,68,0.4)';
-            detail = `${dumpsActive} dumps active, ${wideSpread} items with wide spreads. Buy opportunities everywhere — be selective.`;
-        } else if (widePct > 20) {
-            regime = 'VOLATILE';
-            icon = '🟡';
-            color = 'rgba(245,158,11,0.1)';
-            border = 'rgba(245,158,11,0.4)';
-            detail = `${wideSpread} items with wide margins. More flipping opportunities but higher risk. Check volume before committing.`;
-        } else if (tightPct > 50 && dumpsActive < 2) {
-            regime = 'STABLE';
-            icon = '🟢';
-            color = 'rgba(34,197,94,0.08)';
-            border = 'rgba(34,197,94,0.3)';
-            detail = `Tight spreads on ${tightSpread} items. Stable market — focus on high-volume, reliable flips.`;
-        } else if (highMarginCount > 15) {
-            regime = 'BULL';
-            icon = '📈';
-            color = 'rgba(34,197,94,0.1)';
-            border = 'rgba(34,197,94,0.4)';
-            detail = `${highMarginCount} items with 50K+ margins. Lots of profit potential — prioritize by volume.`;
-        } else {
-            regime = 'NORMAL';
-            icon = '⚪';
-            color = 'rgba(255,152,31,0.05)';
-            border = 'rgba(255,152,31,0.2)';
-            detail = `Standard conditions. ${items.length} items tracked, ${dumpsActive} active dump${dumpsActive !== 1 ? 's' : ''}.`;
-        }
-
-        return { regime, icon, color, border, detail, volatility, wideSpread, tightSpread, dumpsActive, totalVolPerHr };
+const ANALYTICS = {
+    // Volume anomaly detection using z-score
+    getVolumeAnomaly(item) {
+        const history = state.priceHistory[item.itemId] || [];
+        if (history.length < 5) return null;
+        const volumes = history.map(h => h.vol || 0).filter(v => v > 0);
+        if (volumes.length < 5) return null;
+        const mean = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+        const stdDev = Math.sqrt(volumes.reduce((a, v) => a + (v - mean) ** 2, 0) / volumes.length);
+        if (stdDev === 0) return null;
+        const latestVol = volumes[volumes.length - 1];
+        const zScore = (latestVol - mean) / stdDev;
+        return {
+            zScore: Math.round(zScore * 100) / 100,
+            isAnomaly: Math.abs(zScore) > 2,
+            type: zScore > 2 ? 'SPIKE' : zScore < -2 ? 'DRY' : 'normal',
+            label: zScore > 2 ? 'Volume spike' : zScore < -2 ? 'Volume dried up' : 'Normal volume'
+        };
     },
 
-    render() {
-        const data = this.analyze();
-        const banner = document.getElementById('marketRegimeBanner');
-        if (!data || !banner) return;
+    // Buy/sell pressure from volume ratio
+    getBuySellPressure(item) {
+        const bv = item.buyVolume || 0;
+        const sv = item.sellVolume || 0;
+        const total = bv + sv;
+        if (total === 0) return null;
+        const buyPressure = bv / total;
+        return {
+            buyPressure: Math.round(buyPressure * 100),
+            sellPressure: Math.round((1 - buyPressure) * 100),
+            ratio: sv > 0 ? Math.round((bv / sv) * 100) / 100 : Infinity,
+            signal: buyPressure > 0.6 ? 'BULLISH' : buyPressure < 0.4 ? 'BEARISH' : 'BALANCED',
+            icon: buyPressure > 0.6 ? '🟢' : buyPressure < 0.4 ? '🔴' : '⚪'
+        };
+    },
 
-        banner.style.display = 'flex';
-        banner.style.background = data.color;
-        banner.style.borderColor = data.border;
+    // Manipulation risk score (0-100)
+    getManipulationRisk(item) {
+        let score = 0;
+        const reasons = [];
 
-        document.getElementById('regimeIcon').textContent = data.icon;
-        document.getElementById('regimeTitle').textContent = `Market: ${data.regime}`;
-        document.getElementById('regimeDetail').textContent = data.detail;
-        document.getElementById('regimeVolatility').textContent = data.volatility + '%';
+        // High margin + low volume = classic manipulation setup
+        const marginPct = item.buyPrice > 0 ? (item.margin / item.buyPrice * 100) : 0;
+        const vph = volPerHour(item);
 
-        this.lastRegime = data.regime;
+        if (marginPct > 15 && vph < 24) { score += 35; reasons.push('Very high margin + very low volume'); }
+        else if (marginPct > 10 && vph < 60) { score += 20; reasons.push('High margin + low volume'); }
+
+        // Check for sudden price spikes in history
+        const history = state.priceHistory[item.itemId] || [];
+        if (history.length >= 3) {
+            const prices = history.map(h => h.price);
+            const recentChange = prices.length >= 2 ? ((prices[prices.length - 1] - prices[prices.length - 2]) / prices[prices.length - 2] * 100) : 0;
+            if (Math.abs(recentChange) > 15) { score += 25; reasons.push(`Price moved ${recentChange.toFixed(0)}% in last tick`); }
+            else if (Math.abs(recentChange) > 8) { score += 15; reasons.push(`Price moved ${recentChange.toFixed(0)}%`); }
+        }
+
+        // Volume anomaly (spike might indicate coordinated buying)
+        const volAnomaly = this.getVolumeAnomaly(item);
+        if (volAnomaly && volAnomaly.zScore > 3) { score += 20; reasons.push('Extreme volume spike'); }
+
+        // Very low GE limit makes it easier to corner the market
+        const geLimit = item.geLimit || 0;
+        if (geLimit > 0 && geLimit <= 8) { score += 15; reasons.push(`Very low GE limit (${geLimit})`); }
+        else if (geLimit > 0 && geLimit <= 25) { score += 8; reasons.push(`Low GE limit (${geLimit})`); }
+
+        const level = score >= 60 ? 'HIGH' : score >= 35 ? 'MEDIUM' : 'LOW';
+        return { score: Math.min(100, score), level, reasons, icon: score >= 60 ? '🚨' : score >= 35 ? '⚠️' : '✅' };
+    },
+
+    // Liquidity score (daily GP throughput estimate)
+    getLiquidityScore(item) {
+        const vph = volPerHour(item);
+        const midPrice = (item.buyPrice + item.sellPrice) / 2;
+        const dailyGP = vph * 24 * midPrice;
+        let tier;
+        if (dailyGP > 10_000_000_000) tier = 'ULTRA';      // 10B+ daily
+        else if (dailyGP > 1_000_000_000) tier = 'HIGH';    // 1B+ daily
+        else if (dailyGP > 100_000_000) tier = 'MEDIUM';    // 100M+ daily
+        else if (dailyGP > 10_000_000) tier = 'LOW';        // 10M+ daily
+        else tier = 'DEAD';
+        return { dailyGP, tier, vph, label: gp(dailyGP) + '/day throughput' };
+    },
+
+    // Fill rate estimation
+    getFillEstimate(item, quantity = null) {
+        const geLimit = item.geLimit || 999999;
+        const vph = volPerHour(item);
+        const qty = quantity || Math.min(geLimit, Math.max(1, Math.floor(vph * 4)));
+
+        if (vph === 0) return { likelihood: 0, label: 'Will NOT fill', time: 'Never', icon: '⚫', warning: 'Zero volume — dead item' };
+
+        const hoursToFill = qty / vph;
+        const likelihood = Math.min(100, Math.round((vph * 4 / qty) * 100));
+
+        let label, icon, warning = null;
+        if (likelihood >= 90) { label = 'Instant fill'; icon = '🟢'; }
+        else if (likelihood >= 60) { label = 'Fast fill (< 1h)'; icon = '🟡'; }
+        else if (likelihood >= 30) { label = 'Slow fill (1-4h)'; icon = '🟠'; }
+        else { label = 'Very slow'; icon = '🔴'; warning = 'Capital may be locked for hours'; }
+
+        // Stickiness trap detection
+        const marginPct = item.buyPrice > 0 ? (item.margin / item.buyPrice * 100) : 0;
+        if (marginPct > 5 && vph < 12) { warning = 'STICKINESS TRAP: Great margin but zero volume — your GP will be stuck'; icon = '🪤'; }
+
+        return { likelihood, label, icon, warning, hoursToFill: Math.round(hoursToFill * 10) / 10 };
+    },
+
+    // Tax efficiency for high-value items
+    getTaxEfficiency(item) {
+        const sellPrice = item.sellPrice || 0;
+        if (sellPrice <= 0) return null;
+        const tax = Math.min(Math.floor(sellPrice * 0.02), 5000000);
+        const taxPct = (tax / sellPrice * 100);
+        const atCap = sellPrice >= 250000000;
+        const effectiveTaxRate = atCap ? (5000000 / sellPrice * 100) : 2;
+        return {
+            tax,
+            taxPct: Math.round(taxPct * 100) / 100,
+            atCap,
+            effectiveTaxRate: Math.round(effectiveTaxRate * 1000) / 1000,
+            label: atCap ? `Tax capped at 5M (effective ${effectiveTaxRate.toFixed(2)}%)` : `${taxPct.toFixed(1)}% tax (${gp(tax)})`
+        };
+    },
+
+    // Spread velocity — is the margin widening or narrowing?
+    getSpreadVelocity(item) {
+        const spreadHist = state.spreadHistory[item.itemId];
+        if (!spreadHist || spreadHist.length < 3) return null;
+        const recent = spreadHist.slice(-6);
+        const first = recent[0].spread;
+        const last = recent[recent.length - 1].spread;
+        const velocity = last - first;
+        const pctChange = first > 0 ? ((last - first) / first * 100) : 0;
+        return {
+            velocity,
+            pctChange: Math.round(pctChange),
+            direction: velocity > 0 ? 'WIDENING' : velocity < 0 ? 'NARROWING' : 'STABLE',
+            icon: velocity > 0 ? '↗️' : velocity < 0 ? '↘️' : '➡️',
+            label: velocity > 0 ? `Spread widening (+${gp(velocity)})` : velocity < 0 ? `Spread narrowing (${gp(velocity)})` : 'Spread stable'
+        };
     }
 };
 
@@ -4410,6 +4520,7 @@ function renderDashboard() {
     MARKET_REGIME.render();
     renderCharts();
     renderQuickPicks();
+    renderCategoryHeatmap();
 }
 
 function renderQuickPicks() {
@@ -4432,6 +4543,84 @@ function renderQuickPicks() {
             </div>
             <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Buy: <span class="price-green">${gp(item.buyPrice)}</span> → Sell: <span style="color:var(--accent);font-weight:700;">${gp(item.sellPrice)}</span></div>
             <div style="font-size:16px;font-weight:800;color:var(--green);">${gp(rp)}<span style="font-size:10px;font-weight:400;color:var(--text-muted);"> / 4h</span></div>
+        </div>`;
+    }).join('');
+}
+
+function renderCategoryHeatmap() {
+    const grid = document.getElementById('categoryHeatmap');
+    if (!grid) return;
+    const items = state.allItems;
+    if (items.length === 0) return;
+
+    // Categorize items by name patterns
+    const categories = {
+        'Weapons': { keywords: ['sword', 'scimitar', 'whip', 'bow', 'crossbow', 'staff', 'wand', 'dagger', 'mace', 'halberd', 'spear', 'axe', 'claws', 'godsword', 'rapier', 'blade', 'blowpipe', 'scythe', 'shadow', 'sceptre'], icon: '⚔️' },
+        'Armor': { keywords: ['platebody', 'platelegs', 'plateskirt', 'chainbody', 'helm', 'shield', 'defender', 'boots', 'gloves', 'tassets', 'chestplate', 'coif', 'body', 'chaps', 'vamb'], icon: '🛡️' },
+        'Runes': { keywords: ['rune', ' runes'], icon: '✨' },
+        'Potions': { keywords: ['potion', 'brew', 'restore', 'prayer', 'overload', 'stamina', 'antifire', 'antivenom'], icon: '🧪' },
+        'Food': { keywords: ['shark', 'lobster', 'swordfish', 'manta', 'anglerfish', 'tuna', 'monkfish', 'karambwan', 'dark crab', 'cooked'], icon: '🍖' },
+        'Herbs': { keywords: ['grimy', 'herb', 'ranarr', 'torstol', 'snapdragon', 'kwuarm', 'cadantine', 'lantadyme', 'dwarf weed'], icon: '🌿' },
+        'Ores & Bars': { keywords: ['ore', 'bar', 'coal', 'mithril', 'adamant', 'rune', 'gold'], icon: '⛏️' },
+        'Logs': { keywords: ['logs', 'plank'], icon: '🪵' },
+        'Seeds': { keywords: ['seed'], icon: '🌱' },
+        'Ammunition': { keywords: ['arrow', 'bolt', 'dart', 'javelin', 'knife', 'cannonball'], icon: '🏹' },
+        'Jewelry': { keywords: ['ring', 'necklace', 'amulet', 'bracelet', 'pendant', 'zenyte', 'onyx'], icon: '💍' },
+        'Raids': { keywords: ['ancestral', 'twisted', 'kodai', 'dragon hunter', 'dexterous', 'arcane', 'masori', 'tumeken', 'elidinis', 'lightbearer', 'fang', 'shadow', 'ward', 'torva'], icon: '🏰' }
+    };
+
+    const catStats = {};
+    for (const [name, def] of Object.entries(categories)) {
+        catStats[name] = { ...def, items: [], totalProfit: 0, avgMarginPct: 0, bestItem: null };
+    }
+    catStats['Other'] = { icon: '📦', keywords: [], items: [], totalProfit: 0, avgMarginPct: 0, bestItem: null };
+
+    for (const item of items) {
+        const nameLower = item.name.toLowerCase();
+        let found = false;
+        for (const [catName, def] of Object.entries(categories)) {
+            if (def.keywords.some(kw => nameLower.includes(kw))) {
+                catStats[catName].items.push(item);
+                found = true;
+                break;
+            }
+        }
+        if (!found) catStats['Other'].items.push(item);
+    }
+
+    // Calculate per-category stats
+    for (const cat of Object.values(catStats)) {
+        if (cat.items.length === 0) continue;
+        let totalMarginPct = 0;
+        for (const item of cat.items) {
+            const rp = realistic4hProfit(item);
+            cat.totalProfit += rp;
+            const mPct = item.buyPrice > 0 ? (item.margin / item.buyPrice * 100) : 0;
+            totalMarginPct += mPct;
+            if (!cat.bestItem || rp > realistic4hProfit(cat.bestItem)) cat.bestItem = item;
+        }
+        cat.avgMarginPct = totalMarginPct / cat.items.length;
+    }
+
+    // Sort by total profit
+    const sorted = Object.entries(catStats).filter(([, c]) => c.items.length > 0).sort((a, b) => b[1].totalProfit - a[1].totalProfit);
+
+    const maxProfit = sorted.length > 0 ? sorted[0][1].totalProfit : 1;
+
+    grid.innerHTML = sorted.map(([name, cat]) => {
+        const heat = Math.min(1, cat.totalProfit / maxProfit);
+        const heatColor = `rgba(34,197,94,${(heat * 0.3 + 0.05).toFixed(2)})`;
+        const borderColor = `rgba(34,197,94,${(heat * 0.5 + 0.1).toFixed(2)})`;
+        const bestName = cat.bestItem ? cat.bestItem.name : '—';
+        const bestProfit = cat.bestItem ? gp(realistic4hProfit(cat.bestItem)) : '—';
+        return `<div style="background:${heatColor}; border:1px solid ${borderColor}; border-radius:var(--radius); padding:12px; cursor:default;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                <span style="font-size:18px;">${cat.icon}</span>
+                <span style="font-weight:700;font-size:13px;">${name}</span>
+                <span style="margin-left:auto;font-size:10px;color:var(--text-muted);">${cat.items.length} items</span>
+            </div>
+            <div style="font-size:16px;font-weight:800;color:var(--green);">${gp(cat.totalProfit)}<span style="font-size:10px;font-weight:400;color:var(--text-muted);"> total 4h</span></div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">Avg margin: ${cat.avgMarginPct.toFixed(1)}% · Best: ${bestName} (${bestProfit})</div>
         </div>`;
     }).join('');
 }
@@ -5272,6 +5461,40 @@ function openItemModal(itemId) {
             Buy: <span style="color:${freshColor(lowAge)}">${freshLabel(lowAge)}</span> · Sell: <span style="color:${freshColor(highAge)}">${freshLabel(highAge)}</span>
         </div></div>`;
     }
+    // === ADVANCED ANALYTICS ===
+    // Fill rate estimation
+    const fillEst = ANALYTICS.getFillEstimate(item);
+    if (fillEst) {
+        const fillBg = fillEst.likelihood >= 60 ? 'rgba(34,197,94,0.06)' : fillEst.likelihood >= 30 ? 'rgba(245,158,11,0.06)' : 'rgba(239,68,68,0.06)';
+        statsHtml += `<div class="modal-stat" style="background:${fillBg};"><div class="modal-stat-label">${fillEst.icon} Fill Rate</div><div class="modal-stat-value">${fillEst.likelihood}% — ${fillEst.label}${fillEst.warning ? '<br><span style="color:var(--red);font-size:10px;font-weight:400;">⚠️ ' + fillEst.warning + '</span>' : ''}</div></div>`;
+    }
+    // Buy/sell pressure
+    const pressure = ANALYTICS.getBuySellPressure(item);
+    if (pressure) {
+        statsHtml += `<div class="modal-stat"><div class="modal-stat-label">${pressure.icon} Order Flow</div><div class="modal-stat-value" style="font-size:12px;">Buy ${pressure.buyPressure}% / Sell ${pressure.sellPressure}% — <strong>${pressure.signal}</strong></div></div>`;
+    }
+    // Manipulation risk
+    const manipRisk = ANALYTICS.getManipulationRisk(item);
+    if (manipRisk && manipRisk.score > 0) {
+        const riskBg = manipRisk.level === 'HIGH' ? 'rgba(239,68,68,0.1)' : manipRisk.level === 'MEDIUM' ? 'rgba(245,158,11,0.08)' : 'transparent';
+        statsHtml += `<div class="modal-stat" style="background:${riskBg};"><div class="modal-stat-label">${manipRisk.icon} Manipulation Risk</div><div class="modal-stat-value">${manipRisk.score}/100 (${manipRisk.level})${manipRisk.reasons.length > 0 ? '<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;">' + manipRisk.reasons.join(' · ') + '</span>' : ''}</div></div>`;
+    }
+    // Liquidity score
+    const liquidity = ANALYTICS.getLiquidityScore(item);
+    if (liquidity && liquidity.dailyGP > 0) {
+        statsHtml += `<div class="modal-stat"><div class="modal-stat-label">Liquidity</div><div class="modal-stat-value">${liquidity.tier} — ${liquidity.label}</div></div>`;
+    }
+    // Tax efficiency
+    const taxEff = ANALYTICS.getTaxEfficiency(item);
+    if (taxEff && taxEff.atCap) {
+        statsHtml += `<div class="modal-stat" style="background:rgba(34,197,94,0.06);"><div class="modal-stat-label">💰 Tax Advantage</div><div class="modal-stat-value" style="color:var(--green);">${taxEff.label}</div></div>`;
+    }
+    // Spread velocity
+    const spreadVel = ANALYTICS.getSpreadVelocity(item);
+    if (spreadVel) {
+        statsHtml += `<div class="modal-stat"><div class="modal-stat-label">${spreadVel.icon} Spread Trend</div><div class="modal-stat-value">${spreadVel.label}</div></div>`;
+    }
+
     document.getElementById('modalStats').innerHTML = statsHtml;
     // Intel
     let intelHtml = '';

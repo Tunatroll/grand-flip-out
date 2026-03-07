@@ -1088,11 +1088,46 @@ async def analyze_command(interaction: discord.Interaction, item_name: str):
         profit_text += f"\n~{rb:,} items tradeable in 4h"
     embed.add_field(name="Realistic Profit", value=profit_text, inline=False)
 
+    # Fill rate estimation
+    fill_likelihood = min(100, round((vph * 4 / max(1, rb)) * 100)) if vph > 0 else 0
+    fill_label = '🟢 Instant' if fill_likelihood >= 90 else '🟡 Fast' if fill_likelihood >= 60 else '🟠 Slow' if fill_likelihood >= 30 else '🔴 Very slow'
+    embed.add_field(name="Fill Rate", value=f"{fill_label} ({fill_likelihood}%)", inline=True)
+
+    # Buy/sell pressure
+    bv = item.get('buy_volume', 0) or 0
+    sv = item.get('sell_volume', 0) or 0
+    total_v = bv + sv
+    if total_v > 0:
+        buy_pct = round(bv / total_v * 100)
+        pressure = '🟢 Bullish' if buy_pct > 60 else '🔴 Bearish' if buy_pct < 40 else '⚪ Balanced'
+        embed.add_field(name="Order Flow", value=f"Buy {buy_pct}% / Sell {100-buy_pct}% — {pressure}", inline=True)
+
+    # Manipulation risk
+    margin_pct = (item['margin'] / item['buy_price'] * 100) if item['buy_price'] > 0 else 0
+    risk_score = 0
+    risk_reasons = []
+    if margin_pct > 15 and vph < 24: risk_score += 35; risk_reasons.append('High margin + low vol')
+    elif margin_pct > 10 and vph < 60: risk_score += 20; risk_reasons.append('Elevated margin/vol ratio')
+    if ge_limit and ge_limit <= 8: risk_score += 15; risk_reasons.append(f'Low GE limit ({ge_limit})')
+    risk_level = '🚨 HIGH' if risk_score >= 50 else '⚠️ MEDIUM' if risk_score >= 25 else '✅ LOW'
+    if risk_score > 0:
+        embed.add_field(name="Manipulation Risk", value=f"{risk_level} ({risk_score}/100)\n{' · '.join(risk_reasons)}", inline=False)
+
+    # Tax efficiency for expensive items
+    sell_price = item.get('sell_price', 0)
+    if sell_price >= 250000000:
+        eff_tax = round(5000000 / sell_price * 100, 2)
+        embed.add_field(name="💰 Tax Advantage", value=f"Tax capped at 5M (effective {eff_tax}% vs 2%)", inline=False)
+
     # Quick verdict explanation
     if verdict == "Dead":
         embed.add_field(name="⚠️ Warning", value="Almost nobody is trading this item. Don't expect your offers to fill.", inline=False)
     elif verdict == "Slow":
         embed.add_field(name="💤 Note", value="Low activity. Your offers might take a while to fill.", inline=False)
+
+    # Stickiness trap warning
+    if margin_pct > 5 and vph < 12:
+        embed.add_field(name="🪤 STICKINESS TRAP", value="Great margin but near-zero volume. Your GP will be stuck — avoid this flip.", inline=False)
 
     embed.set_footer(text="Grand Flip Out | Based on real trading volume")
     embed.timestamp = datetime.now()
@@ -1111,6 +1146,152 @@ async def market_command(interaction: discord.Interaction):
     if t:
         embed.add_field(name="Highest Margin", value=f"**{t['name']}**: {format_gp(t['margin'])}", inline=False)
     embed.set_footer(text="Grand Flip Out | OSRS Wiki API")
+    embed.timestamp = datetime.now()
+    await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="momentum", description="Show items with the strongest price momentum right now")
+@app_commands.describe(direction="rising or falling (default: rising)")
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def momentum_command(interaction: discord.Interaction, direction: str = "rising"):
+    await interaction.response.defer()
+    direction = direction.lower() if direction else "rising"
+    is_rising = direction != "falling"
+
+    if not api_client.latest_prices or not api_client.prev_prices:
+        await interaction.followup.send("Still collecting price data. Try again in a minute.")
+        return
+
+    momentum_items = []
+    for item_id, prices in api_client.latest_prices.items():
+        prev_avg = api_client.prev_prices.get(item_id, 0)
+        if not prev_avg or prev_avg == 0:
+            continue
+        meta = api_client.item_mapping.get(item_id, {})
+        name = meta.get('name', f'Item {item_id}')
+        if any(junk in name.lower() for junk in api_client.JUNK_KEYWORDS):
+            continue
+
+        high = prices.get('high', 0) or 0
+        low = prices.get('low', 0) or 0
+        if high <= 0 or low <= 0:
+            continue
+        current_avg = (high + low) // 2
+        if current_avg < 5000:
+            continue
+
+        pct_change = ((current_avg - prev_avg) / prev_avg) * 100
+
+        # Volume check
+        vols = api_client.volume_data.get(item_id, {})
+        total_vol = (vols.get('buyVol', 0) or 0) + (vols.get('sellVol', 0) or 0)
+        if total_vol < 1:
+            continue
+
+        # Buy/sell pressure
+        bv = vols.get('buyVol', 0) or 0
+        sv = vols.get('sellVol', 0) or 0
+        buy_pct = round(bv / (bv + sv) * 100) if (bv + sv) > 0 else 50
+
+        if (is_rising and pct_change > 0.5) or (not is_rising and pct_change < -0.5):
+            momentum_items.append({
+                'name': name,
+                'pct_change': round(pct_change, 2),
+                'current': current_avg,
+                'prev': prev_avg,
+                'volume': total_vol * 12,
+                'buy_pressure': buy_pct
+            })
+
+    if is_rising:
+        momentum_items.sort(key=lambda x: x['pct_change'], reverse=True)
+    else:
+        momentum_items.sort(key=lambda x: x['pct_change'])
+
+    top = momentum_items[:15]
+    if not top:
+        await interaction.followup.send(f"No items with strong {'upward' if is_rising else 'downward'} momentum right now.")
+        return
+
+    def format_momentum(i, item):
+        arrow = '📈' if item['pct_change'] > 0 else '📉'
+        pressure = '🟢' if item['buy_pressure'] > 60 else '🔴' if item['buy_pressure'] < 40 else '⚪'
+        return (
+            f"{arrow} {item['name']}",
+            f"**{'+' if item['pct_change'] > 0 else ''}{item['pct_change']}%** ({format_gp(item['prev'])} → {format_gp(item['current'])})\n"
+            f"Vol: ~{item['volume']:,}/hr · {pressure} Buy pressure: {item['buy_pressure']}%"
+        )
+
+    title = f"{'📈 Rising' if is_rising else '📉 Falling'} Momentum — Price Movers"
+    pages = build_paginated_embeds(top, title, per_page=5, format_fn=format_momentum)
+    if len(pages) > 1:
+        view = PaginatedView(pages, interaction.user.id)
+        await interaction.followup.send(embed=pages[0], view=view)
+    else:
+        await interaction.followup.send(embed=pages[0])
+
+
+@bot.tree.command(name="risk", description="Check manipulation risk and fill rate for an item")
+@app_commands.describe(item_name="Name of the item to check")
+@app_commands.autocomplete(item_name=item_name_autocomplete)
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def risk_command(interaction: discord.Interaction, item_name: str):
+    await interaction.response.defer()
+    item = api_client.find_item_by_name(item_name)
+    if not item:
+        await interaction.followup.send(f"Couldn't find item matching '{item_name}'.")
+        return
+
+    vph = vol_per_hour(item)
+    margin_pct = (item['margin'] / item['buy_price'] * 100) if item['buy_price'] > 0 else 0
+    ge_limit = item.get('ge_limit', 0)
+
+    # Manipulation risk
+    risk_score = 0
+    risk_reasons = []
+    if margin_pct > 15 and vph < 24: risk_score += 35; risk_reasons.append('Very high margin + very low volume')
+    elif margin_pct > 10 and vph < 60: risk_score += 20; risk_reasons.append('Elevated margin/vol ratio')
+    if ge_limit and ge_limit <= 8: risk_score += 15; risk_reasons.append(f'Very low GE limit ({ge_limit})')
+    elif ge_limit and ge_limit <= 25: risk_score += 8; risk_reasons.append(f'Low GE limit ({ge_limit})')
+
+    # Check for price anomaly
+    prev_avg = api_client.prev_prices.get(item['id'], 0)
+    if prev_avg > 0:
+        current_avg = (item['buy_price'] + item['sell_price']) // 2
+        pct_change = abs((current_avg - prev_avg) / prev_avg * 100)
+        if pct_change > 15: risk_score += 25; risk_reasons.append(f'Price moved {pct_change:.0f}% recently')
+        elif pct_change > 8: risk_score += 15; risk_reasons.append(f'Price moved {pct_change:.0f}%')
+
+    risk_level = '🚨 HIGH RISK' if risk_score >= 60 else '⚠️ MEDIUM RISK' if risk_score >= 35 else '✅ LOW RISK'
+    risk_color = 0xFF4444 if risk_score >= 60 else 0xFFAA00 if risk_score >= 35 else 0x22C55E
+
+    embed = discord.Embed(title=f"{risk_level} — {item['name']}", color=risk_color)
+    embed.set_thumbnail(url=get_item_icon_url(item['id'], item['name'], item.get('icon', '')))
+
+    embed.add_field(name="Risk Score", value=f"**{min(100, risk_score)}/100**", inline=True)
+    embed.add_field(name="Margin", value=f"{margin_pct:.1f}%", inline=True)
+    embed.add_field(name="Volume", value=format_vol_per_hour(item), inline=True)
+
+    # Fill rate
+    rb = realistic_buys(item)
+    fill_likelihood = min(100, round((vph * 4 / max(1, rb)) * 100)) if vph > 0 else 0
+    fill_label = '🟢 Instant' if fill_likelihood >= 90 else '🟡 Fast' if fill_likelihood >= 60 else '🟠 Slow' if fill_likelihood >= 30 else '🔴 Very slow'
+    embed.add_field(name="Fill Rate", value=f"{fill_label} ({fill_likelihood}%)", inline=True)
+
+    # Stickiness check
+    if margin_pct > 5 and vph < 12:
+        embed.add_field(name="🪤 STICKINESS TRAP", value="Great margin but near-zero volume. Your GP will be stuck in the GE. Avoid this flip.", inline=False)
+
+    if risk_reasons:
+        embed.add_field(name="Risk Factors", value='\n'.join(f'• {r}' for r in risk_reasons), inline=False)
+
+    # Tax info
+    sell_price = item.get('sell_price', 0)
+    if sell_price >= 250000000:
+        eff_tax = round(5000000 / sell_price * 100, 2)
+        embed.add_field(name="💰 Tax Advantage", value=f"Tax capped at 5M GP (effective {eff_tax}% vs 2%)", inline=False)
+
+    embed.set_footer(text="Grand Flip Out | Risk analysis based on volume, margins, and price history")
     embed.timestamp = datetime.now()
     await interaction.followup.send(embed=embed)
 
