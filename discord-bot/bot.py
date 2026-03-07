@@ -1527,6 +1527,123 @@ async def hotlist_command(interaction: discord.Interaction):
     await interaction.followup.send(embed=embed)
 
 
+@bot.tree.command(name="suggest", description="Get flip suggestions based on your capital")
+@app_commands.describe(capital="Your total GP budget (e.g. 5000000 or 5m)")
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def suggest_command(interaction: discord.Interaction, capital: str):
+    await interaction.response.defer()
+
+    # Parse capital string (supports k/m suffixes)
+    try:
+        cap_str = capital.lower().replace(',', '').replace(' ', '')
+        if cap_str.endswith('m'):
+            cap = int(float(cap_str[:-1]) * 1_000_000)
+        elif cap_str.endswith('k'):
+            cap = int(float(cap_str[:-1]) * 1_000)
+        else:
+            cap = int(float(cap_str))
+    except (ValueError, TypeError):
+        await interaction.followup.send(f"Couldn't parse '{capital}' as a number. Try something like `5m`, `500k`, or `5000000`.")
+        return
+
+    if cap < 10000:
+        await interaction.followup.send("You need at least 10k GP to start flipping. Try farming some goblins first!")
+        return
+
+    # Build item list with profit calculations
+    suggestions = []
+    for item_id_str, prices in api_client.latest_prices.items():
+        item_id = int(item_id_str)
+        info = api_client.item_mapping.get(item_id)
+        if not info:
+            continue
+        high = prices.get('high', 0) or 0
+        low = prices.get('low', 0) or 0
+        if high <= 0 or low <= 0 or high <= low:
+            continue
+        if low > cap * 0.5:  # Can't spend more than 50% on one item
+            continue
+
+        tax = min(int(high * 0.02), 5_000_000)
+        margin = high - low - tax
+        if margin <= 0:
+            continue
+
+        spread_pct = (margin / low) * 100 if low > 0 else 0
+        if spread_pct < 2:  # Min 2% spread after tax to be worth it
+            continue
+
+        vols = api_client.volume_data.get(item_id_str, {})
+        total_vol = (vols.get('buyVol', 0) or 0) + (vols.get('sellVol', 0) or 0)
+        vol_per_hour = total_vol * 12
+
+        buy_limit = info.get('limit', 100) or 100
+        max_qty = min(buy_limit, int(cap * 0.3 / low))  # Max 30% of cap per item
+        if vol_per_hour > 0:
+            max_qty = min(max_qty, int(vol_per_hour * 4))
+        if max_qty <= 0:
+            max_qty = 1
+
+        total_profit = margin * max_qty
+        total_cost = low * max_qty
+        roi = (total_profit / total_cost * 100) if total_cost > 0 else 0
+
+        suggestions.append({
+            'name': info.get('name', f'Item {item_id}'),
+            'id': item_id,
+            'margin': margin,
+            'spread': spread_pct,
+            'qty': max_qty,
+            'cost': total_cost,
+            'profit': total_profit,
+            'roi': roi,
+            'buy': low,
+            'sell': high,
+            'vol_hr': vol_per_hour
+        })
+
+    # Sort by total profit
+    suggestions.sort(key=lambda x: x['profit'], reverse=True)
+    top = suggestions[:5]
+
+    if not top:
+        await interaction.followup.send(f"No good flip suggestions for {cap:,} gp right now. Market might be tight.")
+        return
+
+    # Tier label
+    tier = "Starter" if cap < 1_000_000 else "Mid-Range" if cap < 10_000_000 else "High Roller" if cap < 100_000_000 else "Whale"
+
+    embed = discord.Embed(
+        title=f"💡 Flip Suggestions — {tier} ({cap:,} gp)",
+        description=f"Top 5 flips for your budget. Diversify across 3-4 items for best results.",
+        color=OSRS_GOLD
+    )
+
+    total_potential = 0
+    for i, item in enumerate(top, 1):
+        medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][i-1]
+        vol_str = f"{item['vol_hr']:,.0f}/hr" if item['vol_hr'] > 0 else "Low"
+        embed.add_field(
+            name=f"{medal} {item['name']}",
+            value=(
+                f"Buy **{item['qty']:,}x** @ {item['buy']:,} = **{item['cost']:,}** gp\n"
+                f"Margin: {item['margin']:,}/ea · Spread: {item['spread']:.1f}%\n"
+                f"Profit: **{item['profit']:,}** gp · ROI: {item['roi']:.1f}% · Vol: {vol_str}"
+            ),
+            inline=False
+        )
+        total_potential += item['profit']
+
+    embed.add_field(
+        name="📊 Total Potential",
+        value=f"If all flips succeed: **{total_potential:,}** gp profit",
+        inline=False
+    )
+    embed.set_footer(text="Grand Flip Out v2.2 • Not financial advice, prices change fast!")
+    embed.timestamp = datetime.now()
+    await interaction.followup.send(embed=embed)
+
+
 # Rate limiting state for auto-alerts
 _alert_last_global = 0          # timestamp of last channel alert sent
 _alert_item_times = {}          # item_id -> last alert timestamp

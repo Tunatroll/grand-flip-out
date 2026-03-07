@@ -515,6 +515,21 @@
                 <option value="margin-pct">Sort: Margin (GP)</option>
                 <option value="volume">Sort: Volume</option>
                 <option value="price">Sort: Price</option>
+                <option value="roi">Sort: ROI %</option>
+                <option value="spread">Sort: Spread %</option>
+            </select>
+            <select class="ctrl-select" id="capitalFilter" onchange="state.capitalTier=this.value; renderTopFlips(true);">
+                <option value="all">Capital: All</option>
+                <option value="starter">Under 1M GP</option>
+                <option value="mid">1M-10M GP</option>
+                <option value="high">10M-100M GP</option>
+                <option value="whale">100M+ GP</option>
+            </select>
+            <select class="ctrl-select" id="spreadFilter" onchange="state.spreadFilter=parseFloat(this.value)||0; renderTopFlips(true);">
+                <option value="0">Min Spread: Any</option>
+                <option value="3">Min Spread: 3%+</option>
+                <option value="5">Min Spread: 5%+</option>
+                <option value="10">Min Spread: 10%+</option>
             </select>
             <div class="view-toggle">
                 <button class="view-btn active" data-view="table" id="viewTable">Table</button>
@@ -888,6 +903,8 @@ const state = {
     discordAlertedItems: {}, // itemId -> timestamp, prevents flicker re-alerts
     refreshCountdown: 0,
     minProfitThreshold: 0,
+    capitalTier: 'all',
+    spreadFilter: 0,
     priceBaselines: {},  // { normal1h, normal5m, lastSeen } per item
     fetchCache: {},      // { [endpoint]: { data, time } } for fetch deduplication
     lastRenderHash: '',  // for renderTopFlips optimization
@@ -4391,11 +4408,39 @@ function renderTopFlips(force = false) {
             return verdict.cls === state.verdictFilter;
         });
     }
+    // Min profit threshold filter
+    if (state.minProfitThreshold > 0) {
+        items = items.filter(i => (i.margin || 0) >= state.minProfitThreshold);
+    }
+    // Capital tier filter
+    if (state.capitalTier && state.capitalTier !== 'all') {
+        const tiers = { starter: [0, 1000000], mid: [1000, 10000000], high: [10000, 100000000], whale: [100000, Infinity] };
+        const [minBuy, maxBuy] = tiers[state.capitalTier] || [0, Infinity];
+        items = items.filter(i => (i.buyPrice || 0) >= minBuy && (i.buyPrice || 0) <= maxBuy);
+    }
+    // Spread filter
+    if (state.spreadFilter > 0) {
+        items = items.filter(i => {
+            if (!i.buyPrice || i.buyPrice <= 0) return false;
+            const spread = ((i.margin || 0) / i.buyPrice) * 100;
+            return spread >= state.spreadFilter;
+        });
+    }
     switch (state.currentSort) {
         case 'margin': items.sort((a,b) => b.margin - a.margin); break;
         case 'margin-pct': items.sort((a,b) => (b.margin || 0) - (a.margin || 0)); break;
         case 'volume': items.sort((a,b) => volPerHour(b) - volPerHour(a)); break;
         case 'price': items.sort((a,b) => b.sellPrice - a.sellPrice); break;
+        case 'roi': items.sort((a,b) => {
+            const roiA = a.buyPrice > 0 ? (a.margin || 0) / a.buyPrice : 0;
+            const roiB = b.buyPrice > 0 ? (b.margin || 0) / b.buyPrice : 0;
+            return roiB - roiA;
+        }); break;
+        case 'spread': items.sort((a,b) => {
+            const spA = a.buyPrice > 0 ? (a.margin || 0) / a.buyPrice : 0;
+            const spB = b.buyPrice > 0 ? (b.margin || 0) / b.buyPrice : 0;
+            return spB - spA;
+        }); break;
         default: items.sort((a,b) => realistic4hProfit(b) - realistic4hProfit(a));
     }
 
