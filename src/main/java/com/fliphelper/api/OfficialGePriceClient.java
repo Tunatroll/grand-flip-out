@@ -52,7 +52,7 @@ public class OfficialGePriceClient
             }
 
             String body = response.body().string();
-            JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+            JsonObject json = new JsonParser().parse(body).getAsJsonObject();
             JsonObject item = json.getAsJsonObject("item");
 
             String name = item.get("name").getAsString();

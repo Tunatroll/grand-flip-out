@@ -57,7 +57,7 @@ public class RuneLitePriceClient
 
             // RuneLite returns an array of {id, name, price, ...}
             // Parse as JSON array
-            var jsonArray = JsonParser.parseString(body).getAsJsonArray();
+            var jsonArray = new JsonParser().parse(body).getAsJsonArray();
 
             prices.clear();
             for (JsonElement element : jsonArray)

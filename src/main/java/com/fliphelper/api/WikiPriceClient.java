@@ -108,7 +108,7 @@ public class WikiPriceClient
             }
 
             String bodyString = body.string();
-            JsonObject json = JsonParser.parseString(bodyString).getAsJsonObject();
+            JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
             JsonObject data = json.getAsJsonObject("data");
 
             latestPrices.clear();
@@ -162,7 +162,7 @@ public class WikiPriceClient
             }
 
             String bodyString = body.string();
-            JsonObject json = JsonParser.parseString(bodyString).getAsJsonObject();
+            JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
             JsonObject data = json.getAsJsonObject("data");
 
             prices5m.clear();
@@ -216,7 +216,7 @@ public class WikiPriceClient
             }
 
             String bodyString = body.string();
-            JsonObject json = JsonParser.parseString(bodyString).getAsJsonObject();
+            JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
             JsonObject data = json.getAsJsonObject("data");
 
             prices1h.clear();
@@ -270,7 +270,7 @@ public class WikiPriceClient
             }
 
             String bodyString = body.string();
-            JsonObject json = JsonParser.parseString(bodyString).getAsJsonObject();
+            JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
             var dataArray = json.getAsJsonArray("data");
 
             ItemMapping mapping = mappingById.get(itemId);
