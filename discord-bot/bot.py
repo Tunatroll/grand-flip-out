@@ -456,13 +456,34 @@ async def before_mapping_refresh():
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: Exception):
-    """Global error handler for slash commands"""
-    logger.error(f"Command error: {error}", exc_info=error)
-    if not interaction.response.is_done():
-        await interaction.response.send_message(
-            f"❌ An error occurred: {str(error)[:100]}",
-            ephemeral=True
-        )
+    """Global error handler for slash commands — friendly, specific, actionable"""
+    logger.error(f"Command error in /{interaction.command.name if interaction.command else 'unknown'}: {error}", exc_info=error)
+
+    # Build a helpful error message based on the error type
+    original = getattr(error, 'original', error)
+
+    if isinstance(original, aiohttp.ClientError):
+        msg = "Couldn't reach the OSRS Wiki API right now — it might be down or slow. Try again in a minute."
+    elif isinstance(original, asyncio.TimeoutError):
+        msg = "That request timed out — the API is probably under heavy load. Give it another shot in a moment."
+    elif isinstance(original, discord.Forbidden):
+        msg = "I don't have permission to do that here. Make sure I have the right role/channel permissions."
+    elif isinstance(original, ValueError):
+        msg = f"Something didn't look right with the input: {str(original)[:80]}. Double-check and try again."
+    elif isinstance(original, KeyError):
+        msg = "Couldn't find that item — check the spelling or try the autocomplete suggestions."
+    elif 'cooldown' in str(error).lower():
+        msg = "You're sending commands too fast — take a breath and try again in a few seconds."
+    else:
+        msg = f"Something went wrong — this is on our end, not yours. Try the command again in a moment."
+
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.send_message(f"⚠️ {msg}", ephemeral=True)
+        else:
+            await interaction.followup.send(f"⚠️ {msg}", ephemeral=True)
+    except Exception:
+        pass  # Can't respond at all — interaction expired
 
 
 async def load_cogs():

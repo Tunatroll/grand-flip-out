@@ -241,12 +241,9 @@ class Market(commands.Cog):
 
         dumps = self.bot.wiki_client.get_dumps()
         if not dumps:
-            price_count = len(self.bot.wiki_client.latest_prices)
-            vol_count = len(self.bot.wiki_client.volume_data)
-            mapping_count = len(self.bot.wiki_client.item_mapping)
             await interaction.followup.send(
-                f"No dump opportunities right now. Market is stable.\n"
-                f"-# Tracking {price_count:,} prices, {vol_count:,} volumes, {mapping_count:,} items mapped"
+                "No wide-margin opportunities detected right now — prices are stable.\n"
+                "**Try instead:** `/top` for the best regular flips, or `/alert add` to get notified when something drops."
             )
             return
 

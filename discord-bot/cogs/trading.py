@@ -20,6 +20,7 @@ from utils import (
 # File paths for data persistence
 WATCHLIST_FILE = 'watchlists.json'
 USER_ALERTS_FILE = 'user_alerts.json'
+PORTFOLIO_FILE = 'user_portfolios.json'
 
 # Rate limiting state for auto-alerts - with lock protection
 _alert_last_global = 0
@@ -65,6 +66,21 @@ def save_user_alerts(alerts):
     """Save user alerts to file"""
     with open(USER_ALERTS_FILE, 'w') as f:
         json.dump(alerts, f, indent=2)
+
+
+def load_portfolios():
+    """Load portfolios from file — persists across bot restarts"""
+    try:
+        with open(PORTFOLIO_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
+def save_portfolios(portfolios):
+    """Save portfolios to file"""
+    with open(PORTFOLIO_FILE, 'w') as f:
+        json.dump(portfolios, f, indent=2)
 
 
 def _get_item_icon_url(item_id: int, item_name: str = "", icon: str = ""):
@@ -189,7 +205,11 @@ class Trading(commands.Cog):
 
         if action == "show":
             if not wl[uid]:
-                await interaction.followup.send("Your watchlist is empty. Use `/watchlist add <item>` to add items!")
+                await interaction.followup.send(
+                    "Your watchlist is empty!\n"
+                    "**Get started:** `/watchlist add Dragon bones` to track your first item.\n"
+                    "Or try `/top` to see profitable flips and add ones you like."
+                )
                 return
 
             # Create paginated embeds (4 items per page)
@@ -238,7 +258,10 @@ class Trading(commands.Cog):
             if n not in wl[uid]:
                 wl[uid].append(n)
                 save_watchlists(wl)
-                await interaction.followup.send(f"Added **{n}** to your watchlist!")
+                await interaction.followup.send(
+                    f"✅ Added **{n}** to your watchlist! ({len(wl[uid])} items tracked)\n"
+                    f"Use `/watchlist show` to see live prices for all your items."
+                )
             else:
                 await interaction.followup.send(f"**{n}** is already on your watchlist.")
 
@@ -294,7 +317,11 @@ class Trading(commands.Cog):
 
         if action == "list":
             if not alerts[uid]:
-                await interaction.followup.send("You don't have any alerts set. Use `/alert add` to create one!")
+                await interaction.followup.send(
+                    "You don't have any alerts set!\n"
+                    "**Set one up:** `/alert add Dragon bones` — you'll get a DM when conditions are met.\n"
+                    "Customize with `margin_pct`, `min_profit`, and `target_price` options."
+                )
                 return
 
             # Create paginated embeds (4 alerts per page)
@@ -421,7 +448,7 @@ class Trading(commands.Cog):
         await interaction.response.defer()
 
         uid = str(interaction.user.id)
-        portfolios = getattr(self.bot, '_user_portfolios', {})
+        portfolios = load_portfolios()
         if uid not in portfolios:
             portfolios[uid] = []
 
@@ -429,7 +456,11 @@ class Trading(commands.Cog):
 
         if action == "view":
             if not portfolios[uid]:
-                await interaction.followup.send("Your portfolio is empty. Use `/portfolio add` to track positions!")
+                await interaction.followup.send(
+                    "Your portfolio is empty!\n"
+                    "**Track a flip:** `/portfolio add Dragon bones 100 2500` to log a buy.\n"
+                    "Then `/portfolio view` to see live P&L as prices change."
+                )
                 return
 
             # Create paginated embeds (3 positions per page)
@@ -514,7 +545,13 @@ class Trading(commands.Cog):
                 'timestamp': datetime.now().isoformat()
             }
             portfolios[uid].append(position)
-            await interaction.followup.send(f"✅ Added {quantity:,}x **{item_data['name']}** @ {format_gp(buy_price)} to portfolio")
+            save_portfolios(portfolios)
+            current_item = self.bot.wiki_client._build_item_data(item_data['id'])
+            current_p = current_item.get('sell_price', 0) if current_item else 0
+            await interaction.followup.send(
+                f"✅ Added {quantity:,}x **{item_data['name']}** @ {format_gp(buy_price)} to portfolio\n"
+                f"Current sell price: {format_gp(current_p)} — use `/portfolio view` to track P&L"
+            )
 
         elif action == "remove":
             if not item:
@@ -542,6 +579,7 @@ class Trading(commands.Cog):
 
             if view.value:
                 portfolios[uid] = [p for p in portfolios[uid] if p.get('item_id') != item_data['id']]
+                save_portfolios(portfolios)
                 await interaction.followup.send(f"✅ Removed **{item_data['name']}** from portfolio")
             else:
                 await interaction.followup.send("Cancelled.")
@@ -627,8 +665,20 @@ class Trading(commands.Cog):
 
                         alert['last_triggered'] = datetime.now().isoformat()
                         save_user_alerts(alerts)
-                    except Exception:
-                        pass
+                    except discord.Forbidden:
+                        # User has DMs disabled — disable this alert and log it
+                        alert['enabled'] = False
+                        alert['disabled_reason'] = 'DMs are closed — enable DMs from server members to receive alerts'
+                        save_user_alerts(alerts)
+                        print(f"Alert disabled for user {uid}: DMs closed")
+                    except discord.NotFound:
+                        # User left or deleted account — remove their alerts
+                        alerts.pop(uid, None)
+                        save_user_alerts(alerts)
+                        print(f"Removed alerts for deleted user {uid}")
+                        break
+                    except Exception as e:
+                        print(f"Failed to DM user {uid} for {item_name}: {e}")
 
         except Exception as e:
             print(f"User alert check error: {e}")
