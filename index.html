@@ -649,6 +649,17 @@
                 <div style="padding:20px; text-align:center; color:var(--text-muted); grid-column:1/-1;">Loading...</div>
             </div>
         </div>
+
+        <!-- === GE SLOT OPTIMIZER (Feature 3) === -->
+        <div class="chart-box" style="margin-top:16px;">
+            <h3>🎰 Slot Strategy — Suggested 8-Slot Portfolio</h3>
+            <div style="font-size:13px; color:var(--text-secondary); margin-bottom:14px;">
+                This is one possible diversified strategy. Experiment with what works for your playstyle and capital.
+            </div>
+            <div id="slotOptimizer" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(350px,1fr)); gap:12px;">
+                <div style="padding:20px; text-align:center; color:var(--text-muted); grid-column:1/-1;">Calculating optimal slots...</div>
+            </div>
+        </div>
     </div>
 
     <!-- ===== TOP FLIPS TAB ===== -->
@@ -863,6 +874,38 @@
         <div class="explain-banner">
             <strong>📚 Market Logic</strong> — Learn to think like experienced flippers. Understanding WHY prices move helps you find opportunities others miss. Every item has supply sources, demand drivers, and price floors. Master this framework and develop your own flipping instincts.
         </div>
+
+        <!-- === SEASONAL PATTERNS SECTION (Feature 2) === -->
+        <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.3); border-radius:var(--radius-lg); padding:16px; margin-bottom:20px;">
+            <h3 style="margin-top:0; margin-bottom:12px; color:var(--accent); font-size:16px;">📅 When To Trade</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px;">
+                <div style="padding:12px; background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--border);">
+                    <div style="font-weight:600; margin-bottom:6px;">Wednesday Updates</div>
+                    <div style="font-size:13px; color:var(--text-secondary); line-height:1.5;">Game updates often cause volatility — watch for opportunities when prices spike unexpectedly.</div>
+                </div>
+                <div style="padding:12px; background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--border);">
+                    <div style="font-weight:600; margin-bottom:6px;">Weekends</div>
+                    <div style="font-size:13px; color:var(--text-secondary); line-height:1.5;">More players online means higher volume. Prices tend to be lower when supply increases.</div>
+                </div>
+                <div style="padding:12px; background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--border);">
+                    <div style="font-weight:600; margin-bottom:6px;">Monday Margins</div>
+                    <div style="font-size:13px; color:var(--text-secondary); line-height:1.5;">Lower volume can mean wider spreads — good day to find items with better margins.</div>
+                </div>
+                <div style="padding:12px; background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--border);">
+                    <div style="font-weight:600; margin-bottom:6px;">League Starts</div>
+                    <div style="font-size:13px; color:var(--text-secondary); line-height:1.5;">Demand spikes for specific items 1-2 weeks before new seasonal leagues launch.</div>
+                </div>
+                <div style="padding:12px; background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--border);">
+                    <div style="font-weight:600; margin-bottom:6px;">PvM Updates</div>
+                    <div style="font-size:13px; color:var(--text-secondary); line-height:1.5;">Boss items spike after new content releases — watch the announcement schedule.</div>
+                </div>
+                <div style="padding:12px; background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--border);">
+                    <div style="font-weight:600; margin-bottom:6px;">Your Strategy</div>
+                    <div style="font-size:13px; color:var(--text-secondary); line-height:1.5;">These are general patterns. Experiment and track what works for your playstyle and capital.</div>
+                </div>
+            </div>
+        </div>
+
         <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
             <input type="text" id="intelSearchInput" placeholder="Search items... (e.g., Blood rune, Eclectic impling)" style="flex:1; min-width:200px; background:var(--bg-input); border:1px solid var(--border); padding:8px 12px; border-radius:var(--radius); color:var(--text); font-size:13px;">
             <select id="intelCategoryFilter" onchange="renderIntelligence()" style="background:var(--bg-input); color:var(--text); border:1px solid var(--border); padding:8px 10px; border-radius:var(--radius); font-size:12px; font-family:inherit;">
@@ -1826,6 +1869,9 @@ function processLatest(latestData, volData, force = false) {
         obj.jtiScore = calculateJTI(obj);
         // Update streaming stats and EMA tracking
         ITEM_STATS.update(id, Math.round((bp + sp) / 2));
+        // Record price for seasonal pattern analysis (Feature 2)
+        const avgPrice = Math.round((bp + sp) / 2);
+        SEASONAL_ANALYZER.recordPrice(id, avgPrice);
         const prev = state.prevPrices[id], cur = Math.round((bp+sp)/2);
         if (prev && prev > 0) { obj.percentChange = ((cur-prev)/prev)*100; totalDrift += Math.abs(obj.percentChange); priceCount++; }
         else obj.percentChange = 0;
@@ -1858,15 +1904,15 @@ async function loadTopFlips(force = false) {
                     buyLimit:i.geLimit||0,
                 }));
                 state.allItems = [...state.items]; state.isConnected = true;
-                updateStatus(true); renderAll(); return;
+                updateStatus(true); updateAPIStatus(true); renderAll(); return;
             }
         }
     } catch {}
     // Fall through to Wiki API (the primary data source)
     const mapping = await ensureMapping();
-    if (!mapping) return;
+    if (!mapping) { updateAPIStatus(false); return; }
     const [latest, vols] = await Promise.all([fetchWiki('/latest'), fetchWiki('/5m')]);
-    if (!latest) return;
+    if (!latest) { updateAPIStatus(false); return; }
     const ld = latest.data||{}, vd = (vols&&vols.data)||{};
     state.cachedLatest = ld;
     state.cachedVolData = vd;
@@ -1875,7 +1921,7 @@ async function loadTopFlips(force = false) {
     // Persist snapshots to IndexedDB for cross-session history
     PRICE_DB.saveBatch(state.allItems.slice(0, 500)); // Top 500 items
     state.isConnected = true; state.lastFullRefresh = Date.now(); state.lastRefreshTime = Date.now();
-    updateStatus(true);
+    updateStatus(true); updateAPIStatus(true);
     renderAll(); // Always render — never skip updates
 }
 
@@ -2400,12 +2446,62 @@ function renderAlchScanner() {
 }
 
 // ============================================
+// SLOT OPTIMIZER RENDERER (Feature 3)
+// ============================================
+function renderSlotOptimizer() {
+    const container = document.getElementById('slotOptimizer');
+    if (!container) return;
+
+    const topItems = state.allItems.slice(0, 50);
+    if (topItems.length === 0) {
+        container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted); grid-column:1/-1;">Waiting for price data...</div>';
+        return;
+    }
+
+    const slots = SLOT_OPTIMIZER.suggest(topItems);
+    if (slots.length === 0) {
+        container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted); grid-column:1/-1;">Not enough data for recommendations yet.</div>';
+        return;
+    }
+
+    container.innerHTML = slots.map(slot => {
+        const catDef = SLOT_OPTIMIZER.categories[slot.category];
+        const catIcon = catDef?.icon || '📦';
+        return `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; cursor:pointer; transition:all .2s;" onclick="openItemModal(${slot.itemId})" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <div style="font-weight:700; font-size:12px; color:var(--accent);">Slot ${slot.slot}</div>
+                <span style="font-size:14px;">${catIcon}</span>
+            </div>
+            <div style="font-weight:700; font-size:13px; margin-bottom:4px;">${slot.name}</div>
+            <div style="font-size:11px; color:var(--text-secondary); margin-bottom:8px;">Category: ${slot.category.replace('_', ' ')}</div>
+            <div style="background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.2); border-radius:var(--radius); padding:8px; margin-bottom:8px;">
+                <div style="font-size:10px; color:var(--text-muted); margin-bottom:2px;">Expected margin</div>
+                <div style="font-size:14px; font-weight:700; color:var(--green);">${gp(slot.expectedMargin)}</div>
+            </div>
+            <div style="font-size:11px; color:var(--text-secondary); font-style:italic;">${slot.reasoning}</div>
+        </div>`;
+    }).join('');
+}
+
+// ============================================
 // TIMESERIES PRICE CHART (OSRS Wiki API)
 // ============================================
 // Fetches /timeseries endpoint and draws a price + volume chart in the item modal.
 // Data retention: 1h = ~15 days, 6h = ~91 days, 24h = ~365 days.
 
 const TIMESERIES_CACHE = {};
+const MAX_CACHE_SIZE = 100;
+
+function cacheCleanup() {
+    const entries = Object.entries(TIMESERIES_CACHE);
+    if (entries.length > MAX_CACHE_SIZE) {
+        entries.sort((a, b) => a[1].fetchedAt - b[1].fetchedAt);
+        const toDelete = entries.slice(0, entries.length - MAX_CACHE_SIZE);
+        for (const [key] of toDelete) {
+            delete TIMESERIES_CACHE[key];
+        }
+    }
+}
 
 async function fetchTimeseries(itemId, timestep) {
     const cacheKey = `${itemId}_${timestep}`;
@@ -2416,13 +2512,19 @@ async function fetchTimeseries(itemId, timestep) {
         const resp = await fetch(`https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=${timestep}&id=${itemId}`, {
             headers: { 'User-Agent': 'GrandFlipOut - OSRS flipping dashboard' }
         });
-        if (!resp.ok) return null;
+        if (!resp.ok) {
+            updateAPIStatus(false);
+            return null;
+        }
         const json = await resp.json();
         const data = json.data || [];
         TIMESERIES_CACHE[cacheKey] = { data, fetchedAt: Date.now() };
+        cacheCleanup();
+        updateAPIStatus(true);
         return data;
     } catch (e) {
         console.warn('Timeseries fetch failed:', e);
+        updateAPIStatus(false);
         return null;
     }
 }
@@ -3630,6 +3732,360 @@ const ANALYTICS = {
         }
 
         return sinks.length > 0 ? sinks : null;
+    }
+};
+
+// ============================================
+// FEATURE 1: MANIPULATION DETECTION SYSTEM
+// ============================================
+// Analyzes price behavior to flag suspicious activity patterns.
+// Educational purpose: helps users understand market health signals.
+
+const MANIPULATION_DETECTOR = {
+    // Analyze an item's recent price behavior for manipulation signals
+    analyze(itemId) {
+        const item = state.items.find(i => i.itemId === itemId);
+        if (!item) return { risk: 0, signals: [], verdict: 'clean' };
+
+        const stats = ITEM_STATS.stats[itemId];
+        const history = state.priceHistory[itemId] || [];
+        const mem = state.priceMemory[itemId];
+
+        let riskScore = 0;
+        const detectedSignals = [];
+
+        // Signal 1: Price Spike (>15% move in under 2 hours)
+        if (this.signals.priceSpike(stats, history)) {
+            riskScore += 25;
+            detectedSignals.push('Rapid price spike detected');
+        }
+
+        // Signal 2: Volume Concentration (>3x normal volume in short window)
+        if (this.signals.volumeConcentration(item)) {
+            riskScore += 20;
+            detectedSignals.push('Volume spike concentrated in short time');
+        }
+
+        // Signal 3: Low Liquidity Target (<50 trades/hr = easy to manipulate)
+        if (this.signals.lowLiquidityTarget(item)) {
+            riskScore += 15;
+            detectedSignals.push('Low liquidity makes this item vulnerable');
+        }
+
+        // Signal 4: Rapid Reversal (price spikes then drops >10% within 4 hours)
+        if (this.signals.rapidReversal(history)) {
+            riskScore += 20;
+            detectedSignals.push('Rapid reversal pattern (spike then dump)');
+        }
+
+        // Signal 5: Spread Widening (sudden spread increase >200% of normal)
+        if (this.signals.spreadWidening(item, stats)) {
+            riskScore += 10;
+            detectedSignals.push('Unusual spread widening');
+        }
+
+        let verdict = 'clean';
+        if (riskScore >= 60) verdict = 'likely_manipulated';
+        else if (riskScore >= 35) verdict = 'suspicious';
+
+        return {
+            risk: Math.min(100, riskScore),
+            signals: detectedSignals,
+            verdict,
+            icon: verdict === 'likely_manipulated' ? '🔴' : verdict === 'suspicious' ? '🟡' : '🟢'
+        };
+    },
+
+    signals: {
+        // Price spike: >15% move in under 2 hours
+        priceSpike(stats, history) {
+            if (!history || history.length < 2) return false;
+            const recent = history.slice(-24); // Last 2 hours of 5min data
+            if (recent.length < 2) return false;
+
+            const prices = recent.map(h => h.price);
+            const maxPrice = Math.max(...prices);
+            const minPrice = Math.min(...prices);
+            const range = minPrice > 0 ? ((maxPrice - minPrice) / minPrice * 100) : 0;
+
+            return range > 15;
+        },
+
+        // Volume concentration: >3x normal volume in short window
+        volumeConcentration(item) {
+            const vph = volPerHour(item);
+            const vol5m = (item.buyQuantity || 0) + (item.sellQuantity || 0);
+            const expectedVol5m = vph / 12; // 5-minute fraction of hourly
+
+            return vol5m > expectedVol5m * 3;
+        },
+
+        // Low liquidity target: items with <50 trades/hr are manipulation targets
+        lowLiquidityTarget(item) {
+            const vph = volPerHour(item);
+            return vph < 50;
+        },
+
+        // Rapid reversal: price spikes then drops >10% within 4 hours
+        rapidReversal(history) {
+            if (!history || history.length < 12) return false;
+
+            const recent = history.slice(-48); // Last 4 hours
+            if (recent.length < 12) return false;
+
+            const prices = recent.map(h => h.price);
+            const highPoint = Math.max(...prices);
+            const highIdx = prices.indexOf(highPoint);
+
+            // Check if there was a spike followed by a significant drop
+            if (highIdx > 6 && highIdx < prices.length - 1) {
+                const afterDrop = prices.slice(highIdx);
+                const minAfter = Math.min(...afterDrop);
+                const dropPct = ((highPoint - minAfter) / highPoint * 100);
+                return dropPct > 10;
+            }
+            return false;
+        },
+
+        // Spread widening: sudden spread increase >200% of normal
+        spreadWidening(item, stats) {
+            const spreadHist = state.spreadHistory[item.itemId];
+            if (!spreadHist || spreadHist.length < 6) return false;
+
+            const recent = spreadHist.slice(-6);
+            const avgSpread = recent.reduce((s, x) => s + x.spread, 0) / recent.length;
+            const currentSpread = recent[recent.length - 1].spread;
+
+            return avgSpread > 0 && (currentSpread / avgSpread) > 3;
+        }
+    }
+};
+
+// ============================================
+// FEATURE 2: SEASONAL PATTERN ANALYZER
+// ============================================
+// Tracks day-of-week and temporal patterns in price data.
+// Educational: helps users understand when items tend to trade better.
+
+const SEASONAL_ANALYZER = {
+    // Accumulate price data by day-of-week and hour
+    dayOfWeekData: {}, // { itemId: { 0: [prices], 1: [prices], ... } }
+
+    recordPrice(itemId, price) {
+        if (!price || price <= 0) return;
+
+        const dow = new Date().getDay(); // 0=Sun, 6=Sat
+        if (!this.dayOfWeekData[itemId]) {
+            this.dayOfWeekData[itemId] = {};
+        }
+        if (!this.dayOfWeekData[itemId][dow]) {
+            this.dayOfWeekData[itemId][dow] = [];
+        }
+
+        this.dayOfWeekData[itemId][dow].push(price);
+
+        // Keep only last 100 samples per day per item to avoid bloat
+        if (this.dayOfWeekData[itemId][dow].length > 100) {
+            this.dayOfWeekData[itemId][dow].shift();
+        }
+    },
+
+    getPattern(itemId) {
+        const data = this.dayOfWeekData[itemId];
+        if (!data) return null;
+
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayStats = {};
+        let bestBuyDay = null, bestSellDay = null;
+        let lowestDayAvg = Infinity, highestDayAvg = -Infinity;
+
+        for (let dow = 0; dow < 7; dow++) {
+            const prices = data[dow];
+            if (!prices || prices.length === 0) continue;
+
+            const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+            const volatility = Math.sqrt(prices.reduce((s, p) => s + (p - avg) ** 2, 0) / prices.length);
+
+            dayStats[dayNames[dow]] = {
+                avg: Math.round(avg),
+                volatility: Math.round(volatility),
+                samples: prices.length
+            };
+
+            if (avg < lowestDayAvg) { lowestDayAvg = avg; bestBuyDay = dayNames[dow]; }
+            if (avg > highestDayAvg) { highestDayAvg = avg; bestSellDay = dayNames[dow]; }
+        }
+
+        // Weekend vs weekday analysis
+        const weekdayPrices = [];
+        const weekendPrices = [];
+        for (let dow = 0; dow < 7; dow++) {
+            if (data[dow]) {
+                if (dow === 0 || dow === 6) weekendPrices.push(...data[dow]);
+                else weekdayPrices.push(...data[dow]);
+            }
+        }
+
+        const weekdayAvg = weekdayPrices.length > 0 ? weekdayPrices.reduce((a, b) => a + b, 0) / weekdayPrices.length : 0;
+        const weekendAvg = weekendPrices.length > 0 ? weekendPrices.reduce((a, b) => a + b, 0) / weekendPrices.length : 0;
+
+        return {
+            bestBuyDay,
+            bestSellDay,
+            weekdayAvg: Math.round(weekdayAvg),
+            weekendAvg: Math.round(weekendAvg),
+            dayStats,
+            hasData: Object.keys(dayStats).length > 0
+        };
+    },
+
+    // General patterns (research-based, educational knowledge)
+    KNOWN_PATTERNS: {
+        updateDay: {
+            day: 'Wednesday',
+            effect: 'Game updates often cause volatility — watch for opportunities'
+        },
+        weekend: {
+            effect: 'More players online, higher volume, prices tend to be lower'
+        },
+        monday: {
+            effect: 'Lower volume can mean wider spreads — good margin day'
+        },
+        leagueStart: {
+            effect: 'Demand spike for specific items 1-2 weeks before new league'
+        },
+        pve: {
+            effect: 'PvM items often see spikes around new boss releases'
+        }
+    },
+
+    // Get educational tips for when to trade an item
+    getTradingTips() {
+        return [
+            "Wednesdays: Game updates often cause volatility — watch for opportunities",
+            "Weekends: More players online, higher volume, prices tend to be lower",
+            "Mondays: Lower volume can mean wider spreads — good margin opportunities",
+            "League starts: Demand spikes for specific items 1-2 weeks before launch",
+            "PvM updates: Boss items often spike after new content releases"
+        ];
+    }
+};
+
+// ============================================
+// FEATURE 3: GE SLOT OPTIMIZER
+// ============================================
+// Suggests a balanced 8-slot portfolio across different item categories.
+// Educational: one possible strategy, not financial advice.
+
+const SLOT_OPTIMIZER = {
+    // Given current top items, suggest a balanced 8-slot portfolio
+    suggest(topItems, budget = 100000000) {
+        if (!topItems || topItems.length === 0) return [];
+
+        const slots = [];
+        const categoryAllocation = {
+            'combat_gear': 0,
+            'consumables': 0,
+            'resources': 0,
+            'runes': 0,
+            'misc': 0
+        };
+
+        const categoryMaxSlots = {
+            'combat_gear': 2,
+            'consumables': 3,
+            'resources': 2,
+            'runes': 2,
+            'misc': 2
+        };
+
+        // Categorize and sort items
+        const categorized = {};
+        for (const category in this.categories) {
+            categorized[category] = topItems.filter(i => this.getItemCategory(i) === category);
+        }
+
+        // Diversify across categories
+        const sortedItems = [];
+        let idx = 0;
+
+        // Round-robin through categories, picking items
+        while (sortedItems.length < topItems.length && idx < 100) {
+            for (const category in categorized) {
+                if (sortedItems.length >= topItems.length) break;
+                if (categoryAllocation[category] < categoryMaxSlots[category]) {
+                    const remaining = categorized[category].filter(i => !sortedItems.includes(i));
+                    if (remaining.length > 0) {
+                        sortedItems.push(remaining[0]);
+                        categoryAllocation[category]++;
+                    }
+                }
+            }
+            idx++;
+        }
+
+        // Build 8 slots with reasoning
+        for (let i = 0; i < Math.min(8, sortedItems.length); i++) {
+            const item = sortedItems[i];
+            const category = this.getItemCategory(item);
+            const expectedMargin = item.margin || 0;
+            const buyPrice = item.buyPrice || 0;
+
+            slots.push({
+                slot: i + 1,
+                itemId: item.itemId,
+                name: item.name,
+                category,
+                expectedMargin: Math.round(expectedMargin),
+                buyPrice,
+                reasoning: this.getSlotReasoning(item, category, i)
+            });
+        }
+
+        return slots;
+    },
+
+    getItemCategory(item) {
+        const name = (item.name || '').toLowerCase();
+
+        if (name.includes('runite') || name.includes('adamant') || name.includes('rune ') ||
+            name.includes('bandos') || name.includes('torva') || name.includes('justiciar')) {
+            return 'combat_gear';
+        }
+        if (name.includes('potion') || name.includes('brew') || name.includes('restore') ||
+            name.includes('shark') || name.includes('manta') || name.includes('arrow') ||
+            name.includes('bolt') || name.includes('dart') || name.includes('ammo')) {
+            return 'consumables';
+        }
+        if (name.includes('ore') || name.includes('log') || name.includes('herb') ||
+            name.includes('bar') || name.includes('coal') || name.includes('leather')) {
+            return 'resources';
+        }
+        if (name.includes('rune') || name.includes('pure essence') || name.includes('essence')) {
+            return 'runes';
+        }
+        return 'misc';
+    },
+
+    getSlotReasoning(item, category, slotIndex) {
+        if (slotIndex === 0) {
+            return 'Anchor item: high volume, stable demand';
+        }
+        if (category === 'consumables') {
+            return 'Guaranteed demand: always in use';
+        }
+        if (item.margin && item.margin > 1000000) {
+            return 'High margin opportunity with solid volume';
+        }
+        return 'Good spread, steady volume';
+    },
+
+    categories: {
+        'combat_gear': { maxSlots: 2, description: 'High-tier equipment', icon: '⚔️' },
+        'consumables': { maxSlots: 3, description: 'Potions, food, ammo', icon: '🍖' },
+        'resources': { maxSlots: 2, description: 'Ores, logs, herbs', icon: '⛏️' },
+        'runes': { maxSlots: 2, description: 'Runes and essence', icon: '✨' },
+        'misc': { maxSlots: 2, description: 'Other tradeable items', icon: '📦' }
     }
 };
 
@@ -5155,6 +5611,27 @@ function updateStatus(on) {
     state.lastUpdate = now;
 }
 
+function updateAPIStatus(isHealthy) {
+    const pill = document.getElementById('statusPill');
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    if (!isHealthy) {
+        pill.style.borderColor = 'var(--red)';
+        pill.style.background = 'rgba(239,68,68,0.1)';
+        dot.className = 'status-dot off';
+        dot.style.background = 'var(--red)';
+        text.textContent = 'API Error';
+        text.style.color = 'var(--red)';
+    } else {
+        pill.style.borderColor = 'var(--border)';
+        pill.style.background = 'var(--bg-card)';
+        dot.className = 'status-dot on';
+        dot.style.background = 'var(--green)';
+        text.textContent = 'Live';
+        text.style.color = 'var(--text-secondary)';
+    }
+}
+
 function openOSRSWiki(itemName) {
     const url = `https://oldschool.runescape.wiki/w/${encodeURIComponent(itemName.replace(/ /g, '_'))}`;
     window.open(url, '_blank');
@@ -5237,6 +5714,7 @@ function renderDashboard() {
     renderCharts();
     renderQuickPicks();
     renderCategoryHeatmap();
+    renderSlotOptimizer();
     renderAlchScanner();
 }
 
@@ -5749,33 +6227,49 @@ function renderTopFlips(force = false) {
 
     const grid = document.getElementById('gridView');
     if (grid) {
-        grid.innerHTML = items.map(item => {
-            const v = getVerdict(item);
-            const rp = realistic4hProfit(item);
-            const intel = MARKET_INTEL.getIntel(item);
-            const intelToggleId = `intel-card-${item.itemId}`;
-            const topIntel = intel.length > 0 ? `
-                <div style="margin-top:6px; text-align:center;">
-                    <button class="intel-toggle" style="padding:0;" onclick="document.getElementById('${intelToggleId}').classList.toggle('intel-hidden'); event.stopPropagation();">🧠</button>
-                    <div id="${intelToggleId}" class="${state.showIntel ? '' : 'intel-hidden'}" style="display:${state.showIntel ? 'flex' : 'none'}; gap:4px; flex-wrap:wrap; justify-content:center;">
-                        <span class="intel-badge ${intel[0].tag}" title="${intel[0].text.replace(/"/g,'&quot;')}" style="font-size:9px;">${intel[0].icon} ${intel[0].text.length > 30 ? intel[0].text.slice(0,28)+'...' : intel[0].text}</span>
+        requestAnimationFrame(() => {
+            const fragment = document.createDocumentFragment();
+            items.forEach(item => {
+                const v = getVerdict(item);
+                const rp = realistic4hProfit(item);
+                const intel = MARKET_INTEL.getIntel(item);
+                const intelToggleId = `intel-card-${item.itemId}`;
+                const topIntel = intel.length > 0 ? `
+                    <div style="margin-top:6px; text-align:center;">
+                        <button class="intel-toggle" style="padding:0;" onclick="document.getElementById('${intelToggleId}').classList.toggle('intel-hidden'); event.stopPropagation();">🧠</button>
+                        <div id="${intelToggleId}" class="${state.showIntel ? '' : 'intel-hidden'}" style="display:${state.showIntel ? 'flex' : 'none'}; gap:4px; flex-wrap:wrap; justify-content:center;">
+                            <span class="intel-badge ${intel[0].tag}" title="${intel[0].text.replace(/"/g,'&quot;')}" style="font-size:9px;">${intel[0].icon} ${intel[0].text.length > 30 ? intel[0].text.slice(0,28)+'...' : intel[0].text}</span>
+                        </div>
                     </div>
-                </div>
-            ` : '';
-            return `
-            <div class="item-card" onclick="openItemModal(${item.itemId})">
-                <button class="card-fav ${state.watchlist.has(item.itemId)?'on':''}" onclick="event.stopPropagation(); toggleFav(${item.itemId},this)">★</button>
-                <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
-                <div class="card-name">${item.name}</div>
-                <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>${topIntel}
-                <div class="card-prices" style="grid-template-columns:1fr 1fr;">
-                    <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:16px;font-weight:800;">${gp(item.buyPrice)}</div></div>
-                    <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:16px;font-weight:800;">${gp(item.sellPrice)}</div></div>
-                </div>
-                <div class="card-price-box" style="margin-bottom:6px;"><div class="card-price-label">Profit/Item</div><div class="price-gold" style="font-size:14px;font-weight:800;">${gp(item.margin)}</div></div>
-                <div class="card-profit" style="background:rgba(34,197,94,0.15); color:var(--green); border:1px solid rgba(34,197,94,0.3); font-size:16px;">${gp(rp)}<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;"> / 4h</span></div>
-            </div>`;
-        }).join('');
+                ` : '';
+
+                // Market health check
+                const healthAnalysis = MANIPULATION_DETECTOR.analyze(item.itemId);
+                const healthBadge = `<span title="Market Health: ${healthAnalysis.verdict}" style="position:absolute; top:4px; right:4px; font-size:12px; font-weight:bold;">${healthAnalysis.icon}</span>`;
+
+                const div = document.createElement('div');
+                div.className = 'item-card';
+                div.style.contentVisibility = 'auto';
+                div.style.containIntrinsicSize = 'auto 280px';
+                div.onclick = () => openItemModal(item.itemId);
+                div.innerHTML = `
+                    <button class="card-fav ${state.watchlist.has(item.itemId)?'on':''}" onclick="event.stopPropagation(); toggleFav(${item.itemId},this)">★</button>
+                    ${healthBadge}
+                    <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
+                    <div class="card-name">${item.name}</div>
+                    <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>${topIntel}
+                    <div class="card-prices" style="grid-template-columns:1fr 1fr;">
+                        <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:16px;font-weight:800;">${gp(item.buyPrice)}</div></div>
+                        <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:16px;font-weight:800;">${gp(item.sellPrice)}</div></div>
+                    </div>
+                    <div class="card-price-box" style="margin-bottom:6px;"><div class="card-price-label">Profit/Item</div><div class="price-gold" style="font-size:14px;font-weight:800;">${gp(item.margin)}</div></div>
+                    <div class="card-profit" style="background:rgba(34,197,94,0.15); color:var(--green); border:1px solid rgba(34,197,94,0.3); font-size:16px;">${gp(rp)}<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;"> / 4h</span></div>
+                `;
+                fragment.appendChild(div);
+            });
+            grid.innerHTML = '';
+            grid.appendChild(fragment);
+        });
     }
 }
 
@@ -5868,23 +6362,36 @@ function renderWatchlist() {
     }
 
     if (watched.length > 0) {
-        content.innerHTML = '<div class="item-grid">' + watched.map(item => {
-            const v = getVerdict(item);
-            const rp = realistic4hProfit(item);
-            return `
-            <div class="item-card" onclick="openItemModal(${item.itemId})">
-                <button class="card-fav on" onclick="event.stopPropagation(); toggleFav(${item.itemId},this)">★</button>
-                <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
-                <div class="card-name">${item.name}</div>
-                <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>
-                <div class="card-prices">
-                    <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:12px;font-weight:700;">${gp(item.buyPrice)}</div></div>
-                    <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:12px;font-weight:700;">${gp(item.sellPrice)}</div></div>
-                </div>
-                <div class="card-profit" style="background:rgba(34,197,94,0.1);color:var(--green);">${gp(rp)} / 4h<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;">${gp(item.margin)}/item · ${formatVolPerHour(item)}</span></div>
-            </div>`;
-        }).join('') + '</div>';
-        empty.classList.add('hidden');
+        requestAnimationFrame(() => {
+            const fragment = document.createDocumentFragment();
+            watched.forEach(item => {
+                const v = getVerdict(item);
+                const rp = realistic4hProfit(item);
+                const div = document.createElement('div');
+                div.className = 'item-card';
+                div.style.contentVisibility = 'auto';
+                div.style.containIntrinsicSize = 'auto 280px';
+                div.onclick = () => openItemModal(item.itemId);
+                div.innerHTML = `
+                    <button class="card-fav on" onclick="event.stopPropagation(); toggleFav(${item.itemId},this)">★</button>
+                    <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
+                    <div class="card-name">${item.name}</div>
+                    <div class="card-jti"><span class="verdict-pill ${v.cls}">${v.text}</span></div>
+                    <div class="card-prices">
+                        <div class="card-price-box"><div class="card-price-label">Buy</div><div class="price-green" style="font-size:12px;font-weight:700;">${gp(item.buyPrice)}</div></div>
+                        <div class="card-price-box"><div class="card-price-label">Sell</div><div class="price-red" style="font-size:12px;font-weight:700;">${gp(item.sellPrice)}</div></div>
+                    </div>
+                    <div class="card-profit" style="background:rgba(34,197,94,0.1);color:var(--green);">${gp(rp)} / 4h<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;">${gp(item.margin)}/item · ${formatVolPerHour(item)}</span></div>
+                `;
+                fragment.appendChild(div);
+            });
+            const grid = document.createElement('div');
+            grid.className = 'item-grid';
+            grid.appendChild(fragment);
+            content.innerHTML = '';
+            content.appendChild(grid);
+            empty.classList.add('hidden');
+        });
     } else {
         content.innerHTML = '';
         empty.classList.remove('hidden');
@@ -5978,17 +6485,21 @@ function toggleFav(id, btn) {
     renderWatchlist();
 }
 
-document.querySelectorAll('.nav-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.tab).classList.add('active');
+// Navigation tabs - EVENT DELEGATION to prevent listener accumulation
+document.addEventListener('click', (e) => {
+    const tab = e.target.closest('.nav-tab');
+    if (!tab) return;
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const tabId = tab.dataset.tab;
+    if (tabId) {
+        document.getElementById(tabId).classList.add('active');
         // Render content when switching tabs
-        if (tab.dataset.tab === 'journal') renderJournal();
-        if (tab.dataset.tab === 'intelligence') renderIntelligence();
-    });
-});
+        if (tabId === 'journal') renderJournal();
+        if (tabId === 'intelligence') renderIntelligence();
+    }
+}, true);
 
 let _searchDebounce;
 document.getElementById('searchInput').addEventListener('input', e => {
@@ -6008,15 +6519,15 @@ document.getElementById('searchInput').addEventListener('input', e => {
 document.getElementById('sortDropdown').addEventListener('change', e => { state.currentSort = e.target.value; renderTopFlips(); });
 document.getElementById('recipeSort')?.addEventListener('change', () => renderRecipes());
 
-// Verdict filter pills
-document.querySelectorAll('.verdict-filter-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-        document.querySelectorAll('.verdict-filter-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        state.verdictFilter = pill.dataset.verdict;
-        renderTopFlips();
-    });
-});
+// Verdict filter pills - EVENT DELEGATION
+document.addEventListener('click', (e) => {
+    const pill = e.target.closest('.verdict-filter-pill');
+    if (!pill) return;
+    document.querySelectorAll('.verdict-filter-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    state.verdictFilter = pill.dataset.verdict;
+    renderTopFlips();
+}, true);
 
 document.getElementById('viewTable').addEventListener('click', () => {
     state.viewMode = 'table';
@@ -6033,16 +6544,18 @@ document.getElementById('viewGrid').addEventListener('click', () => {
     document.getElementById('tableView').classList.add('hidden');
 });
 
-document.querySelectorAll('.cat-pill').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.cat-content').forEach(c => c.classList.add('hidden'));
-        btn.classList.add('active');
-        const cat = btn.dataset.cat;
-        document.getElementById('cat-' + cat).classList.remove('hidden');
-        loadSpecialItems(cat);
-    });
-});
+// Category pills - EVENT DELEGATION
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.cat-pill');
+    if (!btn) return;
+    document.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.cat-content').forEach(c => c.classList.add('hidden'));
+    btn.classList.add('active');
+    const cat = btn.dataset.cat;
+    const catEl = document.getElementById('cat-' + cat);
+    if (catEl) catEl.classList.remove('hidden');
+    loadSpecialItems(cat);
+}, true);
 
 // ============================================
 // TOAST NOTIFICATION SYSTEM
@@ -6221,6 +6734,20 @@ function openItemModal(itemId) {
     if (manipRisk && manipRisk.score > 0) {
         const riskBg = manipRisk.level === 'HIGH' ? 'rgba(239,68,68,0.1)' : manipRisk.level === 'MEDIUM' ? 'rgba(245,158,11,0.08)' : 'transparent';
         statsHtml += `<div class="modal-stat" style="background:${riskBg};"><div class="modal-stat-label">${manipRisk.icon} Manipulation Risk</div><div class="modal-stat-value">${manipRisk.score}/100 (${manipRisk.level})${manipRisk.reasons.length > 0 ? '<br><span style="font-size:10px;color:var(--text-muted);font-weight:400;">' + manipRisk.reasons.join(' · ') + '</span>' : ''}</div></div>`;
+    }
+
+    // === MARKET HEALTH (Feature 1) ===
+    const healthAnalysis = MANIPULATION_DETECTOR.analyze(item.itemId);
+    if (healthAnalysis.signals.length > 0) {
+        const healthBg = healthAnalysis.verdict === 'likely_manipulated' ? 'rgba(239,68,68,0.1)' : healthAnalysis.verdict === 'suspicious' ? 'rgba(245,158,11,0.08)' : 'rgba(34,197,94,0.06)';
+        const healthColor = healthAnalysis.verdict === 'likely_manipulated' ? 'var(--red)' : healthAnalysis.verdict === 'suspicious' ? 'var(--accent)' : 'var(--green)';
+        statsHtml += `<div class="modal-stat" style="grid-column:1/-1; background:${healthBg}; border:1px solid ${healthColor}40;">
+            <div class="modal-stat-label">${healthAnalysis.icon} Market Health</div>
+            <div class="modal-stat-value" style="color:${healthColor}; font-size:11px; line-height:1.6;">
+                <span style="font-weight:600;">This item shows unusual activity patterns. Consider researching before trading.</span><br>
+                ${healthAnalysis.signals.map(sig => `• ${sig}`).join('<br>')}
+            </div>
+        </div>`;
     }
     // Liquidity score
     const liquidity = ANALYTICS.getLiquidityScore(item);
