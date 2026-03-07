@@ -1268,7 +1268,7 @@
             </div>
             <div class="modal-stats-grid" id="modalStats"></div>
             <div id="modalLifeline" style="display:none; margin:12px 0; padding:14px; background:var(--bg-surface); border-radius:var(--radius); border:1px solid var(--border);">
-                <div style="font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:8px;">📈 Price Lifeline (Historical)</div>
+                <div style="font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:8px;">📈 Lifetime Price History</div>
             </div>
             <div class="modal-section-title">Market Intelligence</div>
             <div class="modal-intel-tags" id="modalIntel"></div>
@@ -7132,7 +7132,7 @@ function openItemModal(itemId) {
                 <div class="modal-stat"><div class="modal-stat-label">Position in Range</div><div class="modal-stat-value" style="color:${posColor}">${summary.positionInRange.toFixed(0)}% of yearly range</div></div>
                 <div class="modal-stat"><div class="modal-stat-label">7-Day Trend</div><div class="modal-stat-value" style="color:${trendColor}">${trendIcon} ${summary.weekTrend > 0 ? '+' : ''}${summary.weekTrend.toFixed(1)}%</div></div>
             </div>
-            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${summary.daysOfHistory} days of data · Lifeline stored locally</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${summary.daysOfHistory} days of data · Stored locally in your browser</div>
         `;
         lifeDiv.style.display = 'block';
     }).catch(() => {});
