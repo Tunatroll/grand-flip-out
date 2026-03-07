@@ -523,10 +523,18 @@ def save_user_alerts(alerts):
 
 
 def format_gp(value):
+    """Full exact numbers with commas — no rounding, no abbreviations.
+    When you're placing a GE offer, you need the exact GP figure."""
     if value is None: return "N/A"
-    if abs(value) >= 1000000: return f"{value/1000000:.1f}M gp"
-    elif abs(value) >= 1000: return f"{value/1000:.1f}K gp"
-    return f"{value:,} gp"
+    return f"{int(value):,} gp"
+
+def format_gp_short(value):
+    """Abbreviated version for tight spaces (status bar, compact summaries)."""
+    if value is None: return "N/A"
+    if abs(value) >= 1000000000: return f"{value/1000000000:.1f}B"
+    if abs(value) >= 1000000: return f"{value/1000000:.1f}M"
+    if abs(value) >= 1000: return f"{value/1000:.0f}K"
+    return f"{int(value):,}"
 
 def vol_per_hour(item_data):
     """Estimate hourly volume from 5-min sample"""
@@ -554,11 +562,11 @@ def get_verdict(item_data):
 
 def format_vol_per_hour(item_data):
     vph = vol_per_hour(item_data)
-    if vph == 0: return "None"
-    if vph < 12: return "<12/hr"
-    if vph >= 10000: return f"{vph//1000}K/hr"
-    if vph >= 1000: return f"{vph/1000:.1f}K/hr"
-    return f"~{vph:,}/hr"
+    if vph == 0: return "0/hr (Dead)"
+    if vph < 12: return f"~{vph}/hr (Very Low)"
+    if vph < 60: return f"~{vph:,}/hr (Low)"
+    if vph < 500: return f"~{vph:,}/hr (Medium)"
+    return f"~{vph:,}/hr (High)"
 
 VERDICT_EMOJI = {
     "Great Flip": "🟢", "Good Flip": "🟡", "Decent": "🟠", "Slow": "🔴", "Dead": "⚫"
@@ -591,33 +599,58 @@ async def create_item_embed(item_data, title=None, alert_type="item"):
     embed = discord.Embed(title=title or f"{title_prefix} {item_name}", color=OSRS_GOLD)
     embed.set_thumbnail(url=get_item_icon_url(item_id, item_name, item_data.get('icon', '')))
 
-    # Verdict
+    # === PRICES — exact numbers, prominent ===
+    buy_price = item_data.get('buy_price', 0)
+    sell_price = item_data.get('sell_price', 0)
+    margin = item_data.get('margin', 0)
+    ge_tax = item_data.get('ge_tax', 0)
+
+    if buy_price:
+        embed.add_field(name="💰 Buy At (Insta-Buy)", value=f"**{format_gp(buy_price)}**", inline=True)
+    if sell_price:
+        embed.add_field(name="💰 Sell At (Insta-Sell)", value=f"**{format_gp(sell_price)}**", inline=True)
+
     embed.add_field(name="Verdict", value=f"**{verdict}**", inline=True)
 
-    if item_data.get('buy_price'):
-        embed.add_field(name="Buy Price", value=format_gp(item_data['buy_price']), inline=True)
-    if item_data.get('sell_price'):
-        embed.add_field(name="Sell Price", value=format_gp(item_data['sell_price']), inline=True)
+    # Profit breakdown with exact numbers
+    profit_detail = f"**{'+' if margin > 0 else ''}{format_gp(margin)}**/item"
+    if ge_tax:
+        profit_detail += f"\n(after {format_gp(ge_tax)} tax)"
+    embed.add_field(name="Profit/Item", value=profit_detail, inline=True)
 
-    margin = item_data.get('margin', 0)
-    embed.add_field(name="Profit/Item", value=f"{'+'if margin>0 else ''}{format_gp(margin)}", inline=True)
-    if item_data.get('ge_tax'):
-        embed.add_field(name="GE Tax", value=format_gp(item_data['ge_tax']), inline=True)
-
-    # Volume info — honest
-    embed.add_field(name="Volume", value=format_vol_per_hour(item_data), inline=True)
-
-    # Realistic profit
-    rp = realistic_4h_profit(item_data)
-    rb = realistic_buys(item_data)
+    # === VOLUME — much more visible ===
+    buy_vol = item_data.get('buy_volume', 0)
+    sell_vol = item_data.get('sell_volume', 0)
+    vph = vol_per_hour(item_data)
     ge_limit = item_data.get('ge_limit', 0)
-    vol_limited = ge_limit and (vol_per_hour(item_data) * 4) < ge_limit
-    profit_line = f"**{format_gp(rp)}** in 4 hours"
-    if vol_limited:
-        profit_line += f"\n⚠️ Vol limited: ~{rb:,} available (limit is {ge_limit:,})"
-    embed.add_field(name="Realistic 4h Profit", value=profit_line, inline=False)
+    rb = realistic_buys(item_data)
 
-    footer_text = "Grand Flip Out | Real data, honest numbers"
+    vol_detail = f"**{format_vol_per_hour(item_data)}**"
+    vol_detail += f"\nBuyers (5m): {buy_vol:,} | Sellers (5m): {sell_vol:,}"
+    if ge_limit:
+        vol_detail += f"\nGE Limit: **{ge_limit:,}** per 4h"
+    embed.add_field(name="📊 Volume", value=vol_detail, inline=True)
+
+    # How many you can realistically buy
+    vol_limited = ge_limit and (vph * 4) < ge_limit
+    can_buy_detail = f"**{rb:,} items**"
+    if vol_limited:
+        can_buy_detail += " ⚠️ (volume-limited)"
+    elif ge_limit:
+        can_buy_detail += " (limit-capped)"
+    if buy_price and rb > 0:
+        capital = buy_price * rb
+        can_buy_detail += f"\nCapital needed: **{format_gp(capital)}**"
+    embed.add_field(name="🛒 You Can Buy", value=can_buy_detail, inline=True)
+
+    # Realistic profit with exact numbers
+    rp = realistic_4h_profit(item_data)
+    profit_line = f"**{format_gp(rp)}** in 4 hours"
+    if rb > 0 and margin > 0:
+        profit_line += f"\n({rb:,} × {format_gp(margin)} each)"
+    embed.add_field(name="💎 Realistic 4h Profit", value=profit_line, inline=False)
+
+    footer_text = "Grand Flip Out | Exact numbers, real data"
     if alert_type == "personal":
         footer_text += " | Set alerts with /alert add"
     embed.set_footer(text=footer_text)
@@ -1023,13 +1056,15 @@ async def top_command(interaction: discord.Interaction, sort: str = "realistic",
             verdict = get_verdict(item)
             emoji = VERDICT_EMOJI.get(verdict, "")
             rp = realistic_4h_profit(item)
-            if sort in ("realistic", "jti"):
-                v = f"{emoji} {verdict} | {format_gp(item['margin'])}/item → **{format_gp(rp)}/4h** | {format_vol_per_hour(item)}"
-            elif sort == "margin":
-                v = f"{emoji} {verdict} | **{format_gp(item['margin'])}**/item | {format_vol_per_hour(item)}"
-            else:
-                v = f"{emoji} {verdict} | **{format_vol_per_hour(item)}** | {format_gp(item['margin'])}/item"
-            return f"{i}. {n}", v
+            rb = realistic_buys(item)
+            buy_p = item.get('buy_price', 0)
+            sell_p = item.get('sell_price', 0)
+            margin_val = item.get('margin', 0)
+            # Always show: buy price, sell price, profit, volume, can-buy quantity
+            line1 = f"{emoji} Buy: **{format_gp(buy_p)}** → Sell: **{format_gp(sell_p)}**"
+            line2 = f"Profit: **{format_gp(margin_val)}**/item → **{format_gp(rp)}**/4h ({rb:,} buyable)"
+            line3 = f"Vol: {format_vol_per_hour(item)}"
+            return f"{i}. {n}", f"{line1}\n{line2}\n{line3}"
 
         pages = build_paginated_embeds(items, f"Top Flips — {sort_label}", per_page=5, format_fn=format_top)
         if len(pages) > 1:
@@ -1056,11 +1091,15 @@ async def dumps_command(interaction: discord.Interaction):
         return
     def format_dump(i, item):
         drop_indicator = " 📉" if item.get('price_dropped') else ""
-        margin_str = f" ({item.get('margin_pct', 0)}%)" if item.get('margin_pct') else ""
+        buy_p = item.get('buy_price', 0)
+        sell_p = item.get('sell_price', 0)
+        can_buy = item.get('can_buy', 0)
+        vol = item.get('volume', 0)
         return (
-            f"{item['name']}{drop_indicator} — {format_gp(item['flip_profit'])}/item{margin_str}",
-            f"Buy **{format_gp(item['buy_price'])}** → Sell **{format_gp(item['sell_price'])}**\n"
-            f"Est. total: **{format_gp(item['total_profit'])}** ({item.get('can_buy', 0):,} units) | Vol: {item.get('volume', 0):,}"
+            f"{item['name']}{drop_indicator} — {format_gp(item['flip_profit'])}/item",
+            f"Buy: **{format_gp(buy_p)}** → Sell: **{format_gp(sell_p)}**\n"
+            f"Total profit: **{format_gp(item['total_profit'])}** ({can_buy:,} buyable)\n"
+            f"Vol (5m): {vol:,} trades"
         )
 
     pages = build_paginated_embeds(dumps, "💰 Dump Opportunities", per_page=5, format_fn=format_dump)
@@ -1135,15 +1174,17 @@ async def analyze_command(interaction: discord.Interaction, item_name: str):
     embed = discord.Embed(title=f"{emoji} {item['name']} — {verdict}", color=OSRS_GOLD)
     embed.set_thumbnail(url=get_item_icon_url(item['id'], item['name'], item.get('icon', '')))
 
-    # Prices
-    embed.add_field(name="Buy Price", value=format_gp(item['buy_price']), inline=True)
-    embed.add_field(name="Sell Price", value=format_gp(item['sell_price']), inline=True)
-    embed.add_field(name="Profit/Item", value=format_gp(item['margin']), inline=True)
+    # Prices — exact numbers
+    embed.add_field(name="💰 Buy At", value=f"**{format_gp(item['buy_price'])}**", inline=True)
+    embed.add_field(name="💰 Sell At", value=f"**{format_gp(item['sell_price'])}**", inline=True)
+    embed.add_field(name="Profit/Item", value=f"**{format_gp(item['margin'])}** (after {format_gp(item['ge_tax'])} tax)", inline=True)
 
-    # Volume & limits
-    embed.add_field(name="GE Tax", value=format_gp(item['ge_tax']), inline=True)
-    embed.add_field(name="Volume", value=format_vol_per_hour(item), inline=True)
-    embed.add_field(name="GE Limit", value=f"{ge_limit:,}" if ge_limit else "Unknown", inline=True)
+    # Volume & limits — prominent
+    bv_raw = item.get('buy_volume', 0) or 0
+    sv_raw = item.get('sell_volume', 0) or 0
+    vol_detail = f"**{format_vol_per_hour(item)}**\nBuyers (5m): {bv_raw:,} | Sellers (5m): {sv_raw:,}"
+    embed.add_field(name="📊 Volume", value=vol_detail, inline=True)
+    embed.add_field(name="GE Limit (4h)", value=f"**{ge_limit:,}**" if ge_limit else "Unknown", inline=True)
 
     # The honest truth
     profit_text = f"**{format_gp(rp)}** in 4 hours"
@@ -1599,13 +1640,15 @@ async def compare_command(interaction: discord.Interaction, item1: str, item2: s
         await interaction.followup.send("Couldn't find one or both items.")
         return
     embed = discord.Embed(title=f"{d1['name']} vs {d2['name']}", color=OSRS_GOLD)
-    embed.add_field(name="Buy Price", value=f"{d1['name']}: {format_gp(d1['buy_price'])}\n{d2['name']}: {format_gp(d2['buy_price'])}", inline=True)
-    embed.add_field(name="Sell Price", value=f"{d1['name']}: {format_gp(d1['sell_price'])}\n{d2['name']}: {format_gp(d2['sell_price'])}", inline=True)
-    embed.add_field(name="Net Profit", value=f"{d1['name']}: {format_gp(d1['margin'])}\n{d2['name']}: {format_gp(d2['margin'])}", inline=True)
+    embed.add_field(name="💰 Buy Price", value=f"{d1['name']}: **{format_gp(d1['buy_price'])}**\n{d2['name']}: **{format_gp(d2['buy_price'])}**", inline=True)
+    embed.add_field(name="💰 Sell Price", value=f"{d1['name']}: **{format_gp(d1['sell_price'])}**\n{d2['name']}: **{format_gp(d2['sell_price'])}**", inline=True)
+    embed.add_field(name="Profit/Item", value=f"{d1['name']}: **{format_gp(d1['margin'])}**\n{d2['name']}: **{format_gp(d2['margin'])}**", inline=True)
     rp1, rp2 = realistic_4h_profit(d1), realistic_4h_profit(d2)
+    rb1, rb2 = realistic_buys(d1), realistic_buys(d2)
     v1, v2 = get_verdict(d1), get_verdict(d2)
     embed.add_field(name="Verdict", value=f"{d1['name']}: {VERDICT_EMOJI.get(v1,'')} {v1}\n{d2['name']}: {VERDICT_EMOJI.get(v2,'')} {v2}", inline=True)
-    embed.add_field(name="4h Profit", value=f"{d1['name']}: {format_gp(rp1)}\n{d2['name']}: {format_gp(rp2)}", inline=True)
+    embed.add_field(name="4h Profit", value=f"{d1['name']}: **{format_gp(rp1)}** ({rb1:,} buyable)\n{d2['name']}: **{format_gp(rp2)}** ({rb2:,} buyable)", inline=True)
+    embed.add_field(name="📊 Volume", value=f"{d1['name']}: {format_vol_per_hour(d1)}\n{d2['name']}: {format_vol_per_hour(d2)}", inline=True)
     winner = d1['name'] if rp1 > rp2 else d2['name']
     embed.add_field(name="Winner", value=f"**{winner}** makes more realistic profit", inline=False)
     embed.set_footer(text="Grand Flip Out | OSRS Wiki API")
@@ -1632,7 +1675,7 @@ async def watchlist_command(interaction: discord.Interaction, action: str = "sho
             if item:
                 v = get_verdict(item)
                 rp = realistic_4h_profit(item)
-                embed.add_field(name=f"{VERDICT_EMOJI.get(v,'')} {wn}", value=f"{format_gp(item['margin'])}/item | {format_gp(rp)}/4h | {format_vol_per_hour(item)}", inline=True)
+                embed.add_field(name=f"{VERDICT_EMOJI.get(v,'')} {wn}", value=f"Buy: **{format_gp(item['buy_price'])}** → Sell: **{format_gp(item['sell_price'])}**\nProfit: {format_gp(item['margin'])}/item → {format_gp(rp)}/4h\nVol: {format_vol_per_hour(item)}", inline=True)
         embed.set_footer(text="Grand Flip Out")
         await interaction.followup.send(embed=embed)
     elif action == "add":
@@ -2082,10 +2125,12 @@ async def hotlist_command(interaction: discord.Interaction):
 
     def format_hot(i, item):
         medal = ['🥇', '🥈', '🥉'][i-1] if i <= 3 else f'**{i}.**'
-        vol_str = f"{item['vol_hr']:,.0f}/hr" if item['vol_hr'] > 0 else "Low"
+        vol_str = f"~{item['vol_hr']:,.0f}/hr" if item['vol_hr'] > 0 else "Dead"
         return (
             f"{medal} {item['name']}",
-            f"Profit: **{item['margin']:,}** gp/ea · 4h: **{item['profit_4h']:,}** gp\nBuy: {item['buy']:,} · Sell: {item['sell']:,} · Vol: {vol_str}"
+            f"Buy: **{item['buy']:,} gp** → Sell: **{item['sell']:,} gp**\n"
+            f"Profit: **{item['margin']:,} gp**/ea → **{item['profit_4h']:,} gp**/4h\n"
+            f"Vol: {vol_str}"
         )
 
     pages = build_paginated_embeds(top, "🔥 Hotlist — Most Profitable Flips", per_page=5, format_fn=format_hot)
