@@ -392,6 +392,9 @@
         .session-export-btn { background:none; border:1px solid var(--border); border-radius:6px; padding:3px 10px; color:var(--text-muted); font-size:10px; font-weight:600; cursor:pointer; margin-left:auto; transition:all .2s; font-family:inherit; }
         .session-export-btn:hover { border-color:var(--accent); color:var(--accent); }
 
+        /* === JOURNAL FORM INPUTS === */
+        #journal input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(255,152,31,0.15); }
+
         @media(max-width:768px) {
             .toast-container { right:10px; left:10px; }
             .toast { min-width:0; }
@@ -400,6 +403,38 @@
             .modal-stats-grid { grid-template-columns:1fr; }
             .kbd-hint { display:none; }
             .session-bar { padding:4px 12px; font-size:10px; gap:10px; }
+            /* Nav tabs: horizontal scroll on mobile */
+            .nav-inner { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:4px; }
+            .nav-inner::-webkit-scrollbar { display:none; }
+            .nav-tab { font-size:11px; padding:8px 10px; white-space:nowrap; }
+            .tab-icon { display:none; }
+            /* Dashboard: stack stats vertically */
+            .dash-row { grid-template-columns:1fr 1fr !important; gap:8px !important; }
+            .stat-card { padding:12px !important; }
+            .stat-value { font-size:18px !important; }
+            /* Charts: full width */
+            .chart-row { grid-template-columns:1fr !important; }
+            .chart-box { padding:12px !important; }
+            /* Header compact */
+            .logo-main { font-size:14px; }
+            .logo-sub { display:none; }
+            .header-inner { padding:8px 12px; }
+            /* Filters compact */
+            .filter-bar { padding:10px 12px; gap:8px; }
+            .filter-bar select, .filter-bar input { font-size:11px; padding:6px 8px; }
+            /* Table compact */
+            .item-table th, .item-table td { padding:6px 8px; font-size:11px; }
+            /* Page padding */
+            .page { padding:8px; }
+            /* Quick picks: stack */
+            #quickPicksGrid { grid-template-columns:1fr 1fr !important; }
+            /* Explain banner compact */
+            .explain-banner { font-size:12px; padding:10px 12px; }
+        }
+        @media(max-width:480px) {
+            .dash-row { grid-template-columns:1fr !important; }
+            #quickPicksGrid { grid-template-columns:1fr !important; }
+            .session-bar { flex-direction:column; gap:6px; align-items:flex-start; }
         }
     </style>
 </head>
@@ -446,6 +481,7 @@
         <button class="nav-tab" data-tab="watchlist"><span class="tab-icon">⭐</span>Watchlist<span class="tab-badge" id="watchlistBadge" style="display:none;">0</span></button>
         <button class="nav-tab" data-tab="recipes"><span class="tab-icon">🔬</span>Recipes</button>
         <button class="nav-tab" data-tab="special"><span class="tab-icon">💎</span>Special Items</button>
+        <button class="nav-tab" data-tab="journal"><span class="tab-icon">📓</span>Journal</button>
         <button class="nav-tab" data-tab="discord"><span class="tab-icon">💬</span>Discord</button>
         <button class="nav-tab" data-tab="plugin"><span class="tab-icon">🔌</span>Plugin</button>
     </div>
@@ -465,6 +501,19 @@
 
     <!-- ===== DASHBOARD TAB ===== -->
     <div id="dashboard" class="tab-panel active">
+        <!-- Market Regime Banner -->
+        <div id="marketRegimeBanner" style="display:none; padding:12px 18px; border-radius:var(--radius); margin-bottom:12px; border:1px solid; font-size:13px; align-items:center; gap:10px;">
+            <span id="regimeIcon" style="font-size:22px;"></span>
+            <div style="flex:1;">
+                <div style="font-weight:700;" id="regimeTitle">Market Status</div>
+                <div style="opacity:0.85; font-size:12px;" id="regimeDetail"></div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:18px;font-weight:800;" id="regimeVolatility"></div>
+                <div style="font-size:10px;opacity:0.7;">Volatility</div>
+            </div>
+        </div>
+
         <div class="explain-banner">
             <strong>Live GE prices. All profit numbers already include the 2% tax — what you see is what you get.</strong>
             <br>Buy at the green price, sell at the gold price, pocket the profit. Sorted by how much you can realistically make in 4 hours.
@@ -686,6 +735,62 @@
         <div id="cat-3rd-age" class="cat-content hidden"><div id="thirdAgeList"></div></div>
         <div id="cat-brutal" class="cat-content hidden"><div id="brutalList"></div></div>
         <div id="cat-implings" class="cat-content hidden"><div id="implingList"></div></div>
+    </div>
+
+    <!-- ===== FLIP JOURNAL TAB ===== -->
+    <div id="journal" class="tab-panel">
+        <div class="explain-banner">
+            <strong>Flip Journal</strong> — Track your flips, see your stats, and learn from your trading history.
+            Log every flip to build a profile of what works for you.
+        </div>
+
+        <!-- Journal Stats -->
+        <div class="dash-row" id="journalStats">
+            <div class="stat-card"><div class="stat-icon">📈</div><div class="stat-label">Total Profit</div><div class="stat-value green" id="journalTotalProfit">0 gp</div><div class="stat-sub" id="journalFlipCount">0 flips logged</div></div>
+            <div class="stat-card"><div class="stat-icon">🎯</div><div class="stat-label">Win Rate</div><div class="stat-value accent" id="journalWinRate">—</div><div class="stat-sub" id="journalWinLoss">0W / 0L</div></div>
+            <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-label">Avg Profit/Flip</div><div class="stat-value" id="journalAvgProfit">—</div><div class="stat-sub" id="journalBest">—</div></div>
+            <div class="stat-card"><div class="stat-icon">🕐</div><div class="stat-label">Last 24h</div><div class="stat-value green" id="journal24hProfit">0 gp</div><div class="stat-sub" id="journal24hCount">0 flips</div></div>
+        </div>
+
+        <!-- Log a Flip Form -->
+        <div class="chart-box" style="margin-top:16px;">
+            <h3>Log a Flip</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:12px; margin-top:12px;">
+                <div>
+                    <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Item Name</label>
+                    <input type="text" id="journalItemName" placeholder="e.g. Bandos godsword" style="width:100%;padding:8px 12px;background:var(--bg-main);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;">
+                </div>
+                <div>
+                    <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Buy Price</label>
+                    <input type="number" id="journalBuyPrice" placeholder="Buy price each" style="width:100%;padding:8px 12px;background:var(--bg-main);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;">
+                </div>
+                <div>
+                    <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Sell Price</label>
+                    <input type="number" id="journalSellPrice" placeholder="Sell price each" style="width:100%;padding:8px 12px;background:var(--bg-main);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;">
+                </div>
+                <div>
+                    <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Quantity</label>
+                    <input type="number" id="journalQuantity" placeholder="How many" value="1" style="width:100%;padding:8px 12px;background:var(--bg-main);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;">
+                </div>
+                <div>
+                    <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Notes (optional)</label>
+                    <input type="text" id="journalNotes" placeholder="e.g. bought on crash" style="width:100%;padding:8px 12px;background:var(--bg-main);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;">
+                </div>
+                <div style="display:flex;align-items:flex-end;">
+                    <button onclick="logJournalFlip()" style="width:100%;padding:8px 16px;background:var(--green);color:#000;border:none;border-radius:var(--radius);font-weight:700;font-size:13px;cursor:pointer;">Log Flip</button>
+                </div>
+            </div>
+            <div id="journalPreview" style="margin-top:10px;font-size:12px;color:var(--text-muted);display:none;"></div>
+        </div>
+
+        <!-- Journal History -->
+        <div class="chart-box" style="margin-top:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h3>Recent Flips</h3>
+                <button onclick="if(confirm('Clear all journal entries?')){FLIP_JOURNAL.clear();renderJournal();}" style="padding:4px 12px;background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius);font-size:11px;cursor:pointer;">Clear All</button>
+            </div>
+            <div id="journalHistory" style="margin-top:12px;"></div>
+        </div>
     </div>
 
     <!-- ===== DISCORD TAB ===== -->
@@ -2619,6 +2724,155 @@ const PRICE_PATTERNS = {
 };
 
 // ============================================
+// MARKET REGIME DETECTION
+// ============================================
+const MARKET_REGIME = {
+    lastRegime: null,
+
+    analyze() {
+        const items = state.allItems;
+        if (items.length < 10) return null;
+
+        // Count spread distributions
+        let wideSpread = 0, tightSpread = 0, negSpread = 0;
+        let totalVolPerHr = 0;
+        let dumpsActive = state.dumps.length;
+        let highMarginCount = 0;
+
+        for (const item of items) {
+            const spreadPct = item.buyPrice > 0 ? ((item.sellPrice - item.buyPrice) / item.buyPrice * 100) : 0;
+            if (spreadPct > 10) wideSpread++;
+            else if (spreadPct < 2) tightSpread++;
+            if (item.margin < 0) negSpread++;
+            if (item.margin > 50000) highMarginCount++;
+            totalVolPerHr += volPerHour(item);
+        }
+
+        const widePct = (wideSpread / items.length) * 100;
+        const tightPct = (tightSpread / items.length) * 100;
+        const volatility = Math.round(widePct);
+
+        let regime, icon, color, border, detail;
+
+        if (dumpsActive > 5 && widePct > 30) {
+            regime = 'CRASH';
+            icon = '🔴';
+            color = 'rgba(239,68,68,0.1)';
+            border = 'rgba(239,68,68,0.4)';
+            detail = `${dumpsActive} dumps active, ${wideSpread} items with wide spreads. Buy opportunities everywhere — be selective.`;
+        } else if (widePct > 20) {
+            regime = 'VOLATILE';
+            icon = '🟡';
+            color = 'rgba(245,158,11,0.1)';
+            border = 'rgba(245,158,11,0.4)';
+            detail = `${wideSpread} items with wide margins. More flipping opportunities but higher risk. Check volume before committing.`;
+        } else if (tightPct > 50 && dumpsActive < 2) {
+            regime = 'STABLE';
+            icon = '🟢';
+            color = 'rgba(34,197,94,0.08)';
+            border = 'rgba(34,197,94,0.3)';
+            detail = `Tight spreads on ${tightSpread} items. Stable market — focus on high-volume, reliable flips.`;
+        } else if (highMarginCount > 15) {
+            regime = 'BULL';
+            icon = '📈';
+            color = 'rgba(34,197,94,0.1)';
+            border = 'rgba(34,197,94,0.4)';
+            detail = `${highMarginCount} items with 50K+ margins. Lots of profit potential — prioritize by volume.`;
+        } else {
+            regime = 'NORMAL';
+            icon = '⚪';
+            color = 'rgba(255,152,31,0.05)';
+            border = 'rgba(255,152,31,0.2)';
+            detail = `Standard conditions. ${items.length} items tracked, ${dumpsActive} active dump${dumpsActive !== 1 ? 's' : ''}.`;
+        }
+
+        return { regime, icon, color, border, detail, volatility, wideSpread, tightSpread, dumpsActive, totalVolPerHr };
+    },
+
+    render() {
+        const data = this.analyze();
+        const banner = document.getElementById('marketRegimeBanner');
+        if (!data || !banner) return;
+
+        banner.style.display = 'flex';
+        banner.style.background = data.color;
+        banner.style.borderColor = data.border;
+
+        document.getElementById('regimeIcon').textContent = data.icon;
+        document.getElementById('regimeTitle').textContent = `Market: ${data.regime}`;
+        document.getElementById('regimeDetail').textContent = data.detail;
+        document.getElementById('regimeVolatility').textContent = data.volatility + '%';
+
+        this.lastRegime = data.regime;
+    }
+};
+
+// ============================================
+// FLIP JOURNAL
+// ============================================
+const FLIP_JOURNAL = {
+    entries: [],
+    maxEntries: 500,
+
+    load() {
+        try {
+            const saved = localStorage.getItem('gfo_flip_journal');
+            if (saved) this.entries = JSON.parse(saved);
+        } catch {}
+    },
+
+    save() {
+        try {
+            localStorage.setItem('gfo_flip_journal', JSON.stringify(this.entries.slice(-this.maxEntries)));
+        } catch {}
+    },
+
+    addEntry(entry) {
+        this.entries.push({
+            ...entry,
+            timestamp: Date.now(),
+            id: Date.now() + '-' + Math.random().toString(36).slice(2, 6)
+        });
+        this.save();
+    },
+
+    logFlip(itemName, itemId, buyPrice, sellPrice, quantity, notes = '') {
+        const tax = Math.min(Math.floor(sellPrice * 0.02), 5000000);
+        const profitPer = sellPrice - buyPrice - tax;
+        const totalProfit = profitPer * quantity;
+        this.addEntry({
+            type: 'flip',
+            itemName, itemId, buyPrice, sellPrice, quantity,
+            tax, profitPer, totalProfit, notes
+        });
+    },
+
+    getStats() {
+        const flips = this.entries.filter(e => e.type === 'flip');
+        if (flips.length === 0) return null;
+        const totalProfit = flips.reduce((s, f) => s + (f.totalProfit || 0), 0);
+        const wins = flips.filter(f => f.totalProfit > 0).length;
+        const losses = flips.filter(f => f.totalProfit <= 0).length;
+        const best = flips.reduce((a, b) => (b.totalProfit || 0) > (a.totalProfit || 0) ? b : a, flips[0]);
+        const avgProfit = Math.round(totalProfit / flips.length);
+        // Last 24h
+        const now = Date.now();
+        const recent = flips.filter(f => now - f.timestamp < 86400000);
+        const profit24h = recent.reduce((s, f) => s + (f.totalProfit || 0), 0);
+        return { totalFlips: flips.length, totalProfit, wins, losses, winRate: Math.round((wins / flips.length) * 100), best, avgProfit, profit24h, recentCount: recent.length };
+    },
+
+    getRecent(limit = 20) {
+        return this.entries.slice(-limit).reverse();
+    },
+
+    clear() {
+        this.entries = [];
+        this.save();
+    }
+};
+
+// ============================================
 // FLIP HISTORY & LEARNING
 // ============================================
 // Tracks what dumps we've detected, what happened to them, and learns.
@@ -4153,6 +4407,7 @@ function renderDashboard() {
     }
     document.getElementById('statDumps').textContent = state.dumps.length;
     document.getElementById('statPumps').textContent = state.pumps.length;
+    MARKET_REGIME.render();
     renderCharts();
     renderQuickPicks();
 }
@@ -4810,6 +5065,8 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         tab.classList.add('active');
         document.getElementById(tab.dataset.tab).classList.add('active');
+        // Render journal stats when switching to journal tab
+        if (tab.dataset.tab === 'journal') renderJournal();
     });
 });
 
@@ -5121,6 +5378,101 @@ function loadExtendedSettings() {
 }
 
 // ============================================
+// FLIP JOURNAL UI
+// ============================================
+function logJournalFlip() {
+    const name = document.getElementById('journalItemName').value.trim();
+    const buy = parseInt(document.getElementById('journalBuyPrice').value) || 0;
+    const sell = parseInt(document.getElementById('journalSellPrice').value) || 0;
+    const qty = parseInt(document.getElementById('journalQuantity').value) || 1;
+    const notes = document.getElementById('journalNotes').value.trim();
+
+    if (!name || buy <= 0 || sell <= 0) {
+        TOASTS.show('Missing Info', 'Fill in item name, buy price, and sell price', 'error', 3000);
+        return;
+    }
+
+    // Find item ID from mapping if possible
+    let itemId = 0;
+    for (const item of state.allItems) {
+        if (item.name.toLowerCase() === name.toLowerCase()) {
+            itemId = item.itemId;
+            break;
+        }
+    }
+
+    FLIP_JOURNAL.logFlip(name, itemId, buy, sell, qty, notes);
+
+    // Clear form
+    document.getElementById('journalItemName').value = '';
+    document.getElementById('journalBuyPrice').value = '';
+    document.getElementById('journalSellPrice').value = '';
+    document.getElementById('journalQuantity').value = '1';
+    document.getElementById('journalNotes').value = '';
+
+    const tax = Math.min(Math.floor(sell * 0.02), 5000000);
+    const profit = (sell - buy - tax) * qty;
+    TOASTS.show('Flip Logged', `${name} × ${qty}: ${gp(profit)} profit`, profit > 0 ? 'success' : 'error', 3000);
+
+    renderJournal();
+}
+
+function renderJournal() {
+    const stats = FLIP_JOURNAL.getStats();
+
+    // Update stat cards
+    if (stats) {
+        document.getElementById('journalTotalProfit').textContent = gp(stats.totalProfit);
+        document.getElementById('journalTotalProfit').className = stats.totalProfit >= 0 ? 'stat-value green' : 'stat-value';
+        document.getElementById('journalTotalProfit').style.color = stats.totalProfit < 0 ? 'var(--red)' : '';
+        document.getElementById('journalFlipCount').textContent = `${stats.totalFlips} flip${stats.totalFlips !== 1 ? 's' : ''} logged`;
+        document.getElementById('journalWinRate').textContent = stats.winRate + '%';
+        document.getElementById('journalWinLoss').textContent = `${stats.wins}W / ${stats.losses}L`;
+        document.getElementById('journalAvgProfit').textContent = gp(stats.avgProfit);
+        document.getElementById('journalBest').textContent = stats.best ? `Best: ${stats.best.itemName} (${gp(stats.best.totalProfit)})` : '—';
+        document.getElementById('journal24hProfit').textContent = gp(stats.profit24h);
+        document.getElementById('journal24hCount').textContent = `${stats.recentCount} flip${stats.recentCount !== 1 ? 's' : ''}`;
+    }
+
+    // Render history
+    const entries = FLIP_JOURNAL.getRecent(30);
+    const container = document.getElementById('journalHistory');
+    if (!container) return;
+
+    if (entries.length === 0) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">No flips logged yet. Use the form above to record your first flip!</div>';
+        return;
+    }
+
+    container.innerHTML = `<div style="display:grid; gap:8px;">
+        ${entries.map(e => {
+            const profitColor = e.totalProfit >= 0 ? 'var(--green)' : 'var(--red)';
+            const profitSign = e.totalProfit >= 0 ? '+' : '';
+            const timeAgo = formatTimeAgo(e.timestamp);
+            const roiPct = e.buyPrice > 0 ? ((e.sellPrice - e.buyPrice - e.tax) / e.buyPrice * 100).toFixed(1) : '0';
+            return `<div style="display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius); border-left:3px solid ${profitColor};">
+                <div style="flex:1;">
+                    <div style="font-weight:700; font-size:13px;">${e.itemName} <span style="font-weight:400; color:var(--text-muted); font-size:11px;">× ${e.quantity}</span></div>
+                    <div style="font-size:11px; color:var(--text-muted);">Buy: ${gp(e.buyPrice)} → Sell: ${gp(e.sellPrice)} · Tax: ${gp(e.tax)} · ROI: ${roiPct}%${e.notes ? ' · ' + e.notes : ''}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-weight:800; color:${profitColor}; font-size:14px;">${profitSign}${gp(e.totalProfit)}</div>
+                    <div style="font-size:10px; color:var(--text-muted);">${timeAgo}</div>
+                </div>
+            </div>`;
+        }).join('')}
+    </div>`;
+}
+
+function formatTimeAgo(ts) {
+    const diff = Date.now() - ts;
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+    return Math.floor(diff / 86400000) + 'd ago';
+}
+
+// ============================================
 // KEYBOARD SHORTCUTS
 // ============================================
 document.addEventListener('keydown', e => {
@@ -5162,6 +5514,7 @@ async function init() {
     loadWatchlist();
     loadPriceMemory();
     FLIP_TRACKER.load();
+    FLIP_JOURNAL.load();
     BUY_LIMIT_TRACKER.load();
     updateStatus(false);
     // Session timer

@@ -799,8 +799,101 @@ async def before_mapping_refresh():
     await bot.wait_until_ready()
 
 
+# ── AUTOCOMPLETE ──────────────────────────────────────────────
+async def item_name_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> List[app_commands.Choice[str]]:
+    """Fuzzy autocomplete for item names across all slash commands."""
+    if not current or len(current) < 2:
+        # Show popular flipping items when no input yet
+        popular = ['Twisted bow', 'Bandos godsword', 'Armadyl crossbow', 'Dragon claws',
+                   'Ancestral robe top', 'Scythe of vitur', 'Tumeken\'s shadow',
+                   'Abyssal whip', 'Saradomin godsword', 'Elder maul']
+        return [app_commands.Choice(name=n, value=n) for n in popular[:25]]
+
+    current_lower = current.lower()
+    matches = []
+    for item_id, meta in api_client.item_mapping.items():
+        name = meta.get('name', '')
+        name_lower = name.lower()
+        if current_lower in name_lower:
+            # Exact start match = highest priority, contains = lower
+            priority = 0 if name_lower.startswith(current_lower) else 1
+            matches.append((priority, name))
+
+    # Sort: starts-with first, then alphabetical
+    matches.sort(key=lambda x: (x[0], x[1]))
+    return [app_commands.Choice(name=m[1], value=m[1]) for m in matches[:25]]
+
+
+# ── PAGINATION VIEW ──────────────────────────────────────────
+class PaginatedView(discord.ui.View):
+    """A reusable paginated embed view with Previous/Next buttons."""
+
+    def __init__(self, pages: List[discord.Embed], author_id: int, timeout: float = 120):
+        super().__init__(timeout=timeout)
+        self.pages = pages
+        self.current_page = 0
+        self.author_id = author_id
+        self._update_buttons()
+
+    def _update_buttons(self):
+        self.prev_btn.disabled = self.current_page == 0
+        self.next_btn.disabled = self.current_page >= len(self.pages) - 1
+        self.page_label.label = f"{self.current_page + 1}/{len(self.pages)}"
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message("This isn't your command!", ephemeral=True)
+            return
+        self.current_page = max(0, self.current_page - 1)
+        self._update_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+    @discord.ui.button(label="1/1", style=discord.ButtonStyle.secondary, disabled=True)
+    async def page_label(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.secondary)
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message("This isn't your command!", ephemeral=True)
+            return
+        self.current_page = min(len(self.pages) - 1, self.current_page + 1)
+        self._update_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+
+
+def build_paginated_embeds(items: list, title: str, per_page: int = 5, format_fn=None) -> List[discord.Embed]:
+    """Build a list of embeds from items, splitting into pages."""
+    pages = []
+    total_pages = max(1, math.ceil(len(items) / per_page))
+    for page_num in range(total_pages):
+        start = page_num * per_page
+        page_items = items[start:start + per_page]
+        embed = discord.Embed(
+            title=f"{title} (Page {page_num + 1}/{total_pages})",
+            color=OSRS_GOLD,
+        )
+        if format_fn:
+            for i, item in enumerate(page_items, start + 1):
+                name, value = format_fn(i, item)
+                embed.add_field(name=name, value=value, inline=False)
+        embed.set_footer(text="Grand Flip Out | OSRS Wiki API")
+        embed.timestamp = datetime.now()
+        pages.append(embed)
+    return pages
+
+
 @bot.tree.command(name="price", description="Look up current price and profit margins for an item")
 @app_commands.describe(item_name="Name of the item to look up")
+@app_commands.autocomplete(item_name=item_name_autocomplete)
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def price_command(interaction: discord.Interaction, item_name: str):
     await interaction.response.defer()
@@ -813,13 +906,13 @@ async def price_command(interaction: discord.Interaction, item_name: str):
 
 
 @bot.tree.command(name="top", description="Show top items by realistic profit")
-@app_commands.describe(sort="Sort by: realistic, margin, volume, or jti", limit="Number of items (1-20)")
+@app_commands.describe(sort="Sort by: realistic, margin, volume, or jti", limit="Number of items (1-50)")
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
-async def top_command(interaction: discord.Interaction, sort: str = "realistic", limit: int = 5):
+async def top_command(interaction: discord.Interaction, sort: str = "realistic", limit: int = 10):
     await interaction.response.defer()
     sort = sort.lower() if sort else "realistic"
     if sort not in ["realistic", "margin", "volume", "jti"]: sort = "realistic"
-    limit = max(1, min(limit, 20))
+    limit = max(1, min(limit, 50))
 
     # Try backend server first for enriched JTI data
     server_items = None
@@ -858,8 +951,8 @@ async def top_command(interaction: discord.Interaction, sort: str = "realistic",
             await interaction.followup.send("No items found. Data may still be loading.")
             return
         sort_label = {"realistic": "Realistic 4h Profit", "margin": "Profit per Item", "volume": "Volume", "jti": "JTI Score"}[sort]
-        embed = discord.Embed(title=f"Top {limit} Flips — {sort_label}", color=OSRS_GOLD, description="Ranked by what you can actually make, not fantasy numbers.")
-        for i, item in enumerate(items, 1):
+
+        def format_top(i, item):
             n = item['name']
             verdict = get_verdict(item)
             emoji = VERDICT_EMOJI.get(verdict, "")
@@ -870,10 +963,14 @@ async def top_command(interaction: discord.Interaction, sort: str = "realistic",
                 v = f"{emoji} {verdict} | **{format_gp(item['margin'])}**/item | {format_vol_per_hour(item)}"
             else:
                 v = f"{emoji} {verdict} | **{format_vol_per_hour(item)}** | {format_gp(item['margin'])}/item"
-            embed.add_field(name=f"{i}. {n}", value=v, inline=False)
-        embed.set_footer(text="Grand Flip Out | Wiki API direct (server offline)")
-        embed.timestamp = datetime.now()
-        await interaction.followup.send(embed=embed)
+            return f"{i}. {n}", v
+
+        pages = build_paginated_embeds(items, f"Top Flips — {sort_label}", per_page=5, format_fn=format_top)
+        if len(pages) > 1:
+            view = PaginatedView(pages, interaction.user.id)
+            await interaction.followup.send(embed=pages[0], view=view)
+        else:
+            await interaction.followup.send(embed=pages[0])
 
 
 @bot.tree.command(name="dumps", description="Show items with wide margins — buy cheap, sell normal, pocket the profit")
@@ -891,25 +988,21 @@ async def dumps_command(interaction: discord.Interaction):
             f"-# Tracking {price_count:,} prices, {vol_count:,} volumes, {mapping_count:,} items mapped"
         )
         return
-    embed = discord.Embed(
-        title="💰 Dump Opportunities",
-        color=OSRS_GOLD,
-        description="Items with wide buy-sell margins. Buy low, sell high."
-    )
-    for item in dumps[:8]:
+    def format_dump(i, item):
         drop_indicator = " 📉" if item.get('price_dropped') else ""
         margin_str = f" ({item.get('margin_pct', 0)}%)" if item.get('margin_pct') else ""
-        embed.add_field(
-            name=f"{item['name']}{drop_indicator} — {format_gp(item['flip_profit'])}/item{margin_str}",
-            value=(
-                f"Buy **{format_gp(item['buy_price'])}** → Sell **{format_gp(item['sell_price'])}**\n"
-                f"Est. total: **{format_gp(item['total_profit'])}** ({item.get('can_buy', 0):,} units) | Vol: {item.get('volume', 0):,}"
-            ),
-            inline=False
+        return (
+            f"{item['name']}{drop_indicator} — {format_gp(item['flip_profit'])}/item{margin_str}",
+            f"Buy **{format_gp(item['buy_price'])}** → Sell **{format_gp(item['sell_price'])}**\n"
+            f"Est. total: **{format_gp(item['total_profit'])}** ({item.get('can_buy', 0):,} units) | Vol: {item.get('volume', 0):,}"
         )
-    embed.set_footer(text="Grand Flip Out | 📉 = confirmed price drop")
-    embed.timestamp = datetime.now()
-    await interaction.followup.send(embed=embed)
+
+    pages = build_paginated_embeds(dumps, "💰 Dump Opportunities", per_page=5, format_fn=format_dump)
+    if len(pages) > 1:
+        view = PaginatedView(pages, interaction.user.id)
+        await interaction.followup.send(embed=pages[0], view=view)
+    else:
+        await interaction.followup.send(embed=pages[0])
 
 
 @bot.tree.command(name="pumps", description="Show items with unusual buy pressure")
@@ -957,6 +1050,7 @@ async def recipe_command(interaction: discord.Interaction):
 
 @bot.tree.command(name="analyze", description="Full flip analysis with realistic profit for an item")
 @app_commands.describe(item_name="Name of the item")
+@app_commands.autocomplete(item_name=item_name_autocomplete)
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def analyze_command(interaction: discord.Interaction, item_name: str):
     await interaction.response.defer()
@@ -1023,6 +1117,7 @@ async def market_command(interaction: discord.Interaction):
 
 @bot.tree.command(name="compare", description="Compare two items side by side")
 @app_commands.describe(item1="First item", item2="Second item")
+@app_commands.autocomplete(item1=item_name_autocomplete, item2=item_name_autocomplete)
 async def compare_command(interaction: discord.Interaction, item1: str, item2: str):
     await interaction.response.defer()
     d1, d2 = api_client.find_item_by_name(item1), api_client.find_item_by_name(item2)
@@ -1046,6 +1141,7 @@ async def compare_command(interaction: discord.Interaction, item1: str, item2: s
 
 @bot.tree.command(name="watchlist", description="Manage your personal watchlist")
 @app_commands.describe(action="add, remove, or show", item_name="Item name")
+@app_commands.autocomplete(item_name=item_name_autocomplete)
 async def watchlist_command(interaction: discord.Interaction, action: str = "show", item_name: str = None):
     await interaction.response.defer()
     uid = str(interaction.user.id)
@@ -1108,6 +1204,7 @@ async def watchlist_command(interaction: discord.Interaction, action: str = "sho
     min_volume="Minimum daily volume (default 5000)",
     target_price="Target price to alert below (0 = disabled)"
 )
+@app_commands.autocomplete(item=item_name_autocomplete)
 async def alert_command(
     interaction: discord.Interaction,
     action: str = "list",
@@ -1333,6 +1430,7 @@ async def dashboard_command(interaction: discord.Interaction):
     buy_price="Custom buy price (default: current instant buy)",
     sell_price="Custom sell price (default: current instant sell)"
 )
+@app_commands.autocomplete(item_name=item_name_autocomplete)
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def flip_command(interaction: discord.Interaction, item_name: str, quantity: Optional[int] = None, buy_price: Optional[int] = None, sell_price: Optional[int] = None):
     await interaction.response.defer()
@@ -1399,6 +1497,7 @@ async def flip_command(interaction: discord.Interaction, item_name: str, quantit
     item_name="Item name (or just type a number for raw price)",
     quantity="How many items (default: 1)"
 )
+@app_commands.autocomplete(item_name=item_name_autocomplete)
 @app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
 async def tax_command(interaction: discord.Interaction, item_name: str, quantity: Optional[int] = 1):
     await interaction.response.defer()
@@ -1501,29 +1600,26 @@ async def hotlist_command(interaction: discord.Interaction):
             })
 
     hot_items.sort(key=lambda x: x['profit_4h'], reverse=True)
-    top = hot_items[:10]
+    top = hot_items[:25]
 
     if not top:
         await interaction.followup.send("No profitable items found right now. Market might be slow.")
         return
 
-    embed = discord.Embed(
-        title="🔥 Hotlist — Top 10 Most Profitable Flips",
-        description="Ranked by realistic 4-hour profit potential",
-        color=OSRS_GOLD
-    )
-    for i, item in enumerate(top, 1):
+    def format_hot(i, item):
         medal = ['🥇', '🥈', '🥉'][i-1] if i <= 3 else f'**{i}.**'
         vol_str = f"{item['vol_hr']:,.0f}/hr" if item['vol_hr'] > 0 else "Low"
-        embed.add_field(
-            name=f"{medal} {item['name']}",
-            value=f"Profit: **{item['margin']:,}** gp/ea · 4h: **{item['profit_4h']:,}** gp\nBuy: {item['buy']:,} · Sell: {item['sell']:,} · Vol: {vol_str}",
-            inline=False
+        return (
+            f"{medal} {item['name']}",
+            f"Profit: **{item['margin']:,}** gp/ea · 4h: **{item['profit_4h']:,}** gp\nBuy: {item['buy']:,} · Sell: {item['sell']:,} · Vol: {vol_str}"
         )
 
-    embed.set_footer(text="Grand Flip Out v2.2 • Prices from OSRS Wiki")
-    embed.timestamp = datetime.now()
-    await interaction.followup.send(embed=embed)
+    pages = build_paginated_embeds(top, "🔥 Hotlist — Most Profitable Flips", per_page=5, format_fn=format_hot)
+    if len(pages) > 1:
+        view = PaginatedView(pages, interaction.user.id)
+        await interaction.followup.send(embed=pages[0], view=view)
+    else:
+        await interaction.followup.send(embed=pages[0])
 
 
 @bot.tree.command(name="suggest", description="Get flip suggestions based on your capital")
