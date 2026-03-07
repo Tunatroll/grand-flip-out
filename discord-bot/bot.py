@@ -483,7 +483,8 @@ def load_watchlists():
         try:
             with open(WATCHLIST_FILE, 'r') as f:
                 return json.load(f)
-        except:
+        except (json.JSONDecodeError, IOError, OSError) as e:
+            print(f"Warning: Failed to load watchlists: {e}")
             return {}
     return {}
 
@@ -499,7 +500,8 @@ def load_user_alerts():
         try:
             with open(USER_ALERTS_FILE, 'r') as f:
                 return json.load(f)
-        except:
+        except (json.JSONDecodeError, IOError, OSError) as e:
+            print(f"Warning: Failed to load user alerts: {e}")
             return {}
     return {}
 
@@ -757,6 +759,7 @@ async def on_ready():
     await api_client.load_mapping()
     await api_client.refresh_prices()
     refresh_prices_loop.start()
+    refresh_mapping_loop.start()
     check_dumps.start()
     check_user_alerts.start()
 
@@ -782,6 +785,17 @@ async def refresh_prices_loop():
 
 @refresh_prices_loop.before_loop
 async def before_refresh():
+    await bot.wait_until_ready()
+
+@tasks.loop(hours=6)
+async def refresh_mapping_loop():
+    """Periodically refresh item mapping to pick up new items."""
+    print("[GFO] Refreshing item mapping...")
+    await api_client.load_mapping()
+    print(f"[GFO] Mapping refreshed: {len(api_client.item_mapping)} items")
+
+@refresh_mapping_loop.before_loop
+async def before_mapping_refresh():
     await bot.wait_until_ready()
 
 
@@ -1312,6 +1326,74 @@ async def dashboard_command(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
+@bot.tree.command(name="flip", description="Calculate flip profit for an item with quantity")
+@app_commands.describe(
+    item_name="Name of the item to flip",
+    quantity="How many to flip (default: buy limit)",
+    buy_price="Custom buy price (default: current instant buy)",
+    sell_price="Custom sell price (default: current instant sell)"
+)
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def flip_command(interaction: discord.Interaction, item_name: str, quantity: Optional[int] = None, buy_price: Optional[int] = None, sell_price: Optional[int] = None):
+    await interaction.response.defer()
+    item = api_client.find_item_by_name(item_name)
+    if not item:
+        await interaction.followup.send(f"Couldn't find item matching '{item_name}'. Try a different name.")
+        return
+
+    data = api_client._build_item_data(item['id'])
+    if not data or data['buy_price'] == 0:
+        await interaction.followup.send(f"No price data for **{item['name']}** right now.")
+        return
+
+    bp = buy_price or data['buy_price']
+    sp = sell_price or data['sell_price']
+    buy_limit = data.get('buy_limit', 0) or 100
+    qty = quantity or buy_limit
+
+    # GE tax: 2% of sell price, capped at 5M per item
+    tax_per_item = min(int(sp * 0.02), 5_000_000)
+    profit_per_item = sp - bp - tax_per_item
+    total_profit = profit_per_item * qty
+    total_cost = bp * qty
+    roi = (total_profit / total_cost * 100) if total_cost > 0 else 0
+
+    # Estimate fill time based on volume
+    vol_per_hour = 0
+    vols = api_client.volume_data.get(str(item['id']), {})
+    total_vol = (vols.get('buyVol', 0) or 0) + (vols.get('sellVol', 0) or 0)
+    vol_per_hour = total_vol * 12  # 5min sample × 12
+
+    fill_str = "Unknown"
+    if vol_per_hour > 0:
+        fill_hours = qty / vol_per_hour
+        if fill_hours < 1:
+            fill_str = f"~{int(fill_hours * 60)} min"
+        else:
+            fill_str = f"~{fill_hours:.1f} hrs"
+
+    color = OSRS_GREEN if profit_per_item > 0 else OSRS_RED
+    embed = discord.Embed(title=f"Flip Calculator — {item['name']}", color=color)
+    embed.set_thumbnail(url=api_client.get_item_icon_url(item['id']))
+    embed.add_field(name="Buy Price", value=f"{bp:,} gp", inline=True)
+    embed.add_field(name="Sell Price", value=f"{sp:,} gp", inline=True)
+    embed.add_field(name="GE Tax", value=f"{tax_per_item:,} gp/ea", inline=True)
+    embed.add_field(name="Profit/Item", value=f"{profit_per_item:,} gp", inline=True)
+    embed.add_field(name="Quantity", value=f"{qty:,}", inline=True)
+    embed.add_field(name="Est. Fill Time", value=fill_str, inline=True)
+    embed.add_field(name="Total Profit", value=f"**{total_profit:,} gp**", inline=True)
+    embed.add_field(name="Capital Required", value=f"{total_cost:,} gp", inline=True)
+    embed.add_field(name="ROI", value=f"{roi:.1f}%", inline=True)
+
+    if total_profit > 0 and vol_per_hour > 0:
+        gp_per_hour = int(total_profit / max(qty / vol_per_hour, 0.25))
+        embed.add_field(name="GP/Hour", value=f"~{gp_per_hour:,} gp/hr", inline=False)
+
+    embed.set_footer(text="Grand Flip Out v2.2 • Prices from OSRS Wiki")
+    embed.timestamp = datetime.now()
+    await interaction.followup.send(embed=embed)
+
+
 # Rate limiting state for auto-alerts
 _alert_last_global = 0          # timestamp of last channel alert sent
 _alert_item_times = {}          # item_id -> last alert timestamp
@@ -1557,5 +1639,5 @@ if __name__ == "__main__":
         try:
             asyncio.run(api_client.close_session())
             asyncio.run(backend.close())
-        except:
+        except Exception:
             pass
