@@ -379,6 +379,9 @@
         .modal-action-btn.primary { background:linear-gradient(135deg,var(--accent),var(--gold)); color:#1a1410; border:none; }
         .modal-action-btn.primary:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(255,152,31,0.3); }
         .modal-sparkline-lg { width:100%; height:80px; margin-bottom:20px; background:var(--bg-surface); border-radius:var(--radius); }
+        .ts-btn { background:var(--bg-card); color:var(--text-muted); border:1px solid var(--border); padding:3px 10px; border-radius:var(--radius); font-size:10px; font-weight:700; cursor:pointer; transition:all .2s; }
+        .ts-btn:hover { color:var(--text-secondary); border-color:var(--accent); }
+        .ts-btn.active { background:var(--accent-glow); color:var(--accent); border-color:var(--accent); }
 
         /* === KEYBOARD SHORTCUT HINT === */
         .kbd-hint { position:fixed; bottom:24px; left:24px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:8px 14px; font-size:11px; color:var(--text-muted); z-index:100; opacity:0.6; transition:opacity .2s; cursor:help; }
@@ -481,6 +484,7 @@
         <button class="nav-tab" data-tab="watchlist"><span class="tab-icon">⭐</span>Watchlist<span class="tab-badge" id="watchlistBadge" style="display:none;">0</span></button>
         <button class="nav-tab" data-tab="recipes"><span class="tab-icon">🔬</span>Recipes</button>
         <button class="nav-tab" data-tab="special"><span class="tab-icon">💎</span>Special Items</button>
+        <button class="nav-tab" data-tab="alchemy"><span class="tab-icon">🔥</span>Alchemy</button>
         <button class="nav-tab" data-tab="journal"><span class="tab-icon">📓</span>Journal</button>
         <button class="nav-tab" data-tab="discord"><span class="tab-icon">💬</span>Discord</button>
         <button class="nav-tab" data-tab="plugin"><span class="tab-icon">🔌</span>Plugin</button>
@@ -745,6 +749,30 @@
         <div id="cat-implings" class="cat-content hidden"><div id="implingList"></div></div>
     </div>
 
+    <!-- ===== ALCHEMY SCANNER TAB ===== -->
+    <div id="alchemy" class="tab-panel">
+        <div class="explain-banner">
+            <strong>Alchemy Scanner</strong> — Find items worth more when High Alched than sold on GE. Nature rune price updates live from market data.
+        </div>
+        <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+            <div style="background:var(--bg-surface); padding:8px 14px; border-radius:var(--radius); border:1px solid var(--border); font-size:12px;">
+                Nature Rune: <strong id="alchNatPrice" style="color:var(--accent);">~120 gp</strong>
+            </div>
+            <div style="background:var(--bg-surface); padding:8px 14px; border-radius:var(--radius); border:1px solid var(--border); font-size:12px;">
+                Casts/Hour: <strong style="color:var(--green);">~1,200</strong>
+            </div>
+            <select id="alchSortBy" onchange="renderAlchScanner()" style="background:var(--bg-surface); color:var(--text); border:1px solid var(--border); padding:6px 10px; border-radius:var(--radius); font-size:12px;">
+                <option value="profit">Sort: Profit/Cast</option>
+                <option value="gp_hr">Sort: GP/Hour</option>
+                <option value="roi">Sort: ROI %</option>
+            </select>
+            <label style="font-size:12px; color:var(--text-secondary); display:flex; align-items:center; gap:4px;">
+                <input type="checkbox" id="alchOnlyPositive" checked onchange="renderAlchScanner()"> Only Profitable
+            </label>
+        </div>
+        <div id="alchScannerGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px;"></div>
+    </div>
+
     <!-- ===== FLIP JOURNAL TAB ===== -->
     <div id="journal" class="tab-panel">
         <div class="explain-banner">
@@ -884,6 +912,23 @@
                 </div>
             </div>
             <canvas id="modalSparkline" class="modal-sparkline-lg" width="580" height="80"></canvas>
+            <!-- Timeseries Price Chart -->
+            <div id="modalTimeseriesWrap" style="display:none; margin:12px 0; padding:14px; background:var(--bg-surface); border-radius:var(--radius); border:1px solid var(--border);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-size:12px; font-weight:700; color:var(--text-secondary);">Price History</span>
+                    <div style="display:flex; gap:4px;">
+                        <button class="ts-btn active" data-ts="1h" onclick="loadTimeseries('1h',this)">1H</button>
+                        <button class="ts-btn" data-ts="6h" onclick="loadTimeseries('6h',this)">6H</button>
+                        <button class="ts-btn" data-ts="24h" onclick="loadTimeseries('24h',this)">24H</button>
+                    </div>
+                </div>
+                <canvas id="modalTimeseriesChart" width="560" height="140" style="width:100%; height:140px;"></canvas>
+                <div id="tsChartLegend" style="display:flex; gap:16px; justify-content:center; margin-top:6px; font-size:10px; color:var(--text-muted);">
+                    <span><span style="display:inline-block;width:10px;height:2px;background:#22c55e;margin-right:4px;vertical-align:middle;"></span>Insta-Buy (High)</span>
+                    <span><span style="display:inline-block;width:10px;height:2px;background:#f59e0b;margin-right:4px;vertical-align:middle;"></span>Insta-Sell (Low)</span>
+                    <span><span style="display:inline-block;width:10px;height:3px;background:rgba(99,102,241,0.4);margin-right:4px;vertical-align:middle;"></span>Volume</span>
+                </div>
+            </div>
             <div class="modal-stats-grid" id="modalStats"></div>
             <div class="modal-section-title">Market Intelligence</div>
             <div class="modal-intel-tags" id="modalIntel"></div>
@@ -1494,6 +1539,8 @@ function processLatest(latestData, volData, force = false) {
         if (!pi || !pi.high || !pi.low) continue;
         const meta = state.mappingById[id];
         if (!meta) continue;
+        // Never include bonds in flipping — that's unethical
+        if ((meta.name || '').toLowerCase().includes('old school bond')) continue;
         const bp = pi.low, sp = pi.high;
         const tax = Math.min(Math.floor(sp * 0.02), 5000000);
         const margin = sp - bp - tax;
@@ -2002,6 +2049,256 @@ const ALCH_CALC = {
         };
     }
 };
+
+function renderAlchScanner() {
+    const grid = document.getElementById('alchScannerGrid');
+    if (!grid) return;
+
+    // Update nature rune price display
+    const natEl = document.getElementById('alchNatPrice');
+    if (natEl) natEl.textContent = '~' + ALCH_CALC.natRunePrice.toLocaleString() + ' gp';
+
+    const sortBy = document.getElementById('alchSortBy')?.value || 'profit';
+    const onlyPositive = document.getElementById('alchOnlyPositive')?.checked !== false;
+
+    // Calculate alch profits for ALL items
+    const alchItems = [];
+    for (const item of state.allItems) {
+        const alchValue = item.highAlch || 0;
+        if (alchValue <= 0) continue;
+        const buyPrice = item.instaBuyAt || item.buyPrice || 0;
+        if (buyPrice <= 0) continue;
+
+        const profit = alchValue - buyPrice - ALCH_CALC.natRunePrice;
+        if (onlyPositive && profit <= 0) continue;
+
+        const gpPerHour = profit * 1200;
+        const roi = buyPrice > 0 ? (profit / buyPrice) * 100 : 0;
+        const flipProfit = item.margin || item.flipProfit || 0;
+        const betterThanFlip = profit > flipProfit;
+        const vol = (item.buyQuantity || 0) + (item.sellQuantity || 0);
+        const volPerHr = vol * 12;
+
+        alchItems.push({
+            item, alchValue, buyPrice, profit, gpPerHour, roi,
+            betterThanFlip, flipProfit, volPerHr,
+            buyLimit: item.buyLimit || 0
+        });
+    }
+
+    // Sort
+    if (sortBy === 'profit') alchItems.sort((a, b) => b.profit - a.profit);
+    else if (sortBy === 'gp_hr') alchItems.sort((a, b) => b.gpPerHour - a.gpPerHour);
+    else if (sortBy === 'roi') alchItems.sort((a, b) => b.roi - a.roi);
+
+    // Render top 60
+    const top = alchItems.slice(0, 60);
+    if (top.length === 0) {
+        grid.innerHTML = '<div style="color:var(--text-muted); padding:20px; text-align:center;">No profitable alch items found. Prices may still be loading...</div>';
+        return;
+    }
+
+    grid.innerHTML = top.map((a, idx) => {
+        const profitColor = a.profit > 0 ? 'var(--green)' : 'var(--red)';
+        const gpHrFormatted = a.gpPerHour > 0 ? gp(a.gpPerHour) + '/hr' : gp(a.gpPerHour) + '/hr';
+        const badge = a.betterThanFlip ? '<span style="background:rgba(255,152,31,0.15); color:var(--accent); font-size:9px; padding:2px 6px; border-radius:8px; font-weight:700; margin-left:6px;">ALCH > FLIP</span>' : '';
+        const volLabel = a.volPerHr >= 100 ? 'High Vol' : a.volPerHr >= 20 ? 'Med Vol' : 'Low Vol';
+        const volColor = a.volPerHr >= 100 ? 'var(--green)' : a.volPerHr >= 20 ? 'var(--accent)' : 'var(--text-muted)';
+
+        return `<div onclick="openItemModal('${a.item.itemId}')" style="background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; cursor:pointer; transition:all .2s; display:flex; gap:12px; align-items:center;" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border)'">
+            <div style="width:36px; height:36px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:var(--bg-card); border-radius:8px; overflow:hidden;">
+                ${iconHtml(a.item.icon, a.item.name, 36)}
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:700; font-size:13px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${a.item.name}${badge}</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                    Buy: ${gp(a.buyPrice)} · Alch: ${gp(a.alchValue)}
+                </div>
+                <div style="display:flex; gap:10px; margin-top:4px; font-size:11px;">
+                    <span style="color:${profitColor}; font-weight:700;">${gp(a.profit)}/cast</span>
+                    <span style="color:var(--text-secondary);">${gpHrFormatted}</span>
+                    <span style="color:${volColor}; font-size:10px;">${volLabel}</span>
+                    ${a.buyLimit > 0 ? '<span style="color:var(--text-muted); font-size:10px;">Limit: ' + a.buyLimit.toLocaleString() + '</span>' : ''}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ============================================
+// TIMESERIES PRICE CHART (OSRS Wiki API)
+// ============================================
+// Fetches /timeseries endpoint and draws a price + volume chart in the item modal.
+// Data retention: 1h = ~15 days, 6h = ~91 days, 24h = ~365 days.
+
+const TIMESERIES_CACHE = {};
+
+async function fetchTimeseries(itemId, timestep) {
+    const cacheKey = `${itemId}_${timestep}`;
+    const cached = TIMESERIES_CACHE[cacheKey];
+    if (cached && Date.now() - cached.fetchedAt < 300000) return cached.data; // 5 min cache
+
+    try {
+        const resp = await fetch(`https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=${timestep}&id=${itemId}`, {
+            headers: { 'User-Agent': 'GrandFlipOut - OSRS flipping dashboard' }
+        });
+        if (!resp.ok) return null;
+        const json = await resp.json();
+        const data = json.data || [];
+        TIMESERIES_CACHE[cacheKey] = { data, fetchedAt: Date.now() };
+        return data;
+    } catch (e) {
+        console.warn('Timeseries fetch failed:', e);
+        return null;
+    }
+}
+
+async function loadTimeseries(timestep, btnEl) {
+    if (!_modalItemData) return;
+    const itemId = _modalItemData.itemId;
+    const wrap = document.getElementById('modalTimeseriesWrap');
+    const canvas = document.getElementById('modalTimeseriesChart');
+    if (!wrap || !canvas) return;
+
+    // Update button active state
+    document.querySelectorAll('.ts-btn').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+
+    wrap.style.display = 'block';
+
+    const data = await fetchTimeseries(itemId, timestep);
+    if (!data || data.length === 0) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No timeseries data available', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+
+    drawTimeseriesChart(canvas, data, timestep);
+}
+
+function drawTimeseriesChart(canvas, data, timestep) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+
+    // Extract price and volume data
+    const highPrices = data.map(d => d.avgHighPrice).filter(p => p != null);
+    const lowPrices = data.map(d => d.avgLowPrice).filter(p => p != null);
+    const allPrices = [...highPrices, ...lowPrices].filter(p => p > 0);
+    if (allPrices.length === 0) return;
+
+    const minP = Math.min(...allPrices) * 0.995;
+    const maxP = Math.max(...allPrices) * 1.005;
+    const priceRange = maxP - minP || 1;
+
+    // Volume data
+    const volumes = data.map(d => (d.highPriceVolume || 0) + (d.lowPriceVolume || 0));
+    const maxVol = Math.max(...volumes, 1);
+
+    const padL = 8, padR = 8, padT = 8, padB = 20;
+    const chartW = W - padL - padR;
+    const chartH = H - padT - padB;
+    const volH = chartH * 0.2; // Bottom 20% for volume
+    const priceH = chartH * 0.75; // Top 75% for prices
+
+    const n = data.length;
+    const xStep = chartW / Math.max(n - 1, 1);
+
+    // Draw grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 4; i++) {
+        const y = padT + (priceH / 3) * i;
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    }
+
+    // Draw volume bars
+    ctx.fillStyle = 'rgba(99,102,241,0.25)';
+    for (let i = 0; i < n; i++) {
+        const x = padL + i * xStep;
+        const vh = (volumes[i] / maxVol) * volH;
+        ctx.fillRect(x - xStep * 0.3, padT + priceH + (volH - vh), xStep * 0.6, vh);
+    }
+
+    // Draw high price line (insta-buy = what buyers pay)
+    ctx.beginPath();
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 1.5;
+    let first = true;
+    for (let i = 0; i < n; i++) {
+        const p = data[i].avgHighPrice;
+        if (p == null || p <= 0) continue;
+        const x = padL + i * xStep;
+        const y = padT + priceH - ((p - minP) / priceRange) * priceH;
+        if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Draw low price line (insta-sell = what sellers get)
+    ctx.beginPath();
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    first = true;
+    for (let i = 0; i < n; i++) {
+        const p = data[i].avgLowPrice;
+        if (p == null || p <= 0) continue;
+        const x = padL + i * xStep;
+        const y = padT + priceH - ((p - minP) / priceRange) * priceH;
+        if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Fill spread area between lines
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(255,152,31,0.06)';
+    const highPoints = [], lowPoints = [];
+    for (let i = 0; i < n; i++) {
+        const hp = data[i].avgHighPrice, lp = data[i].avgLowPrice;
+        if (hp != null && hp > 0 && lp != null && lp > 0) {
+            const x = padL + i * xStep;
+            highPoints.push({ x, y: padT + priceH - ((hp - minP) / priceRange) * priceH });
+            lowPoints.push({ x, y: padT + priceH - ((lp - minP) / priceRange) * priceH });
+        }
+    }
+    if (highPoints.length > 1) {
+        ctx.moveTo(highPoints[0].x, highPoints[0].y);
+        for (let i = 1; i < highPoints.length; i++) ctx.lineTo(highPoints[i].x, highPoints[i].y);
+        for (let i = lowPoints.length - 1; i >= 0; i--) ctx.lineTo(lowPoints[i].x, lowPoints[i].y);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Price labels
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(gp(maxP), padL + 2, padT + 10);
+    ctx.fillText(gp(minP), padL + 2, padT + priceH - 2);
+
+    // Time labels
+    ctx.textAlign = 'center';
+    const labelCount = Math.min(5, n);
+    for (let i = 0; i < labelCount; i++) {
+        const idx = Math.floor(i * (n - 1) / Math.max(labelCount - 1, 1));
+        const ts = data[idx].timestamp;
+        const d = new Date(ts * 1000);
+        const label = timestep === '24h' ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) :
+                      d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const x = padL + idx * xStep;
+        ctx.fillText(label, x, H - 4);
+    }
+}
 
 // ============================================
 // SUPPLY/DEMAND VELOCITY TRACKING
@@ -2914,6 +3211,55 @@ const ANALYTICS = {
             icon: velocity > 0 ? '↗️' : velocity < 0 ? '↘️' : '➡️',
             label: velocity > 0 ? `Spread widening (+${gp(velocity)})` : velocity < 0 ? `Spread narrowing (${gp(velocity)})` : 'Spread stable'
         };
+    },
+
+    getSupplySink(item) {
+        const name = (item.name || '').toLowerCase();
+        const sinks = [];
+
+        // Degradable armor (degrades to dust or needs repair = constant demand)
+        const degradables = ['barrows', 'tentacle', 'abyssal', 'crystal', 'blade of saeldor', 'bow of faerdhinen', 'scythe of vitur', 'sanguinesti', 'tumeken', 'masori', 'torva'];
+        if (degradables.some(d => name.includes(d))) {
+            sinks.push({ type: 'degradable', icon: '🔧', label: 'Degrades with use', detail: 'Removed from game through degradation — constant replacement demand' });
+        }
+
+        // Consumables (potions, food, ammo — permanently consumed)
+        const consumables = ['potion', 'brew', 'restore', 'prayer', 'ranging', 'super combat', 'anglerfish', 'manta ray', 'shark', 'karambwan', 'dark crab', 'arrow', 'bolt', 'dart', 'javelin', 'cannonball', 'rune pouch'];
+        if (consumables.some(c => name.includes(c))) {
+            sinks.push({ type: 'consumable', icon: '🍖', label: 'Consumed on use', detail: 'Permanently removed — high ongoing demand from PvM/PvP' });
+        }
+
+        // Zulrah scales, charges, ether — fuel items
+        const fuels = ['zulrah', 'scale', 'ether', 'blood rune', 'death rune', 'wrath rune', 'soul rune', 'revenant ether'];
+        if (fuels.some(f => name.includes(f))) {
+            sinks.push({ type: 'fuel', icon: '⛽', label: 'Fuel / Charge item', detail: 'Used to charge weapons/equipment — steady drain from combat' });
+        }
+
+        // Death mechanics sink (items lost on death in Wilderness/certain areas)
+        const pvpItems = ['vestas', 'statius', 'morrigans', 'zuriels', 'amulet of avarice', 'elder maul', 'volatile', 'eldritch', 'harmonised'];
+        if (pvpItems.some(p => name.includes(p))) {
+            sinks.push({ type: 'pvp-sink', icon: '💀', label: 'PvP death sink', detail: 'Lost on PvP death — removed from economy permanently' });
+        }
+
+        // GE tax sink (high-value items lose significant GP to tax)
+        const buyPrice = item.instaBuyAt || item.buyPrice || 0;
+        if (buyPrice >= 250000000) {
+            const taxGP = Math.min(Math.floor(buyPrice * 0.02), 5000000);
+            sinks.push({ type: 'tax-sink', icon: '🏦', label: 'Major GE tax sink', detail: 'Each trade removes ' + gp(taxGP) + ' GP from the economy' });
+        }
+
+        // Construction flatpack / plank sink
+        if (name.includes('plank') || name.includes('marble block') || name.includes('gold leaf') || name.includes('mahogany')) {
+            sinks.push({ type: 'construction', icon: '🏗️', label: 'Construction sink', detail: 'Used in Construction training — high XP demand destroys supply' });
+        }
+
+        // Herblore secondaries
+        const herbSecondaries = ['eye of newt', 'limpwurt', 'red spider', 'white berries', 'wine of zamorak', 'potato cactus', 'crushed nest', 'bird nest', 'torstol', 'ranarr', 'snapdragon', 'dwarf weed'];
+        if (herbSecondaries.some(h => name.includes(h))) {
+            sinks.push({ type: 'herblore', icon: '🧪', label: 'Herblore sink', detail: 'Consumed making potions — trained by nearly all accounts' });
+        }
+
+        return sinks.length > 0 ? sinks : null;
     }
 };
 
@@ -4521,6 +4867,7 @@ function renderDashboard() {
     renderCharts();
     renderQuickPicks();
     renderCategoryHeatmap();
+    renderAlchScanner();
 }
 
 function renderQuickPicks() {
@@ -5495,6 +5842,15 @@ function openItemModal(itemId) {
         statsHtml += `<div class="modal-stat"><div class="modal-stat-label">${spreadVel.icon} Spread Trend</div><div class="modal-stat-value">${spreadVel.label}</div></div>`;
     }
 
+    // Supply sink indicators
+    const sinks = ANALYTICS.getSupplySink(item);
+    if (sinks && sinks.length > 0) {
+        statsHtml += `<div class="modal-stat" style="grid-column:1/-1; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2);">
+            <div class="modal-stat-label">🔄 Supply Sinks</div>
+            <div class="modal-stat-value" style="font-size:11px; line-height:1.6;">${sinks.map(s => `${s.icon} <strong>${s.label}</strong> <span style="color:var(--text-muted);font-weight:400;font-size:10px;">— ${s.detail}</span>`).join('<br>')}</div>
+        </div>`;
+    }
+
     document.getElementById('modalStats').innerHTML = statsHtml;
     // Intel
     let intelHtml = '';
@@ -5506,6 +5862,9 @@ function openItemModal(itemId) {
     }
     intelHtml = intelHtml || '<span style="color:var(--text-muted); font-size:12px;">No special intel for this item.</span>';
     document.getElementById('modalIntel').innerHTML = intelHtml;
+    // Load timeseries chart
+    document.getElementById('modalTimeseriesWrap').style.display = 'none';
+    loadTimeseries('1h', document.querySelector('.ts-btn[data-ts="1h"]'));
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
 }

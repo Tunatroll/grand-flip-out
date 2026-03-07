@@ -37,6 +37,12 @@ OSRS_GREEN = 0x00FF00
 OSRS_RED = 0xFF0000
 OSRS_BLUE = 0x0099FF
 
+# Never flip bonds — that's unethical. Exclude from all recommendations.
+EXCLUDED_ITEMS = {'old school bond'}
+
+def is_excluded(name: str) -> bool:
+    return name.lower().strip() in EXCLUDED_ITEMS
+
 # Intents
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -315,6 +321,8 @@ class WikiApiClient:
         items = []
         for item_id in self.latest_prices:
             data = self._build_item_data(item_id)
+            if is_excluded(data.get('name', '')):
+                continue
             if data['margin'] > 0 and (data['buy_volume'] + data['sell_volume']) > 0:
                 items.append(data)
 
@@ -345,8 +353,10 @@ class WikiApiClient:
             name = meta.get('name', f'Item {item_id}')
             name_lower = name.lower()
 
-            # Skip junk items
+            # Skip junk items and excluded items (bonds)
             if any(junk in name_lower for junk in self.JUNK_KEYWORDS):
+                continue
+            if is_excluded(name):
                 continue
 
             current_buy = prices.get('low', 0) or 0
@@ -762,6 +772,7 @@ async def on_ready():
     refresh_mapping_loop.start()
     check_dumps.start()
     check_user_alerts.start()
+    rotate_status.start()
 
     # Connect to backend WebSocket if server is running
     server_up = await backend.is_server_up()
@@ -796,6 +807,61 @@ async def refresh_mapping_loop():
 
 @refresh_mapping_loop.before_loop
 async def before_mapping_refresh():
+    await bot.wait_until_ready()
+
+
+# Rotating status messages showing live market data
+_status_index = 0
+
+@tasks.loop(minutes=5)
+async def rotate_status():
+    global _status_index
+    try:
+        if not api_client.latest_prices:
+            return
+
+        total_items = len(api_client.item_mapping)
+
+        # Count profitable flips
+        profitable = 0
+        top_profit = 0
+        top_name = ""
+        total_volume = 0
+
+        for item_id, meta in api_client.item_mapping.items():
+            iid = int(item_id)
+            prices = api_client.latest_prices.get(iid, {})
+            high = prices.get('high', 0)
+            low = prices.get('low', 0)
+            if high > 0 and low > 0:
+                margin = high - low
+                tax = min(int(high * 0.02), 5000000)
+                profit = margin - tax
+                if profit > 0:
+                    profitable += 1
+                    if profit > top_profit:
+                        top_profit = profit
+                        top_name = meta.get('name', '')
+
+            vol_data = api_client.volume_data.get(iid, {})
+            total_volume += (vol_data.get('highPriceVolume', 0) or 0) + (vol_data.get('lowPriceVolume', 0) or 0)
+
+        statuses = [
+            discord.Activity(type=discord.ActivityType.watching, name=f"{profitable:,} profitable flips"),
+            discord.Activity(type=discord.ActivityType.watching, name=f"{total_items:,} GE items"),
+            discord.Activity(type=discord.ActivityType.playing, name=f"Top: {top_name[:30]}"),
+            discord.Activity(type=discord.ActivityType.watching, name=f"{total_volume:,} trades (5m)"),
+            discord.Activity(type=discord.ActivityType.listening, name="/flip · /alch · /risk"),
+        ]
+
+        _status_index = _status_index % len(statuses)
+        await bot.change_presence(activity=statuses[_status_index])
+        _status_index += 1
+    except Exception as e:
+        print(f"Status rotation error: {e}")
+
+@rotate_status.before_loop
+async def before_rotate_status():
     await bot.wait_until_ready()
 
 
@@ -1294,6 +1360,233 @@ async def risk_command(interaction: discord.Interaction, item_name: str):
     embed.set_footer(text="Grand Flip Out | Risk analysis based on volume, margins, and price history")
     embed.timestamp = datetime.now()
     await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="alch", description="Find the most profitable items to High Alchemy right now")
+@app_commands.describe(sort_by="How to sort results (default: profit)")
+@app_commands.choices(sort_by=[
+    app_commands.Choice(name="Profit per cast", value="profit"),
+    app_commands.Choice(name="GP per hour", value="gp_hr"),
+    app_commands.Choice(name="ROI %", value="roi"),
+])
+async def alch_command(interaction: discord.Interaction, sort_by: str = "profit"):
+    """Find items worth more when alched than sold on GE."""
+    await interaction.response.defer()
+
+    if not api_client.latest_prices or not api_client.item_mapping:
+        await interaction.followup.send("Still loading price data... try again in a moment.")
+        return
+
+    # Find nature rune price
+    nat_price = 120  # default
+    for item_id, meta in api_client.item_mapping.items():
+        if meta.get('name', '').lower() == 'nature rune':
+            prices = api_client.latest_prices.get(int(item_id), {})
+            if prices.get('high', 0) > 0:
+                nat_price = prices['high']
+            break
+
+    alch_items = []
+    for item_id, meta in api_client.item_mapping.items():
+        if is_excluded(meta.get('name', '')):
+            continue
+        alch_value = meta.get('highalch', 0)
+        if not alch_value or alch_value <= 0:
+            continue
+
+        iid = int(item_id)
+        prices = api_client.latest_prices.get(iid, {})
+        buy_price = prices.get('high', 0)  # instant-buy price
+        if buy_price <= 0:
+            continue
+
+        profit = alch_value - buy_price - nat_price
+        if profit <= 0:
+            continue
+
+        gp_hr = profit * 1200
+        roi = (profit / buy_price) * 100 if buy_price > 0 else 0
+
+        # Volume data
+        vol_data = api_client.volume_data.get(iid, {})
+        vol = (vol_data.get('highPriceVolume', 0) or 0) + (vol_data.get('lowPriceVolume', 0) or 0)
+
+        alch_items.append({
+            'name': meta.get('name', f'Item {item_id}'),
+            'buy_price': buy_price,
+            'alch_value': alch_value,
+            'profit': profit,
+            'gp_hr': gp_hr,
+            'roi': roi,
+            'volume': vol,
+            'buy_limit': meta.get('limit', 0),
+            'icon': meta.get('icon', ''),
+        })
+
+    if not alch_items:
+        await interaction.followup.send("No profitable alchemy items found right now.")
+        return
+
+    # Sort
+    if sort_by == "gp_hr":
+        alch_items.sort(key=lambda x: x['gp_hr'], reverse=True)
+    elif sort_by == "roi":
+        alch_items.sort(key=lambda x: x['roi'], reverse=True)
+    else:
+        alch_items.sort(key=lambda x: x['profit'], reverse=True)
+
+    def format_alch(idx, item):
+        vol_label = "🟢" if item['volume'] >= 100 else "🟡" if item['volume'] >= 20 else "🔴"
+        limit_str = f" | Limit: {item['buy_limit']:,}" if item['buy_limit'] else ""
+        name_line = f"**{idx}. {item['name']}**"
+        value_line = (
+            f"Buy: {format_gp(item['buy_price'])} → Alch: {format_gp(item['alch_value'])}\n"
+            f"Profit: **{format_gp(item['profit'])}/cast** ({format_gp(item['gp_hr'])}/hr) | ROI: {item['roi']:.1f}%\n"
+            f"{vol_label} Vol: {item['volume']:,}{limit_str}"
+        )
+        return (name_line, value_line)
+
+    pages = build_paginated_embeds(
+        alch_items[:40],
+        f"🔥 Alchemy Scanner (Nature Rune: {format_gp(nat_price)})",
+        per_page=5,
+        format_fn=format_alch
+    )
+    for p in pages:
+        p.color = OSRS_GOLD
+
+    if len(pages) > 1:
+        view = PaginatedView(pages, interaction.user.id)
+        await interaction.followup.send(embed=pages[0], view=view)
+    else:
+        await interaction.followup.send(embed=pages[0])
+
+
+@bot.tree.command(name="setscan", description="Find item set arbitrage opportunities (buy set vs individual pieces)")
+async def setscan_command(interaction: discord.Interaction):
+    """Detect profitable set item combinations — buy set, break into pieces (or vice versa)."""
+    await interaction.response.defer()
+
+    if not api_client.latest_prices or not api_client.item_mapping:
+        await interaction.followup.send("Still loading price data... try again in a moment.")
+        return
+
+    # Known OSRS item sets and their components
+    # Format: (set_name, set_item_search, [component_searches])
+    KNOWN_SETS = [
+        ("Dharok's", "dharok's armour set", ["dharok's helm", "dharok's platebody", "dharok's platelegs", "dharok's greataxe"]),
+        ("Guthan's", "guthan's armour set", ["guthan's helm", "guthan's platebody", "guthan's chainskirt", "guthan's warspear"]),
+        ("Verac's", "verac's armour set", ["verac's helm", "verac's brassard", "verac's plateskirt", "verac's flail"]),
+        ("Torag's", "torag's armour set", ["torag's helm", "torag's platebody", "torag's platelegs", "torag's hammers"]),
+        ("Ahrim's", "ahrim's armour set", ["ahrim's hood", "ahrim's robetop", "ahrim's robeskirt", "ahrim's staff"]),
+        ("Karil's", "karil's armour set", ["karil's coif", "karil's leathertop", "karil's leatherskirt", "karil's crossbow"]),
+        ("Justiciar", "justiciar armour set", ["justiciar faceguard", "justiciar chestguard", "justiciar legguards"]),
+        ("Inquisitor's", "inquisitor's armour set", ["inquisitor's great helm", "inquisitor's hauberk", "inquisitor's plateskirt"]),
+        ("Dragon", "dragon armour set (lg)", ["dragon med helm", "dragon platebody", "dragon platelegs"]),
+        ("Rune (lg)", "rune armour set (lg)", ["rune full helm", "rune platebody", "rune platelegs", "rune kiteshield"]),
+        ("Adamant (lg)", "adamant armour set (lg)", ["adamant full helm", "adamant platebody", "adamant platelegs", "adamant kiteshield"]),
+    ]
+
+    # Build name -> (item_id, price) lookup
+    name_lookup = {}
+    for item_id, meta in api_client.item_mapping.items():
+        name_lower = meta.get('name', '').lower()
+        iid = int(item_id)
+        prices = api_client.latest_prices.get(iid, {})
+        buy = prices.get('high', 0)
+        sell = prices.get('low', 0)
+        if buy > 0 and sell > 0:
+            name_lookup[name_lower] = {'id': iid, 'buy': buy, 'sell': sell, 'name': meta.get('name', '')}
+
+    opportunities = []
+    for set_name, set_search, components in KNOWN_SETS:
+        set_data = name_lookup.get(set_search.lower())
+        if not set_data:
+            continue
+
+        # Find all components
+        comp_data = []
+        all_found = True
+        for comp in components:
+            cd = name_lookup.get(comp.lower())
+            if not cd:
+                all_found = False
+                break
+            comp_data.append(cd)
+
+        if not all_found:
+            continue
+
+        set_buy = set_data['buy']
+        set_sell = set_data['sell']
+        parts_buy_total = sum(c['buy'] for c in comp_data)
+        parts_sell_total = sum(c['sell'] for c in comp_data)
+
+        # Strategy 1: Buy set, break into parts, sell individually
+        break_profit = parts_sell_total - set_buy
+        # Strategy 2: Buy parts individually, combine into set, sell set
+        combine_profit = set_sell - parts_buy_total
+
+        # Apply 2% GE tax (capped at 5M) to the selling side
+        break_tax = sum(min(math.floor(c['sell'] * 0.02), 5000000) for c in comp_data)
+        combine_tax = min(math.floor(set_sell * 0.02), 5000000)
+
+        break_profit_after_tax = break_profit - break_tax
+        combine_profit_after_tax = combine_profit - combine_tax
+
+        best_profit = max(break_profit_after_tax, combine_profit_after_tax)
+        best_strategy = "Break Set" if break_profit_after_tax >= combine_profit_after_tax else "Combine Parts"
+
+        if best_profit > 0:
+            opportunities.append({
+                'set_name': set_name,
+                'strategy': best_strategy,
+                'profit': best_profit,
+                'set_buy': set_buy,
+                'set_sell': set_sell,
+                'parts_buy': parts_buy_total,
+                'parts_sell': parts_sell_total,
+                'tax': break_tax if best_strategy == "Break Set" else combine_tax,
+                'components': [c['name'] for c in comp_data],
+            })
+
+    if not opportunities:
+        embed = discord.Embed(
+            title="📦 Set Scanner",
+            description="No profitable set arbitrage opportunities found right now.\n\nSet prices fluctuate — check back later!",
+            color=OSRS_GOLD
+        )
+        await interaction.followup.send(embed=embed)
+        return
+
+    opportunities.sort(key=lambda x: x['profit'], reverse=True)
+
+    def format_set(idx, opp):
+        strat_icon = "🔨" if opp['strategy'] == "Break Set" else "📦"
+        name_line = f"**{idx}. {opp['set_name']}** — {strat_icon} {opp['strategy']}"
+        value_line = (
+            f"Set Price: Buy {format_gp(opp['set_buy'])} / Sell {format_gp(opp['set_sell'])}\n"
+            f"Parts Total: Buy {format_gp(opp['parts_buy'])} / Sell {format_gp(opp['parts_sell'])}\n"
+            f"**Profit: {format_gp(opp['profit'])}** (after {format_gp(opp['tax'])} tax)\n"
+            f"Parts: {', '.join(opp['components'])}"
+        )
+        return (name_line, value_line)
+
+    pages = build_paginated_embeds(
+        opportunities,
+        "📦 Set Arbitrage Scanner",
+        per_page=3,
+        format_fn=format_set
+    )
+    for p in pages:
+        p.color = OSRS_GOLD
+        p.set_footer(text="Buy set → break into parts, or buy parts → combine. Visit GE clerk to exchange.")
+
+    if len(pages) > 1:
+        view = PaginatedView(pages, interaction.user.id)
+        await interaction.followup.send(embed=pages[0], view=view)
+    else:
+        await interaction.followup.send(embed=pages[0])
 
 
 @bot.tree.command(name="compare", description="Compare two items side by side")
