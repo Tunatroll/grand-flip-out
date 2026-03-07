@@ -15,6 +15,8 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -48,6 +50,10 @@ public class GrandFlipOutPanel extends PluginPanel
     private JLabel sessionFlipCountLabel;
     private JLabel avgProfitLabel;
     private JLabel lastRefreshLabel;
+
+    // Category filtering
+    private String selectedCategory = "All";
+    private JButton[] categoryButtons;
 
     public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
                            FlipTracker flipTracker, FlipSuggestionEngine suggestionEngine)
@@ -95,6 +101,17 @@ public class GrandFlipOutPanel extends PluginPanel
         tabbedPane.addTab("History", historyTab);
 
         add(tabbedPane, BorderLayout.CENTER);
+    }
+
+    /**
+     * Add an external panel as a tab (used by ProfilePanel for the Profile tab).
+     */
+    public void addTab(String title, JPanel tabPanel)
+    {
+        if (tabbedPane != null)
+        {
+            tabbedPane.addTab(title, tabPanel);
+        }
     }
 
     private JPanel buildHeaderPanel()
@@ -164,17 +181,24 @@ public class GrandFlipOutPanel extends PluginPanel
         filterPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
         String[] categories = {"All", "Weapons", "Armor", "Consumables", "Resources"};
-        for (String cat : categories)
+        categoryButtons = new JButton[categories.length];
+        for (int i = 0; i < categories.length; i++)
         {
+            final String cat = categories[i];
+            final int catIndex = i;
             JButton catBtn = new JButton(cat);
             catBtn.setFont(catBtn.getFont().deriveFont(10f));
+            categoryButtons[catIndex] = catBtn;
             catBtn.addActionListener(e -> {
+                selectedCategory = cat;
                 searchField.setText("");
-                // TODO: Filter by category
-                searchItems();
+                updateCategoryButtonStyles();
+                displayAllItemsInCategory();
             });
             filterPanel.add(catBtn);
         }
+        // Highlight "All" by default
+        updateCategoryButtonStyles();
 
         topPanel.add(filterPanel, BorderLayout.SOUTH);
         panel.add(topPanel, BorderLayout.NORTH);
@@ -715,43 +739,124 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private JPanel buildSuggestionCard(FlipSuggestionEngine.FlipSuggestion s, int rank)
     {
-        JPanel card = new JPanel(new GridLayout(5, 2, 4, 2));
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         card.setBorder(new EmptyBorder(6, 8, 6, 8));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 180));
 
+        // Top Pick banner for #1
+        if (rank == 1)
+        {
+            JPanel bannerPanel = new JPanel(new BorderLayout());
+            bannerPanel.setBackground(new Color(0x1A, 0x6B, 0x0A)); // Dark green
+            bannerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
+            JLabel bannerLabel = new JLabel("  TOP PICK — Best flip right now");
+            bannerLabel.setForeground(new Color(0x00, 0xFF, 0x80));
+            bannerLabel.setFont(bannerLabel.getFont().deriveFont(Font.BOLD, 11f));
+            bannerPanel.add(bannerLabel, BorderLayout.WEST);
+            card.add(bannerPanel);
+        }
+
+        // Row 1: Name + QF Grade
+        JPanel row1 = new JPanel(new BorderLayout());
+        row1.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         JLabel nameLabel = new JLabel("#" + rank + " " + s.getItemName());
         nameLabel.setForeground(Color.WHITE);
         nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD));
-        card.add(nameLabel);
+        row1.add(nameLabel, BorderLayout.WEST);
 
+        String gradeText = s.getQfGrade() + " (" + s.getQfScore() + ")";
+        Color gradeColor = getQfGradeColor(s.getQfGrade());
+        JLabel gradeLabel = new JLabel(gradeText);
+        gradeLabel.setForeground(gradeColor);
+        gradeLabel.setFont(gradeLabel.getFont().deriveFont(Font.BOLD));
+        row1.add(gradeLabel, BorderLayout.EAST);
+        card.add(row1);
+
+        // Row 2: Prices and margin
+        JPanel row2 = new JPanel(new GridLayout(1, 3, 4, 0));
+        row2.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        row2.add(createInfoLabel("Buy: " + formatGp(s.getBuyPrice())));
+        row2.add(createInfoLabel("Sell: " + formatGp(s.getSellPrice())));
         JLabel marginLabel = new JLabel("Margin: " + formatGp(s.getMargin()));
         marginLabel.setForeground(Color.GREEN);
-        card.add(marginLabel);
+        row2.add(marginLabel);
+        card.add(row2);
 
-        card.add(createInfoLabel("Buy: " + formatGp(s.getBuyPrice())));
-        card.add(createInfoLabel("Sell: " + formatGp(s.getSellPrice())));
+        // Row 3: Volume, Limit, ROI
+        JPanel row3 = new JPanel(new GridLayout(1, 3, 4, 0));
+        row3.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        row3.add(createInfoLabel("Vol/1h: " + QuantityFormatter.formatNumber(s.getVolume1h())));
+        row3.add(createInfoLabel("Limit: " + QuantityFormatter.formatNumber(s.getBuyLimit())));
+        row3.add(createInfoLabel("ROI: " + String.format("%.2f%%", s.getRoi())));
+        card.add(row3);
 
-        card.add(createInfoLabel("Vol/1h: " + QuantityFormatter.formatNumber(s.getVolume1h())));
-        card.add(createInfoLabel("Limit: " + QuantityFormatter.formatNumber(s.getBuyLimit())));
-
-        JLabel profitLabel = new JLabel("Profit/Limit: " + formatGp(s.getProfitPerLimit()));
+        // Row 4: Profit/Limit, Capital, Est. Time
+        JPanel row4 = new JPanel(new GridLayout(1, 3, 4, 0));
+        row4.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        JLabel profitLabel = new JLabel("P/Limit: " + formatGp(s.getProfitPerLimit()));
         profitLabel.setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
-        card.add(profitLabel);
+        row4.add(profitLabel);
+        row4.add(createInfoLabel("Cap: " + formatGp(s.getCapitalRequired())));
+        String timeline = estimateFlipTimeline(s.getVolume1h(), s.getBuyLimit());
+        row4.add(createInfoLabel("Fill: " + timeline));
+        card.add(row4);
 
-        card.add(createInfoLabel("ROI: " + String.format("%.2f%%", s.getRoi())));
+        // Row 5: Action buttons
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 2));
+        actionPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        actionPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
 
-        // Expected profit timeline
-        long volume = s.getVolume1h();
-        int limit = s.getBuyLimit();
-        String timeline = estimateFlipTimeline(volume, limit);
-        card.add(createInfoLabel("Est. Time: " + timeline));
+        JButton copyBuyBtn = new JButton("Copy Buy (" + formatGp(s.getBuyPrice()) + ")");
+        copyBuyBtn.setFont(copyBuyBtn.getFont().deriveFont(10f));
+        copyBuyBtn.setBackground(new Color(0x0A, 0x6B, 0x0A));
+        copyBuyBtn.setForeground(Color.WHITE);
+        copyBuyBtn.setFocusPainted(false);
+        copyBuyBtn.addActionListener(e -> {
+            java.awt.datatransfer.StringSelection sel =
+                new java.awt.datatransfer.StringSelection(String.valueOf(s.getBuyPrice()));
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(sel, null);
+            copyBuyBtn.setText("Copied!");
+            Timer timer = new Timer(1500, ev -> copyBuyBtn.setText("Copy Buy (" + formatGp(s.getBuyPrice()) + ")"));
+            timer.setRepeats(false);
+            timer.start();
+        });
+        actionPanel.add(copyBuyBtn);
 
-        JLabel capitalLabel = new JLabel("Capital: " + formatGp(s.getCapitalRequired()));
-        capitalLabel.setForeground(Color.LIGHT_GRAY);
-        card.add(capitalLabel);
+        JButton copySellBtn = new JButton("Copy Sell (" + formatGp(s.getSellPrice()) + ")");
+        copySellBtn.setFont(copySellBtn.getFont().deriveFont(10f));
+        copySellBtn.setBackground(new Color(0x6B, 0x0A, 0x0A));
+        copySellBtn.setForeground(Color.WHITE);
+        copySellBtn.setFocusPainted(false);
+        copySellBtn.addActionListener(e -> {
+            java.awt.datatransfer.StringSelection sel =
+                new java.awt.datatransfer.StringSelection(String.valueOf(s.getSellPrice()));
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(sel, null);
+            copySellBtn.setText("Copied!");
+            Timer timer = new Timer(1500, ev -> copySellBtn.setText("Copy Sell (" + formatGp(s.getSellPrice()) + ")"));
+            timer.setRepeats(false);
+            timer.start();
+        });
+        actionPanel.add(copySellBtn);
+
+        card.add(actionPanel);
 
         return card;
+    }
+
+    private Color getQfGradeColor(String grade)
+    {
+        if (grade == null) return Color.GRAY;
+        switch (grade)
+        {
+            case "S": return new Color(0x00, 0xFF, 0xFF); // Cyan — legendary
+            case "A": return new Color(0x00, 0xE6, 0x76); // Bright green
+            case "B": return Color.GREEN;
+            case "C": return Color.YELLOW;
+            case "F": return Color.RED;
+            default: return Color.GRAY;
+        }
     }
 
     private JPanel buildFlipCard(com.fliphelper.model.FlipItem flip)
@@ -823,6 +928,138 @@ public class GrandFlipOutPanel extends PluginPanel
         return card;
     }
 
+    // ==================== CATEGORY FILTERING ====================
+
+    /**
+     * Determines if an item name belongs to a given category based on keyword matching.
+     */
+    private boolean matchesCategory(String itemName, String category)
+    {
+        if ("All".equals(category))
+        {
+            return true;
+        }
+
+        String name = itemName.toLowerCase();
+
+        switch (category)
+        {
+            case "Weapons":
+                return name.matches(".*(sword|scimitar|bow|crossbow|arrow|bolt|dart|javelin|knife|mace|warhammer|battleaxe|halberd|spear|hasta|staff|wand|blowpipe|whip|dagger|claws|godsword|rapier|tentacle|trident).*");
+
+            case "Armor":
+                return name.matches(".*(helm|helmet|platebody|chainbody|platelegs|plateskirt|shield|defender|boots|gloves|gauntlets|cape|ring|amulet|necklace|bracelet|coif|chaps).*");
+
+            case "Consumables":
+                return name.matches(".*(potion|brew|restore|prayer|food|shark|lobster|swordfish|tuna|monkfish|karambwan|anglerfish|manta|pie|cake|stew|combo|antifire|antivenom|super|ranging|sara|zamor|guthix).*");
+
+            case "Resources":
+                return name.matches(".*(ore|bar|log|plank|herb|seed|rune|essence|bone|ash|hide|leather|gem|diamond|ruby|emerald|sapphire|onyx|dragonstone|scale|feather|coal|clay|flax).*");
+
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Update the visual styling of category buttons to highlight the selected one.
+     */
+    private void updateCategoryButtonStyles()
+    {
+        if (categoryButtons == null)
+        {
+            return;
+        }
+
+        String[] categories = {"All", "Weapons", "Armor", "Consumables", "Resources"};
+        for (int i = 0; i < categoryButtons.length; i++)
+        {
+            JButton btn = categoryButtons[i];
+            if (categories[i].equals(selectedCategory))
+            {
+                // Highlight selected button
+                btn.setBackground(new Color(0xFF, 0x98, 0x1F)); // OSRS Gold
+                btn.setForeground(Color.BLACK);
+                btn.setOpaque(true);
+                btn.setBorderPainted(true);
+            }
+            else
+            {
+                // Default style
+                btn.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+                btn.setForeground(Color.WHITE);
+                btn.setOpaque(true);
+                btn.setBorderPainted(false);
+            }
+        }
+    }
+
+    /**
+     * Display all items (or items matching search) filtered by selected category.
+     */
+    private void displayAllItemsInCategory()
+    {
+        if (!priceService.isReady())
+        {
+            priceResultsPanel.removeAll();
+            JLabel loading = new JLabel("Price data is still loading. Please wait...");
+            loading.setForeground(Color.YELLOW);
+            loading.setBorder(new EmptyBorder(20, 8, 20, 8));
+            priceResultsPanel.add(loading);
+            priceResultsPanel.revalidate();
+            priceResultsPanel.repaint();
+            return;
+        }
+
+        priceResultsPanel.removeAll();
+
+        // Get all items and filter by category
+        List<PriceAggregate> allItems = new ArrayList<>();
+        for (Integer itemId : priceService.getAllItemIds())
+        {
+            PriceAggregate agg = priceService.getPrice(itemId);
+            if (agg != null && matchesCategory(agg.getItemName(), selectedCategory))
+            {
+                allItems.add(agg);
+            }
+        }
+
+        // Sort by name
+        allItems.sort(Comparator.comparing(PriceAggregate::getItemName));
+
+        int displayCount = Math.min(allItems.size(), 50);
+        for (int i = 0; i < displayCount; i++)
+        {
+            PriceAggregate agg = allItems.get(i);
+            JPanel card = buildPriceCard(agg);
+            // Alternating row colors for readability
+            if (i % 2 == 0)
+            {
+                card.setBackground(new Color(50, 50, 50));
+            }
+            priceResultsPanel.add(card);
+            priceResultsPanel.add(Box.createVerticalStrut(4));
+        }
+
+        if (allItems.isEmpty())
+        {
+            JLabel noResults = new JLabel("No items in '" + selectedCategory + "' category.");
+            noResults.setForeground(Color.GRAY);
+            noResults.setBorder(new EmptyBorder(20, 8, 20, 8));
+            priceResultsPanel.add(noResults);
+        }
+        else
+        {
+            JLabel countLabel = new JLabel("Showing " + displayCount + " of " + allItems.size() + " results");
+            countLabel.setForeground(Color.GRAY);
+            countLabel.setBorder(new EmptyBorder(4, 8, 4, 8));
+            priceResultsPanel.add(countLabel);
+        }
+
+        priceResultsPanel.revalidate();
+        priceResultsPanel.repaint();
+    }
+
     // ==================== SEARCH ====================
 
     private void searchItems()
@@ -847,12 +1084,22 @@ public class GrandFlipOutPanel extends PluginPanel
 
         priceResultsPanel.removeAll();
 
+        // Search by name and apply category filter
         List<PriceAggregate> results = priceService.searchByName(query);
-        int displayCount = Math.min(results.size(), 50);
+        List<PriceAggregate> filteredResults = new ArrayList<>();
+        for (PriceAggregate agg : results)
+        {
+            if (matchesCategory(agg.getItemName(), selectedCategory))
+            {
+                filteredResults.add(agg);
+            }
+        }
+
+        int displayCount = Math.min(filteredResults.size(), 50);
 
         for (int i = 0; i < displayCount; i++)
         {
-            PriceAggregate agg = results.get(i);
+            PriceAggregate agg = filteredResults.get(i);
             JPanel card = buildPriceCard(agg);
             // Alternating row colors for better readability
             if (i % 2 == 0)
@@ -863,16 +1110,17 @@ public class GrandFlipOutPanel extends PluginPanel
             priceResultsPanel.add(Box.createVerticalStrut(4));
         }
 
-        if (results.isEmpty())
+        if (filteredResults.isEmpty())
         {
-            JLabel noResults = new JLabel("No items found for '" + query + "'");
+            String filterNote = selectedCategory.equals("All") ? "" : " in '" + selectedCategory + "'";
+            JLabel noResults = new JLabel("No items found for '" + query + "'" + filterNote);
             noResults.setForeground(Color.GRAY);
             noResults.setBorder(new EmptyBorder(20, 8, 20, 8));
             priceResultsPanel.add(noResults);
         }
         else
         {
-            JLabel countLabel = new JLabel("Showing " + displayCount + " of " + results.size() + " results");
+            JLabel countLabel = new JLabel("Showing " + displayCount + " of " + filteredResults.size() + " results");
             countLabel.setForeground(Color.GRAY);
             countLabel.setBorder(new EmptyBorder(4, 8, 4, 8));
             priceResultsPanel.add(countLabel);

@@ -65,6 +65,8 @@ public class PriceService
      */
     public void refreshAll() throws IOException
     {
+        long startTime = System.currentTimeMillis();
+
         if (!mappingsLoaded)
         {
             initialize();
@@ -78,11 +80,14 @@ public class PriceService
 
         if (config.useWikiPrices())
         {
+            long wikiStart = System.currentTimeMillis();
             try
             {
                 wikiLatest = wikiClient.fetchLatestPrices();
                 wiki5m = wikiClient.fetch5mPrices();
                 wiki1h = wikiClient.fetch1hPrices();
+                long wikiDuration = System.currentTimeMillis() - wikiStart;
+                log.debug("Wiki price fetch took {} ms", wikiDuration);
             }
             catch (IOException e)
             {
@@ -92,9 +97,12 @@ public class PriceService
 
         if (config.useRuneLitePrices())
         {
+            long rlStart = System.currentTimeMillis();
             try
             {
                 runeLitePrices = runeLiteClient.fetchPrices();
+                long rlDuration = System.currentTimeMillis() - rlStart;
+                log.debug("RuneLite price fetch took {} ms", rlDuration);
             }
             catch (IOException e)
             {
@@ -156,8 +164,9 @@ public class PriceService
         // Record snapshot for price history (enables EMA, RSI, MACD, Bollinger analysis)
         historyCollector.recordSnapshot();
 
-        log.info("Refreshed prices: {} items aggregated from {} sources",
-            aggregatedPrices.size(), getActiveSourceCount());
+        long totalDuration = System.currentTimeMillis() - startTime;
+        log.info("Refreshed prices: {} items aggregated from {} sources ({}ms total)",
+            aggregatedPrices.size(), getActiveSourceCount(), totalDuration);
     }
 
     /**

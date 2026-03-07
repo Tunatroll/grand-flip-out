@@ -50,12 +50,18 @@ public class JagexTradeIndex
 
     /**
      * Record current prices for velocity tracking. Call this on each refresh cycle.
+     *
+     * <p>Maintains a rolling window of 30 price points per item for velocity calculations.</p>
      */
     public void recordTick()
     {
         Instant now = Instant.now();
-        for (PriceAggregate agg : priceService.getAggregatedPrices().values())
+        var aggregates = priceService.getAggregatedPrices();
+        if (aggregates == null) return;
+
+        for (PriceAggregate agg : aggregates.values())
         {
+            if (agg == null) continue;
             long high = agg.getBestHighPrice();
             long low = agg.getBestLowPrice();
             if (high <= 0 || low <= 0) continue;
@@ -79,13 +85,22 @@ public class JagexTradeIndex
 
     /**
      * Compute JTI scores for ALL items. Returns sorted by score descending.
+     *
+     * <p>Filters out items with null aggregates or invalid JTI results.</p>
      */
     public List<JTIResult> computeAll()
     {
         List<JTIResult> results = new ArrayList<>();
 
-        for (PriceAggregate agg : priceService.getAggregatedPrices().values())
+        var aggregates = priceService.getAggregatedPrices();
+        if (aggregates == null)
         {
+            return results;
+        }
+
+        for (PriceAggregate agg : aggregates.values())
+        {
+            if (agg == null) continue;
             JTIResult result = compute(agg);
             if (result != null)
             {
@@ -99,6 +114,9 @@ public class JagexTradeIndex
 
     /**
      * Compute JTI for a single item.
+     *
+     * <p>Returns null if item has insufficient data or invalid prices.
+     * Minimum volume threshold: 3-5 trades per 5min window (30+ per hour) is considered liquid.</p>
      */
     public JTIResult compute(PriceAggregate agg)
     {

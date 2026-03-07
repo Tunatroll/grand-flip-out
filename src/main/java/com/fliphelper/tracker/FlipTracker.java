@@ -26,6 +26,19 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FlipTracker
 {
+    /** Callback for when a flip completes (buy→sell paired). */
+    public interface FlipCompleteListener
+    {
+        void onFlipComplete(FlipItem flip);
+    }
+
+    private FlipCompleteListener flipCompleteListener;
+
+    public void setFlipCompleteListener(FlipCompleteListener listener)
+    {
+        this.flipCompleteListener = listener;
+    }
+
     private final GrandFlipOutConfig config;
     private final File dataDir;
     private final Gson gson;
@@ -113,6 +126,13 @@ public class FlipTracker
                 log.info("Completed flip: {}x {} | Buy: {}gp Sell: {}gp | Profit: {}gp",
                     completedFlip.getQuantity(), completedFlip.getItemName(),
                     completedFlip.getBuyPrice(), completedFlip.getSellPrice(), profit);
+
+                // Notify listener (profile logging, Discord alerts, etc.)
+                if (flipCompleteListener != null)
+                {
+                    try { flipCompleteListener.onFlipComplete(completedFlip); }
+                    catch (Exception e) { log.debug("Flip listener error: {}", e.getMessage()); }
+                }
 
                 // Trim history
                 while (completedFlips.size() > config.maxHistoryEntries())

@@ -1,0 +1,369 @@
+package com.fliphelper.api;
+
+import com.google.gson.Gson;
+import lombok.extern.slf4j.Slf4j;
+import okhttp3.*;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Batched HTTP client for crowdsourced trade data contribution.
+ *
+ * Collects trade events in a ConcurrentLinkedQueue and flushes them
+ * every 15 seconds in a single batched POST request.
+ * This design is critical for RuneLite Plugin Hub approval — they reject
+ * plugins that spam external endpoints on every GE event.
+ *
+ * <h3>P2P Integration</h3>
+ * When a PeerNetwork is configured, trade batches are FANNED OUT to
+ * ALL healthy peers (not just one server). This means every relay in
+ * the network gets the crowdsourced data, enabling truly distributed
+ * Z-Score detection and consensus pricing.
+ *
+ * Falls back to direct HTTP if PeerNetwork is not configured.
+ *
+ * The backend uses this data for:
+ *   - Z-Score pump/dump detection (real user trade prices vs Wiki API)
+ *   - Consensus pricing (weighted average across Wiki, RuneLite, user data)
+ *   - Volume spike analysis
+ *
+ * All data is anonymous — no RSN or account identifiers are transmitted.
+ */
+@Slf4j
+@Singleton
+public class BackendClient
+{
+    private static final String DEFAULT_BACKEND_URL = "http://localhost:3001/api/contribute";
+    private static final MediaType JSON_TYPE = MediaType.parse("application/json; charset=utf-8");
+    private static final int FLUSH_INTERVAL_SECONDS = 15;
+    private static final int MAX_BATCH_SIZE = 100;
+
+    private final OkHttpClient httpClient;
+    private final Gson gson;
+    private final ConcurrentLinkedQueue<TradePayload> payloadQueue;
+    private ScheduledExecutorService flushExecutor;
+    private String backendUrl;
+    private boolean enabled;
+
+    // P2P network — when set, trade batches fan out to ALL healthy peers
+    private PeerNetwork peerNetwork;
+
+    @Inject
+    public BackendClient(OkHttpClient httpClient, Gson gson)
+    {
+        this.httpClient = httpClient;
+        this.gson = gson;
+        this.payloadQueue = new ConcurrentLinkedQueue<>();
+        this.backendUrl = DEFAULT_BACKEND_URL;
+        this.enabled = true;
+    }
+
+    /**
+     * Start the background flush worker.
+     * Call this from plugin startUp().
+     */
+    public void start()
+    {
+        if (flushExecutor != null)
+        {
+            return;
+        }
+        flushExecutor = Executors.newSingleThreadScheduledExecutor();
+        flushExecutor.scheduleAtFixedRate(
+            this::flushQueue,
+            FLUSH_INTERVAL_SECONDS,
+            FLUSH_INTERVAL_SECONDS,
+            TimeUnit.SECONDS
+        );
+        log.info("GFO BackendClient started — flushing every {}s", FLUSH_INTERVAL_SECONDS);
+    }
+
+    /**
+     * Stop the background flush worker and send any remaining data.
+     * Call this from plugin shutDown().
+     */
+    public void stop()
+    {
+        // Final flush to avoid losing data on logout
+        flushQueue();
+
+        if (flushExecutor != null)
+        {
+            flushExecutor.shutdown();
+            try
+            {
+                flushExecutor.awaitTermination(5, TimeUnit.SECONDS);
+            }
+            catch (InterruptedException e)
+            {
+                Thread.currentThread().interrupt();
+            }
+            flushExecutor = null;
+        }
+        log.info("GFO BackendClient stopped");
+    }
+
+    /**
+     * Queue a trade event for batched submission.
+     * This is safe to call from any thread (game thread, event thread, etc.)
+     *
+     * @param itemId        OSRS item ID
+     * @param price         Price per item in gp
+     * @param quantityDelta Number of items in this partial fill
+     * @param isBuy         true if buy, false if sell
+     */
+    public void queueTrade(int itemId, long price, int quantityDelta, boolean isBuy)
+    {
+        if (!enabled || quantityDelta <= 0)
+        {
+            return;
+        }
+
+        payloadQueue.add(new TradePayload(
+            itemId,
+            price,
+            quantityDelta,
+            isBuy ? "BUY" : "SELL",
+            System.currentTimeMillis()
+        ));
+    }
+
+    /**
+     * Set whether crowdsourced contribution is enabled.
+     * Users can opt out via config.
+     */
+    public void setEnabled(boolean enabled)
+    {
+        this.enabled = enabled;
+    }
+
+    /**
+     * Set backend URL (for custom server deployments / fallback).
+     */
+    public void setBackendUrl(String url)
+    {
+        this.backendUrl = url;
+    }
+
+    /**
+     * Attach the P2P network for distributed trade contribution.
+     * When set, flushQueue() fans out to all healthy peers instead
+     * of posting to a single backendUrl.
+     */
+    public void setPeerNetwork(PeerNetwork peerNetwork)
+    {
+        this.peerNetwork = peerNetwork;
+    }
+
+    /**
+     * Get the number of queued payloads waiting to be flushed.
+     */
+    public int getQueueSize()
+    {
+        return payloadQueue.size();
+    }
+
+    /**
+     * Drain the queue and send a single batched POST to the backend.
+     * Called every 15 seconds by the scheduled executor.
+     */
+    private void flushQueue()
+    {
+        if (payloadQueue.isEmpty())
+        {
+            return;
+        }
+
+        List<TradePayload> batch = new ArrayList<>();
+        while (!payloadQueue.isEmpty() && batch.size() < MAX_BATCH_SIZE)
+        {
+            TradePayload payload = payloadQueue.poll();
+            if (payload != null)
+            {
+                batch.add(payload);
+            }
+        }
+
+        if (batch.isEmpty())
+        {
+            return;
+        }
+
+        String jsonPayload = gson.toJson(batch);
+
+        // P2P MODE: Fan out to ALL healthy peers so every relay gets the data
+        if (peerNetwork != null && peerNetwork.getHealthyCount() > 0)
+        {
+            peerNetwork.fanoutPost("/api/contribute", jsonPayload);
+            log.debug("GFO P2P fanout: {} trade(s) to {} peer(s)",
+                batch.size(), peerNetwork.getHealthyCount());
+            return;
+        }
+
+        // FALLBACK: Direct POST to single backendUrl (legacy mode)
+        RequestBody body = RequestBody.create(JSON_TYPE, jsonPayload);
+
+        Request request = new Request.Builder()
+            .url(backendUrl)
+            .post(body)
+            .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite")
+            .header("Content-Type", "application/json")
+            .build();
+
+        httpClient.newCall(request).enqueue(new Callback()
+        {
+            @Override
+            public void onFailure(Call call, IOException e)
+            {
+                log.debug("GFO backend unreachable, dropped {} trade(s): {}",
+                    batch.size(), e.getMessage());
+                // Don't re-queue — graceful degradation is better than memory buildup
+            }
+
+            @Override
+            public void onResponse(Call call, Response response)
+            {
+                try
+                {
+                    if (response.isSuccessful())
+                    {
+                        log.debug("GFO backend accepted {} trade(s)", batch.size());
+                    }
+                    else
+                    {
+                        log.debug("GFO backend rejected batch: HTTP {}", response.code());
+                    }
+                }
+                finally
+                {
+                    response.close(); // CRITICAL: prevents memory leaks (RuneLite audit check)
+                }
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  PROFILE FLIP LOGGING
+    // ═══════════════════════════════════════════════════════
+
+    private String profileApiKey;
+    private String profileCharacter;
+    private String profileFlipUrl;
+
+    /**
+     * Configure profile integration for P&L tracking.
+     * Call from plugin startUp() after reading config.
+     */
+    public void setProfileConfig(String apiKey, String characterName, String baseUrl)
+    {
+        this.profileApiKey = (apiKey != null && !apiKey.isEmpty()) ? apiKey : null;
+        this.profileCharacter = (characterName != null && !characterName.isEmpty()) ? characterName : null;
+        // Derive profile flip URL from the contribute URL base
+        this.profileFlipUrl = baseUrl.replace("/api/contribute", "/api/profile/flips");
+    }
+
+    /**
+     * Submit a completed flip to the user's private profile.
+     * Separate from crowdsourced data — this goes to THEIR profile only.
+     */
+    public void logFlipToProfile(int itemId, String itemName, long buyPrice, long sellPrice, int quantity)
+    {
+        if (profileApiKey == null)
+        {
+            return;
+        }
+
+        String json = gson.toJson(new FlipPayload(itemId, itemName, buyPrice, sellPrice, quantity, profileCharacter));
+        RequestBody body = RequestBody.create(JSON_TYPE, json);
+
+        Request request = new Request.Builder()
+            .url(profileFlipUrl)
+            .post(body)
+            .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite")
+            .header("Content-Type", "application/json")
+            .header("X-GFO-Key", profileApiKey)
+            .build();
+
+        httpClient.newCall(request).enqueue(new Callback()
+        {
+            @Override
+            public void onFailure(Call call, IOException e)
+            {
+                log.debug("Profile flip log failed: {}", e.getMessage());
+            }
+
+            @Override
+            public void onResponse(Call call, Response response)
+            {
+                try
+                {
+                    if (response.isSuccessful())
+                    {
+                        log.debug("Flip logged to profile: {} x{}", itemName, quantity);
+                    }
+                    else
+                    {
+                        log.debug("Profile rejected flip: HTTP {}", response.code());
+                    }
+                }
+                finally
+                {
+                    response.close();
+                }
+            }
+        });
+    }
+
+    /**
+     * Flip payload for profile API.
+     */
+    public static class FlipPayload
+    {
+        public final int itemId;
+        public final String itemName;
+        public final long buyPrice;
+        public final long sellPrice;
+        public final int quantity;
+        public final String character;
+
+        public FlipPayload(int itemId, String itemName, long buyPrice, long sellPrice, int quantity, String character)
+        {
+            this.itemId = itemId;
+            this.itemName = itemName;
+            this.buyPrice = buyPrice;
+            this.sellPrice = sellPrice;
+            this.quantity = quantity;
+            this.character = character;
+        }
+    }
+
+    /**
+     * Simple data class for trade payloads.
+     * Sent as JSON array in batched POST requests.
+     */
+    public static class TradePayload
+    {
+        public final int itemId;
+        public final long price;
+        public final int quantity;
+        public final String type; // "BUY" or "SELL"
+        public final long timestamp;
+
+        public TradePayload(int itemId, long price, int quantity, String type, long timestamp)
+        {
+            this.itemId = itemId;
+            this.price = price;
+            this.quantity = quantity;
+            this.type = type;
+            this.timestamp = timestamp;
+        }
+    }
+}

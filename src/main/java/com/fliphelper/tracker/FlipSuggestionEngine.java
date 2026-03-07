@@ -6,9 +6,8 @@ import com.fliphelper.model.PriceAggregate;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Analyzes price data and suggests the best items to flip based on
@@ -19,22 +18,37 @@ public class FlipSuggestionEngine
 {
     private final PriceService priceService;
     private final GrandFlipOutConfig config;
+    private final QuickFlipAnalyzer quickFlipAnalyzer;
 
-    public FlipSuggestionEngine(PriceService priceService, GrandFlipOutConfig config)
+    public FlipSuggestionEngine(PriceService priceService, GrandFlipOutConfig config, QuickFlipAnalyzer quickFlipAnalyzer)
     {
         this.priceService = priceService;
         this.config = config;
+        this.quickFlipAnalyzer = quickFlipAnalyzer;
     }
 
     /**
      * Generate flip suggestions based on current config and market data.
+     * Uses a bounded priority queue for efficient top-N selection.
      */
     public List<FlipSuggestion> generateSuggestions()
     {
-        List<FlipSuggestion> suggestions = new ArrayList<>();
+        long startTime = System.currentTimeMillis();
+        int maxSuggestions = config.maxSuggestions();
+
+        // Use min-heap (priority queue with reversed comparator) to maintain top-N efficiently
+        PriorityQueue<FlipSuggestion> topSuggestions = new PriorityQueue<>(
+            maxSuggestions + 1,
+            getSortComparator().reversed()
+        );
 
         for (PriceAggregate agg : priceService.getAggregatedPrices().values())
         {
+            if (agg == null)
+            {
+                continue;
+            }
+
             long margin = agg.getConsensusMargin();
             long volume = agg.getTotalVolume1h();
             int limit = agg.getBuyLimit();
@@ -73,16 +87,16 @@ public class FlipSuggestionEngine
             double roi = (double) netMargin / buyPrice * 100.0;
             long capitalRequired = buyPrice * limit;
 
-            // Calculate a composite score
-            // Weighs margin, volume, and roi
-            double volumeScore = Math.min(volume / 100.0, 10.0); // cap at 10
-            double marginScore = Math.min(marginPercent, 20.0); // cap at 20%
-            double roiScore = Math.min(roi, 15.0);
-            double compositeScore = (volumeScore * 0.3) + (marginScore * 0.3) + (roiScore * 0.4);
+            // Full scoring available via server API — see /api/suggestions
+            // Using simple fallback: sort by profitPerLimit (no complex weighting)
+            double compositeScore = profitPerLimit; // Simple fallback for local sorting
+
+            // Analyze for quick flip suitability
+            QuickFlipAnalyzer.QuickFlipResult qfResult = quickFlipAnalyzer.analyze(agg);
 
             FlipSuggestion suggestion = new FlipSuggestion();
             suggestion.setItemId(agg.getItemId());
-            suggestion.setItemName(agg.getItemName());
+            suggestion.setItemName(agg.getItemName() != null ? agg.getItemName() : "Unknown");
             suggestion.setBuyPrice(buyPrice);
             suggestion.setSellPrice(sellPrice);
             suggestion.setMargin(netMargin);
@@ -96,20 +110,34 @@ public class FlipSuggestionEngine
             suggestion.setCompositeScore(compositeScore);
             suggestion.setAlchProfitable(agg.isAlchProfitable());
 
-            suggestions.add(suggestion);
+            // Set quick flip data
+            if (qfResult != null)
+            {
+                suggestion.setQfScore(qfResult.getQfScore());
+                suggestion.setQfGrade(qfResult.getQfGrade().name());
+                suggestion.setEstimatedFillTime(qfResult.getEstimatedFillTime());
+            }
+            else
+            {
+                suggestion.setQfScore(0);
+                suggestion.setQfGrade("F");
+                suggestion.setEstimatedFillTime("unknown");
+            }
+
+            // Add to priority queue, evicting worst if we exceed capacity
+            topSuggestions.offer(suggestion);
+            if (topSuggestions.size() > maxSuggestions)
+            {
+                topSuggestions.poll();
+            }
         }
 
-        // Sort by configured criteria
-        Comparator<FlipSuggestion> comparator = getSortComparator();
-        suggestions.sort(comparator);
+        // Convert priority queue to sorted list (in reverse order)
+        List<FlipSuggestion> suggestions = new ArrayList<>(topSuggestions);
+        suggestions.sort(getSortComparator());
 
-        int max = config.maxSuggestions();
-        if (suggestions.size() > max)
-        {
-            suggestions = suggestions.subList(0, max);
-        }
-
-        log.debug("Generated {} flip suggestions", suggestions.size());
+        long duration = System.currentTimeMillis() - startTime;
+        log.debug("Generated {} flip suggestions in {}ms", suggestions.size(), duration);
         return suggestions;
     }
 
@@ -131,6 +159,19 @@ public class FlipSuggestionEngine
         }
     }
 
+    /**
+     * Get suggestions specifically optimized for quick flipping.
+     * Sorted by QF score descending, filtered to grade B or better (score >= 50).
+     */
+    public List<FlipSuggestion> getQuickFlipSuggestions()
+    {
+        List<FlipSuggestion> all = generateSuggestions();
+        return all.stream()
+            .filter(s -> s.getQfScore() >= 50)
+            .sorted(Comparator.comparingInt(FlipSuggestion::getQfScore).reversed())
+            .collect(Collectors.toList());
+    }
+
     @Data
     public static class FlipSuggestion
     {
@@ -148,5 +189,8 @@ public class FlipSuggestionEngine
         private long capitalRequired;
         private double compositeScore;
         private boolean alchProfitable;
+        private int qfScore;                // Quick flip score (0-100)
+        private String qfGrade;             // Quick flip grade (S/A/B/C/F)
+        private String estimatedFillTime;   // Estimated fill time for quick flip
     }
 }

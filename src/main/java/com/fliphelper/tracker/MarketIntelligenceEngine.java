@@ -590,22 +590,34 @@ public class MarketIntelligenceEngine {
             )));
         }
 
+        /**
+         * Find pairs of items with correlated prices (O(n^2) algorithm).
+         * Useful for spread trading opportunities.
+         */
         public Map<Integer, Double> findCorrelatedPairs(Map<Integer, List<Long>> priceHistories) {
             Map<Integer, Double> correlations = new HashMap<>();
 
+            // Note: O(n^2) complexity — typical for OSRS item database
+            // Each correlation is O(m) where m = history length
             List<Integer> itemIds = new ArrayList<>(priceHistories.keySet());
             for (int i = 0; i < itemIds.size(); i++) {
                 for (int j = i + 1; j < itemIds.size(); j++) {
                     int id1 = itemIds.get(i);
                     int id2 = itemIds.get(j);
 
-                    double correlation = calculatePearsonCorrelation(
-                        priceHistories.get(id1),
-                        priceHistories.get(id2)
-                    );
+                    List<Long> prices1 = priceHistories.get(id1);
+                    List<Long> prices2 = priceHistories.get(id2);
 
-                    if (Math.abs(correlation) > 0.7) { // Strong correlation threshold
-                        String key = id1 + "_" + id2;
+                    // Null safety check
+                    if (prices1 == null || prices2 == null)
+                    {
+                        continue;
+                    }
+
+                    double correlation = calculatePearsonCorrelation(prices1, prices2);
+
+                    // Store strong correlations (both positive and negative)
+                    if (Math.abs(correlation) > 0.7) {
                         correlations.put(id1 * 10000 + id2, correlation);
                     }
                 }
@@ -614,9 +626,15 @@ public class MarketIntelligenceEngine {
             return correlations;
         }
 
+        /**
+         * Detect lead-lag relationships between price series (O(n^2) algorithm).
+         * For large datasets, consider sampling or caching results.
+         */
         public List<LeadLagRelationship> detectLeadLagRelationships(Map<Integer, List<Long>> priceHistories) {
             List<LeadLagRelationship> relationships = new ArrayList<>();
 
+            // Note: O(n^2) complexity — acceptable for typical OSRS item count (~3000)
+            // If performance becomes an issue, implement incremental updates or sampling
             List<Integer> itemIds = new ArrayList<>(priceHistories.keySet());
             for (int i = 0; i < itemIds.size(); i++) {
                 for (int j = 0; j < itemIds.size(); j++) {
@@ -625,9 +643,18 @@ public class MarketIntelligenceEngine {
                     int leaderId = itemIds.get(i);
                     int followerId = itemIds.get(j);
 
+                    List<Long> leaderPrices = priceHistories.get(leaderId);
+                    List<Long> followerPrices = priceHistories.get(followerId);
+
+                    // Null safety check
+                    if (leaderPrices == null || followerPrices == null)
+                    {
+                        continue;
+                    }
+
                     double laggedCorrelation = calculateLaggedCorrelation(
-                        priceHistories.get(leaderId),
-                        priceHistories.get(followerId),
+                        leaderPrices,
+                        followerPrices,
                         3 // 3-day lag
                     );
 
@@ -640,14 +667,25 @@ public class MarketIntelligenceEngine {
             return relationships;
         }
 
+        /**
+         * Find arbitrage opportunities based on correlated items with price divergence.
+         * High correlation + price divergence = mean reversion opportunity.
+         */
         public List<ArbitrageOpportunity> getArbitrageOpportunities(Map<Integer, Long> currentPrices,
                                                                     Map<Integer, List<Long>> priceHistories) {
             List<ArbitrageOpportunity> opportunities = new ArrayList<>();
 
+            if (currentPrices == null || priceHistories == null)
+            {
+                return opportunities;
+            }
+
             CORRELATION_GROUPS.forEach((groupName, items) -> {
+                if (items == null) return;
+
                 List<Integer> itemList = new ArrayList<>(items);
 
-                // Find spreads between correlated items
+                // Find spreads between correlated items (O(n^2) per group)
                 for (int i = 0; i < itemList.size(); i++) {
                     for (int j = i + 1; j < itemList.size(); j++) {
                         int id1 = itemList.get(i);
@@ -658,12 +696,15 @@ public class MarketIntelligenceEngine {
 
                         if (price1 == 0 || price2 == 0) continue;
 
-                        double correlation = calculatePearsonCorrelation(
-                            priceHistories.get(id1),
-                            priceHistories.get(id2)
-                        );
+                        List<Long> prices1 = priceHistories.get(id1);
+                        List<Long> prices2 = priceHistories.get(id2);
 
-                        // High correlation but prices diverged = arbitrage opportunity
+                        // Null safety check
+                        if (prices1 == null || prices2 == null) continue;
+
+                        double correlation = calculatePearsonCorrelation(prices1, prices2);
+
+                        // High correlation but prices diverged = mean reversion opportunity
                         if (correlation > 0.8) {
                             double spread = Math.abs(price1 - price2) / (double) Math.min(price1, price2);
                             if (spread > 0.05) { // >5% spread

@@ -44,38 +44,58 @@ public class DumpDetector
 
     /**
      * Take a snapshot of current prices for trend tracking.
+     *
+     * <p>Maintains a history of up to 60 snapshots per item (~5 hours at 5-minute intervals).</p>
      */
     public void takeSnapshot()
     {
+        long startTime = System.currentTimeMillis();
         Instant now = Instant.now();
-        for (PriceAggregate agg : priceService.getAggregatedPrices().values())
+        var aggregates = priceService.getAggregatedPrices();
+        if (aggregates == null) return;
+
+        for (PriceAggregate agg : aggregates.values())
         {
+            if (agg == null) continue;
             PriceSnapshot snapshot = new PriceSnapshot();
             snapshot.setTimestamp(now);
             snapshot.setHighPrice(agg.getBestHighPrice());
             snapshot.setLowPrice(agg.getBestLowPrice());
             snapshot.setVolume1h(agg.getTotalVolume1h());
 
-            priceHistory.computeIfAbsent(agg.getItemId(), k -> new CopyOnWriteArrayList<>()).add(snapshot);
+            List<PriceSnapshot> history = priceHistory.computeIfAbsent(agg.getItemId(), k -> new CopyOnWriteArrayList<>());
+            history.add(snapshot);
 
-            // Trim old snapshots
-            List<PriceSnapshot> history = priceHistory.get(agg.getItemId());
-            while (history.size() > MAX_SNAPSHOTS)
+            // Trim old snapshots — enforce strict cap to prevent memory leaks
+            if (history.size() > MAX_SNAPSHOTS)
             {
-                history.remove(0);
+                // Remove oldest 10% of entries to amortize removal cost
+                int toRemove = Math.max(1, MAX_SNAPSHOTS / 10);
+                for (int i = 0; i < toRemove && !history.isEmpty(); i++)
+                {
+                    history.remove(0);
+                }
             }
         }
+
+        long duration = System.currentTimeMillis() - startTime;
+        log.debug("Price snapshot taken for {} items in {}ms", priceHistory.size(), duration);
     }
 
     /**
      * Scan all items and return detected anomalies sorted by severity.
+     *
+     * <p>Returns alerts sorted by severity (highest first).
+     * Minimum volume threshold: 50+ hourly trades to trigger alerts (filters noise).</p>
      */
     public List<PriceAlert> detectAnomalies()
     {
+        long startTime = System.currentTimeMillis();
         List<PriceAlert> alerts = new ArrayList<>();
 
         for (PriceAggregate agg : priceService.getAggregatedPrices().values())
         {
+            if (agg == null) continue;
             PriceData wikiData = agg.getFromSource(com.fliphelper.model.PriceSource.WIKI);
             if (wikiData == null) continue;
 
@@ -179,6 +199,9 @@ public class DumpDetector
 
         // Sort by severity descending
         alerts.sort(Comparator.comparingDouble(PriceAlert::getSeverity).reversed());
+
+        long duration = System.currentTimeMillis() - startTime;
+        log.debug("Anomaly detection scan completed: {} alerts found in {}ms", alerts.size(), duration);
         return alerts;
     }
 

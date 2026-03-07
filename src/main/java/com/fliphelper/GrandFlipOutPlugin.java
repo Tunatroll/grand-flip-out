@@ -1,6 +1,14 @@
 package com.fliphelper;
 
+import com.fliphelper.api.BackendClient;
+import com.fliphelper.api.PeerNetwork;
+import com.fliphelper.api.ProfileClient;
 import com.fliphelper.api.PriceService;
+import com.fliphelper.ui.ProfilePanel;
+import com.fliphelper.ui.GpDropOverlay;
+import com.fliphelper.debug.DebugManager;
+import com.fliphelper.debug.DebugOverlay;
+import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.FlipState;
 import com.fliphelper.model.TradeRecord;
 import com.fliphelper.tracker.*;
@@ -31,6 +39,8 @@ import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -94,6 +104,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private PriceService priceService;
     private FlipTracker flipTracker;
     private FlipSuggestionEngine suggestionEngine;
+    private QuickFlipAnalyzer quickFlipAnalyzer;
     private DumpDetector dumpDetector;
     private DumpKnowledgeEngine dumpKnowledgeEngine;
     private JagexTradeIndex jagexTradeIndex;
@@ -107,8 +118,15 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private SlotOptimizer slotOptimizer;
     private MarginCheckTracker marginCheckTracker;
     private SmartAdvisor smartAdvisor;
+    private PeerNetwork peerNetwork;
+    private ProfileClient profileClient;
+    private BackendClient backendClient;
+    private DebugManager debugManager;
     private GrandFlipOutPanel panel;
+    private ProfilePanel profilePanel;
     private GrandFlipOutOverlay overlay;
+    private DebugOverlay debugOverlay;
+    private GpDropOverlay gpDropOverlay;
     private NavigationButton navButton;
     private ScheduledExecutorService executor;
     private int currentAccountIndex = 0;
@@ -130,10 +148,30 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         DATA_DIR.mkdirs();
 
+        // Initialize debug manager
+        debugManager = new DebugManager();
+        debugManager.info(getClass().getSimpleName(), "Plugin startup initiated");
+
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
         flipTracker = new FlipTracker(config, DATA_DIR, gson);
-        suggestionEngine = new FlipSuggestionEngine(priceService, config);
+        // Wire profile flip logging — when a buy→sell pair completes, log it to the user's profile
+        // Routes through ProfileClient → PeerNetwork for P2P failover
+        flipTracker.setFlipCompleteListener(flip -> {
+            if (profileClient != null && profileClient.isLoggedIn())
+            {
+                profileClient.logFlip(
+                    flip.getItemId(),
+                    flip.getItemName(),
+                    flip.getBuyPrice(),
+                    flip.getSellPrice(),
+                    flip.getQuantity(),
+                    config.profileCharacterName()
+                );
+            }
+        });
+        quickFlipAnalyzer = new QuickFlipAnalyzer();
+        suggestionEngine = new FlipSuggestionEngine(priceService, config, quickFlipAnalyzer);
 
         // Initialize dump detection, knowledge engine, and market intelligence
         dumpDetector = new DumpDetector(priceService);
@@ -167,7 +205,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Create UI
         panel = new GrandFlipOutPanel(config, priceService, flipTracker, suggestionEngine, smartAdvisor);
+        panel.addTab("Profile", profilePanel);  // Account & P2P status tab
         overlay = new GrandFlipOutOverlay(client, config, priceService, flipTracker);
+        debugOverlay = new DebugOverlay(config, priceService, flipTracker, debugManager);
+        gpDropOverlay = new GpDropOverlay(client, config);
 
         // Navigation button
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
@@ -180,7 +221,57 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         clientToolbar.addNavigation(navButton);
         overlayManager.add(overlay);
+        overlayManager.add(debugOverlay);
+        overlayManager.add(gpDropOverlay);
         keyManager.registerKeyListener(this);
+
+        // ── P2P Network (fundamental to GFO architecture) ──
+        peerNetwork = new PeerNetwork(okHttpClient, gson);
+        if (config.enableP2P())
+        {
+            // Parse additional peers from config (comma-separated)
+            List<String> extraPeers = Arrays.stream(config.additionalPeers().split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+
+            // Always add the configured backend URL as a seed peer
+            String backendBase = config.backendUrl().replace("/api/contribute", "");
+            extraPeers.add(backendBase);
+
+            peerNetwork.start(extraPeers);
+            log.info("P2P network started with {} extra seed(s)", extraPeers.size());
+        }
+
+        // ── Profile & Account Client (tier gating, account management) ──
+        profileClient = new ProfileClient(peerNetwork, gson);
+        if (config.profileApiKey() != null && !config.profileApiKey().isEmpty())
+        {
+            // Auto-login with saved API key
+            boolean loggedIn = profileClient.login(config.profileApiKey());
+            if (loggedIn)
+            {
+                log.info("Profile auto-login: {} (tier: {})",
+                    profileClient.getDisplayName(), profileClient.getTier());
+            }
+        }
+
+        // ── Profile Panel (account UI tab) ──
+        profilePanel = new ProfilePanel(profileClient, peerNetwork);
+
+        // ── Crowdsourced BackendClient (batched trade contributions) ──
+        backendClient = new BackendClient(okHttpClient, gson);
+        backendClient.setBackendUrl(config.backendUrl());
+        backendClient.setPeerNetwork(peerNetwork); // P2P fanout mode
+        backendClient.setProfileConfig(
+            config.profileApiKey(),
+            config.profileCharacterName(),
+            config.backendUrl()
+        );
+        if (config.enableCrowdsourced())
+        {
+            backendClient.start();
+        }
 
         // Start background price refresh
         executor = Executors.newSingleThreadScheduledExecutor();
@@ -229,9 +320,28 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             multiAccountDashboard.saveToFile();
         }
 
+        // Stop backend client
+        if (backendClient != null)
+        {
+            backendClient.stop();
+        }
+
+        // Stop P2P network
+        if (peerNetwork != null)
+        {
+            peerNetwork.stop();
+        }
+
         overlayManager.remove(overlay);
+        overlayManager.remove(debugOverlay);
+        overlayManager.remove(gpDropOverlay);
         clientToolbar.removeNavigation(navButton);
         keyManager.unregisterKeyListener(this);
+
+        if (debugManager != null)
+        {
+            debugManager.clearAll();
+        }
     }
 
     // ==================== GE EVENT HANDLING ====================
@@ -281,8 +391,32 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 flipTracker.recordTransaction(trade);
                 panel.updateAll();
 
+                // Queue for crowdsourced contribution (batched POST every 15s)
+                if (backendClient != null)
+                {
+                    backendClient.queueTrade(itemId, pricePerItem, deltaQuantity, isBuy);
+                }
+
                 log.info("GE {} detected: {}x {} @ {}gp (slot {})",
                     isBuy ? "buy" : "sell", deltaQuantity, itemName, pricePerItem, slot);
+
+                // Trigger GP drop overlay for completed sells (profit celebration)
+                if (!isBuy && config.showGpDrops() && gpDropOverlay != null)
+                {
+                    // Calculate profit from this sell vs tracked buy
+                    FlipItem activeFlip = flipTracker.getActiveFlips().get(slot);
+                    if (activeFlip != null && activeFlip.getBuyPrice() > 0)
+                    {
+                        long sellTotal = pricePerItem * deltaQuantity;
+                        long buyTotal = activeFlip.getBuyPrice() * deltaQuantity;
+                        long tax = Math.min((long)(sellTotal * 0.02), 5_000_000L);
+                        long profit = sellTotal - buyTotal - tax;
+                        if (profit > 0)
+                        {
+                            gpDropOverlay.triggerDrop(profit, itemName);
+                        }
+                    }
+                }
             }
         }
         else if (state == GrandExchangeOfferState.CANCELLED_BUY || state == GrandExchangeOfferState.CANCELLED_SELL)
@@ -318,6 +452,43 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 config.priceRefreshInterval(),
                 TimeUnit.SECONDS
             );
+        }
+
+        // Handle crowdsourced data toggle
+        if ("enableCrowdsourced".equals(event.getKey()) && backendClient != null)
+        {
+            if (config.enableCrowdsourced())
+            {
+                backendClient.start();
+            }
+            else
+            {
+                backendClient.stop();
+            }
+        }
+
+        // Handle backend URL change
+        if ("backendUrl".equals(event.getKey()) && backendClient != null)
+        {
+            backendClient.setBackendUrl(config.backendUrl());
+        }
+
+        // Handle profile API key change (login/logout)
+        if ("profileApiKey".equals(event.getKey()) && profileClient != null)
+        {
+            String newKey = config.profileApiKey();
+            if (newKey != null && !newKey.isEmpty())
+            {
+                profileClient.login(newKey);
+            }
+            else
+            {
+                profileClient.logout();
+            }
+            if (profilePanel != null)
+            {
+                profilePanel.refreshDashboard();
+            }
         }
     }
 
@@ -366,6 +537,16 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             executor.execute(this::runDumpScan);
             e.consume();
         }
+        else if (e.isControlDown() && e.isShiftDown() && e.getKeyCode() == KeyEvent.VK_U)
+        {
+            // Ctrl+Shift+U: Toggle debug overlay
+            if (debugOverlay != null)
+            {
+                config.enableDebugOverlay();
+                debugManager.info(getClass().getSimpleName(), "Debug overlay toggled");
+            }
+            e.consume();
+        }
         else if (config.nextAccountHotkey().matches(e))
         {
             // Ctrl+Shift+Tab: Cycle through accounts in multi-account view
@@ -386,12 +567,83 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             }
             e.consume();
         }
+        else if (config.suggestionPreviewHotkey().matches(e))
+        {
+            // Ctrl+Shift+G: Preview top suggestion (copy price to clipboard + chat hint)
+            executor.execute(this::previewSuggestion);
+            e.consume();
+        }
     }
 
     @Override
     public void keyReleased(KeyEvent e)
     {
         // Not used
+    }
+
+    // ==================== SUGGESTION PREVIEW ====================
+
+    /**
+     * Preview top flip suggestion — copies buy price to clipboard and shows a chat hint.
+     * INFORMATION ONLY — the player must manually open the GE and place the offer themselves.
+     */
+    private void previewSuggestion()
+    {
+        try
+        {
+            List<FlipSuggestionEngine.FlipSuggestion> suggestions = suggestionEngine.generateSuggestions();
+            if (suggestions.isEmpty())
+            {
+                log.info("No flip suggestions available");
+                return;
+            }
+
+            FlipSuggestionEngine.FlipSuggestion top = suggestions.get(0);
+
+            // Copy buy price to clipboard for easy paste into GE
+            String priceStr = String.valueOf(top.getBuyPrice());
+            java.awt.datatransfer.StringSelection selection = new java.awt.datatransfer.StringSelection(priceStr);
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+
+            // Send chat message with suggestion details
+            String message = String.format(
+                "<col=ff9800>GFO:</col> Buy <col=00ff00>%s</col> @ <col=ffffff>%s gp</col> (qty: %d, margin: %s gp, profit/limit: %s gp)",
+                top.getItemName(),
+                formatGpChat(top.getBuyPrice()),
+                top.getBuyLimit(),
+                formatGpChat(top.getMargin()),
+                formatGpChat(top.getProfitPerLimit())
+            );
+
+            clientThread.invokeLater(() -> {
+                client.addChatMessage(
+                    net.runelite.api.ChatMessageType.GAMEMESSAGE,
+                    "",
+                    message,
+                    null
+                );
+            });
+
+            log.info("Suggestion previewed: Buy {}x {} @ {}gp (margin: {}gp)",
+                top.getBuyLimit(), top.getItemName(), top.getBuyPrice(), top.getMargin());
+        }
+        catch (Exception e)
+        {
+            log.warn("Failed to preview suggestion: {}", e.getMessage());
+        }
+    }
+
+    private String formatGpChat(long amount)
+    {
+        if (Math.abs(amount) >= 1_000_000)
+        {
+            return String.format("%.1fm", amount / 1_000_000.0);
+        }
+        if (Math.abs(amount) >= 1_000)
+        {
+            return String.format("%.1fk", amount / 1_000.0);
+        }
+        return String.valueOf(amount);
     }
 
     // ==================== PRICE REFRESH ====================

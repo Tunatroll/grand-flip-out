@@ -1,5 +1,5 @@
 plugins {
-    id 'java'
+    id 'java-library'
 }
 
 repositories {
@@ -35,10 +35,9 @@ jar {
     manifest {
         attributes(
             'Plugin-Id': 'grand-flip-out',
-            'Plugin-Provider': 'Tunatroll',
+            'Plugin-Provider': 'tuna troll',
             'Plugin-Version': version,
-            'Plugin-Description':
-                'GE flipping with JTI scoring and analysis.'
+            'Plugin-Description': 'Comprehensive GE flipping assistant with multi-source pricing, flip tracking, profit analysis, and smart suggestions'
         )
     }
 }

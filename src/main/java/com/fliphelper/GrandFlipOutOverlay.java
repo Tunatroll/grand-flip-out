@@ -5,6 +5,8 @@ import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.tracker.FlipTracker;
 import net.runelite.api.Client;
+import net.runelite.api.GrandExchangeOffer;
+import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.client.ui.overlay.Overlay;
@@ -66,28 +68,42 @@ public class GrandFlipOutOverlay extends Overlay
             return null;
         }
 
-        Widget geWidget = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
-        boolean geOpen = geWidget != null && !geWidget.isHidden();
+        long startTime = System.currentTimeMillis();
 
-        panelComponent.getChildren().clear();
-        panelComponent.setPreferredSize(new Dimension(200, 0));
-
-        if (config.showProfitOverlay())
+        try
         {
-            renderSessionStats();
-        }
+            Widget geWidget = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+            boolean geOpen = geWidget != null && !geWidget.isHidden();
 
-        if (geOpen && config.showGEOverlay())
+            panelComponent.getChildren().clear();
+            panelComponent.setPreferredSize(new Dimension(200, 0));
+
+            if (config.showProfitOverlay())
+            {
+                renderSessionStats();
+            }
+
+            if (geOpen && config.showGEOverlay())
+            {
+                renderGEInfo();
+            }
+
+            if (panelComponent.getChildren().isEmpty())
+            {
+                return null;
+            }
+
+            return panelComponent.render(graphics);
+        }
+        finally
         {
-            renderGEInfo();
+            long duration = System.currentTimeMillis() - startTime;
+            // Log overlay render time for debug purposes (optional)
+            if (duration > 10)
+            {
+                // Log only if render took significant time
+            }
         }
-
-        if (panelComponent.getChildren().isEmpty())
-        {
-            return null;
-        }
-
-        return panelComponent.render(graphics);
     }
 
     private void renderSessionStats()
@@ -171,79 +187,172 @@ public class GrandFlipOutOverlay extends Overlay
             .color(Color.ORANGE)
             .build());
 
-        // Show info for active flip items
-        for (FlipItem flip : flipTracker.getActiveFlips().values())
+        // Show slot profit colorizer if enabled
+        if (config.showSlotColorizer())
         {
-            PriceAggregate agg = priceService.getPrice(flip.getItemId());
+            renderGESlotColorizer();
+        }
+        else
+        {
+            // Show info for active flip items (legacy view)
+            for (FlipItem flip : flipTracker.getActiveFlips().values())
+            {
+                if (flip == null)
+                {
+                    continue;
+                }
+
+                PriceAggregate agg = priceService.getPrice(flip.getItemId());
+                if (agg == null)
+                {
+                    continue;
+                }
+
+                String itemName = flip.getItemName() != null ? flip.getItemName() : "Unknown";
+                String stateName = flip.getState() != null ? flip.getState().getDisplayName() : "Unknown";
+
+                panelComponent.getChildren().add(LineComponent.builder()
+                    .left(itemName)
+                    .right(stateName)
+                    .rightColor(Color.YELLOW)
+                    .build());
+
+                long margin = agg.getConsensusMargin();
+                Color marginColor;
+                if (margin > 0)
+                {
+                    marginColor = Color.GREEN;
+                }
+                else if (margin == 0)
+                {
+                    marginColor = new Color(0xFF, 0xA5, 0x00); // Orange for break-even
+                }
+                else
+                {
+                    marginColor = Color.RED;
+                }
+
+                panelComponent.getChildren().add(LineComponent.builder()
+                    .left("  Margin:")
+                    .right(formatGp(margin))
+                    .rightColor(marginColor)
+                    .build());
+
+                if (config.overlayShowVolume())
+                {
+                    panelComponent.getChildren().add(LineComponent.builder()
+                        .left("  Vol/1h:")
+                        .right(QuantityFormatter.formatNumber(agg.getTotalVolume1h()))
+                        .build());
+                }
+
+                // Expected profit for this flip with color coding
+                long expectedSell = agg.getBestHighPrice();
+                long totalRevenue = expectedSell * flip.getQuantity();
+                long tax = Math.min((long) (totalRevenue * 0.02), 5_000_000L);
+                long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity() - tax;
+
+                Color profitColor;
+                if (expectedProfit > 0)
+                {
+                    profitColor = Color.GREEN;
+                }
+                else if (expectedProfit == 0)
+                {
+                    profitColor = new Color(0xFF, 0xA5, 0x00); // Orange
+                }
+                else
+                {
+                    profitColor = Color.RED;
+                }
+
+                panelComponent.getChildren().add(LineComponent.builder()
+                    .left("  Exp. Profit:")
+                    .right(formatGp(expectedProfit))
+                    .rightColor(profitColor)
+                    .build());
+            }
+        }
+    }
+
+    private void renderGESlotColorizer()
+    {
+        // Iterate all 8 GE slots and color-code based on profit
+        for (int slot = 0; slot < 8; slot++)
+        {
+            GrandExchangeOffer offer = client.getGrandExchangeOffers()[slot];
+            if (offer == null || offer.getState() == GrandExchangeOfferState.EMPTY)
+            {
+                continue;
+            }
+
+            int itemId = offer.getItemId();
+            long spent = offer.getSpent();
+            int quantitySold = offer.getQuantitySold();
+            int totalQuantity = offer.getTotalQuantity();
+            long price = offer.getPrice();
+
+            PriceAggregate agg = priceService.getPrice(itemId);
             if (agg == null)
             {
                 continue;
             }
 
-            String itemName = flip.getItemName() != null ? flip.getItemName() : "Unknown";
-            String stateName = flip.getState() != null ? flip.getState().getDisplayName() : "Unknown";
+            boolean isBuying = (offer.getState() == GrandExchangeOfferState.BUYING
+                            || offer.getState() == GrandExchangeOfferState.BOUGHT);
 
-            panelComponent.getChildren().add(LineComponent.builder()
-                .left(itemName)
-                .right(stateName)
-                .rightColor(Color.YELLOW)
-                .build());
+            long currentPrice = isBuying ? agg.getBestHighPrice() : agg.getBestLowPrice();
+            long paidPerItem = quantitySold > 0 ? spent / quantitySold : price;
 
-            long margin = agg.getConsensusMargin();
-            Color marginColor;
-            if (margin > 0)
+            long estimatedProfit;
+            Color slotColor;
+            String profitText;
+
+            if (isBuying)
             {
-                marginColor = Color.GREEN;
-            }
-            else if (margin == 0)
-            {
-                marginColor = new Color(0xFF, 0xA5, 0x00); // Orange for break-even
+                // For buys: estimate profit if we sold at current sell price
+                long tax = Math.min((long)(currentPrice * 0.02), 5_000_000L);
+                estimatedProfit = (currentPrice - paidPerItem - tax) * quantitySold;
             }
             else
             {
-                marginColor = Color.RED;
+                // For sells: calculate actual revenue vs what we'd pay now
+                estimatedProfit = (paidPerItem - currentPrice) * quantitySold;
             }
 
-            panelComponent.getChildren().add(LineComponent.builder()
-                .left("  Margin:")
-                .right(formatGp(margin))
-                .rightColor(marginColor)
-                .build());
-
-            if (config.overlayShowVolume())
+            if (estimatedProfit > 0)
             {
-                panelComponent.getChildren().add(LineComponent.builder()
-                    .left("  Vol/1h:")
-                    .right(QuantityFormatter.formatNumber(agg.getTotalVolume1h()))
-                    .build());
+                slotColor = new Color(0, 200, 0, 180);
+                profitText = "+" + formatGp(estimatedProfit);
             }
-
-            // Expected profit for this flip with color coding
-            long expectedSell = agg.getBestHighPrice();
-            long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity();
-            long tax = Math.min((long) (expectedSell * 0.02), 5_000_000L) * flip.getQuantity();
-            expectedProfit -= tax;
-
-            Color profitColor;
-            if (expectedProfit > 0)
+            else if (estimatedProfit < 0)
             {
-                profitColor = Color.GREEN;
-            }
-            else if (expectedProfit == 0)
-            {
-                profitColor = new Color(0xFF, 0xA5, 0x00); // Orange
+                slotColor = new Color(200, 0, 0, 180);
+                profitText = formatGp(estimatedProfit);
             }
             else
             {
-                profitColor = Color.RED;
+                slotColor = new Color(200, 150, 0, 180);
+                profitText = "0 gp";
             }
 
+            String itemName = agg.getItemName() != null ? agg.getItemName() : "Slot " + (slot + 1);
+            String stateStr = isBuying ? "BUY" : "SELL";
+            int pctFilled = totalQuantity > 0 ? (quantitySold * 100 / totalQuantity) : 0;
+
             panelComponent.getChildren().add(LineComponent.builder()
-                .left("  Exp. Profit:")
-                .right(formatGp(expectedProfit))
-                .rightColor(profitColor)
+                .left(String.format("[%d] %s", slot + 1, truncate(itemName, 12)))
+                .leftColor(slotColor)
+                .right(String.format("%s %d%% %s", stateStr, pctFilled, profitText))
+                .rightColor(slotColor)
                 .build());
         }
+    }
+
+    private String truncate(String s, int maxLen)
+    {
+        if (s == null) return "";
+        return s.length() > maxLen ? s.substring(0, maxLen) + ".." : s;
     }
 
     private String formatGp(long amount)

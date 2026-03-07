@@ -134,6 +134,38 @@ public class PriceAggregate
     }
 
     /**
+     * Get the timestamp of the most recent high price.
+     */
+    public long getLatestHighTime()
+    {
+        long latestTime = 0;
+        for (PriceData data : sourceData.values())
+        {
+            if (data.getHighTime() > latestTime)
+            {
+                latestTime = data.getHighTime();
+            }
+        }
+        return latestTime;
+    }
+
+    /**
+     * Get the timestamp of the most recent low price.
+     */
+    public long getLatestLowTime()
+    {
+        long latestTime = 0;
+        for (PriceData data : sourceData.values())
+        {
+            if (data.getLowTime() > latestTime)
+            {
+                latestTime = data.getLowTime();
+            }
+        }
+        return latestTime;
+    }
+
+    /**
      * Get price data from a specific source.
      */
     public PriceData getFromSource(PriceSource source)

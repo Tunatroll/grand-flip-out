@@ -358,6 +358,18 @@ public interface GrandFlipOutConfig extends Config
         return new Keybind(KeyEvent.VK_B, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
     }
 
+    @ConfigItem(
+        keyName = "suggestionPreviewHotkey",
+        name = "Preview Top Suggestion",
+        description = "Copy the #1 flip suggestion's buy price to clipboard and show a hint in chat. Open the GE yourself, then paste the price.",
+        section = hotkeysSection,
+        position = 8
+    )
+    default Keybind suggestionPreviewHotkey()
+    {
+        return new Keybind(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+    }
+
     // ==================== DUMP DETECTION ====================
 
     @ConfigSection(
@@ -516,14 +528,14 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "minSuggestionMargin",
         name = "Min Margin (gp)",
-        description = "Minimum margin in gp for an item to appear in suggestions",
+        description = "Minimum margin in gp for an item to appear in suggestions (before tax)",
         section = suggestionsSection,
         position = 1
     )
     @Range(min = 1, max = 10000000)
     default int minSuggestionMargin()
     {
-        return 500;
+        return 200000;
     }
 
     @ConfigItem(
@@ -567,14 +579,39 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "minProfitThreshold",
         name = "Min Profit Threshold (gp)",
-        description = "Only show suggestions with profit per item above this amount",
+        description = "Only show suggestions with profit per item above this amount (200K recommended for meaningful flips)",
         section = suggestionsSection,
         position = 5
     )
     @Range(min = 1, max = 1000000)
     default int minProfitThreshold()
     {
-        return 1000;
+        return 200000;
+    }
+
+    @ConfigItem(
+        keyName = "quickFlipMode",
+        name = "Quick Flip Mode",
+        description = "Show suggestions optimized for quick buy/sell flips (high volume, fresh data, 3-8% margin)",
+        section = suggestionsSection,
+        position = 6
+    )
+    default boolean quickFlipMode()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "minQfScore",
+        name = "Min Quick Flip Score",
+        description = "Minimum quick flip score (0-100) for suggestions in Quick Flip Mode",
+        section = suggestionsSection,
+        position = 7
+    )
+    @Range(min = 0, max = 100)
+    default int minQfScore()
+    {
+        return 50;
     }
 
     // ==================== NOTIFICATIONS ====================
@@ -585,6 +622,13 @@ public interface GrandFlipOutConfig extends Config
         position = 8
     )
     String notificationsSection = "notifications";
+
+    @ConfigSection(
+        name = "Debug",
+        description = "Configure debug logging and overlay",
+        position = 9
+    )
+    String debugSection = "debug";
 
     @ConfigItem(
         keyName = "enableSoundAlerts",
@@ -624,6 +668,30 @@ public interface GrandFlipOutConfig extends Config
         return OverlayPositionType.TOP_LEFT;
     }
 
+    @ConfigItem(
+        keyName = "showSlotColorizer",
+        name = "Slot Profit Colorizer",
+        description = "Color-code GE slots based on estimated profit/loss",
+        section = overlaySection,
+        position = 5
+    )
+    default boolean showSlotColorizer()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "showGpDrops",
+        name = "GP Drop Animation",
+        description = "Show floating GP animation when a profitable flip completes",
+        section = overlaySection,
+        position = 6
+    )
+    default boolean showGpDrops()
+    {
+        return true;
+    }
+
     enum OverlayPositionType
     {
         TOP_LEFT("Top Left"),
@@ -656,6 +724,156 @@ public interface GrandFlipOutConfig extends Config
         private final String displayName;
 
         SuggestionSort(String displayName)
+        {
+            this.displayName = displayName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return displayName;
+        }
+    }
+
+    // ==================== DEBUG ====================
+
+    @ConfigItem(
+        keyName = "enableDebugOverlay",
+        name = "Enable Debug Overlay",
+        description = "Show debug overlay with API status, memory usage, and performance metrics",
+        section = debugSection,
+        position = 0
+    )
+    default boolean enableDebugOverlay()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "enableDebugLogging",
+        name = "Enable Debug Logging",
+        description = "Log detailed debug information to the debug manager (ring buffer)",
+        section = debugSection,
+        position = 1
+    )
+    default boolean enableDebugLogging()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "debugLogLevel",
+        name = "Debug Log Level",
+        description = "Minimum log level for debug logging",
+        section = debugSection,
+        position = 2
+    )
+    default DebugLogLevel debugLogLevel()
+    {
+        return DebugLogLevel.INFO;
+    }
+
+    // ==================== P2P NETWORK ====================
+
+    @ConfigSection(
+        name = "P2P Network",
+        description = "Peer-to-peer relay network — the backbone of Grand Flip Out's distributed architecture",
+        position = 9
+    )
+    String p2pSection = "p2p";
+
+    @ConfigItem(
+        keyName = "enableP2P",
+        name = "Enable P2P Network",
+        description = "Connect to the GFO relay mesh for distributed pricing, failover, and community data sharing. Disabling falls back to single-server mode.",
+        section = p2pSection,
+        position = 0
+    )
+    default boolean enableP2P()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "additionalPeers",
+        name = "Additional Relay Peers",
+        description = "Comma-separated list of extra GFO relay URLs to connect to (e.g., https://myserver.com:3001,http://friend:3001). Leave blank to use only the default seed list.",
+        section = p2pSection,
+        position = 1
+    )
+    default String additionalPeers()
+    {
+        return "";
+    }
+
+    // ==================== CROWDSOURCED DATA ====================
+
+    @ConfigSection(
+        name = "Crowdsourced Data",
+        description = "Contribute anonymous trade data to improve pricing accuracy for all users",
+        position = 10
+    )
+    String crowdsourcedSection = "crowdsourced";
+
+    @ConfigItem(
+        keyName = "enableCrowdsourced",
+        name = "Enable Crowdsourced Data",
+        description = "Send anonymous trade data to the GFO backend to improve Z-Score detection and consensus pricing. No RSN or account info is transmitted.",
+        section = crowdsourcedSection,
+        position = 0
+    )
+    default boolean enableCrowdsourced()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "backendUrl",
+        name = "Backend URL",
+        description = "URL of the GFO backend server for crowdsourced data",
+        section = crowdsourcedSection,
+        position = 1
+    )
+    default String backendUrl()
+    {
+        return "http://localhost:3001/api/contribute";
+    }
+
+    @ConfigItem(
+        keyName = "profileApiKey",
+        name = "Profile API Key",
+        description = "Your private GFO profile key. Flips will be logged to your profile for P&L tracking. Get one from the website's My Profile tab.",
+        section = crowdsourcedSection,
+        position = 2,
+        secret = true
+    )
+    default String profileApiKey()
+    {
+        return "";
+    }
+
+    @ConfigItem(
+        keyName = "profileCharacterName",
+        name = "Character Name",
+        description = "Which RS character this client is playing on. Used to attribute flips to the correct character in your profile.",
+        section = crowdsourcedSection,
+        position = 3
+    )
+    default String profileCharacterName()
+    {
+        return "";
+    }
+
+    enum DebugLogLevel
+    {
+        DEBUG("Debug"),
+        INFO("Info"),
+        WARN("Warning"),
+        ERROR("Error");
+
+        private final String displayName;
+
+        DebugLogLevel(String displayName)
         {
             this.displayName = displayName;
         }
