@@ -129,7 +129,8 @@ class HelpView(discord.ui.View):
         for item in self.children:
             item.disabled = True
 
-# Market summary channel storage
+# Channel configuration storage
+CHANNELS_CONFIG_FILE = 'gfo_channels_config.json'
 MARKET_SUMMARY_CHANNEL_FILE = 'market_summary_channel.json'
 
 # Rate limiting state for dump alerts - with lock protection
@@ -146,18 +147,41 @@ ALERT_MAX_PER_HOUR = 6
 _status_index = 0
 
 
+def load_channels_config():
+    """Load GFO channels configuration from file"""
+    try:
+        with open(CHANNELS_CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {
+            'alerts_channel': None,
+            'topflips_channel': None,
+            'market_summary_channel': None,
+            'discussion_channel': None,
+            'commands_channel': None
+        }
+
+
+def save_channels_config(config):
+    """Save GFO channels configuration to file"""
+    with open(CHANNELS_CONFIG_FILE, 'w') as f:
+        json.dump(config, f, indent=2)
+
+
 def load_market_summary_channel():
-    """Load market summary channel from file"""
+    """Load market summary channel from file (legacy compatibility)"""
     try:
         with open(MARKET_SUMMARY_CHANNEL_FILE, 'r') as f:
             data = json.load(f)
             return data.get('channel_id', None)
     except FileNotFoundError:
-        return None
+        # Try loading from new config
+        config = load_channels_config()
+        return config.get('market_summary_channel', None)
 
 
 def save_market_summary_channel(channel_id):
-    """Save market summary channel to file"""
+    """Save market summary channel to file (legacy compatibility)"""
     with open(MARKET_SUMMARY_CHANNEL_FILE, 'w') as f:
         json.dump({'channel_id': channel_id}, f)
 
@@ -178,7 +202,9 @@ def _record_channel_alert(item_name, buy_price, sell_price):
 class Admin(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.market_summary_channel = load_market_summary_channel()
+        self.channels_config = load_channels_config()
+        # Legacy compatibility
+        self.market_summary_channel = self.channels_config.get('market_summary_channel')
         self.post_market_summary.start()
         self.check_dumps.start()
         self.rotate_status.start()
@@ -188,28 +214,148 @@ class Admin(commands.Cog):
         self.check_dumps.cancel()
         self.rotate_status.cancel()
 
-    @app_commands.command(name="setchannel", description="Set channel for daily market summary (admin only)")
-    @app_commands.describe(action="set or clear")
+    @app_commands.command(name="setupchannels", description="Create organized GFO channels in this server (admin only)")
     @app_commands.default_permissions(administrator=True)
-    async def setchannel_command(self, interaction: discord.Interaction, action: str):
-        """Configure market summary channel"""
+    async def setup_channels(self, interaction: discord.Interaction):
+        """Create organized channels for the Grand Flip Out bot"""
         await interaction.response.defer()
 
+        try:
+            guild = interaction.guild
+
+            # Create category "Grand Flip Out"
+            category = await guild.create_category("Grand Flip Out")
+
+            # Create channels
+            alerts_channel = await guild.create_text_channel(
+                "gfo-alerts",
+                category=category,
+                topic="Dump and pump alerts from Grand Flip Out bot"
+            )
+
+            topflips_channel = await guild.create_text_channel(
+                "gfo-top-flips",
+                category=category,
+                topic="Hourly top flip summaries"
+            )
+
+            market_summary_channel = await guild.create_text_channel(
+                "gfo-market-summary",
+                category=category,
+                topic="Daily market overview and statistics"
+            )
+
+            discussion_channel = await guild.create_text_channel(
+                "gfo-discussion",
+                category=category,
+                topic="General flipping discussion and sharing"
+            )
+
+            commands_channel = await guild.create_text_channel(
+                "gfo-bot-commands",
+                category=category,
+                topic="Bot commands and queries"
+            )
+
+            # Store channel IDs in config
+            self.channels_config = {
+                'alerts_channel': alerts_channel.id,
+                'topflips_channel': topflips_channel.id,
+                'market_summary_channel': market_summary_channel.id,
+                'discussion_channel': discussion_channel.id,
+                'commands_channel': commands_channel.id
+            }
+            save_channels_config(self.channels_config)
+
+            # Update market_summary_channel for legacy compatibility
+            self.market_summary_channel = market_summary_channel.id
+
+            # Build response
+            embed = discord.Embed(
+                title="✅ Grand Flip Out Channels Created",
+                color=OSRS_GREEN,
+                description="Your server is now set up for Grand Flip Out!"
+            )
+
+            embed.add_field(
+                name="Channels Created",
+                value=(
+                    f"{alerts_channel.mention} - Dump/pump alerts\n"
+                    f"{topflips_channel.mention} - Hourly top flips\n"
+                    f"{market_summary_channel.mention} - Daily market summary\n"
+                    f"{discussion_channel.mention} - General discussion\n"
+                    f"{commands_channel.mention} - Bot commands"
+                ),
+                inline=False
+            )
+
+            embed.add_field(
+                name="Configuration",
+                value="Channel assignments have been saved. Use `/setchannel` to customize further.",
+                inline=False
+            )
+
+            await interaction.followup.send(embed=embed)
+
+        except Exception as e:
+            await interaction.followup.send(f"❌ Failed to create channels: {str(e)}")
+
+    @app_commands.command(name="setchannel", description="Configure specific channels for GFO features (admin only)")
+    @app_commands.describe(
+        channel_type="alerts, topflips, or market_summary",
+        action="set or clear"
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def setchannel_command(self, interaction: discord.Interaction, channel_type: str, action: str):
+        """Configure specific channel destinations for GFO features"""
+        await interaction.response.defer()
+
+        channel_type = channel_type.lower()
         action = action.lower()
+
+        valid_types = ["alerts", "topflips", "market_summary"]
+        if channel_type not in valid_types:
+            await interaction.followup.send(f"❌ Invalid channel type. Use: {', '.join(valid_types)}")
+            return
+
+        if action not in ["set", "clear"]:
+            await interaction.followup.send("❌ Action must be 'set' or 'clear'")
+            return
+
+        # Map channel_type to config key
+        config_key_map = {
+            "alerts": "alerts_channel",
+            "topflips": "topflips_channel",
+            "market_summary": "market_summary_channel"
+        }
+        config_key = config_key_map[channel_type]
 
         if action == "set":
             channel_id = interaction.channel.id
-            self.market_summary_channel = channel_id
-            save_market_summary_channel(channel_id)
+            self.channels_config[config_key] = channel_id
+            save_channels_config(self.channels_config)
+
+            # Update legacy market_summary_channel if needed
+            if channel_type == "market_summary":
+                self.market_summary_channel = channel_id
+
+            feature_names = {
+                "alerts": "Dump/pump alerts",
+                "topflips": "Hourly top flips",
+                "market_summary": "Daily market summaries"
+            }
+
             await interaction.followup.send(
-                f"✅ Market summaries will now be posted to {interaction.channel.mention}"
+                f"✅ {feature_names[channel_type]} will now be posted to {interaction.channel.mention}"
             )
-        elif action == "clear":
-            self.market_summary_channel = None
-            save_market_summary_channel(None)
-            await interaction.followup.send("✅ Market summaries disabled.")
-        else:
-            await interaction.followup.send("Use 'set' or 'clear'.")
+        else:  # clear
+            self.channels_config[config_key] = None
+            save_channels_config(self.channels_config)
+
+            if channel_type == "market_summary":
+                self.market_summary_channel = None
+
+            await interaction.followup.send(f"✅ {channel_type} channel cleared.")
 
     @app_commands.command(name="help", description="Show bot commands and features")
     async def help_command(self, interaction: discord.Interaction):
@@ -258,11 +404,13 @@ class Admin(commands.Cog):
     @tasks.loop(hours=24)
     async def post_market_summary(self):
         """Post daily market summary to configured channel"""
-        if not self.market_summary_channel:
+        # Ensure we have the latest config
+        market_ch_id = self.channels_config.get('market_summary_channel') or self.market_summary_channel
+        if not market_ch_id:
             return
 
         try:
-            ch = self.bot.get_channel(self.market_summary_channel)
+            ch = self.bot.get_channel(market_ch_id)
             if not ch:
                 return
 
@@ -313,10 +461,13 @@ class Admin(commands.Cog):
 
     @tasks.loop(minutes=5)
     async def check_dumps(self):
-        """Post dump opportunities to configured channel"""
+        """Post dump opportunities to configured alerts channel"""
         global _alert_last_global, _alert_item_times, _alert_count_this_hour
 
-        dump_channel_id = int(self.bot.config.get('DUMP_ALERT_CHANNEL_ID', 0)) if self.bot.config.get('DUMP_ALERT_CHANNEL_ID') else None
+        # Try to get alerts channel from config, fallback to env var for legacy support
+        dump_channel_id = self.channels_config.get('alerts_channel')
+        if not dump_channel_id:
+            dump_channel_id = int(self.bot.config.get('DUMP_ALERT_CHANNEL_ID', 0)) if self.bot.config.get('DUMP_ALERT_CHANNEL_ID') else None
 
         if not dump_channel_id:
             return

@@ -125,7 +125,8 @@
         .items-table td { padding:10px 12px; font-size:13px; border-bottom:1px solid var(--border); vertical-align:middle; }
         .item-row-icon { width:32px; height:32px; border-radius:6px; background:var(--bg-surface); display:inline-flex; align-items:center; justify-content:center; overflow:hidden; vertical-align:middle; margin-right:8px; box-shadow:0 0 8px rgba(255,152,31,0.2); }
         .item-row-icon img { width:100%; height:100%; object-fit:contain; }
-        .item-name-cell { font-weight:600; color:var(--text); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .item-name-cell { font-weight:600; color:var(--text); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+        .item-name-cell:hover { text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:2px; }
         .verdict-pill { display:inline-block; padding:4px 12px; border-radius:8px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; transition:all .2s; background:linear-gradient(135deg,rgba(255,152,31,0.2),rgba(255,152,31,0.1)); }
         .verdict-pill.great { background:linear-gradient(135deg,rgba(34,197,94,0.25),rgba(34,197,94,0.1)); color:var(--green); box-shadow:0 0 12px rgba(34,197,94,0.2); }
         .verdict-pill.good { background:rgba(34,197,94,0.1); color:#4ade80; }
@@ -1254,9 +1255,11 @@
                         <button class="ts-btn active" data-ts="1h" onclick="loadTimeseries('1h',this)">1H</button>
                         <button class="ts-btn" data-ts="6h" onclick="loadTimeseries('6h',this)">6H</button>
                         <button class="ts-btn" data-ts="24h" onclick="loadTimeseries('24h',this)">24H</button>
+                        <button class="ts-btn" data-ts="7d" onclick="loadTimeseries('7d',this)">7D</button>
+                        <button class="ts-btn" data-ts="30d" onclick="loadTimeseries('30d',this)">30D</button>
                     </div>
                 </div>
-                <canvas id="modalTimeseriesChart" width="560" height="140" style="width:100%; height:140px;"></canvas>
+                <canvas id="modalTimeseriesChart" width="560" height="280" style="width:100%; height:280px;"></canvas>
                 <div id="tsChartLegend" style="display:flex; gap:16px; justify-content:center; margin-top:6px; font-size:10px; color:var(--text-muted);">
                     <span><span style="display:inline-block;width:10px;height:2px;background:#22c55e;margin-right:4px;vertical-align:middle;"></span>Insta-Buy (High)</span>
                     <span><span style="display:inline-block;width:10px;height:2px;background:#f59e0b;margin-right:4px;vertical-align:middle;"></span>Insta-Sell (Low)</span>
@@ -2654,12 +2657,23 @@ function cacheCleanup() {
 }
 
 async function fetchTimeseries(itemId, timestep) {
+    // Map extended timesteps to Wiki API timesteps
+    let apiTimestep = timestep;
+    let limit = null;
+    if (timestep === '7d') {
+        apiTimestep = '6h';
+        limit = 28; // 7 days * 4 (6h intervals)
+    } else if (timestep === '30d') {
+        apiTimestep = '24h';
+        limit = 30; // 30 days
+    }
+
     const cacheKey = `${itemId}_${timestep}`;
     const cached = TIMESERIES_CACHE[cacheKey];
     if (cached && Date.now() - cached.fetchedAt < 300000) return cached.data; // 5 min cache
 
     try {
-        const resp = await fetch(`https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=${timestep}&id=${itemId}`, {
+        const resp = await fetch(`https://prices.runescape.wiki/api/v1/osrs/timeseries?timestep=${apiTimestep}&id=${itemId}`, {
             headers: { 'User-Agent': 'GrandFlipOut - OSRS flipping dashboard' }
         });
         if (!resp.ok) {
@@ -2667,7 +2681,11 @@ async function fetchTimeseries(itemId, timestep) {
             return null;
         }
         const json = await resp.json();
-        const data = json.data || [];
+        let data = json.data || [];
+        // Slice to the last N datapoints for extended timeframes
+        if (limit && data.length > limit) {
+            data = data.slice(-limit);
+        }
         TIMESERIES_CACHE[cacheKey] = { data, fetchedAt: Date.now() };
         cacheCleanup();
         updateAPIStatus(true);
@@ -2819,8 +2837,12 @@ function drawTimeseriesChart(canvas, data, timestep) {
         const idx = Math.floor(i * (n - 1) / Math.max(labelCount - 1, 1));
         const ts = data[idx].timestamp;
         const d = new Date(ts * 1000);
-        const label = timestep === '24h' ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) :
-                      d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        let label;
+        if (timestep === '7d' || timestep === '30d' || timestep === '24h') {
+            label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        } else {
+            label = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
         const x = padL + idx * xStep;
         ctx.fillText(label, x, H - 4);
     }
@@ -6209,11 +6231,11 @@ function renderSniperFeed() {
         const buyLimitHtml = buyLimit < 100 ? `<span style="margin-left:6px; color:var(--red); font-weight:700; font-size:10px;">⚠️ Limit: ${buyLimit}</span>` : '';
 
         return `
-        <div class="dp-section" style="padding:16px; cursor:pointer; border-left:4px solid ${profit >= 300000 ? 'var(--green)' : profit > 0 ? 'var(--accent)' : 'var(--red)'};" onclick="openOSRSWiki('${d.name.replace(/'/g, "\\'")}')">
+        <div class="dp-section" style="padding:16px; cursor:pointer; border-left:4px solid ${profit >= 300000 ? 'var(--green)' : profit > 0 ? 'var(--accent)' : 'var(--red)'};" onclick="openItemModal(${d.itemId})">
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                 <div class="dp-item-icon" style="width:44px;height:44px;">${iconHtml(d.icon, d.name, 44)}</div>
                 <div style="flex:1;">
-                    <div style="font-weight:700; font-size:16px; color:var(--text);">▼ ${d.name}${buyLimitHtml}</div>${tagsHtml}
+                    <div style="font-weight:700; font-size:16px; color:var(--text); cursor:pointer; text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:2px;">▼ ${d.name}${buyLimitHtml}</div>${tagsHtml}
                 </div>
                 <div style="text-align:right;">
                     <div style="font-size:22px; font-weight:900; color:var(--green); text-shadow:0 0 12px rgba(34,197,94,0.3);">▲ ${gp(profit)}<span style="font-size:11px; font-weight:500; color:var(--text-muted);">/item</span></div>
@@ -6439,9 +6461,9 @@ function renderDumpsPumps() {
     if (dc) dc.innerHTML = state.dumps.length > 0 ? state.dumps.map(d => {
         const profit = d.flipProfit || (d.sellPrice - d.buyPrice - Math.min(Math.floor(d.sellPrice * 0.02), 5000000));
         return `
-        <div class="dp-item" style="flex-wrap:wrap; gap:6px;">
+        <div class="dp-item" style="flex-wrap:wrap; gap:6px; cursor:pointer;" onclick="openItemModal(${d.itemId})">
             <div class="dp-item-icon">${iconHtml(d.icon,d.name,32)}</div>
-            <div class="dp-item-name" style="min-width:100px;">▼ ${d.name}</div>
+            <div class="dp-item-name" style="min-width:100px; cursor:pointer; text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:2px;">▼ ${d.name}</div>
             <div style="display:flex; gap:6px; align-items:center; font-size:12px; margin-left:auto;">
                 <span style="color:var(--green); font-weight:700;">▲ Buy ${gp(d.instaBuyAt || d.buyPrice)}</span>
                 <span style="color:var(--text-muted);">→</span>
@@ -6452,9 +6474,9 @@ function renderDumpsPumps() {
     `}).join('') : '<div class="empty-state" style="padding:20px;"><p>No dumps detected — scanning every 8s</p></div>';
     if (pc) pc.innerHTML = state.pumps.length > 0 ? state.pumps.map(p => {
         return `
-        <div class="dp-item">
+        <div class="dp-item" style="cursor:pointer;" onclick="openItemModal(${p.itemId})">
             <div class="dp-item-icon">${iconHtml(p.icon,p.name,32)}</div>
-            <div class="dp-item-name">▲ ${p.name}</div>
+            <div class="dp-item-name" style="cursor:pointer; text-decoration:underline; text-decoration-color:var(--accent); text-underline-offset:2px;">▲ ${p.name}</div>
             <div style="display:flex; gap:6px; align-items:center; font-size:12px; margin-left:auto;">
                 <span style="color:var(--green); font-weight:700;">▲ ${gp(p.buyPrice)}</span>
                 <span style="color:var(--text-muted);">→</span>
