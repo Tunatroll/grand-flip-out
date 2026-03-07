@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Tuple
 import math
 import traceback
+import heapq
 
 load_dotenv()
 
@@ -198,6 +199,12 @@ class WikiApiClient:
                 if price_data and price_data.get('high') and price_data.get('low'):
                     self.latest_prices[int(id_str)] = price_data
 
+            # Update streaming stats for each item
+            for iid, prices in self.latest_prices.items():
+                avg_price = ((prices.get('high', 0) or 0) + (prices.get('low', 0) or 0)) // 2
+                if avg_price > 0:
+                    update_item_stats(iid, avg_price)
+
         if 'data' in (volumes or {}):
             self.volume_data = {}
             for id_str, vol_data in volumes['data'].items():
@@ -326,13 +333,13 @@ class WikiApiClient:
             if data['margin'] > 0 and (data['buy_volume'] + data['sell_volume']) > 0:
                 items.append(data)
 
+        # heapq.nlargest is O(n log k) vs sorted O(n log n) — faster for small limit
         if sort_by == 'volume':
-            items.sort(key=lambda x: x['buy_volume'] + x['sell_volume'], reverse=True)
+            return heapq.nlargest(limit, items, key=lambda x: x['buy_volume'] + x['sell_volume'])
         elif sort_by == 'margin':
-            items.sort(key=lambda x: x.get('margin', 0), reverse=True)
+            return heapq.nlargest(limit, items, key=lambda x: x.get('margin', 0))
         else:  # realistic (default)
-            items.sort(key=lambda x: realistic_4h_profit(x), reverse=True)
-        return items[:limit]
+            return heapq.nlargest(limit, items, key=lambda x: realistic_4h_profit(x))
 
     # Junk items that should never trigger alerts
     JUNK_KEYWORDS = ['burnt ', 'broken ', 'damaged ', 'cake tin', 'pie dish', 'beer glass',
@@ -571,6 +578,63 @@ def format_vol_per_hour(item_data):
 VERDICT_EMOJI = {
     "Great Flip": "🟢", "Good Flip": "🟡", "Decent": "🟠", "Slow": "🔴", "Dead": "⚫"
 }
+
+
+# ── Streaming Statistics (Welford's Online Algorithm) ──────────────
+# O(1) memory per item — calculate mean/stddev incrementally
+class StreamingStats:
+    __slots__ = ('n', 'mean', 'M2', 'min_val', 'max_val')
+
+    def __init__(self):
+        self.n = 0
+        self.mean = 0.0
+        self.M2 = 0.0
+        self.min_val = float('inf')
+        self.max_val = float('-inf')
+
+    def update(self, x):
+        self.n += 1
+        delta = x - self.mean
+        self.mean += delta / self.n
+        delta2 = x - self.mean
+        self.M2 += delta * delta2
+        if x < self.min_val: self.min_val = x
+        if x > self.max_val: self.max_val = x
+
+    @property
+    def variance(self):
+        return self.M2 / (self.n - 1) if self.n > 1 else 0
+
+    @property
+    def stddev(self):
+        return self.variance ** 0.5
+
+    @property
+    def z_score(self):
+        """Z-score of the last known mean vs overall distribution."""
+        return 0  # Need current price for z-score
+
+    def get_z(self, current):
+        """Z-score of a value against this distribution."""
+        if self.stddev == 0 or self.n < 3:
+            return 0
+        return (current - self.mean) / self.stddev
+
+# Per-item streaming stats tracker
+_item_stats = {}
+
+def update_item_stats(item_id, price):
+    """Update streaming statistics for an item."""
+    if item_id not in _item_stats:
+        _item_stats[item_id] = StreamingStats()
+    _item_stats[item_id].update(price)
+
+def get_item_z_score(item_id, current_price):
+    """Get z-score of current price vs historical distribution."""
+    stats = _item_stats.get(item_id)
+    if not stats or stats.n < 5:
+        return 0
+    return round(stats.get_z(current_price), 2)
 
 
 def get_item_icon_url(item_id, item_name="", icon=""):
@@ -1219,6 +1283,18 @@ async def analyze_command(interaction: discord.Interaction, item_name: str):
     risk_level = '🚨 HIGH' if risk_score >= 50 else '⚠️ MEDIUM' if risk_score >= 25 else '✅ LOW'
     if risk_score > 0:
         embed.add_field(name="Manipulation Risk", value=f"{risk_level} ({risk_score}/100)\n{' · '.join(risk_reasons)}", inline=False)
+
+    # Price z-score from streaming stats
+    avg_price = (item['buy_price'] + item['sell_price']) // 2
+    z = get_item_z_score(item.get('id', 0), avg_price)
+    if abs(z) > 0.5:
+        z_label = '🔴 Very Oversold' if z < -2 else '🟠 Oversold' if z < -1 else '🟢 Very Overbought' if z > 2 else '🟡 Overbought' if z > 1 else '⚪ Normal'
+        z_detail = f"Z-Score: **{z:+.2f}** — {z_label}"
+        if z < -1.5:
+            z_detail += "\n💡 Price is significantly below average — potential buy opportunity"
+        elif z > 1.5:
+            z_detail += "\n💡 Price is significantly above average — consider selling"
+        embed.add_field(name="📊 Price Position", value=z_detail, inline=False)
 
     # Tax efficiency for expensive items
     sell_price = item.get('sell_price', 0)
@@ -2253,6 +2329,56 @@ async def suggest_command(interaction: discord.Interaction, capital: str):
         inline=False
     )
     embed.set_footer(text="Grand Flip Out v2.2 • Not financial advice, prices change fast!")
+    embed.timestamp = datetime.now()
+    await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="stats", description="Show bot statistics and market overview")
+async def stats_command(interaction: discord.Interaction):
+    """Quick market overview with key stats."""
+    await interaction.response.defer()
+
+    if not api_client.latest_prices:
+        await interaction.followup.send("Still loading data...")
+        return
+
+    total_items = len(api_client.item_mapping)
+    tracked_prices = len(api_client.latest_prices)
+    tracked_stats = len(_item_stats)
+
+    # Market overview calculations
+    profitable = 0
+    total_volume = 0
+    total_margin_gp = 0
+    best_flip = {'name': 'None', 'profit': 0}
+
+    for item_id, meta in api_client.item_mapping.items():
+        iid = int(item_id)
+        prices = api_client.latest_prices.get(iid, {})
+        high = prices.get('high', 0) or 0
+        low = prices.get('low', 0) or 0
+        if high > 0 and low > 0:
+            tax = min(int(high * 0.02), 5000000)
+            profit = high - low - tax
+            if profit > 0:
+                profitable += 1
+                total_margin_gp += profit
+                if profit > best_flip['profit']:
+                    best_flip = {'name': meta.get('name', '?'), 'profit': profit}
+
+        vol = api_client.volume_data.get(iid, {})
+        total_volume += (vol.get('highPriceVolume', 0) or 0) + (vol.get('lowPriceVolume', 0) or 0)
+
+    avg_margin = total_margin_gp // max(profitable, 1)
+
+    embed = discord.Embed(title="📊 Grand Flip Out — Market Overview", color=OSRS_GOLD)
+    embed.add_field(name="Items Tracked", value=f"**{tracked_prices:,}** / {total_items:,}", inline=True)
+    embed.add_field(name="Profitable Flips", value=f"**{profitable:,}**", inline=True)
+    embed.add_field(name="5m Trade Volume", value=f"**{total_volume:,}** trades", inline=True)
+    embed.add_field(name="Best Flip Right Now", value=f"**{best_flip['name']}**\n{format_gp(best_flip['profit'])}/item", inline=True)
+    embed.add_field(name="Avg Profit/Item", value=f"**{format_gp(avg_margin)}**", inline=True)
+    embed.add_field(name="Stats Tracked", value=f"**{tracked_stats:,}** items with history", inline=True)
+    embed.set_footer(text="Grand Flip Out | Live OSRS Wiki data")
     embed.timestamp = datetime.now()
     await interaction.followup.send(embed=embed)
 

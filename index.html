@@ -150,6 +150,12 @@
         .item-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px; transition:all .2s; cursor:pointer; position:relative; animation:fadeIn .3s ease-in; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         .item-card:hover { border-color:var(--accent); box-shadow:0 0 20px var(--accent-glow); transform:translateY(-4px); }
+        /* CSS Performance: containment + content-visibility for smooth rendering */
+        .item-card, .dump-card, .snipe-card { contain: content; content-visibility: auto; contain-intrinsic-size: auto 100px; }
+        .tab-panel:not(.active) { content-visibility: hidden; }
+        .chart-box, .modal-stats-grid, .modal-price-row { contain: layout style; }
+        #categoryHeatmap > div { contain: content; content-visibility: auto; contain-intrinsic-size: auto 90px; }
+        #alchScannerGrid > div { contain: content; content-visibility: auto; contain-intrinsic-size: auto 70px; }
         .card-icon { width:48px; height:48px; margin:0 auto 10px; background:var(--bg-surface); border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; box-shadow:0 0 12px rgba(255,152,31,0.15); }
         .card-icon img { width:100%; height:100%; object-fit:contain; }
         .card-name { font-weight:700; font-size:13px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:8px; }
@@ -742,11 +748,19 @@
             <button class="cat-pill" data-cat="3rd-age">3rd Age</button>
             <button class="cat-pill" data-cat="brutal">Brutal Arrows</button>
             <button class="cat-pill" data-cat="implings">Implings</button>
+            <button class="cat-pill" data-cat="jewelry">Enchanted Jewelry</button>
+            <button class="cat-pill" data-cat="seeds">Farming Seeds</button>
+            <button class="cat-pill" data-cat="bows">Bows & Strings</button>
+            <button class="cat-pill" data-cat="clue">Clue Rewards</button>
         </div>
         <div id="cat-poisoned" class="cat-content"><div id="poisonedList"></div></div>
         <div id="cat-3rd-age" class="cat-content hidden"><div id="thirdAgeList"></div></div>
         <div id="cat-brutal" class="cat-content hidden"><div id="brutalList"></div></div>
         <div id="cat-implings" class="cat-content hidden"><div id="implingList"></div></div>
+        <div id="cat-jewelry" class="cat-content hidden"><div id="jewelryList"></div></div>
+        <div id="cat-seeds" class="cat-content hidden"><div id="seedsList"></div></div>
+        <div id="cat-bows" class="cat-content hidden"><div id="bowsList"></div></div>
+        <div id="cat-clue" class="cat-content hidden"><div id="clueList"></div></div>
     </div>
 
     <!-- ===== ALCHEMY SCANNER TAB ===== -->
@@ -1084,6 +1098,133 @@ const state = {
     priceMemory: {},     // itemId -> { avg24h, avg4h, high24h, low24h, samples: [{time,price}], lastUpdated }
     spreadHistory: {},   // itemId -> [{ time, spread, spreadPct }] rolling 30-min window
     dumpConfidence: {},  // itemId -> { firstSeen, confirmations, peakScore, lastScore }
+};
+
+// ============================================
+// INDEXEDDB PRICE HISTORY (Cross-Session Persistence)
+// ============================================
+// IndexedDB can store gigabytes vs localStorage's 5MB limit.
+// This lets us keep 30+ days of price history for all items.
+
+const PRICE_DB = {
+    db: null,
+    DB_NAME: 'GFO_PriceHistory',
+    DB_VERSION: 1,
+
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('snapshots')) {
+                    const store = db.createObjectStore('snapshots', { keyPath: ['itemId', 'timestamp'] });
+                    store.createIndex('byItem', 'itemId', { unique: false });
+                    store.createIndex('byTime', 'timestamp', { unique: false });
+                }
+                if (!db.objectStoreNames.contains('dailyStats')) {
+                    const statsStore = db.createObjectStore('dailyStats', { keyPath: ['itemId', 'date'] });
+                    statsStore.createIndex('byItem', 'itemId', { unique: false });
+                }
+            };
+            request.onsuccess = () => { this.db = request.result; resolve(); };
+            request.onerror = () => { console.warn('IndexedDB failed, using memory only'); resolve(); };
+        });
+    },
+
+    async saveSnapshot(itemId, buyPrice, sellPrice, volume) {
+        if (!this.db) return;
+        try {
+            const tx = this.db.transaction('snapshots', 'readwrite');
+            tx.objectStore('snapshots').put({
+                itemId, timestamp: Date.now(),
+                buy: buyPrice, sell: sellPrice, vol: volume,
+                margin: sellPrice - buyPrice - Math.min(Math.floor(sellPrice * 0.02), 5000000)
+            });
+        } catch (e) { /* ignore write failures */ }
+    },
+
+    async saveBatch(items) {
+        if (!this.db || !items || items.length === 0) return;
+        try {
+            const tx = this.db.transaction('snapshots', 'readwrite');
+            const store = tx.objectStore('snapshots');
+            const now = Date.now();
+            for (const item of items) {
+                if (!item.buyPrice || !item.sellPrice) continue;
+                store.put({
+                    itemId: item.itemId, timestamp: now,
+                    buy: item.buyPrice, sell: item.sellPrice,
+                    vol: (item.buyQuantity || 0) + (item.sellQuantity || 0),
+                    margin: item.margin || 0
+                });
+            }
+        } catch (e) { /* batch write failure */ }
+    },
+
+    async getHistory(itemId, hours = 24) {
+        if (!this.db) return [];
+        return new Promise((resolve) => {
+            try {
+                const tx = this.db.transaction('snapshots', 'readonly');
+                const index = tx.objectStore('snapshots').index('byItem');
+                const cutoff = Date.now() - (hours * 3600000);
+                const results = [];
+                const request = index.openCursor(IDBKeyRange.only(itemId));
+                request.onsuccess = (e) => {
+                    const cursor = e.target.result;
+                    if (cursor) {
+                        if (cursor.value.timestamp >= cutoff) results.push(cursor.value);
+                        cursor.continue();
+                    } else {
+                        resolve(results.sort((a, b) => a.timestamp - b.timestamp));
+                    }
+                };
+                request.onerror = () => resolve([]);
+            } catch (e) { resolve([]); }
+        });
+    },
+
+    async cleanup(maxAgeDays = 30) {
+        if (!this.db) return;
+        try {
+            const tx = this.db.transaction('snapshots', 'readwrite');
+            const store = tx.objectStore('snapshots');
+            const cutoff = Date.now() - (maxAgeDays * 86400000);
+            const index = store.index('byTime');
+            const request = index.openCursor(IDBKeyRange.upperBound(cutoff));
+            request.onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) { cursor.delete(); cursor.continue(); }
+            };
+        } catch (e) { /* cleanup failure */ }
+    },
+
+    async saveDailyStats(itemId, stats) {
+        if (!this.db) return;
+        try {
+            const tx = this.db.transaction('dailyStats', 'readwrite');
+            const date = new Date().toISOString().split('T')[0];
+            tx.objectStore('dailyStats').put({ itemId, date, ...stats });
+        } catch (e) { /* ignore */ }
+    },
+
+    async getDailyStats(itemId, days = 30) {
+        if (!this.db) return [];
+        return new Promise((resolve) => {
+            try {
+                const tx = this.db.transaction('dailyStats', 'readonly');
+                const index = tx.objectStore('dailyStats').index('byItem');
+                const results = [];
+                const request = index.openCursor(IDBKeyRange.only(itemId));
+                request.onsuccess = (e) => {
+                    const cursor = e.target.result;
+                    if (cursor) { results.push(cursor.value); cursor.continue(); }
+                    else resolve(results.sort((a, b) => a.date.localeCompare(b.date)).slice(-days));
+                };
+                request.onerror = () => resolve([]);
+            } catch (e) { resolve([]); }
+        });
+    }
 };
 
 // ============================================
@@ -1554,6 +1695,8 @@ function processLatest(latestData, volData, force = false) {
             buyQuantity:bv, sellQuantity:sv, buyLimit:meta.limit||0, highAlch:meta.highalch||0,
         };
         obj.jtiScore = calculateJTI(obj);
+        // Update streaming stats and EMA tracking
+        ITEM_STATS.update(id, Math.round((bp + sp) / 2));
         const prev = state.prevPrices[id], cur = Math.round((bp+sp)/2);
         if (prev && prev > 0) { obj.percentChange = ((cur-prev)/prev)*100; totalDrift += Math.abs(obj.percentChange); priceCount++; }
         else obj.percentChange = 0;
@@ -1600,6 +1743,8 @@ async function loadTopFlips(force = false) {
     state.cachedVolData = vd;
     const { items } = processLatest(ld, vd, force);
     state.allItems = items; state.items = items.slice(0, 200);
+    // Persist snapshots to IndexedDB for cross-session history
+    PRICE_DB.saveBatch(state.allItems.slice(0, 500)); // Top 500 items
     state.isConnected = true; state.lastFullRefresh = Date.now();
     updateStatus(true);
     renderAll(); // Always render — never skip updates
@@ -3064,6 +3209,102 @@ const PRICE_PATTERNS = {
         if (bb.pctB > 0.8 || rsi.signal === 'overbought') return { action: 'SELL', label: 'Sell Signal', icon: '🟡', confidence: 65, detail: `RSI: ${rsi.rsi}, %B: ${(bb.pctB * 100).toFixed(0)}%` };
         // Neutral
         return { action: 'HOLD', label: 'No clear signal', icon: '⚪', confidence: 50, detail: `RSI: ${rsi.rsi}, %B: ${(bb.pctB * 100).toFixed(0)}%` };
+    }
+};
+
+// ============================================
+// STREAMING STATISTICS (Welford's Online Algorithm)
+// ============================================
+// Calculate mean, stddev, min, max incrementally without storing full history.
+// O(1) memory per item instead of O(n). Perfect for 4500+ items.
+
+class StreamingStats {
+    constructor() { this.n = 0; this.mean = 0; this.M2 = 0; this.min = Infinity; this.max = -Infinity; }
+    update(x) {
+        this.n++;
+        const delta = x - this.mean;
+        this.mean += delta / this.n;
+        const delta2 = x - this.mean;
+        this.M2 += delta * delta2;
+        if (x < this.min) this.min = x;
+        if (x > this.max) this.max = x;
+    }
+    get variance() { return this.n < 2 ? 0 : this.M2 / (this.n - 1); }
+    get stddev() { return Math.sqrt(this.variance); }
+    get range() { return this.max - this.min; }
+    get cv() { return this.mean > 0 ? (this.stddev / this.mean) * 100 : 0; } // coefficient of variation %
+}
+
+// EMA (Exponential Moving Average) — weights recent prices more heavily
+class EMA {
+    constructor(period) { this.period = period; this.k = 2 / (period + 1); this.ema = null; }
+    update(price) {
+        if (this.ema === null) this.ema = price;
+        else this.ema = price * this.k + this.ema * (1 - this.k);
+        return this.ema;
+    }
+}
+
+// Track streaming stats and EMA for each item
+const ITEM_STATS = {
+    stats: {},    // itemId -> StreamingStats
+    ema5: {},     // 5-period fast EMA
+    ema20: {},    // 20-period slow EMA
+    crossovers: {}, // itemId -> last crossover signal
+
+    update(itemId, price) {
+        if (!price || price <= 0) return;
+
+        // Streaming stats
+        if (!this.stats[itemId]) this.stats[itemId] = new StreamingStats();
+        this.stats[itemId].update(price);
+
+        // EMA crossover
+        if (!this.ema5[itemId]) this.ema5[itemId] = new EMA(5);
+        if (!this.ema20[itemId]) this.ema20[itemId] = new EMA(20);
+
+        const fast = this.ema5[itemId].update(price);
+        const slow = this.ema20[itemId].update(price);
+
+        // Detect crossover (fast crossing above slow = bullish, below = bearish)
+        const prevCross = this.crossovers[itemId];
+        const currentSignal = fast > slow ? 'BULLISH' : fast < slow ? 'BEARISH' : 'NEUTRAL';
+
+        if (prevCross && prevCross.signal !== currentSignal) {
+            this.crossovers[itemId] = {
+                signal: currentSignal,
+                time: Date.now(),
+                fresh: true, // Just crossed
+                fast, slow, price
+            };
+        } else if (!prevCross) {
+            this.crossovers[itemId] = { signal: currentSignal, time: Date.now(), fresh: false, fast, slow, price };
+        } else {
+            prevCross.fresh = false; // No longer fresh after first observation
+        }
+    },
+
+    getSignal(itemId) {
+        const cross = this.crossovers[itemId];
+        const stat = this.stats[itemId];
+        if (!cross || !stat || stat.n < 5) return null;
+
+        const zScore = stat.stddev > 0 ? (cross.price - stat.mean) / stat.stddev : 0;
+
+        return {
+            trend: cross.signal,
+            fresh: cross.fresh,
+            emaFast: Math.round(cross.fast),
+            emaSlow: Math.round(cross.slow),
+            zScore: Math.round(zScore * 100) / 100,
+            volatility: Math.round(stat.cv * 10) / 10, // coefficient of variation
+            samples: stat.n,
+            icon: cross.signal === 'BULLISH' ? '📈' : cross.signal === 'BEARISH' ? '📉' : '➡️',
+            label: cross.fresh ?
+                (cross.signal === 'BULLISH' ? 'EMA Crossover — BUY signal' : 'EMA Crossover — SELL signal') :
+                (cross.signal === 'BULLISH' ? 'Uptrend (EMA5 > EMA20)' : cross.signal === 'BEARISH' ? 'Downtrend (EMA5 < EMA20)' : 'Neutral'),
+            detail: `EMA5: ${gp(cross.fast)} | EMA20: ${gp(cross.slow)} | Z: ${zScore.toFixed(1)} | Vol: ${stat.cv.toFixed(1)}%`
+        };
     }
 };
 
@@ -5543,7 +5784,7 @@ function renderRecipes() {
 // SPECIAL ITEMS
 // ============================================
 async function loadSpecialItems(cat) {
-    const cid = { poisoned:'poisonedList', '3rd-age':'thirdAgeList', brutal:'brutalList', implings:'implingList' }[cat];
+    const cid = { poisoned:'poisonedList', '3rd-age':'thirdAgeList', brutal:'brutalList', implings:'implingList', jewelry:'jewelryList', seeds:'seedsList', bows:'bowsList', clue:'clueList' }[cat];
     const container = document.getElementById(cid);
     if (!container) return;
     container.innerHTML = '<div class="empty-state" style="padding:20px;"><p>Loading...</p></div>';
@@ -5554,11 +5795,20 @@ async function loadSpecialItems(cat) {
 
 function filterSpecial(cat) {
     const items = state.items;
+    const jewelryKeywords = ['ring of dueling', 'games necklace', 'necklace of passage', 'ring of wealth', 'amulet of glory', 'combat bracelet', 'skills necklace', 'ring of returning', 'digsite pendant'];
+    const seedsKeywords = ['ranarr seed', 'snapdragon seed', 'torstol seed', 'toadflax seed', 'palm tree seed', 'magic seed', 'yew seed', 'dragonfruit tree seed', 'spirit seed', 'celastrus seed', 'redwood tree seed'];
+    const bowsKeywords = ['maple longbow (u)', 'yew longbow (u)', 'magic longbow (u)', 'maple longbow', 'yew longbow', 'magic longbow', 'bow string', 'magic shortbow'];
+    const clueKeywords = ['3rd age', 'ranger boots', 'robin hood hat', 'gilded', 'god page', 'blessed', 'ornament kit', 'master scroll book'];
+
     switch(cat) {
         case 'poisoned': return { poisoned: items.filter(i=>i.name&&(i.name.includes('(p)')||i.name.includes('(p+)')||i.name.includes('(p++)'))).map(i=>({name:i.name,icon:i.icon,buyPrice:i.buyPrice,sellPrice:i.sellPrice,profit:i.margin||0,tier:i.name.includes('(p++)')?'p++':i.name.includes('(p+)')?'p+':'p',volume:(i.buyQuantity||0)+(i.sellQuantity||0)}))};
         case '3rd-age': return { thirdAge: items.filter(i=>i.name&&i.name.toLowerCase().startsWith('3rd age')).map(i=>({name:i.name,icon:i.icon,buyPrice:i.buyPrice,sellPrice:i.sellPrice,margin:i.margin||0,geTax:Math.min(Math.floor((i.sellPrice||0)*0.02),5000000),volume:(i.buyQuantity||0)+(i.sellQuantity||0)}))};
         case 'brutal': return { brutal: items.filter(i=>i.name&&i.name.toLowerCase().includes('brutal')).map(i=>({name:i.name,icon:i.icon,buyPrice:i.buyPrice,sellPrice:i.sellPrice,flipMargin:i.margin||0,craftProfit:0,bestStrategy:'flip',volume:(i.buyQuantity||0)+(i.sellQuantity||0)}))};
         case 'implings': return { implings: items.filter(i=>i.name&&i.name.toLowerCase().includes('impling')).map(i=>({name:i.name,icon:i.icon,buyPrice:i.buyPrice,sellPrice:i.sellPrice,flipMargin:i.margin||0,expectedProfit:0,volume:(i.buyQuantity||0)+(i.sellQuantity||0)}))};
+        case 'jewelry': return { jewelry: items.filter(i=>i.name&&jewelryKeywords.some(k=>i.name.toLowerCase().includes(k))).map(i=>({name:i.name,icon:i.icon,buyPrice:i.buyPrice,sellPrice:i.sellPrice,margin:i.margin||0,volume:(i.buyQuantity||0)+(i.sellQuantity||0)}))};
+        case 'seeds': return { seeds: items.filter(i=>i.name&&seedsKeywords.some(k=>i.name.toLowerCase().includes(k))).map(i=>({name:i.name,icon:i.icon,buyPrice:i.buyPrice,sellPrice:i.sellPrice,margin:i.margin||0,volume:(i.buyQuantity||0)+(i.sellQuantity||0)}))};
+        case 'bows': return { bows: items.filter(i=>i.name&&bowsKeywords.some(k=>i.name.toLowerCase().includes(k))).map(i=>({name:i.name,icon:i.icon,buyPrice:i.buyPrice,sellPrice:i.sellPrice,margin:i.margin||0,volume:(i.buyQuantity||0)+(i.sellQuantity||0)}))};
+        case 'clue': return { clue: items.filter(i=>i.name&&clueKeywords.some(k=>i.name.toLowerCase().includes(k))).map(i=>({name:i.name,icon:i.icon,buyPrice:i.buyPrice,sellPrice:i.sellPrice,margin:i.margin||0,volume:(i.buyQuantity||0)+(i.sellQuantity||0)}))};
         default: return {};
     }
 }
@@ -5570,6 +5820,10 @@ function renderSpecial(cat, data, container) {
         case '3rd-age': items = data.thirdAge || []; break;
         case 'brutal': items = data.brutal || []; break;
         case 'implings': items = data.implings || []; break;
+        case 'jewelry': items = data.jewelry || []; break;
+        case 'seeds': items = data.seeds || []; break;
+        case 'bows': items = data.bows || []; break;
+        case 'clue': items = data.clue || []; break;
     }
     if (items.length === 0) { container.innerHTML = '<div class="empty-state" style="padding:20px;"><p>No items found. Data may still be loading.</p></div>'; return; }
     container.innerHTML = items.map(item => `
@@ -5795,6 +6049,18 @@ function openItemModal(itemId) {
             <div class="modal-stat-label">Technical Signal (Bollinger + RSI)</div>
             <div class="modal-stat-value" style="color:${signal.action.includes('BUY') ? 'var(--green)' : signal.action.includes('SELL') ? 'var(--red)' : 'var(--text-secondary)'};">
                 ${signal.icon} ${signal.label} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${signal.detail} · ${signal.confidence}% confidence</span>
+            </div>
+        </div>`;
+    }
+    // EMA crossover signal
+    const emaSig = ITEM_STATS.getSignal(item.itemId);
+    if (emaSig && emaSig.samples >= 10) {
+        const emaBg = emaSig.trend === 'BULLISH' ? 'rgba(34,197,94,0.08)' : emaSig.trend === 'BEARISH' ? 'rgba(239,68,68,0.08)' : 'rgba(255,152,31,0.04)';
+        const emaColor = emaSig.trend === 'BULLISH' ? 'var(--green)' : emaSig.trend === 'BEARISH' ? 'var(--red)' : 'var(--text-secondary)';
+        statsHtml += `<div class="modal-stat" style="grid-column:1/-1; background:${emaBg}; border:1px solid ${emaSig.fresh ? emaColor : 'var(--border)'};">
+            <div class="modal-stat-label">${emaSig.icon} EMA Crossover Signal${emaSig.fresh ? ' <span style="color:var(--accent);font-size:9px;font-weight:700;">FRESH!</span>' : ''}</div>
+            <div class="modal-stat-value" style="color:${emaColor};">
+                ${emaSig.label} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">${emaSig.detail}</span>
             </div>
         </div>`;
     }
@@ -6091,6 +6357,8 @@ document.getElementById('itemModal').addEventListener('click', e => {
 // INIT
 // ============================================
 async function init() {
+    await PRICE_DB.init();
+    PRICE_DB.cleanup(30); // Clean entries older than 30 days on startup
     loadSettings();
     loadExtendedSettings();
     loadWatchlist();
