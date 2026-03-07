@@ -27,6 +27,7 @@ BOT_INVITE_URL = 'https://discord.com/oauth2/authorize?client_id=147908917320928
 DUMP_ALERT_CHANNEL_ID = int(os.getenv('DUMP_ALERT_CHANNEL_ID', '0')) if os.getenv('DUMP_ALERT_CHANNEL_ID') else None
 WATCHLIST_FILE = 'watchlists.json'
 USER_ALERTS_FILE = 'user_alerts.json'
+MARKET_SUMMARY_CHANNEL_FILE = 'market_summary_channel.json'
 
 # OSRS Wiki API
 WIKI_API_BASE = 'https://prices.runescape.wiki/api/v1/osrs'
@@ -869,6 +870,7 @@ async def on_ready():
     refresh_mapping_loop.start()
     check_dumps.start()
     check_user_alerts.start()
+    post_market_summary.start()
     rotate_status.start()
 
     # Connect to backend WebSocket if server is running
@@ -2516,6 +2518,352 @@ async def check_user_alerts():
 
 @check_user_alerts.before_loop
 async def before_check_user_alerts():
+    await bot.wait_until_ready()
+
+
+# ── User Portfolio Storage ──
+_user_portfolios = {}  # user_id -> [{ item_id, item_name, quantity, buy_price, timestamp }]
+
+def load_portfolios():
+    """Load user portfolios from file"""
+    global _user_portfolios
+    portfolio_file = 'user_portfolios.json'
+    if os.path.exists(portfolio_file):
+        try:
+            with open(portfolio_file, 'r') as f:
+                _user_portfolios = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            _user_portfolios = {}
+    return _user_portfolios
+
+def save_portfolios():
+    """Save user portfolios to file"""
+    with open('user_portfolios.json', 'w') as f:
+        json.dump(_user_portfolios, f, indent=2)
+
+# Load portfolios on startup
+load_portfolios()
+
+
+@bot.tree.command(name="alert", description="Set price alerts for items")
+@app_commands.describe(
+    action="set, list, or clear",
+    item="Item name",
+    direction="above or below",
+    price="Price threshold"
+)
+@app_commands.autocomplete(item=item_name_autocomplete)
+async def alert_command(interaction: discord.Interaction, action: str, item: Optional[str] = None, direction: Optional[str] = None, price: Optional[int] = None):
+    """Manage price alerts - get notified when items hit target prices"""
+    await interaction.response.defer()
+    user_id = str(interaction.user.id)
+
+    if action.lower() == "set":
+        if not item or not direction or price is None:
+            await interaction.followup.send("Usage: `/alert set <item> <above|below> <price>`")
+            return
+
+        item_data = api_client.find_item_by_name(item)
+        if not item_data:
+            await interaction.followup.send(f"Couldn't find item matching '{item}'.")
+            return
+
+        alerts = load_user_alerts()
+        if user_id not in alerts:
+            alerts[user_id] = []
+
+        new_alert = {
+            'item_id': item_data['id'],
+            'item_name': item_data['name'],
+            'direction': direction.lower(),
+            'target_price': price,
+            'enabled': True,
+            'created_at': datetime.now().isoformat()
+        }
+        alerts[user_id].append(new_alert)
+        save_user_alerts(alerts)
+
+        embed = discord.Embed(
+            title="⚡ Price Alert Set",
+            description=f"You'll be notified when **{item_data['name']}** goes **{direction.lower()}** **{price:,} gp**.",
+            color=OSRS_GOLD
+        )
+        embed.set_thumbnail(url=get_item_icon_url(item_data['id'], item_data['name']))
+        embed.add_field(name="Current Price", value=f"{item_data['current_price']:,} gp", inline=True)
+        embed.set_footer(text="Check alerts with /alert list")
+        await interaction.followup.send(embed=embed)
+
+    elif action.lower() == "list":
+        alerts = load_user_alerts()
+        user_alerts = alerts.get(user_id, [])
+
+        if not user_alerts:
+            await interaction.followup.send("You have no price alerts set. Use `/alert set` to create one.")
+            return
+
+        embed = discord.Embed(title="📋 Your Price Alerts", color=OSRS_GOLD)
+        for i, alert in enumerate(user_alerts, 1):
+            item_name = alert.get('item_name', 'Unknown')
+            direction = alert.get('direction', '?').upper()
+            target = alert.get('target_price', 0)
+            status = "🟢 Active" if alert.get('enabled', True) else "🔴 Inactive"
+            embed.add_field(
+                name=f"{i}. {item_name}",
+                value=f"{direction} {target:,} gp • {status}",
+                inline=False
+            )
+        embed.set_footer(text="Use /alert clear [item] to remove an alert")
+        await interaction.followup.send(embed=embed)
+
+    elif action.lower() == "clear":
+        if not item:
+            await interaction.followup.send("Usage: `/alert clear [item]` or `/alert clear all`")
+            return
+
+        alerts = load_user_alerts()
+        user_alerts = alerts.get(user_id, [])
+
+        if item.lower() == "all":
+            alerts[user_id] = []
+            save_user_alerts(alerts)
+            await interaction.followup.send("✅ All price alerts cleared.")
+            return
+
+        item_data = api_client.find_item_by_name(item)
+        if not item_data:
+            await interaction.followup.send(f"Couldn't find item matching '{item}'.")
+            return
+
+        before = len(user_alerts)
+        alerts[user_id] = [a for a in user_alerts if a.get('item_id') != item_data['id']]
+        after = len(alerts[user_id])
+
+        if before == after:
+            await interaction.followup.send(f"You don't have an alert for **{item_data['name']}**.")
+            return
+
+        save_user_alerts(alerts)
+        await interaction.followup.send(f"✅ Alert for **{item_data['name']}** removed.")
+
+    else:
+        await interaction.followup.send("Use: `/alert set`, `/alert list`, or `/alert clear`")
+
+
+@bot.tree.command(name="portfolio", description="Track your flip positions and P&L")
+@app_commands.describe(action="add, view, or remove", item="Item name", quantity="Number of items", buy_price="Price you bought at")
+@app_commands.autocomplete(item=item_name_autocomplete)
+async def portfolio_command(interaction: discord.Interaction, action: str, item: Optional[str] = None, quantity: Optional[int] = None, buy_price: Optional[int] = None):
+    """Manage your flip portfolio - track positions with live P&L"""
+    await interaction.response.defer()
+    user_id = str(interaction.user.id)
+
+    if action.lower() == "add":
+        if not item or quantity is None or buy_price is None:
+            await interaction.followup.send("Usage: `/portfolio add <item> <quantity> <buy_price>`")
+            return
+
+        if quantity <= 0 or buy_price <= 0:
+            await interaction.followup.send("Quantity and price must be positive numbers.")
+            return
+
+        item_data = api_client.find_item_by_name(item)
+        if not item_data:
+            await interaction.followup.send(f"Couldn't find item matching '{item}'.")
+            return
+
+        if user_id not in _user_portfolios:
+            _user_portfolios[user_id] = []
+
+        position = {
+            'item_id': item_data['id'],
+            'item_name': item_data['name'],
+            'quantity': quantity,
+            'buy_price': buy_price,
+            'timestamp': datetime.now().isoformat()
+        }
+        _user_portfolios[user_id].append(position)
+        save_portfolios()
+
+        total_cost = quantity * buy_price
+        embed = discord.Embed(
+            title="📦 Position Added",
+            description=f"Added **{quantity:,}x {item_data['name']}** @ {buy_price:,} gp each",
+            color=OSRS_GOLD
+        )
+        embed.set_thumbnail(url=get_item_icon_url(item_data['id'], item_data['name']))
+        embed.add_field(name="Total Cost", value=f"**{total_cost:,} gp**", inline=True)
+        embed.add_field(name="Current Price", value=f"{item_data['current_price']:,} gp", inline=True)
+        embed.set_footer(text="Check your portfolio with /portfolio view")
+        await interaction.followup.send(embed=embed)
+
+    elif action.lower() == "view":
+        portfolio = _user_portfolios.get(user_id, [])
+
+        if not portfolio:
+            await interaction.followup.send("Your portfolio is empty. Use `/portfolio add` to add positions.")
+            return
+
+        embed = discord.Embed(title="💼 Your Portfolio", color=OSRS_GOLD)
+        total_invested = 0
+        total_value = 0
+
+        for pos in portfolio:
+            item_id = pos.get('item_id')
+            item_name = pos.get('item_name', 'Unknown')
+            qty = pos.get('quantity', 0)
+            buy_price = pos.get('buy_price', 0)
+
+            current_data = api_client._build_item_data(item_id)
+            current_price = current_data.get('current_price', 0) if current_data else 0
+
+            cost = qty * buy_price
+            value = qty * current_price
+            pnl = value - cost
+            pnl_pct = (pnl / cost * 100) if cost > 0 else 0
+
+            total_invested += cost
+            total_value += value
+
+            color = "🟢" if pnl >= 0 else "🔴"
+            embed.add_field(
+                name=f"{item_name} ({qty:,})",
+                value=f"Cost: {format_gp(cost)} @ {buy_price:,} each\nNow: {format_gp(value)} @ {current_price:,} each\n{color} **{format_gp(pnl)}** ({pnl_pct:+.1f}%)",
+                inline=False
+            )
+
+        total_pnl = total_value - total_invested
+        total_pnl_pct = (total_pnl / total_invested * 100) if total_invested > 0 else 0
+        color = OSRS_GREEN if total_pnl >= 0 else OSRS_RED
+
+        embed.add_field(name="━━━━━━━━━━", value="", inline=False)
+        embed.add_field(name="Total Invested", value=f"**{format_gp(total_invested)}**", inline=True)
+        embed.add_field(name="Total Value", value=f"**{format_gp(total_value)}**", inline=True)
+        embed.add_field(name="Total P&L", value=f"**{format_gp(total_pnl)}** ({total_pnl_pct:+.1f}%)", inline=True, color=color)
+        embed.set_footer(text="Use /portfolio remove <item> to sell a position")
+        await interaction.followup.send(embed=embed)
+
+    elif action.lower() == "remove":
+        if not item:
+            await interaction.followup.send("Usage: `/portfolio remove <item>`")
+            return
+
+        portfolio = _user_portfolios.get(user_id, [])
+        item_data = api_client.find_item_by_name(item)
+
+        if not item_data or not any(p.get('item_id') == item_data['id'] for p in portfolio):
+            await interaction.followup.send(f"You don't have **{item}** in your portfolio.")
+            return
+
+        _user_portfolios[user_id] = [p for p in portfolio if p.get('item_id') != item_data['id']]
+        save_portfolios()
+        await interaction.followup.send(f"✅ Removed **{item_data['name']}** from portfolio.")
+
+    else:
+        await interaction.followup.send("Use: `/portfolio add`, `/portfolio view`, or `/portfolio remove`")
+
+
+def load_market_summary_channel():
+    """Load configured market summary channel ID"""
+    if os.path.exists(MARKET_SUMMARY_CHANNEL_FILE):
+        try:
+            with open(MARKET_SUMMARY_CHANNEL_FILE, 'r') as f:
+                data = json.load(f)
+                return int(data.get('channel_id', 0)) or None
+        except (json.JSONDecodeError, IOError, ValueError):
+            return None
+    return None
+
+def save_market_summary_channel(channel_id):
+    """Save configured market summary channel ID"""
+    with open(MARKET_SUMMARY_CHANNEL_FILE, 'w') as f:
+        json.dump({'channel_id': channel_id}, f, indent=2)
+
+_market_summary_channel = load_market_summary_channel()
+
+
+@bot.tree.command(name="setchannel", description="Set channel for daily market summary (admin only)")
+@app_commands.describe(action="set or clear")
+async def setchannel_command(interaction: discord.Interaction, action: str):
+    """Configure where to post daily market summaries"""
+    global _market_summary_channel
+
+    # Check admin permission
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("This command requires administrator permissions.", ephemeral=True)
+        return
+
+    await interaction.response.defer()
+
+    if action.lower() == "set":
+        _market_summary_channel = interaction.channel_id
+        save_market_summary_channel(interaction.channel_id)
+        await interaction.followup.send(f"✅ Daily market summaries will be posted in {interaction.channel.mention}")
+
+    elif action.lower() == "clear":
+        _market_summary_channel = None
+        save_market_summary_channel(None)
+        await interaction.followup.send("✅ Market summary posting disabled.")
+
+    else:
+        await interaction.followup.send("Use: `/setchannel set` or `/setchannel clear`")
+
+
+@tasks.loop(hours=24)
+async def post_market_summary():
+    """Post daily market summary to configured channel"""
+    global _market_summary_channel
+
+    if not _market_summary_channel:
+        return
+
+    try:
+        ch = bot.get_channel(_market_summary_channel)
+        if not ch:
+            return
+
+        # Get market summary
+        summary = api_client.get_market_summary()
+        if not summary:
+            return
+
+        embed = discord.Embed(
+            title="📊 Daily Market Summary",
+            color=OSRS_GOLD,
+            timestamp=datetime.now()
+        )
+
+        embed.add_field(
+            name="Items Tracked",
+            value=f"**{summary.get('active_items', 0):,}**",
+            inline=True
+        )
+        embed.add_field(
+            name="5m Trade Volume",
+            value=f"**{summary.get('total_volume', 0):,}** trades",
+            inline=True
+        )
+        embed.add_field(
+            name="Avg Profit/Item",
+            value=f"**{format_gp(summary.get('avg_margin', 0))}**",
+            inline=True
+        )
+
+        if summary.get('top_item_by_margin'):
+            top = summary['top_item_by_margin']
+            embed.add_field(
+                name="Best Flip Opportunity",
+                value=f"**{top.get('name', 'Unknown')}**\n{format_gp(top.get('margin', 0))}/item",
+                inline=False
+            )
+
+        embed.set_footer(text="Grand Flip Out | Live OSRS Wiki data")
+        await ch.send(embed=embed)
+
+    except Exception as e:
+        print(f"Market summary post error: {e}")
+
+@post_market_summary.before_loop
+async def before_post_market_summary():
     await bot.wait_until_ready()
 
 
