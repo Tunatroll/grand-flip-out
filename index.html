@@ -1,10 +1,10 @@
-h<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Grand Flip Out — OSRS Flipping Dashboard</title>
-    <link rel="icon" href="dhata:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23ff981f'/><text x='50' y='68' text-anchor='middle' font-size='55' fill='%231a1410' font-weight='bold'>G</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23ff981f'/><text x='50' y='68' text-anchor='middle' font-size='55' fill='%231a1410' font-weight='bold'>G</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
@@ -329,178 +329,6 @@ h<!DOCTYPE html>
         .intel-toggle { background:none; border:none; color:var(--accent); cursor:pointer; font-size:12px; font-weight:600; padding:2px 4px; margin-left:4px; font-family:inherit; transition:all .2s; }
         .intel-toggle:hover { opacity:0.8; }
         .intel-container { display:flex; flex-direction:column; gap:4px; margin-top:6px; }
-
-                /* === GEMINI ENHANCEMENTS === */
-
-                /* Cash Stack Filter */
-                .cash-stack-filter {
-                                display: flex;
-                                align-items: center;
-                                gap: 10px;
-                                padding: 8px 16px;
-                                background: var(--bg-card);
-                                border-radius: var(--radius);
-                                border: 1px solid var(--border);
-                                margin-bottom: 12px;
-                }
-                .cash-stack-filter label {
-                                color: var(--gold);
-                                font-weight: 600;
-                                font-size: 14px;
-                                white-space: nowrap;
-                }
-                .cash-stack-filter input {
-                                background: var(--bg-input);
-                                border: 1px solid var(--border);
-                                border-radius: var(--radius);
-                                color: var(--text);
-                                padding: 6px 12px;
-                                font-size: 14px;
-                                width: 140px;
-                }
-                .cash-stack-filter input:focus {
-                                outline: none;
-                                border-color: var(--accent);
-                                box-shadow: 0 0 6px var(--accent-glow);
-                }
-
-                /* F2P/P2P Toggle */
-                .membership-toggle {
-                                display: flex;
-                                gap: 4px;
-                                background: var(--bg-input);
-                                    border-radius: var(--radius);
-                                padding: 2px;
-                }
-                .membership-toggle button {
-                                padding: 5px 14px;
-                                border: none;
-                                border-radius: 8px;
-                                background: transparent;
-                                color: var(--text-secondary);
-                    font-size: 13px;
-                                cursor: pointer;
-                                transition: all 0.2s;
-                }
-                .membership-toggle button.active {
-                                background: var(--accent);
-                                color: var(--bg-dark);
-                                font-weight: 600;
-                }
-
-                /* Tooltip Help Icons */
-                .help-tip {
-                                display: inline-flex;
-                                align-items: center;
-                                justify-content: center;
-                                width: 16px;
-                                height: 16px;
-                                border-radius: 50%;
-                                background: var(--border);
-                                color: var(--text-secondary);
-                                font-size: 10px;
-                                font-weight: bold;
-                                cursor: help;
-                                position: relative;
-                                margin-left: 4px;
-                                vertical-align: middle;
-                }
-                .help-tip:hover::after {
-                                content: attr(data-tip);
-                                position: absolute;
-                                bottom: 125%;
-                                left: 50%;
-                                transform: translateX(-50%);
-                                background: var(--bg-dark);
-                                color: var(--text);
-                                padding: 8px 12px;
-                                border-radius: 8px;
-                                font-size: 12px;
-                                font-weight: 400;
-                                white-space: normal;
-                                width: 220px;
-                                text-align: center;
-                                z-index: 999;
-                                border: 1px solid var(--border);
-                                box-shadow: var(--shadow);
-                                pointer-events: none;
-                }
-
-                /* ROI Badge */
-                .roi-badge {
-                                display: inline-block;
-                                padding: 2px 7px;
-                                border-radius: 6px;
-                                font-size: 11px;
-                                font-weight: 600;
-                                background: rgba(59,130,246,0.15);
-                                color: var(--blue);
-                }
-
-                /* Risk Indicator */
-                .risk-badge {
-                                display: inline-flex;
-                                align-items: center;
-                                gap: 3px;
-                                padding: 2px 8px;
-                                border-radius: 6px;
-                                font-size: 11px;
-                                font-weight: 600;
-                }
-                .risk-safe { background: rgba(34,197,94,0.15); color: var(--green); }
-                .risk-moderate { background: rgba(255,152,31,0.15); color: var(--accent); }
-                .risk-risky { background: rgba(239,68,68,0.15); color: var(--red); }
-
-                /* Volume vs Limit Bar */
-                .vol-limit-bar {
-                                display: flex;
-                                align-items: center;
-                                gap: 6px;
-                                font-size: 11px;
-                }
-                .vol-limit-track {
-                                width: 50px;
-                                height: 4px;
-                                background: var(--bg-input);
-                                border-radius: 2px;
-                                overflow: hidden;
-                }
-                .vol-limit-fill {
-                                height: 100%;
-                                border-radius: 2px;
-                                transition: width 0.3s;
-                }
-
-                /* GE Limit Display */
-                .ge-limit-tag {
-                                font-size: 10px;
-                                color: var(--text-muted);
-                                opacity: 0.7;
-                }
-
-                /* Sparkline Canvas */
-                .sparkline-container {
-                                margin-top: 4px;
-                                height: 24px;
-                                width: 100%;
-                }
-                .sparkline-container canvas {
-                                width: 100%;
-                                height: 100%;
-                }
-
-                /* Enhanced Card Clickability */
-                .item-card[data-item-id] { cursor: pointer; }
-                .item-card[data-item-id]:hover { border-color: var(--accent); }
-
-                /* Margin Display Enhancement */
-                .margin-detail {
-                                display: flex;
-                                gap: 8px;
-                                font-size: 11px;
-                                margin-top: 2px;
-                }
-                .margin-detail span { opacity: 0.8; }
         .intel-hidden { display:none; }
 
         .hidden { display:none !important; }
@@ -566,20 +394,20 @@ h<!DOCTYPE html>
         <!-- Summary Stats -->
         <div class="dash-row" id="dashStats">
             <div class="stat-card" title="Total number of items being tracked with live prices"><div class="stat-icon">📦</div><div class="stat-label">Items Tracked</div><div class="stat-value accent" id="statItems">—</div><div class="stat-sub">with live buy+sell prices</div></div>
-            <div class="stat-card" title="Best flip opportunity in 4 hours based on realistic volume"><div class="stat-icon">💎</div><div class="stat-label">Best Realistic Flip<span class="help-tip" data-tip="The single most profitable flip you can complete in 4 hours, factoring in GE buy limits and real trade volume.">?</span></div><div class="stat-value green" id="statBestProfit">—</div><div class="stat-sub" id="statBestName">loading...</div></div>
-            <div class="stat-card" title="Items currently crashing in price — buy low opportunities"><div class="stat-icon">📉</div><div class="stat-label">Active Dumps<span class="help-tip" data-tip="Items currently crashing in price — potential buy-low opportunities if the price recovers.">?</span></div><div class="stat-value" style="color:var(--red)" id="statDumps">0</div><div class="stat-sub">price crash opportunities</div></div>
-            <div class="stat-card" title="Items currently spiking in price"><div class="stat-icon">📈</div><div class="stat-label">Active Pumps<span class="help-tip" data-tip="Items spiking in price with unusual buy pressure — prices are rising fast.">?</span></div><div class="stat-value green" id="statPumps">0</div><div class="stat-sub">prices rising fast</div></div>
+            <div class="stat-card" title="Best flip opportunity in 4 hours based on realistic volume"><div class="stat-icon">💎</div><div class="stat-label">Best Realistic Flip</div><div class="stat-value green" id="statBestProfit">—</div><div class="stat-sub" id="statBestName">loading...</div></div>
+            <div class="stat-card" title="Items currently crashing in price — buy low opportunities"><div class="stat-icon">📉</div><div class="stat-label">Active Dumps</div><div class="stat-value" style="color:var(--red)" id="statDumps">0</div><div class="stat-sub">price crash opportunities</div></div>
+            <div class="stat-card" title="Items currently spiking in price"><div class="stat-icon">📈</div><div class="stat-label">Active Pumps</div><div class="stat-value green" id="statPumps">0</div><div class="stat-sub">prices rising fast</div></div>
         </div>
 
         <!-- Charts -->
         <div class="chart-row">
             <div class="chart-box">
-                <h3>Top 10 — Realistic 4-Hour Profit<span class="help-tip" data-tip="Profit capped by the GE 4-hour buy limit and estimated trade volume — not theoretical max.">?</span></h3>
+                <h3>Top 10 — Realistic 4-Hour Profit</h3>
                 <canvas id="chartMargins"></canvas>
             </div>
             <div class="chart-box">
-                <h3>Flip Quality Breakdown</h3>
-                <canvas id="chartJtiDist"></canvas>
+                <h3>Top 10 — Profit per Item (GP)</h3>
+                <canvas id="chartMarginPerItem"></canvas>
             </div>
         </div>
         <div class="chart-row">
@@ -589,15 +417,6 @@ h<!DOCTYPE html>
             </div>
             <div class="chart-box">
                 <h3>Profit/Item vs Volume/hr (Top 50)</h3>
-                                <div class="cash-stack-filter">
-                                                        <label>💰 My Cash Stack:</label>
-                                                    <input type="text" id="cashStackInput" placeholder="e.g. 50m" oninput="applyCashFilter()">
-                                                    <div class="membership-toggle">
-                                                                            <button class="active" onclick="setMembership('all')">All</button>button>
-                                                                            <button onclick="setMembership('p2p')">P2P</button>button>
-                                                                            <button onclick="setMembership('f2p')">F2P</button>button>
-                                                    </div>
-                                </div></label>
                 <canvas id="chartScatter"></canvas>
             </div>
         </div>
@@ -606,7 +425,7 @@ h<!DOCTYPE html>
     <!-- ===== TOP FLIPS TAB ===== -->
     <div id="top-flips" class="tab-panel">
         <div class="explain-banner">
-            <strong>Top Flips</strong> shows the most profitable items you can actually flip right now. Sorted by Realistic 4-Hour Profit<span class="help-tip" data-tip="Profit capped by the GE 4-hour buy limit and estimated trade volume — not theoretical max.">?</span> — items at the top make the most money based on <em>real</em> trading volume, not theoretical buy limits. If an item trades 3 times in 5 minutes, we won't pretend you can buy 10,000 of them.
+            <strong>Top Flips</strong> shows the most profitable items you can actually flip right now. Sorted by realistic 4-hour profit — items at the top make the most money based on <em>real</em> trading volume, not theoretical buy limits. If an item trades 3 times in 5 minutes, we won't pretend you can buy 10,000 of them.
         </div>
         <div class="controls-bar">
             <select class="ctrl-select" id="sortDropdown">
@@ -642,6 +461,7 @@ h<!DOCTYPE html>
                         <th class="tooltip" data-tip="Instant buy (offer) price">Buy</th>
                         <th class="tooltip" data-tip="Instant sell (offer) price">Sell</th>
                         <th class="tooltip" data-tip="Your profit per item (tax already included)">Profit/Item</th>
+                        <th class="tooltip" data-tip="Recent price trend (sparkline)">Trend</th>
                         <th class="tooltip" data-tip="Estimated trades per hour">Vol/hr</th>
                         <th class="tooltip" data-tip="Realistic total profit in 4 hours">Est. 4h Profit</th>
                     </tr>
@@ -1393,6 +1213,12 @@ function processLatest(latestData, volData, force = false) {
         if (prev && prev > 0) { obj.percentChange = ((cur-prev)/prev)*100; totalDrift += Math.abs(obj.percentChange); priceCount++; }
         else obj.percentChange = 0;
         state.prevPrices[id] = cur;
+        // Track price snapshots for sparklines (keep last 20 per item)
+        const avg = Math.round((bp + sp) / 2);
+        if (!state.priceSnapshots[id]) state.priceSnapshots[id] = [];
+        state.priceSnapshots[id].push(avg);
+        if (state.priceSnapshots[id].length > 20) state.priceSnapshots[id].shift();
+
         if (margin > 0 && (bv+sv) > 0) items.push(obj);
     }
     items.sort((a,b) => realistic4hProfit(b) - realistic4hProfit(a));
@@ -2065,12 +1891,12 @@ function applyConfidenceDecay() {
     for (const [id, dc] of Object.entries(state.dumpConfidence)) {
         if (!dc.lastUpdated) continue;
         const ageMins = (now - dc.lastUpdated) / 60000;
-        // After 5 min without reconfirmation, start decaying
-        if (ageMins > 5 && dc.confirmations > 0) {
-            dc.confirmations = Math.max(0, dc.confirmations - Math.floor(ageMins / 5));
+        // After 8 min without reconfirmation, start decaying (was 5 — too aggressive)
+        if (ageMins > 8 && dc.confirmations > 0) {
+            dc.confirmations = Math.max(0, dc.confirmations - Math.floor(ageMins / 8));
         }
-        // After 15 min with no update, clear it entirely
-        if (ageMins > 15) {
+        // After 20 min with no update, clear it entirely (was 15)
+        if (ageMins > 20) {
             delete state.dumpConfidence[id];
         }
     }
@@ -2088,31 +1914,33 @@ function getAdaptiveDumpThresholds() {
     const isDead = calCtx.some(c => c.type === 'dead_hours');
     const isUpdate = calCtx.some(c => c.type === 'update_day' || c.type === 'update_live');
 
-    let minScore = 35;       // Base minimum dump score
-    let minProfit = 100000;  // Base minimum flip profit
-    let minConfirm = 2;      // Base confirmation count for borderline items
+    let minScore = 25;       // Base minimum dump score — low enough to catch real dumps
+    let minProfit = 200000;  // 200K per flip MINIMUM — the baseline goal for any dump alert
+    let minConfirm = 1;      // 1 confirmation — first-scan dumps show if score is high enough
 
     if (regime === 'bear') {
-        // Bear market: everything dumps, raise the bar
-        minScore += 10;
-        minProfit += 50000;
+        // Bear market: everything dumps, raise the score bar but NOT the profit bar
+        // 200K flips still matter in bear markets — the score filters out noise
+        minScore += 8;
     } else if (regime === 'bull') {
-        // Bull market: crashes are rare and real
-        minScore -= 5;
+        // Bull market: crashes are rare and real — lower the score bar
+        minScore -= 8;
     } else if (regime === 'volatile') {
-        // Volatile: noise everywhere, be stricter
-        minScore += 5;
-        minConfirm += 1;
+        // Volatile: slight extra caution on score
+        minScore += 3;
     }
 
     if (isDead) {
-        minScore += 8;
-        minProfit += 50000;
+        minScore += 5;
     }
 
     if (isUpdate) {
-        minScore += 5; // Update day: erratic prices
+        minScore += 3;
     }
+
+    // HARD FLOOR: never require more than score 40, even in worst conditions
+    // This prevents the stacking problem where bear+dead+update = impossible
+    minScore = Math.min(minScore, 40);
 
     return { minScore, minProfit, minConfirm };
 }
@@ -2862,22 +2690,49 @@ async function checkDumpsLight() {
         // A high-value item dumped to 1gp should STILL show up — that's the whole point.
         // But a bronze pickaxe that normally trades at 120gp? Always junk.
 
-        const normalValue = avgSellPrice1h > 0 ? avgSellPrice1h : (avgSellPrice5m > 0 ? avgSellPrice5m : instaSellPrice);
+        // CRITICAL: Only trust averaged prices (1h > 5m). If only insta-prices exist,
+        // use the BUY-side average as the sanity check — it's harder to manipulate.
+        // A joke sell of a bronze pickaxe for 70K shouldn't make normalValue = 70K.
+        const normalValue = avgSellPrice1h > 0 ? avgSellPrice1h
+            : avgSellPrice5m > 0 ? avgSellPrice5m
+            : avgBuyPrice5m > 0 ? avgBuyPrice5m
+            : 0;  // If we have NO averaged data at all, skip — can't trust insta-prices alone
 
         // 1. Item must normally be worth at least 50K GP
         //    This filters out bronze/iron/steel garbage, basic tools, quest junk
         //    But keeps expensive items that crash to low prices (that's a dump opportunity!)
         if (normalValue < 50000) continue;
 
-        // 2. Name-based junk filter for items that are NEVER worth flipping
+        // 2. Manipulation sanity check: if the sell and buy sides are wildly divergent,
+        //    someone is price manipulating. A real item's buy/sell avg shouldn't differ by 10x+.
+        //    This catches garbage items with inflated sell prices (70K bronze pickaxe).
+        if (avgBuyPrice5m > 0 && avgSellPrice5m > 0) {
+            const priceRatio = avgSellPrice5m / avgBuyPrice5m;
+            if (priceRatio > 10 || priceRatio < 0.1) continue;  // 10x spread = manipulation
+        }
+
+        // 3. Name-based junk filter for items that are NEVER worth flipping
         //    regardless of price (novelty items, untradeable-adjacent junk)
         const nameLower = (meta.name || '').toLowerCase();
         const ALWAYS_JUNK = [
             'burnt ', 'broken ', 'damaged ',
             'cake tin', 'pie dish', 'beer glass',
             'wooden shield', 'leather body', 'leather chaps',
+            'bronze ', 'iron ', 'steel ',          // bronze/iron/steel anything is never a flip
+            'leather gloves', 'leather boots',
+            'ball of wool', 'pot of flour',
+            'bucket of ', 'jug of ',
+            'raw chicken', 'raw beef', 'raw rat',
+            'bones', 'big bones',                   // basic bones, not superior dragon etc
+            'ashes',
         ];
         if (ALWAYS_JUNK.some(p => nameLower.startsWith(p) || nameLower.includes(p))) continue;
+
+        // 4. Don't let "iron" or "steel" catch legitimate items like "Steel dragon" or "Iron platebody (g)"
+        //    The startsWith check above handles "bronze pickaxe" etc. But also explicitly skip
+        //    items with these base metal names ONLY if they're basic (no (g), (t), trimmed, etc.)
+        const isBasicMetal = /^(bronze|iron|steel) (dagger|sword|scimitar|mace|axe|pickaxe|med helm|full helm|sq shield|kiteshield|chainbody|platebody|plateskirt|platelegs|boots|gloves|2h sword|halberd|spear|hasta|crossbow|bolts?|arrows?|arrowtips?|dart tips?|darts?|knives?|javelin|thrownaxe|bar|ore|nails)$/i;
+        if (isBasicMetal.test(meta.name || '')) continue;
 
         // THE DUMP FLIP: buy at instaBuyPrice, sell at instaSellPrice
         // Tax = 2% of sell price, capped at 5M
@@ -3046,9 +2901,9 @@ async function checkDumpsLight() {
         const isMedDemand = estVolPerHour >= 8;          // 8+ trades/hr = tradeable
         const isLowDemand = estVolPerHour < 8;           // Under 8/hr = illiquid garbage
 
-        // ====== TOTAL PROFIT GATE (V2) ======
+        // ====== TOTAL PROFIT GATE (V2.1) ======
         // Even if profit/item is high, if buy limit is 1 and volume is 0, it's worthless
-        // Require realistic total profit of at least 200K to show up
+        // 200K total profit is the easily achievable baseline — anything less isn't worth alerting
         const minTotalProfit = totalProfitCap >= 200000;
 
         // V6: Track profit velocity (margin changes over time)
@@ -3056,8 +2911,11 @@ async function checkDumpsLight() {
         const profitVel = PROFIT_VELOCITY.getVelocity(id);
         summary.profitVelocity = profitVel;
 
-        // DUMP DETECTION: V6 — adaptive thresholds based on market conditions
-        const isConfirmed = dumpScoreResult.score >= 50 || (dc && dc.confirmations >= adaptiveThresh.minConfirm);
+        // DUMP DETECTION: V6.1 — adaptive thresholds, relaxed confirmation
+        // High-score dumps (40+) pass immediately — don't make users wait for confirmation
+        // Lower-score dumps (25-39) need at least 1 confirmation to filter noise
+        // This ensures fresh dumps show up on first scan when quality is clear
+        const isConfirmed = dumpScoreResult.score >= 40 || (dc && dc.confirmations >= adaptiveThresh.minConfirm);
         const isDump = flipProfit >= adaptiveThresh.minProfit && !isLowDemand && minTotalProfit && dumpScoreResult.score >= adaptiveThresh.minScore && isConfirmed;
 
         // PUMP DETECTION: only items worth caring about
@@ -3667,6 +3525,61 @@ function itemsHash(items) {
     return items.slice(0, 20).map(i => `${i.itemId}:${i.buyPrice}:${i.sellPrice}`).join('|');
 }
 
+// ============================================
+// SPARKLINE RENDERER
+// ============================================
+function drawSparkline(canvasId, data) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !data || data.length < 2) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const min = Math.min(...data), max = Math.max(...data);
+    const range = max - min || 1;
+
+    // Determine color based on trend direction
+    const trending = data[data.length - 1] >= data[0];
+    const lineColor = trending ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)';
+    const fillTop = trending ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)';
+    const fillBot = trending ? 'rgba(34, 197, 94, 0)' : 'rgba(239, 68, 68, 0)';
+
+    // Fill area under line
+    const gradient = ctx.createLinearGradient(0, 0, 0, h);
+    gradient.addColorStop(0, fillTop);
+    gradient.addColorStop(1, fillBot);
+    ctx.beginPath();
+    for (let i = 0; i < data.length; i++) {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - ((data[i] - min) / range) * (h - 4) - 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // Draw line
+    ctx.beginPath();
+    for (let i = 0; i < data.length; i++) {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - ((data[i] - min) / range) * (h - 4) - 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Draw endpoint dot
+    const lastX = w;
+    const lastY = h - ((data[data.length - 1] - min) / range) * (h - 4) - 2;
+    ctx.beginPath();
+    ctx.arc(lastX - 1, lastY, 2, 0, Math.PI * 2);
+    ctx.fillStyle = lineColor;
+    ctx.fill();
+}
+
 function getVerdict(item) {
     const vph = volPerHour(item);
     const profit4h = realistic4hProfit(item);
@@ -4016,12 +3929,11 @@ function renderCharts() {
         datasets: [{ label:'4h Profit', data:top10rp.map(i => realistic4hProfit(i)), backgroundColor:'rgba(34,197,94,0.7)', borderColor:'#22c55e', borderWidth:1, borderRadius:4 }]
     }, { indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#7a7268',callback:v=>gp(v)},grid:{color:'rgba(255,152,31,0.08)'}}, y:{ticks:{color:'#b8b0a5',font:{size:11}},grid:{display:false}} }});
 
-    const verdictCounts = { 'Great Flip':0, 'Good Flip':0, 'Decent':0, 'Slow':0, 'Dead':0 };
-    items.forEach(i => { const v = getVerdict(i); verdictCounts[v.text] = (verdictCounts[v.text]||0) + 1; });
-    updateChart('chartJtiDist', 'doughnut', {
-        labels: Object.keys(verdictCounts),
-        datasets: [{ data:Object.values(verdictCounts), backgroundColor:['#22c55e','#4ade80','#ff981f','#d97706','#ef4444'], borderWidth:0 }]
-    }, { plugins:{legend:{position:'right',labels:{color:'#b8b0a5',font:{size:11},padding:8}}} });
+    const top10margin = [...items].filter(i => (i.margin||0) > 0).sort((a,b) => (b.margin||0) - (a.margin||0)).slice(0,10);
+    updateChart('chartMarginPerItem', 'bar', {
+        labels: top10margin.map(i => i.name.length > 15 ? i.name.slice(0,14)+'...' : i.name),
+        datasets: [{ label:'Profit/Item (GP)', data:top10margin.map(i => i.margin||0), backgroundColor:'rgba(34,197,94,0.5)', borderColor:'#22c55e', borderWidth:1, borderRadius:4 }]
+    }, { indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#7a7268',callback:v=>gp(v)},grid:{color:'rgba(34,197,94,0.08)'}}, y:{ticks:{color:'#b8b0a5',font:{size:11}},grid:{display:false}} }});
 
     const top10v = [...items].sort((a,b) => volPerHour(b) - volPerHour(a)).slice(0,10);
     updateChart('chartVolume', 'bar', {
@@ -4361,10 +4273,26 @@ function renderTopFlips(force = false) {
                 <td style="font-size:16px; font-weight:800; color:var(--green);">${gp(item.buyPrice)}</td>
                 <td style="font-size:16px; font-weight:800; color:var(--red);">${gp(item.sellPrice)}</td>
                 <td class="price-gold" style="font-size:14px; font-weight:800;">${gp(item.margin)}</td>
+                <td><canvas id="spark-${item.itemId}" width="80" height="28" style="vertical-align:middle;"></canvas></td>
                 <td><span class="vol-context">${formatVolPerHour(item)}</span></td>
                 <td class="price-hero">${gp(rp)}${volumeLimited ? '<br><span class="capped-warning">vol limited (~' + rb.toLocaleString() + ' avail)</span>' : ''}</td>
             </tr>`;
-        }).join('') : '<tr><td colspan="8" class="empty-state">No items found</td></tr>';
+        }).join('') : '<tr><td colspan="9" class="empty-state">No items found</td></tr>';
+
+        // Draw sparklines after DOM update
+        requestAnimationFrame(() => {
+            items.forEach(item => {
+                const snapshots = state.priceSnapshots[item.itemId];
+                if (snapshots && snapshots.length >= 2) {
+                    drawSparkline(`spark-${item.itemId}`, snapshots);
+                } else {
+                    // Generate synthetic sparkline from current spread
+                    const mid = Math.round((item.buyPrice + item.sellPrice) / 2);
+                    const synth = [item.buyPrice, mid - item.margin*0.2, mid + item.margin*0.1, mid, item.sellPrice];
+                    drawSparkline(`spark-${item.itemId}`, synth);
+                }
+            });
+        });
     }
 
     const grid = document.getElementById('gridView');
@@ -4681,365 +4609,6 @@ async function init() {
     setTimeout(smartRefresh, state.fullRefreshInterval);
 }
 window.addEventListener('DOMContentLoaded', init);
-    </script>
-                <script>
-                              // ============================================
-    // GEMINI-RECOMMENDED ENHANCEMENTS v1.0
-    // ROI, Risk, Cash Filter, F2P/P2P, Tooltips,
-                    // Volume/Limit, Sparklines, Clickable Cards
-                    // ============================================
-                                                                              (function() {
-                        'use strict';
-
-        // --- STATE ---
-        let cashStackGP = 0;
-        let membershipFilter = 'all';
-        const priceHistory = {};
-
-        // --- F2P ITEMS (common f2p tradeable item IDs) ---
-                        const F2P_ITEMS = new Set([
-            // Runes
-            554,555,556,557,558,559,560,561,562,563,564,565,566,
-            // Common F2P gear & resources
-            1205,1215,1291,1307,1323,1333,// swords
-                            1117,1119,1121,1123,1125,1127,// platebodies
-                            1153,1155,1157,1159,1161,1163,// full helms
-            // Ores & bars
-            436,438,440,442,444,446,448,449,450,451,452,453,
-                            // Logs
-            1511,1513,1515,1517,1519,1521,
-                            // Fish
-            315,317,319,321,323,325,327,329,331,333,335,337,339,341,343,345,347,349,351,353,355,357,359,361,363,365,
-                            // Food
-            379,385,373,391,397,
-            // Cowhide, bones, etc
-            1739,1741,526,528,530,532,534,536,
-                            // Common f2p items
-            1931,1929,1927,1925,1923,
-        ]);
-
-                        // --- HELPER: Parse GP string like "50m", "2.5b", "500k" ---
-                        function parseGPString(str) {
-            if (!str) return 0;
-                            str = str.toLowerCase().replace(/,/g, '').trim();
-            const num = parseFloat(str);
-                            if (isNaN(num)) return 0;
-            if (str.endsWith('b')) return num * 1000000000;
-                            if (str.endsWith('m')) return num * 1000000;
-                            if (str.endsWith('k')) return num * 1000;
-            return num;
-                    }
-
-                        // --- CASH STACK FILTER ---
-                        window.applyCashFilter = function() {
-                            const input = document.getElementById('cashStackInput');
-            cashStackGP = parseGPString(input ? input.value : '');
-            renderTopFlips(true);
-    };
-
-                        // --- MEMBERSHIP TOGGLE ---
-                        window.setMembership = function(mode) {
-                                                                                      membershipFilter = mode;
-            const btns = document.querySelectorAll('.membership-toggle button');
-            btns.forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-            renderTopFlips(true);
-                                                                                  };
-
-                        // --- ROI CALCULATION ---
-        function calcROI(item) {
-            if (!item.buyPrice || item.buyPrice <= 0) return 0;
-            const rb = realisticBuys(item);
-            const investment = item.buyPrice * rb;
-                                                                                      const profit = realistic4hProfit(item);
-            return investment > 0 ? (profit / investment * 100) : 0;
-        }
-
-                        // --- RISK SCORE ---
-                        function getRiskLevel(item) {
-            const vol = volPerHour(item);
-            const margin = item.margin || 0;
-                            const price = item.sellPrice || 1;
-            const marginPct = margin / price;
-            const limit = item.buyLimit || 1;
-
-                            // High margin % + low volume = risky
-            // Low margin % + high volume = safe
-            let riskScore = 0;
-            if (marginPct > 0.10) riskScore += 3;
-                            else if (marginPct > 0.05) riskScore += 2;
-                            else if (marginPct > 0.02) riskScore += 1;
-
-            if (vol < limit * 0.1) riskScore += 3;
-            else if (vol < limit * 0.3) riskScore += 2;
-            else if (vol < limit * 0.5) riskScore += 1;
-
-                            if (riskScore >= 4) return { level: 'risky', emoji: '🔴', text: 'Risky' };
-            if (riskScore >= 2) return { level: 'moderate', emoji: '🟡', text: 'Moderate' };
-            return { level: 'safe', emoji: '🟢', text: 'Safe' };
-                    }
-
-        // --- VOLUME vs LIMIT RATIO ---
-                        function getVolLimitRatio(item) {
-                            const vol = volPerHour(item) * 4;
-                            const limit = item.buyLimit || 1;
-            return Math.min(vol / limit, 2);
-    }
-
-                                      // --- PRICE HISTORY TRACKING (for sparklines) ---
-                        function trackPrice(itemId, price) {
-                            if (!priceHistory[itemId]) priceHistory[itemId] = [];
-                            priceHistory[itemId].push(price);
-            if (priceHistory[itemId].length > 20) priceHistory[itemId].shift();
-                        }
-
-                        // --- SPARKLINE DRAWING ---
-                        function drawSparkline(canvas, data, color) {
-                            if (!canvas || !data || data.length < 2) return;
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width = canvas.offsetWidth * 2;
-                            const h = canvas.height = canvas.offsetHeight * 2;
-                            ctx.clearRect(0, 0, w, h);
-
-            const min = Math.min(...data);
-                            const max = Math.max(...data);
-                            const range = max - min || 1;
-
-            ctx.beginPath();
-                            ctx.strokeStyle = color || '#22c55e';
-            ctx.lineWidth = 2;
-            data.forEach((val, i) => {
-                                const x = (i / (data.length - 1)) * w;
-                const y = h - ((val - min) / range) * h * 0.8 - h * 0.1;
-                if (i === 0) ctx.moveTo(x, y);
-                                else ctx.lineTo(x, y);
-                            });
-            ctx.stroke();
-        }
-
-        // --- OVERRIDE: Enhance renderTopFlips ---
-                        const _origRenderTopFlips = renderTopFlips;
-        renderTopFlips = function(force) {
-            // Apply cash stack filter
-            const origItems = state.allItems;
-            if (cashStackGP > 0 || membershipFilter !== 'all') {
-                state.allItems = origItems.filter(item => {
-                    if (cashStackGP > 0 && item.buyPrice > cashStackGP) return false;
-                    if (membershipFilter === 'f2p' && !F2P_ITEMS.has(item.itemId)) return false;
-                    if (membershipFilter === 'p2p' && F2P_ITEMS.has(item.itemId)) return false;
-                    return true;
-                    });
-                            }
-
-            _origRenderTopFlips(force);
-                            state.allItems = origItems;
-
-                            // After rendering, enhance the table rows and cards
-                            enhanceTopFlipsDisplay();
-                        };
-
-                        // --- ENHANCE TABLE ROWS ---
-                        function enhanceTopFlipsDisplay() {
-            // Enhance table rows
-                                                  const rows = document.querySelectorAll('#topFlipsBody tr');
-                                                                                      rows.forEach(row => {
-                const nameCell = row.querySelector('.item-name-cell');
-                if (!nameCell) return;
-                const itemName = nameCell.textContent.trim().split('\n')[0].trim();
-
-                // Find the matching item
-                                const item = state.allItems.find(i => i.name === itemName);
-                if (!item) return;
-
-                // Track price for sparklines
-                trackPrice(item.itemId, item.sellPrice);
-
-                                // Add ROI badge if not already present
-                                if (!row.querySelector('.roi-badge')) {
-                                    const roi = calcROI(item);
-                                    const roiCell = row.querySelector('.realistic-profit') || row.cells[row.cells.length - 1];
-                                    if (roiCell && roi > 0) {
-                        const badge = document.createElement('span');
-                                        badge.className = 'roi-badge';
-                                        badge.title = 'Return on Investment for this flip';
-                                        badge.textContent = roi.toFixed(1) + '% ROI';
-                        roiCell.appendChild(document.createElement('br'));
-                        roiCell.appendChild(badge);
-                    }
-                                }
-
-                // Add risk badge if not already present
-                if (!row.querySelector('.risk-badge')) {
-                    const risk = getRiskLevel(item);
-                    const verdictCell = row.querySelector('.verdict-pill');
-                    if (verdictCell && verdictCell.parentElement) {
-                                        const badge = document.createElement('span');
-                        badge.className = 'risk-badge risk-' + risk.level;
-                        badge.textContent = risk.emoji + ' ' + risk.text;
-                        badge.style.marginLeft = '6px';
-                        verdictCell.parentElement.appendChild(badge);
-                    }
-                }
-
-                                // Add GE limit tag
-                if (!row.querySelector('.ge-limit-tag') && item.buyLimit) {
-                                    const nameEl = row.querySelector('.item-name-cell');
-                                    if (nameEl) {
-                        const tag = document.createElement('div');
-                                        tag.className = 'ge-limit-tag';
-                                        tag.textContent = 'Limit: ' + item.buyLimit.toLocaleString() + '/4h';
-                        nameEl.appendChild(tag);
-                    }
-                }
-
-                // Add volume/limit bar
-                if (!row.querySelector('.vol-limit-bar') && item.buyLimit) {
-                                    const volCell = row.querySelector('td:nth-child(5)') || row.querySelector('.vol-context');
-                    if (volCell) {
-                        const ratio = getVolLimitRatio(item);
-                        const pct = Math.min(ratio * 50, 100);
-                        const color = ratio >= 1 ? 'var(--green)' : ratio >= 0.3 ? 'var(--accent)' : 'var(--red)';
-                                        const bar = document.createElement('div');
-                                        bar.className = 'vol-limit-bar';
-                                        bar.innerHTML = '<div class="vol-limit-track"><div class="vol-limit-fill" style="width:' + pct + '%;background:' + color + '"></div></div><span>' + (ratio * 100).toFixed(0) + '%</span>';
-                        volCell.appendChild(bar);
-                    }
-                    }
-    });
-
-            // Enhance card view
-            const cards = document.querySelectorAll('#gridView .item-card');
-            cards.forEach(card => {
-                const nameEl = card.querySelector('.card-name');
-                if (!nameEl) return;
-                const itemName = nameEl.textContent.trim();
-                const item = state.allItems.find(i => i.name === itemName);
-                                if (!item) return;
-
-                                // Make card clickable
-                                                                                          card.setAttribute('data-item-id', item.itemId);
-                if (!card._clickBound) {
-                                    card.addEventListener('click', function(e) {
-                                        if (e.target.closest('.fav-btn') || e.target.closest('button')) return;
-                        openOSRSWiki(item.name);
-                    });
-                    card._clickBound = true;
-                                }
-
-                // Add ROI to card
-                                if (!card.querySelector('.roi-badge')) {
-                                    const roi = calcROI(item);
-                                    const profitEl = card.querySelector('.card-profit');
-                                    if (profitEl && roi > 0) {
-                                        const badge = document.createElement('span');
-                                        badge.className = 'roi-badge';
-                                        badge.style.marginLeft = '8px';
-                                        badge.textContent = roi.toFixed(1) + '% ROI';
-                                        profitEl.appendChild(badge);
-    }
-    }
-
-                                // Add risk badge to card
-                                if (!card.querySelector('.risk-badge')) {
-                                    const risk = getRiskLevel(item);
-                                    const jtiEl = card.querySelector('.card-jti');
-                                    if (jtiEl) {
-                        const badge = document.createElement('span');
-                                        badge.className = 'risk-badge risk-' + risk.level;
-                                        badge.textContent = risk.emoji + ' ' + risk.text;
-                        badge.style.marginLeft = '6px';
-                                        jtiEl.appendChild(badge);
-                    }
-                    }
-
-                                // Add GE limit
-                if (!card.querySelector('.ge-limit-tag') && item.buyLimit) {
-                                    const nameParent = nameEl.parentElement;
-                                    if (nameParent) {
-                                        const tag = document.createElement('div');
-                                        tag.className = 'ge-limit-tag';
-                                        tag.textContent = 'GE Limit: ' + item.buyLimit.toLocaleString() + '/4h';
-                                        nameParent.appendChild(tag);
-    }
-    }
-    });
-                    }
-
-                        // --- ENHANCE DASHBOARD STAT CARDS WITH SPARKLINES ---
-        const _origRenderDashboard = renderDashboard;
-        renderDashboard = function() {
-                            _origRenderDashboard();
-
-                            // Track best flip item for sparkline
-                            if (state.allItems && state.allItems.length > 0) {
-                                                                                                                                                 const best = state.allItems.reduce((a, b) =>
-                    realistic4hProfit(a) > realistic4hProfit(b) ? a : b
-                                );
-                                if (best) {
-                                    trackPrice(best.itemId, best.sellPrice);
-                                    // Add sparkline to best flip card
-                                    const bestCard = document.getElementById('statBestProfit');
-                                    if (bestCard) {
-                        const parent = bestCard.closest('.stat-card');
-                                        if (parent && !parent.querySelector('.sparkline-container')) {
-                            const container = document.createElement('div');
-                                            container.className = 'sparkline-container';
-                            const canvas = document.createElement('canvas');
-                                                                                                      container.appendChild(canvas);
-                                            parent.appendChild(container);
-                    }
-                                        const canvas = parent ? parent.querySelector('.sparkline-container canvas') : null;
-                        const history = priceHistory[best.itemId];
-                                        if (canvas && history && history.length >= 2) {
-                                            drawSparkline(canvas, history, '#22c55e');
-                    }
-                    }
-                    }
-                    }
-                    };
-
-                        // --- ADD ROI SORT OPTION ---
-                        setTimeout(function() {
-                            const sortDD = document.getElementById('sortDropdown');
-            if (sortDD && !sortDD.querySelector('option[value="roi"]')) {
-                                const opt = document.createElement('option');
-                                opt.value = 'roi';
-                                opt.textContent = 'Sort: ROI %';
-                                sortDD.appendChild(opt);
-            }
-
-            // Add event listener for ROI sort
-                            if (sortDD) {
-                                const origChange = sortDD.onchange;
-                                sortDD.addEventListener('change', function() {
-                                    if (this.value === 'roi') {
-                                        state.currentSort = 'roi';
-                                        renderTopFlips(true);
-                    }
-                    });
-                    }
-                    }, 2000);
-
-                        // --- PATCH SORT TO HANDLE ROI ---
-        const _origSort = state ? undefined : undefined;
-                        const origRTF2 = renderTopFlips;
-                        // We already overrode renderTopFlips above. Let's also patch the sort.
-        // The sort happens inside renderTopFlips based on state.currentSort
-                        // We need to intercept when sort is 'roi'
-                        // Since we wrapped renderTopFlips, let's also handle the sorting there.
-
-                        // Actually, let me re-wrap to add ROI sorting
-        const _prevRTF = renderTopFlips;
-                        renderTopFlips = function(force) {
-                            // If sorting by ROI, temporarily sort allItems
-                            if (state.currentSort === 'roi') {
-                                state.allItems.sort((a, b) => calcROI(b) - calcROI(a));
-                    }
-                            _prevRTF(force);
-        };
-
-        console.log('[Grand Flip Out] Gemini enhancements loaded: ROI, Risk Indicators, Cash Stack Filter, F2P/P2P Toggle, Tooltips, Volume/Limit, Sparklines');
-                    })();
-    </script>
+</script>
 </body>
 </html>
