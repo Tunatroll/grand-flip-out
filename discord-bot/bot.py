@@ -1394,6 +1394,139 @@ async def flip_command(interaction: discord.Interaction, item_name: str, quantit
     await interaction.followup.send(embed=embed)
 
 
+@bot.tree.command(name="tax", description="Calculate GE tax for an item or price")
+@app_commands.describe(
+    item_name="Item name (or just type a number for raw price)",
+    quantity="How many items (default: 1)"
+)
+@app_commands.checks.cooldown(1, 3.0, key=lambda i: (i.guild_id, i.user.id))
+async def tax_command(interaction: discord.Interaction, item_name: str, quantity: Optional[int] = 1):
+    await interaction.response.defer()
+    qty = max(1, quantity or 1)
+
+    # Check if item_name is a raw number (price input)
+    try:
+        raw_price = int(item_name.replace(',', '').replace('k', '000').replace('m', '000000'))
+        tax_per = min(int(raw_price * 0.02), 5_000_000)
+        total_tax = tax_per * qty
+        after_tax = (raw_price - tax_per) * qty
+        embed = discord.Embed(title="GE Tax Calculator", color=OSRS_GOLD)
+        embed.add_field(name="Sell Price", value=f"{raw_price:,} gp", inline=True)
+        embed.add_field(name="Tax/Item", value=f"{tax_per:,} gp (2%)", inline=True)
+        embed.add_field(name="Quantity", value=f"{qty:,}", inline=True)
+        embed.add_field(name="Total Tax", value=f"**{total_tax:,} gp**", inline=True)
+        embed.add_field(name="You Receive", value=f"**{after_tax:,} gp**", inline=True)
+        if raw_price >= 250_000_000:
+            embed.set_footer(text="Tax capped at 5M gp per item")
+        else:
+            embed.set_footer(text="Grand Flip Out v2.2")
+        embed.timestamp = datetime.now()
+        await interaction.followup.send(embed=embed)
+        return
+    except ValueError:
+        pass
+
+    # Look up item by name
+    item = api_client.find_item_by_name(item_name)
+    if not item:
+        await interaction.followup.send(f"Couldn't find item matching '{item_name}'. You can also type a number like `/tax 1000000`.")
+        return
+
+    data = api_client._build_item_data(item['id'])
+    if not data:
+        await interaction.followup.send(f"No price data for **{item['name']}** right now.")
+        return
+
+    sp = data['sell_price']
+    tax_per = min(int(sp * 0.02), 5_000_000)
+    total_tax = tax_per * qty
+    profit_after = (sp - tax_per) * qty
+
+    embed = discord.Embed(title=f"GE Tax — {item['name']}", color=OSRS_GOLD)
+    embed.set_thumbnail(url=api_client.get_item_icon_url(item['id']))
+    embed.add_field(name="Sell Price", value=f"{sp:,} gp", inline=True)
+    embed.add_field(name="Tax/Item", value=f"{tax_per:,} gp (2%)", inline=True)
+    embed.add_field(name="Quantity", value=f"{qty:,}", inline=True)
+    embed.add_field(name="Total Tax", value=f"**{total_tax:,} gp**", inline=True)
+    embed.add_field(name="You Receive", value=f"**{profit_after:,} gp**", inline=True)
+    if sp >= 250_000_000:
+        embed.add_field(name="Note", value="Tax capped at 5M gp per item", inline=False)
+    embed.set_footer(text="Grand Flip Out v2.2 • 2% tax, 5M cap")
+    embed.timestamp = datetime.now()
+    await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="hotlist", description="Show the most profitable items from this session")
+@app_commands.checks.cooldown(1, 5.0, key=lambda i: (i.guild_id, i.user.id))
+async def hotlist_command(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    if not api_client.latest_prices:
+        await interaction.followup.send("Still loading price data. Try again in a moment.")
+        return
+
+    # Build item list with profit calculations
+    hot_items = []
+    for item_id_str, prices in api_client.latest_prices.items():
+        item_id = int(item_id_str)
+        info = api_client.item_mapping.get(item_id)
+        if not info:
+            continue
+        high = prices.get('high', 0) or 0
+        low = prices.get('low', 0) or 0
+        if high <= 0 or low <= 0 or high <= low:
+            continue
+        tax = min(int(high * 0.02), 5_000_000)
+        margin = high - low - tax
+        if margin <= 0:
+            continue
+
+        # Volume check
+        vols = api_client.volume_data.get(item_id_str, {})
+        total_vol = (vols.get('buyVol', 0) or 0) + (vols.get('sellVol', 0) or 0)
+        vol_per_hour = total_vol * 12
+
+        buy_limit = info.get('limit', 100) or 100
+        realistic_buys = min(buy_limit, int(vol_per_hour * 4)) if vol_per_hour > 0 else min(buy_limit, 10)
+        profit_4h = margin * realistic_buys
+
+        if profit_4h > 10000:  # Min 10k profit threshold
+            hot_items.append({
+                'name': info.get('name', f'Item {item_id}'),
+                'id': item_id,
+                'margin': margin,
+                'profit_4h': profit_4h,
+                'vol_hr': vol_per_hour,
+                'buy': low,
+                'sell': high
+            })
+
+    hot_items.sort(key=lambda x: x['profit_4h'], reverse=True)
+    top = hot_items[:10]
+
+    if not top:
+        await interaction.followup.send("No profitable items found right now. Market might be slow.")
+        return
+
+    embed = discord.Embed(
+        title="🔥 Hotlist — Top 10 Most Profitable Flips",
+        description="Ranked by realistic 4-hour profit potential",
+        color=OSRS_GOLD
+    )
+    for i, item in enumerate(top, 1):
+        medal = ['🥇', '🥈', '🥉'][i-1] if i <= 3 else f'**{i}.**'
+        vol_str = f"{item['vol_hr']:,.0f}/hr" if item['vol_hr'] > 0 else "Low"
+        embed.add_field(
+            name=f"{medal} {item['name']}",
+            value=f"Profit: **{item['margin']:,}** gp/ea · 4h: **{item['profit_4h']:,}** gp\nBuy: {item['buy']:,} · Sell: {item['sell']:,} · Vol: {vol_str}",
+            inline=False
+        )
+
+    embed.set_footer(text="Grand Flip Out v2.2 • Prices from OSRS Wiki")
+    embed.timestamp = datetime.now()
+    await interaction.followup.send(embed=embed)
+
+
 # Rate limiting state for auto-alerts
 _alert_last_global = 0          # timestamp of last channel alert sent
 _alert_item_times = {}          # item_id -> last alert timestamp

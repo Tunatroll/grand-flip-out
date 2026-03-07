@@ -332,9 +332,81 @@
         .intel-hidden { display:none; }
 
         .hidden { display:none !important; }
+
+        /* === TOAST NOTIFICATIONS === */
+        .toast-container { position:fixed; top:80px; right:20px; z-index:900; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+        .toast { pointer-events:auto; background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--radius); padding:12px 16px; min-width:280px; max-width:380px; box-shadow:var(--shadow-lg); display:flex; align-items:flex-start; gap:10px; animation:toastIn .3s ease-out; transition:all .3s; }
+        .toast.removing { animation:toastOut .3s ease-in forwards; }
+        @keyframes toastIn { from { opacity:0; transform:translateX(100px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes toastOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(100px); } }
+        .toast-icon { font-size:20px; flex-shrink:0; margin-top:1px; }
+        .toast-body { flex:1; min-width:0; }
+        .toast-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:2px; }
+        .toast-msg { font-size:12px; color:var(--text-secondary); line-height:1.4; }
+        .toast-close { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; padding:0; line-height:1; flex-shrink:0; }
+        .toast-close:hover { color:var(--text); }
+        .toast.dump { border-left:3px solid var(--red); }
+        .toast.pump { border-left:3px solid var(--green); }
+        .toast.info { border-left:3px solid var(--blue); }
+
+        /* === ITEM DETAIL MODAL === */
+        .item-modal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.75); z-index:1000; backdrop-filter:blur(6px); }
+        .item-modal.active { display:flex; align-items:center; justify-content:center; }
+        .item-modal-panel { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--radius-xl); padding:0; max-width:640px; width:92%; max-height:85vh; overflow-y:auto; box-shadow:var(--shadow-lg); animation:modalIn .25s ease-out; }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.95) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .item-modal-header { display:flex; align-items:center; gap:14px; padding:20px 24px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg-card); z-index:1; border-radius:var(--radius-xl) var(--radius-xl) 0 0; }
+        .item-modal-icon { width:56px; height:56px; border-radius:10px; background:var(--bg-surface); display:flex; align-items:center; justify-content:center; overflow:hidden; box-shadow:0 0 16px rgba(255,152,31,0.25); flex-shrink:0; }
+        .item-modal-icon img { width:100%; height:100%; object-fit:contain; }
+        .item-modal-title { flex:1; }
+        .item-modal-title h2 { font-size:20px; font-weight:800; color:var(--text); margin-bottom:2px; }
+        .item-modal-title .modal-subtitle { font-size:12px; color:var(--text-muted); }
+        .item-modal-close { background:none; border:none; font-size:28px; color:var(--text-secondary); cursor:pointer; padding:4px 8px; transition:color .2s; line-height:1; }
+        .item-modal-close:hover { color:var(--accent); }
+        .item-modal-body { padding:20px 24px; }
+        .modal-price-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px; }
+        .modal-price-box { background:var(--bg-surface); border-radius:var(--radius); padding:14px; text-align:center; }
+        .modal-price-label { font-size:10px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px; margin-bottom:4px; }
+        .modal-price-value { font-size:20px; font-weight:800; }
+        .modal-stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
+        .modal-stat { background:var(--bg-surface); border-radius:var(--radius); padding:12px 14px; }
+        .modal-stat-label { font-size:10px; text-transform:uppercase; color:var(--text-muted); letter-spacing:.5px; }
+        .modal-stat-value { font-size:15px; font-weight:700; color:var(--text); margin-top:2px; }
+        .modal-section-title { font-size:13px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+        .modal-intel-tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
+        .modal-actions { display:flex; gap:10px; padding:16px 24px; border-top:1px solid var(--border); background:var(--bg-card); border-radius:0 0 var(--radius-xl) var(--radius-xl); }
+        .modal-action-btn { flex:1; padding:10px; border-radius:var(--radius); font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; border:1px solid var(--border); background:var(--bg-surface); color:var(--text-secondary); font-family:inherit; text-align:center; }
+        .modal-action-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .modal-action-btn.primary { background:linear-gradient(135deg,var(--accent),var(--gold)); color:#1a1410; border:none; }
+        .modal-action-btn.primary:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(255,152,31,0.3); }
+        .modal-sparkline-lg { width:100%; height:80px; margin-bottom:20px; background:var(--bg-surface); border-radius:var(--radius); }
+
+        /* === KEYBOARD SHORTCUT HINT === */
+        .kbd-hint { position:fixed; bottom:24px; left:24px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:8px 14px; font-size:11px; color:var(--text-muted); z-index:100; opacity:0.6; transition:opacity .2s; cursor:help; }
+        .kbd-hint:hover { opacity:1; }
+        .kbd { display:inline-block; background:var(--bg-surface); border:1px solid var(--border-strong); border-radius:4px; padding:1px 5px; font-family:'Courier New',monospace; font-size:10px; color:var(--text-secondary); margin:0 2px; }
+
+        /* === SESSION STATS BAR === */
+        .session-bar { background:var(--bg-primary); border-bottom:1px solid var(--border); padding:6px 20px; font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+        .session-stat { display:flex; align-items:center; gap:4px; }
+        .session-stat-val { color:var(--text-secondary); font-weight:600; }
+        .session-export-btn { background:none; border:1px solid var(--border); border-radius:6px; padding:3px 10px; color:var(--text-muted); font-size:10px; font-weight:600; cursor:pointer; margin-left:auto; transition:all .2s; font-family:inherit; }
+        .session-export-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+        @media(max-width:768px) {
+            .toast-container { right:10px; left:10px; }
+            .toast { min-width:0; }
+            .item-modal-panel { width:96%; max-height:90vh; }
+            .modal-price-row { grid-template-columns:1fr; }
+            .modal-stats-grid { grid-template-columns:1fr; }
+            .kbd-hint { display:none; }
+            .session-bar { padding:4px 12px; font-size:10px; gap:10px; }
+        }
     </style>
 </head>
 <body>
+
+<!-- TOAST NOTIFICATIONS -->
+<div class="toast-container" id="toastContainer"></div>
 
 <!-- SCROLL TO TOP BUTTON -->
 <div class="scroll-to-top" id="scrollToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</div>
@@ -378,6 +450,15 @@
         <button class="nav-tab" data-tab="plugin"><span class="tab-icon">🔌</span>Plugin</button>
     </div>
 </nav>
+
+<!-- SESSION STATS BAR -->
+<div class="session-bar" id="sessionBar">
+    <div class="session-stat">🕐 Session: <span class="session-stat-val" id="sessionTime">0m</span></div>
+    <div class="session-stat">📊 Refreshes: <span class="session-stat-val" id="sessionRefreshes">0</span></div>
+    <div class="session-stat">📉 Dumps seen: <span class="session-stat-val" id="sessionDumps">0</span></div>
+    <div class="session-stat">💰 Best opportunity: <span class="session-stat-val" id="sessionBest">—</span></div>
+    <button class="session-export-btn" onclick="exportSessionData()" title="Download session data as JSON">📥 Export</button>
+</div>
 
 <!-- PAGE -->
 <main class="page">
@@ -635,6 +716,50 @@
 </main>
 
 <!-- SETTINGS MODAL -->
+<!-- ITEM DETAIL MODAL -->
+<div class="item-modal" id="itemModal">
+    <div class="item-modal-panel">
+        <div class="item-modal-header">
+            <div class="item-modal-icon" id="modalIcon"></div>
+            <div class="item-modal-title">
+                <h2 id="modalItemName">—</h2>
+                <div class="modal-subtitle" id="modalSubtitle">—</div>
+            </div>
+            <button class="item-modal-close" onclick="closeItemModal()">×</button>
+        </div>
+        <div class="item-modal-body">
+            <div class="modal-price-row">
+                <div class="modal-price-box">
+                    <div class="modal-price-label">Buy Price</div>
+                    <div class="modal-price-value price-green" id="modalBuy">—</div>
+                </div>
+                <div class="modal-price-box">
+                    <div class="modal-price-label">Sell Price</div>
+                    <div class="modal-price-value price-gold" id="modalSell">—</div>
+                </div>
+                <div class="modal-price-box">
+                    <div class="modal-price-label">Profit/Item</div>
+                    <div class="modal-price-value" id="modalProfit" style="color:var(--green)">—</div>
+                </div>
+            </div>
+            <canvas id="modalSparkline" class="modal-sparkline-lg" width="580" height="80"></canvas>
+            <div class="modal-stats-grid" id="modalStats"></div>
+            <div class="modal-section-title">Market Intelligence</div>
+            <div class="modal-intel-tags" id="modalIntel"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-action-btn" onclick="toggleWatchlistFromModal()">⭐ Watchlist</button>
+            <button class="modal-action-btn" onclick="openOSRSWiki(document.getElementById('modalItemName').textContent)">📖 Wiki</button>
+            <button class="modal-action-btn primary" onclick="copyFlipInfo()">📋 Copy Flip Info</button>
+        </div>
+    </div>
+</div>
+
+<!-- KEYBOARD HINT -->
+<div class="kbd-hint" id="kbdHint">
+    <kbd class="kbd">S</kbd> Search · <kbd class="kbd">1-9</kbd> Tabs · <kbd class="kbd">Esc</kbd> Close
+</div>
+
 <div class="settings-modal" id="settingsModal">
     <div class="settings-panel">
         <div class="settings-header">
@@ -672,7 +797,36 @@
             </div>
         </div>
 
+        <div class="settings-group">
+            <label class="settings-label">Minimum Profit Threshold</label>
+            <input type="number" class="settings-input" id="minProfitInput" placeholder="5000" value="5000">
+            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Hide items with less than this profit/item (GP)</div>
+        </div>
+
+        <div class="settings-group">
+            <label class="settings-label">Refresh Interval (seconds)</label>
+            <input type="number" class="settings-input" id="refreshIntervalInput" placeholder="45" min="15" max="300" value="45">
+            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">How often to refresh all prices (15-300 seconds)</div>
+        </div>
+
+        <div class="settings-group">
+            <label class="settings-label">Toast Notifications</label>
+            <div class="settings-toggle">
+                <div class="toggle-switch" id="toastToggle" onclick="toggleToasts(this)"></div>
+                <span style="font-size:13px; color:var(--text-secondary);">Show popup alerts when dumps/pumps are detected</span>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <label class="settings-label">Sound Alerts</label>
+            <div class="settings-toggle">
+                <div class="toggle-switch" id="soundToggle" onclick="toggleSounds(this)"></div>
+                <span style="font-size:13px; color:var(--text-secondary);">Play sound when a severe dump is detected</span>
+            </div>
+        </div>
+
         <div class="settings-button-group">
+            <button class="settings-button" onclick="saveAllSettings()">💾 Save Settings</button>
             <button class="settings-button" onclick="testDiscordWebhook()">📨 Test Webhook</button>
             <button class="settings-button secondary" onclick="toggleSettingsModal()">Close</button>
         </div>
@@ -733,6 +887,7 @@ const state = {
     alertsThisHour: [], // timestamps of alerts sent this hour (max 6/hr)
     discordAlertedItems: {}, // itemId -> timestamp, prevents flicker re-alerts
     refreshCountdown: 0,
+    minProfitThreshold: 0,
     priceBaselines: {},  // { normal1h, normal5m, lastSeen } per item
     fetchCache: {},      // { [endpoint]: { data, time } } for fetch deduplication
     lastRenderHash: '',  // for renderTopFlips optimization
@@ -4266,7 +4421,7 @@ function renderTopFlips(force = false) {
                     </div>
                 </div>
             ` : '';
-            return `<tr onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
+            return `<tr onclick="openItemModal(${item.itemId})" style="cursor:pointer;" title="Click to view full analysis">
                 <td onclick="event.stopPropagation(); toggleFav(${item.itemId},event.target.closest('button'))"><button class="fav-btn ${state.watchlist.has(item.itemId)?'on':''}" data-id="${item.itemId}" onclick="toggleFav(${item.itemId},this)">★</button></td>
                 <td class="item-name-cell" style="max-width:300px;white-space:normal;"><span class="item-row-icon">${iconHtml(item.icon,item.name,32)}</span>${item.name}${intelHtml}</td>
                 <td><span class="verdict-pill ${v.cls}" title="${v.tip}">${v.text}</span></td>
@@ -4311,7 +4466,7 @@ function renderTopFlips(force = false) {
                 </div>
             ` : '';
             return `
-            <div class="item-card" onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
+            <div class="item-card" onclick="openItemModal(${item.itemId})">
                 <button class="card-fav ${state.watchlist.has(item.itemId)?'on':''}" onclick="event.stopPropagation(); toggleFav(${item.itemId},this)">★</button>
                 <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
                 <div class="card-name">${item.name}</div>
@@ -4420,7 +4575,7 @@ function renderWatchlist() {
             const v = getVerdict(item);
             const rp = realistic4hProfit(item);
             return `
-            <div class="item-card" onclick="openOSRSWiki('${item.name.replace(/'/g, "\\'")}')">
+            <div class="item-card" onclick="openItemModal(${item.itemId})">
                 <button class="card-fav on" onclick="event.stopPropagation(); toggleFav(${item.itemId},this)">★</button>
                 <div class="card-icon">${iconHtml(item.icon,item.name,48)}</div>
                 <div class="card-name">${item.name}</div>
@@ -4576,12 +4731,270 @@ document.querySelectorAll('.cat-pill').forEach(btn => {
     });
 });
 
-// Close settings modal on escape
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        const modal = document.getElementById('settingsModal');
-        if (modal.classList.contains('active')) toggleSettingsModal();
+// ============================================
+// TOAST NOTIFICATION SYSTEM
+// ============================================
+const TOASTS = {
+    enabled: true,
+    soundEnabled: false,
+    queue: [],
+    show(title, msg, type = 'info', duration = 5000) {
+        if (!this.enabled) return;
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+        const icons = { dump: '📉', pump: '📈', info: 'ℹ️', success: '✅', warning: '⚠️' };
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <div class="toast-icon">${icons[type] || icons.info}</div>
+            <div class="toast-body">
+                <div class="toast-title">${title}</div>
+                <div class="toast-msg">${msg}</div>
+            </div>
+            <button class="toast-close" onclick="this.closest('.toast').remove()">×</button>
+        `;
+        container.appendChild(toast);
+        // Play sound for dumps if enabled
+        if (this.soundEnabled && (type === 'dump' || type === 'pump')) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.value = type === 'dump' ? 300 : 600;
+                gain.gain.value = 0.1;
+                osc.start(); osc.stop(ctx.currentTime + 0.15);
+            } catch {}
+        }
+        setTimeout(() => {
+            toast.classList.add('removing');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
     }
+};
+
+// ============================================
+// SESSION TRACKING
+// ============================================
+const SESSION = {
+    startTime: Date.now(),
+    refreshCount: 0,
+    dumpsSeenTotal: 0,
+    bestOpportunity: { name: '—', profit: 0 },
+    incrementRefresh() { this.refreshCount++; this.updateBar(); },
+    recordDumps(dumps) {
+        this.dumpsSeenTotal += dumps.length;
+        for (const d of dumps) {
+            const profit = d.flipProfit || 0;
+            if (profit > this.bestOpportunity.profit) {
+                this.bestOpportunity = { name: d.name, profit };
+            }
+        }
+        this.updateBar();
+    },
+    updateBar() {
+        const el = (id) => document.getElementById(id);
+        const elapsed = Math.floor((Date.now() - this.startTime) / 60000);
+        const hrs = Math.floor(elapsed / 60);
+        const mins = elapsed % 60;
+        if (el('sessionTime')) el('sessionTime').textContent = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+        if (el('sessionRefreshes')) el('sessionRefreshes').textContent = this.refreshCount;
+        if (el('sessionDumps')) el('sessionDumps').textContent = this.dumpsSeenTotal;
+        if (el('sessionBest')) el('sessionBest').textContent = this.bestOpportunity.profit > 0
+            ? `${gp(this.bestOpportunity.profit)} (${this.bestOpportunity.name})`
+            : '—';
+    }
+};
+
+// ============================================
+// ITEM DETAIL MODAL
+// ============================================
+let _modalItemData = null;
+
+function openItemModal(itemId) {
+    const item = state.allItems.find(i => String(i.id) === String(itemId));
+    if (!item) return;
+    _modalItemData = item;
+    const modal = document.getElementById('itemModal');
+    // Header
+    document.getElementById('modalIcon').innerHTML = iconHtml(item.icon, item.name, 56);
+    document.getElementById('modalItemName').textContent = item.name;
+    const verdict = getVerdict(item);
+    document.getElementById('modalSubtitle').innerHTML = `<span class="verdict-pill ${verdict.cls}">${verdict.text}</span> · ID: ${item.id}`;
+    // Prices
+    document.getElementById('modalBuy').textContent = gp(item.buyPrice);
+    document.getElementById('modalSell').textContent = gp(item.sellPrice);
+    const tax = Math.min(Math.floor((item.sellPrice || 0) * 0.02), 5000000);
+    const profitPerItem = (item.margin || 0);
+    document.getElementById('modalProfit').textContent = gp(profitPerItem);
+    document.getElementById('modalProfit').style.color = profitPerItem > 0 ? 'var(--green)' : 'var(--red)';
+    // Large sparkline
+    const snapshots = state.priceSnapshots[item.id];
+    if (snapshots && snapshots.length > 1) {
+        setTimeout(() => drawSparkline('modalSparkline', snapshots), 50);
+        document.getElementById('modalSparkline').style.display = '';
+    } else {
+        document.getElementById('modalSparkline').style.display = 'none';
+    }
+    // Stats grid
+    const vph = volPerHour(item);
+    const profit4h = realistic4hProfit(item);
+    const exec = typeof getFlipExecution === 'function' ? getFlipExecution(item) : null;
+    const bl = item.buyLimit || '?';
+    const roi = item.buyPrice > 0 ? ((profitPerItem / item.buyPrice) * 100).toFixed(1) : '0';
+    let statsHtml = `
+        <div class="modal-stat"><div class="modal-stat-label">GE Tax</div><div class="modal-stat-value">${gp(tax)}/ea</div></div>
+        <div class="modal-stat"><div class="modal-stat-label">ROI</div><div class="modal-stat-value">${roi}%</div></div>
+        <div class="modal-stat"><div class="modal-stat-label">Volume/Hour</div><div class="modal-stat-value">${vph > 0 ? '~' + Math.round(vph).toLocaleString() : 'Low'}</div></div>
+        <div class="modal-stat"><div class="modal-stat-label">Buy Limit (4h)</div><div class="modal-stat-value">${typeof bl === 'number' ? bl.toLocaleString() : bl}</div></div>
+        <div class="modal-stat"><div class="modal-stat-label">Est. 4h Profit</div><div class="modal-stat-value" style="color:var(--green)">${gp(profit4h)}</div></div>
+    `;
+    if (exec) {
+        statsHtml += `<div class="modal-stat"><div class="modal-stat-label">GP/Hour</div><div class="modal-stat-value" style="color:var(--accent)">${gp(exec.gpPerHour || 0)}/hr</div></div>`;
+    }
+    // Alch profit if available
+    if (typeof ALCH_CALC !== 'undefined' && item.id) {
+        const alch = ALCH_CALC.getProfit(item.id);
+        if (alch && alch.profit !== 0) {
+            statsHtml += `<div class="modal-stat"><div class="modal-stat-label">High Alch Profit</div><div class="modal-stat-value" style="color:${alch.profit > 0 ? 'var(--green)' : 'var(--red)'}">${gp(alch.profit)}</div></div>`;
+        }
+    }
+    document.getElementById('modalStats').innerHTML = statsHtml;
+    // Intel
+    let intelHtml = '';
+    if (typeof MARKET_INTEL !== 'undefined') {
+        const intel = MARKET_INTEL.getIntel(item.id, item.name, item);
+        if (intel && intel.length > 0) {
+            intelHtml = intel.map(i => `<span class="intel-badge ${i.type || ''}" title="${i.detail || ''}">${i.icon || '📊'} ${i.text}</span>`).join('');
+        }
+    }
+    intelHtml = intelHtml || '<span style="color:var(--text-muted); font-size:12px;">No special intel for this item.</span>';
+    document.getElementById('modalIntel').innerHTML = intelHtml;
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeItemModal() {
+    document.getElementById('itemModal').classList.remove('active');
+    document.body.style.overflow = '';
+    _modalItemData = null;
+}
+
+function toggleWatchlistFromModal() {
+    if (!_modalItemData) return;
+    const id = _modalItemData.id;
+    if (state.watchlist.has(id)) state.watchlist.delete(id); else state.watchlist.add(id);
+    saveWatchlist();
+    renderWatchlist();
+    const action = state.watchlist.has(id) ? 'Added to' : 'Removed from';
+    TOASTS.show(`${action} Watchlist`, _modalItemData.name, 'info', 2000);
+}
+
+function copyFlipInfo() {
+    if (!_modalItemData) return;
+    const item = _modalItemData;
+    const tax = Math.min(Math.floor((item.sellPrice || 0) * 0.02), 5000000);
+    const profit4h = realistic4hProfit(item);
+    const text = `${item.name}\nBuy: ${item.buyPrice?.toLocaleString()} gp | Sell: ${item.sellPrice?.toLocaleString()} gp\nProfit: ${item.margin?.toLocaleString()} gp/ea (tax: ${tax.toLocaleString()})\nEst 4h Profit: ${profit4h.toLocaleString()} gp\nVol/hr: ~${Math.round(volPerHour(item)).toLocaleString()}`;
+    navigator.clipboard.writeText(text).then(() => {
+        TOASTS.show('Copied!', 'Flip info copied to clipboard', 'success', 2000);
+    }).catch(() => {});
+}
+
+function exportSessionData() {
+    const data = {
+        exportedAt: new Date().toISOString(),
+        sessionDuration: Math.floor((Date.now() - SESSION.startTime) / 60000) + ' minutes',
+        refreshes: SESSION.refreshCount,
+        dumpsDetected: SESSION.dumpsSeenTotal,
+        bestOpportunity: SESSION.bestOpportunity,
+        topFlips: state.allItems.slice(0, 30).map(i => ({
+            name: i.name, id: i.id,
+            buyPrice: i.buyPrice, sellPrice: i.sellPrice,
+            margin: i.margin, profit4h: realistic4hProfit(i),
+            volPerHour: Math.round(volPerHour(i)),
+            verdict: getVerdict(i).text
+        })),
+        watchlist: Array.from(state.watchlist),
+        activeDumps: (state.dumps || []).map(d => ({ name: d.name, flipProfit: d.flipProfit, pctChange: d.pctChange }))
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `gfo-session-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    TOASTS.show('Exported!', 'Session data downloaded', 'success', 2000);
+}
+
+// ============================================
+// EXTENDED SETTINGS
+// ============================================
+function toggleToasts(el) {
+    el.classList.toggle('on');
+    TOASTS.enabled = el.classList.contains('on');
+    localStorage.setItem('gfo_toasts_enabled', TOASTS.enabled);
+}
+function toggleSounds(el) {
+    el.classList.toggle('on');
+    TOASTS.soundEnabled = el.classList.contains('on');
+    localStorage.setItem('gfo_sounds_enabled', TOASTS.soundEnabled);
+}
+function saveAllSettings() {
+    saveSettings();
+    // Save extended settings
+    const minProfit = parseInt(document.getElementById('minProfitInput').value) || 0;
+    const refreshInterval = Math.max(15, Math.min(300, parseInt(document.getElementById('refreshIntervalInput').value) || 45));
+    localStorage.setItem('gfo_min_profit', minProfit);
+    localStorage.setItem('gfo_refresh_interval', refreshInterval);
+    state.minProfitThreshold = minProfit;
+    state.fullRefreshInterval = refreshInterval * 1000;
+    document.getElementById('refreshIntervalInput').value = refreshInterval;
+    TOASTS.show('Settings Saved', 'Your preferences have been saved', 'success', 2000);
+}
+
+function loadExtendedSettings() {
+    const minProfit = localStorage.getItem('gfo_min_profit');
+    const refreshInterval = localStorage.getItem('gfo_refresh_interval');
+    const toastsEnabled = localStorage.getItem('gfo_toasts_enabled');
+    const soundsEnabled = localStorage.getItem('gfo_sounds_enabled');
+    if (minProfit !== null) { state.minProfitThreshold = parseInt(minProfit); document.getElementById('minProfitInput').value = state.minProfitThreshold; }
+    if (refreshInterval !== null) { state.fullRefreshInterval = parseInt(refreshInterval) * 1000; document.getElementById('refreshIntervalInput').value = parseInt(refreshInterval); }
+    if (toastsEnabled !== null) { TOASTS.enabled = toastsEnabled === 'true'; if (TOASTS.enabled) document.getElementById('toastToggle')?.classList.add('on'); }
+    if (soundsEnabled !== null) { TOASTS.soundEnabled = soundsEnabled === 'true'; if (TOASTS.soundEnabled) document.getElementById('soundToggle')?.classList.add('on'); }
+}
+
+// ============================================
+// KEYBOARD SHORTCUTS
+// ============================================
+document.addEventListener('keydown', e => {
+    // Don't trigger shortcuts when typing in input fields
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        if (e.key === 'Escape') e.target.blur();
+        return;
+    }
+    // Escape - close modals
+    if (e.key === 'Escape') {
+        const itemModal = document.getElementById('itemModal');
+        if (itemModal.classList.contains('active')) { closeItemModal(); return; }
+        const settingsModal = document.getElementById('settingsModal');
+        if (settingsModal.classList.contains('active')) { toggleSettingsModal(); return; }
+    }
+    // S - focus search
+    if (e.key === 's' || e.key === 'S') { e.preventDefault(); document.getElementById('searchInput').focus(); return; }
+    // 1-9 - switch tabs
+    if (e.key >= '1' && e.key <= '9') {
+        const tabs = document.querySelectorAll('.nav-tab');
+        const idx = parseInt(e.key) - 1;
+        if (tabs[idx]) { tabs[idx].click(); return; }
+    }
+    // R - manual refresh
+    if (e.key === 'r' || e.key === 'R') { if (typeof manualRefresh === 'function') manualRefresh(); }
+});
+
+// Click outside modals to close
+document.getElementById('itemModal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeItemModal();
 });
 
 // ============================================
@@ -4589,11 +5002,16 @@ document.addEventListener('keydown', e => {
 // ============================================
 async function init() {
     loadSettings();
+    loadExtendedSettings();
     loadWatchlist();
     loadPriceMemory();
     FLIP_TRACKER.load();
     BUY_LIMIT_TRACKER.load();
     updateStatus(false);
+    // Session timer
+    setInterval(() => SESSION.updateBar(), 30000);
+    SESSION.updateBar();
+    TOASTS.show('Grand Flip Out', 'Dashboard loading...', 'info', 3000);
     await loadTopFlips(true);
     updateStatus(state.allItems.length > 0);
     await loadDumpsPumps();
@@ -4601,14 +5019,32 @@ async function init() {
     loadSpecialItems('poisoned');
     startCountdownTimer();
 
-    setInterval(async () => { try { await checkDumpsLight(); } catch {} }, state.dumpCheckInterval);
+    setInterval(async () => {
+        try {
+            const prevDumpCount = (state.dumps || []).length;
+            await checkDumpsLight();
+            SESSION.incrementRefresh();
+            // Toast for new dumps
+            const newDumps = (state.dumps || []).filter(d => {
+                const age = Date.now() - (d.detectedAt || 0);
+                return age < state.dumpCheckInterval * 1.5;
+            });
+            if (newDumps.length > 0) {
+                SESSION.recordDumps(newDumps);
+                for (const d of newDumps.slice(0, 3)) {
+                    TOASTS.show(`Dump: ${d.name}`, `${d.pctChange ? d.pctChange.toFixed(1) + '% drop' : 'Price crashed'} — Flip profit: ${gp(d.flipProfit || 0)}`, 'dump', 8000);
+                }
+            }
+        } catch {}
+    }, state.dumpCheckInterval);
 
     async function smartRefresh() {
-        try { await loadTopFlips(false); } catch {}
+        try { await loadTopFlips(false); SESSION.incrementRefresh(); } catch {}
         state.refreshCountdown = Math.floor(state.fullRefreshInterval / 1000);
         setTimeout(smartRefresh, state.fullRefreshInterval);
     }
     setTimeout(smartRefresh, state.fullRefreshInterval);
+    TOASTS.show('Dashboard Ready', `Tracking ${state.allItems.length} items`, 'success', 3000);
 }
 window.addEventListener('DOMContentLoaded', init);
 </script>
