@@ -797,7 +797,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "additionalPeers",
         name = "Additional Relay Peers",
-        description = "Comma-separated list of extra GFO relay URLs to connect to (e.g., https://myserver.com:3001,http://friend:3001). Leave blank to use only the default seed list.",
+        description = "Comma-separated list of extra GFO relay URLs to connect to (HTTPS required, e.g., https://myserver.com:3001). Leave blank to use only the official relay.",
         section = p2pSection,
         position = 1
     )
@@ -836,7 +836,7 @@ public interface GrandFlipOutConfig extends Config
     )
     default String backendUrl()
     {
-        return "http://localhost:3001/api/contribute";
+        return "https://gfo.tunatroll.com/api/contribute";
     }
 
     @ConfigItem(

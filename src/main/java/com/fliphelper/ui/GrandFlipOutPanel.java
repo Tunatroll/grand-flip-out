@@ -118,37 +118,82 @@ public class GrandFlipOutPanel extends PluginPanel
     {
         JPanel header = new JPanel();
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
-        header.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        header.setBorder(new EmptyBorder(8, 10, 8, 10));
+        header.setBackground(new Color(0x16, 0x16, 0x25));
+        header.setBorder(new EmptyBorder(10, 12, 10, 12));
 
+        // Title row with brand
+        JPanel titleRow = new JPanel(new BorderLayout());
+        titleRow.setOpaque(false);
         JLabel titleLabel = new JLabel("Grand Flip Out");
-        titleLabel.setForeground(new Color(0xFF, 0x98, 0x1F)); // OSRS Gold
+        titleLabel.setForeground(new Color(0xFF, 0xB8, 0x00)); // Gold
         titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 16f));
-        header.add(titleLabel);
-        header.add(Box.createVerticalStrut(6));
+        titleRow.add(titleLabel, BorderLayout.WEST);
 
-        JPanel statsGrid = new JPanel(new GridLayout(2, 2, 10, 4));
-        statsGrid.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        lastRefreshLabel = new JLabel("...");
+        lastRefreshLabel.setForeground(new Color(0x60, 0x60, 0x80));
+        lastRefreshLabel.setFont(lastRefreshLabel.getFont().deriveFont(10f));
+        titleRow.add(lastRefreshLabel, BorderLayout.EAST);
+        header.add(titleRow);
+        header.add(Box.createVerticalStrut(8));
 
-        sessionProfitLabel = new JLabel("Profit: 0gp");
-        sessionProfitLabel.setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
-        statsGrid.add(sessionProfitLabel);
+        // Session stats as mini-cards
+        JPanel statsRow = new JPanel(new GridLayout(1, 3, 6, 0));
+        statsRow.setOpaque(false);
 
-        sessionFlipCountLabel = new JLabel("Flips: 0");
-        sessionFlipCountLabel.setForeground(Color.WHITE);
-        statsGrid.add(sessionFlipCountLabel);
+        // Profit card
+        JPanel profitCard = buildStatMiniCard();
+        JLabel profitTitle = new JLabel("SESSION PROFIT");
+        profitTitle.setForeground(new Color(0x60, 0x60, 0x80));
+        profitTitle.setFont(profitTitle.getFont().deriveFont(Font.BOLD, 8f));
+        profitCard.add(profitTitle, BorderLayout.NORTH);
+        sessionProfitLabel = new JLabel("0 gp");
+        sessionProfitLabel.setForeground(new Color(0x00, 0xD2, 0x6A));
+        sessionProfitLabel.setFont(sessionProfitLabel.getFont().deriveFont(Font.BOLD, 13f));
+        profitCard.add(sessionProfitLabel, BorderLayout.CENTER);
+        statsRow.add(profitCard);
 
-        avgProfitLabel = new JLabel("Avg: 0gp");
+        // Flip count card
+        JPanel countCard = buildStatMiniCard();
+        JLabel countTitle = new JLabel("FLIPS");
+        countTitle.setForeground(new Color(0x60, 0x60, 0x80));
+        countTitle.setFont(countTitle.getFont().deriveFont(Font.BOLD, 8f));
+        countCard.add(countTitle, BorderLayout.NORTH);
+        sessionFlipCountLabel = new JLabel("0");
+        sessionFlipCountLabel.setForeground(new Color(0x3B, 0x82, 0xF6));
+        sessionFlipCountLabel.setFont(sessionFlipCountLabel.getFont().deriveFont(Font.BOLD, 13f));
+        countCard.add(sessionFlipCountLabel, BorderLayout.CENTER);
+        statsRow.add(countCard);
+
+        // Average card
+        JPanel avgCard = buildStatMiniCard();
+        JLabel avgTitle = new JLabel("AVG PROFIT");
+        avgTitle.setForeground(new Color(0x60, 0x60, 0x80));
+        avgTitle.setFont(avgTitle.getFont().deriveFont(Font.BOLD, 8f));
+        avgCard.add(avgTitle, BorderLayout.NORTH);
+        avgProfitLabel = new JLabel("0 gp");
         avgProfitLabel.setForeground(Color.WHITE);
-        statsGrid.add(avgProfitLabel);
+        avgProfitLabel.setFont(avgProfitLabel.getFont().deriveFont(Font.BOLD, 13f));
+        avgCard.add(avgProfitLabel, BorderLayout.CENTER);
+        statsRow.add(avgCard);
 
-        lastRefreshLabel = new JLabel("Last refresh: never");
-        lastRefreshLabel.setForeground(Color.GRAY);
-        statsGrid.add(lastRefreshLabel);
+        header.add(statsRow);
 
-        header.add(statsGrid);
+        // Bottom separator line
+        header.add(Box.createVerticalStrut(6));
+        JSeparator sep = new JSeparator();
+        sep.setForeground(new Color(0x2A, 0x2A, 0x45));
+        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        header.add(sep);
 
         return header;
+    }
+
+    private JPanel buildStatMiniCard()
+    {
+        JPanel card = new JPanel(new BorderLayout(0, 2));
+        card.setBackground(new Color(0x1A, 0x1A, 0x2E));
+        card.setBorder(new EmptyBorder(6, 8, 6, 8));
+        return card;
     }
 
     private JPanel buildPricesTab()
@@ -221,11 +266,14 @@ public class GrandFlipOutPanel extends PluginPanel
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
+        JPanel headerRow = new JPanel(new BorderLayout());
+        headerRow.setBackground(new Color(0x16, 0x16, 0x25));
+        headerRow.setBorder(new EmptyBorder(10, 12, 8, 12));
         JLabel label = new JLabel("Active Flips");
-        label.setForeground(Color.WHITE);
+        label.setForeground(new Color(0xFF, 0xB8, 0x00));
         label.setFont(label.getFont().deriveFont(Font.BOLD, 14f));
-        label.setBorder(new EmptyBorder(8, 8, 4, 8));
-        panel.add(label, BorderLayout.NORTH);
+        headerRow.add(label, BorderLayout.WEST);
+        panel.add(headerRow, BorderLayout.NORTH);
 
         activeFlipsPanel = new JPanel();
         activeFlipsPanel.setLayout(new BoxLayout(activeFlipsPanel, BoxLayout.Y_AXIS));
@@ -239,10 +287,21 @@ public class GrandFlipOutPanel extends PluginPanel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         buttonPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
         JButton resetBtn = new JButton("Reset Session");
+        resetBtn.setToolTipText("Clear all session profit/loss data and start fresh");
         resetBtn.addActionListener(e -> {
-            flipTracker.resetSession();
-            updateFlipsTab();
-            updateHeader();
+            int confirm = JOptionPane.showConfirmDialog(
+                GrandFlipOutPanel.this,
+                "Reset session data?\n\nThis will clear all profit/loss tracking for this session.\nYour flip history will NOT be deleted.",
+                "Confirm Reset",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+            );
+            if (confirm == JOptionPane.YES_OPTION)
+            {
+                flipTracker.resetSession();
+                updateFlipsTab();
+                updateHeader();
+            }
         });
         buttonPanel.add(resetBtn);
         panel.add(buttonPanel, BorderLayout.SOUTH);
@@ -624,16 +683,29 @@ public class GrandFlipOutPanel extends PluginPanel
     public void updateHeader()
     {
         long profit = flipTracker.getSessionProfit().get();
-        sessionProfitLabel.setText("Profit: " + formatGp(profit));
-        sessionProfitLabel.setForeground(profit >= 0 ? Color.GREEN : Color.RED);
+        sessionProfitLabel.setText(formatGp(profit) + " gp");
+        sessionProfitLabel.setForeground(profit >= 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
 
-        sessionFlipCountLabel.setText("Flips: " + flipTracker.getSessionFlipCount().get());
-        avgProfitLabel.setText("Avg: " + formatGp((long) flipTracker.getAverageProfitPerFlip()));
+        long flipCount = flipTracker.getSessionFlipCount().get();
+        sessionFlipCountLabel.setText(String.valueOf(flipCount));
+
+        long avgProfit = (long) flipTracker.getAverageProfitPerFlip();
+        avgProfitLabel.setText(formatGp(avgProfit) + " gp");
+        avgProfitLabel.setForeground(avgProfit >= 0 ? Color.WHITE : new Color(0xFF, 0x47, 0x57));
 
         if (priceService.getLastRefresh() != Instant.EPOCH)
         {
             long seconds = Duration.between(priceService.getLastRefresh(), Instant.now()).getSeconds();
-            lastRefreshLabel.setText("Updated " + seconds + "s ago");
+            if (seconds < 60)
+            {
+                lastRefreshLabel.setText(seconds + "s ago");
+                lastRefreshLabel.setForeground(new Color(0x00, 0xD2, 0x6A)); // Green = fresh
+            }
+            else
+            {
+                lastRefreshLabel.setText((seconds / 60) + "m ago");
+                lastRefreshLabel.setForeground(new Color(0xFF, 0xB8, 0x00)); // Gold = aging
+            }
         }
     }
 
@@ -658,20 +730,23 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             FlipSuggestionEngine.FlipSuggestion s = suggestions.get(i);
             JPanel card = buildSuggestionCard(s, i + 1);
-            // Alternating row colors for readability
-            if (i % 2 == 0)
-            {
-                card.setBackground(new Color(50, 50, 50));
-            }
             suggestionsPanel.add(card);
-            suggestionsPanel.add(Box.createVerticalStrut(4));
+            // Thin separator between cards
+            if (i < suggestions.size() - 1)
+            {
+                JSeparator sep = new JSeparator();
+                sep.setForeground(new Color(0x2A, 0x2A, 0x45));
+                sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+                suggestionsPanel.add(sep);
+            }
         }
 
         if (suggestions.isEmpty())
         {
-            JLabel noResults = new JLabel("No items match your criteria. Adjust filter settings.");
-            noResults.setForeground(Color.GRAY);
-            noResults.setBorder(new EmptyBorder(20, 8, 20, 8));
+            JLabel noResults = new JLabel("No items match criteria. Adjust filter settings.");
+            noResults.setForeground(new Color(0x60, 0x60, 0x80));
+            noResults.setBorder(new EmptyBorder(20, 12, 20, 12));
+            noResults.setHorizontalAlignment(SwingConstants.CENTER);
             suggestionsPanel.add(noResults);
         }
 
@@ -692,10 +767,17 @@ public class GrandFlipOutPanel extends PluginPanel
         }
         else
         {
+            java.util.concurrent.atomic.AtomicInteger idx = new java.util.concurrent.atomic.AtomicInteger(0);
             flipTracker.getActiveFlips().values().forEach(flip -> {
                 JPanel card = buildFlipCard(flip);
                 activeFlipsPanel.add(card);
-                activeFlipsPanel.add(Box.createVerticalStrut(4));
+                if (idx.incrementAndGet() < flipTracker.getActiveFlips().size())
+                {
+                    JSeparator sep = new JSeparator();
+                    sep.setForeground(new Color(0x2A, 0x2A, 0x45));
+                    sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+                    activeFlipsPanel.add(sep);
+                }
             });
         }
 
@@ -714,13 +796,14 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             com.fliphelper.model.FlipItem flip = completed.get(i);
             JPanel card = buildHistoryCard(flip);
-            // Alternating row colors
-            if (i % 2 == 0)
-            {
-                card.setBackground(new Color(50, 50, 50));
-            }
             historyPanel.add(card);
-            historyPanel.add(Box.createVerticalStrut(2));
+            if (i < displayCount - 1)
+            {
+                JSeparator sep = new JSeparator();
+                sep.setForeground(new Color(0x2A, 0x2A, 0x45));
+                sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+                historyPanel.add(sep);
+            }
         }
 
         if (completed.isEmpty())
@@ -739,102 +822,167 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private JPanel buildSuggestionCard(FlipSuggestionEngine.FlipSuggestion s, int rank)
     {
+        Color cardBg = new Color(0x1A, 0x1A, 0x2E);
+        Color cardBgAlt = new Color(0x16, 0x16, 0x25);
+
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        card.setBorder(new EmptyBorder(6, 8, 6, 8));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 180));
+        card.setBackground(cardBg);
+        card.setBorder(new EmptyBorder(8, 10, 8, 10));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
 
-        // Top Pick banner for #1
+        // ── Top banner for #1 ──
         if (rank == 1)
         {
             JPanel bannerPanel = new JPanel(new BorderLayout());
-            bannerPanel.setBackground(new Color(0x1A, 0x6B, 0x0A)); // Dark green
-            bannerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
-            JLabel bannerLabel = new JLabel("  TOP PICK — Best flip right now");
-            bannerLabel.setForeground(new Color(0x00, 0xFF, 0x80));
-            bannerLabel.setFont(bannerLabel.getFont().deriveFont(Font.BOLD, 11f));
+            bannerPanel.setBackground(new Color(0x0A, 0x3D, 0x0A));
+            bannerPanel.setBorder(new EmptyBorder(3, 8, 3, 8));
+            bannerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+            JLabel bannerLabel = new JLabel("\u2B50 TOP PICK");
+            bannerLabel.setForeground(new Color(0xFF, 0xB8, 0x00));
+            bannerLabel.setFont(bannerLabel.getFont().deriveFont(Font.BOLD, 10f));
             bannerPanel.add(bannerLabel, BorderLayout.WEST);
             card.add(bannerPanel);
+            card.add(Box.createVerticalStrut(4));
         }
 
-        // Row 1: Name + QF Grade
+        // ── Row 1: Rank + Name (left) | Grade badge (right) ──
         JPanel row1 = new JPanel(new BorderLayout());
-        row1.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        JLabel nameLabel = new JLabel("#" + rank + " " + s.getItemName());
+        row1.setOpaque(false);
+        JLabel rankLabel = new JLabel("#" + rank);
+        rankLabel.setForeground(new Color(0x60, 0x60, 0x80));
+        rankLabel.setFont(rankLabel.getFont().deriveFont(Font.BOLD, 11f));
+        JLabel nameLabel = new JLabel(" " + s.getItemName());
         nameLabel.setForeground(Color.WHITE);
-        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD));
-        row1.add(nameLabel, BorderLayout.WEST);
+        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 13f));
+        JPanel nameGroup = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        nameGroup.setOpaque(false);
+        nameGroup.add(rankLabel);
+        nameGroup.add(nameLabel);
+        row1.add(nameGroup, BorderLayout.WEST);
 
-        String gradeText = s.getQfGrade() + " (" + s.getQfScore() + ")";
+        // Grade as a colored badge
         Color gradeColor = getQfGradeColor(s.getQfGrade());
-        JLabel gradeLabel = new JLabel(gradeText);
-        gradeLabel.setForeground(gradeColor);
-        gradeLabel.setFont(gradeLabel.getFont().deriveFont(Font.BOLD));
+        JLabel gradeLabel = new JLabel(" " + s.getQfGrade() + " " + s.getQfScore() + " ");
+        gradeLabel.setForeground(Color.WHITE);
+        gradeLabel.setOpaque(true);
+        gradeLabel.setBackground(gradeColor.darker());
+        gradeLabel.setFont(gradeLabel.getFont().deriveFont(Font.BOLD, 10f));
         row1.add(gradeLabel, BorderLayout.EAST);
         card.add(row1);
+        card.add(Box.createVerticalStrut(6));
 
-        // Row 2: Prices and margin
-        JPanel row2 = new JPanel(new GridLayout(1, 3, 4, 0));
-        row2.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        row2.add(createInfoLabel("Buy: " + formatGp(s.getBuyPrice())));
-        row2.add(createInfoLabel("Sell: " + formatGp(s.getSellPrice())));
-        JLabel marginLabel = new JLabel("Margin: " + formatGp(s.getMargin()));
-        marginLabel.setForeground(Color.GREEN);
-        row2.add(marginLabel);
-        card.add(row2);
+        // ── Row 2: JTI Progress Bar ──
+        int jtiScore = s.getQfScore();
+        JPanel jtiRow = new JPanel(new BorderLayout(6, 0));
+        jtiRow.setOpaque(false);
+        jtiRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 16));
+        JLabel jtiLabel = new JLabel("JTI");
+        jtiLabel.setForeground(new Color(0x60, 0x60, 0x80));
+        jtiLabel.setFont(jtiLabel.getFont().deriveFont(Font.BOLD, 9f));
+        jtiRow.add(jtiLabel, BorderLayout.WEST);
+        JProgressBar jtiBar = new JProgressBar(0, 100);
+        jtiBar.setValue(Math.min(jtiScore, 100));
+        jtiBar.setStringPainted(true);
+        jtiBar.setString(String.valueOf(jtiScore));
+        jtiBar.setFont(jtiBar.getFont().deriveFont(Font.BOLD, 9f));
+        jtiBar.setBackground(new Color(0x0F, 0x0F, 0x17));
+        jtiBar.setForeground(jtiScore >= 70 ? new Color(0x00, 0xD2, 0x6A) : jtiScore >= 40 ? new Color(0xFF, 0xB8, 0x00) : new Color(0xFF, 0x47, 0x57));
+        jtiBar.setBorderPainted(false);
+        jtiRow.add(jtiBar, BorderLayout.CENTER);
+        card.add(jtiRow);
+        card.add(Box.createVerticalStrut(6));
 
-        // Row 3: Volume, Limit, ROI
-        JPanel row3 = new JPanel(new GridLayout(1, 3, 4, 0));
-        row3.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        row3.add(createInfoLabel("Vol/1h: " + QuantityFormatter.formatNumber(s.getVolume1h())));
-        row3.add(createInfoLabel("Limit: " + QuantityFormatter.formatNumber(s.getBuyLimit())));
-        row3.add(createInfoLabel("ROI: " + String.format("%.2f%%", s.getRoi())));
-        card.add(row3);
+        // ── Row 3: Buy / Sell / Margin in mini-cards ──
+        JPanel priceRow = new JPanel(new GridLayout(1, 3, 4, 0));
+        priceRow.setOpaque(false);
 
-        // Row 4: Profit/Limit, Capital, Est. Time
-        JPanel row4 = new JPanel(new GridLayout(1, 3, 4, 0));
-        row4.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        JLabel profitLabel = new JLabel("P/Limit: " + formatGp(s.getProfitPerLimit()));
-        profitLabel.setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
-        row4.add(profitLabel);
-        row4.add(createInfoLabel("Cap: " + formatGp(s.getCapitalRequired())));
+        JPanel buyCard = buildStatMiniCard();
+        JLabel buyTitle = new JLabel("BUY");
+        buyTitle.setForeground(new Color(0x60, 0x60, 0x80));
+        buyTitle.setFont(buyTitle.getFont().deriveFont(Font.BOLD, 8f));
+        buyCard.add(buyTitle, BorderLayout.NORTH);
+        JLabel buyVal = new JLabel(formatGp(s.getBuyPrice()));
+        buyVal.setForeground(new Color(0x00, 0xD2, 0x6A));
+        buyVal.setFont(buyVal.getFont().deriveFont(Font.BOLD, 11f));
+        buyCard.add(buyVal, BorderLayout.CENTER);
+        priceRow.add(buyCard);
+
+        JPanel sellCard = buildStatMiniCard();
+        JLabel sellTitle = new JLabel("SELL");
+        sellTitle.setForeground(new Color(0x60, 0x60, 0x80));
+        sellTitle.setFont(sellTitle.getFont().deriveFont(Font.BOLD, 8f));
+        sellCard.add(sellTitle, BorderLayout.NORTH);
+        JLabel sellVal = new JLabel(formatGp(s.getSellPrice()));
+        sellVal.setForeground(new Color(0xFF, 0x47, 0x57));
+        sellVal.setFont(sellVal.getFont().deriveFont(Font.BOLD, 11f));
+        sellCard.add(sellVal, BorderLayout.CENTER);
+        priceRow.add(sellCard);
+
+        JPanel marginCard = buildStatMiniCard();
+        JLabel marginTitle = new JLabel("MARGIN");
+        marginTitle.setForeground(new Color(0x60, 0x60, 0x80));
+        marginTitle.setFont(marginTitle.getFont().deriveFont(Font.BOLD, 8f));
+        marginCard.add(marginTitle, BorderLayout.NORTH);
+        JLabel marginVal = new JLabel(formatGp(s.getMargin()));
+        marginVal.setForeground(new Color(0xFF, 0xB8, 0x00));
+        marginVal.setFont(marginVal.getFont().deriveFont(Font.BOLD, 11f));
+        marginCard.add(marginVal, BorderLayout.CENTER);
+        priceRow.add(marginCard);
+
+        card.add(priceRow);
+        card.add(Box.createVerticalStrut(4));
+
+        // ── Row 4: Volume | Limit | ROI | Fill time ──
+        JPanel metaRow = new JPanel(new GridLayout(1, 4, 4, 0));
+        metaRow.setOpaque(false);
+        metaRow.add(createMetaLabel("Vol/1h", QuantityFormatter.formatNumber(s.getVolume1h())));
+        metaRow.add(createMetaLabel("Limit", QuantityFormatter.formatNumber(s.getBuyLimit())));
+        metaRow.add(createMetaLabel("ROI", String.format("%.1f%%", s.getRoi())));
         String timeline = estimateFlipTimeline(s.getVolume1h(), s.getBuyLimit());
-        row4.add(createInfoLabel("Fill: " + timeline));
-        card.add(row4);
+        metaRow.add(createMetaLabel("Fill", timeline));
+        card.add(metaRow);
+        card.add(Box.createVerticalStrut(4));
 
-        // Row 5: Action buttons
-        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 2));
-        actionPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        actionPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        // ── Row 5: Profit/Limit + Capital ──
+        JPanel profitRow = new JPanel(new GridLayout(1, 2, 4, 0));
+        profitRow.setOpaque(false);
+        JLabel pLabel = new JLabel("Profit/Limit: " + formatGp(s.getProfitPerLimit()));
+        pLabel.setForeground(new Color(0xFF, 0xB8, 0x00));
+        pLabel.setFont(pLabel.getFont().deriveFont(Font.BOLD, 11f));
+        profitRow.add(pLabel);
+        JLabel capLabel = new JLabel("Capital: " + formatGp(s.getCapitalRequired()));
+        capLabel.setForeground(Color.LIGHT_GRAY);
+        profitRow.add(capLabel);
+        card.add(profitRow);
+        card.add(Box.createVerticalStrut(6));
 
-        JButton copyBuyBtn = new JButton("Copy Buy (" + formatGp(s.getBuyPrice()) + ")");
-        copyBuyBtn.setFont(copyBuyBtn.getFont().deriveFont(10f));
-        copyBuyBtn.setBackground(new Color(0x0A, 0x6B, 0x0A));
-        copyBuyBtn.setForeground(Color.WHITE);
-        copyBuyBtn.setFocusPainted(false);
+        // ── Row 6: Action buttons ──
+        JPanel actionPanel = new JPanel(new GridLayout(1, 2, 6, 0));
+        actionPanel.setOpaque(false);
+        actionPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+
+        JButton copyBuyBtn = new JButton("Copy Buy");
+        styleActionButton(copyBuyBtn, new Color(0x0A, 0x5C, 0x2E));
         copyBuyBtn.addActionListener(e -> {
             java.awt.datatransfer.StringSelection sel =
                 new java.awt.datatransfer.StringSelection(String.valueOf(s.getBuyPrice()));
             java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(sel, null);
-            copyBuyBtn.setText("Copied!");
-            Timer timer = new Timer(1500, ev -> copyBuyBtn.setText("Copy Buy (" + formatGp(s.getBuyPrice()) + ")"));
+            copyBuyBtn.setText("\u2713 Copied");
+            Timer timer = new Timer(1200, ev -> copyBuyBtn.setText("Copy Buy"));
             timer.setRepeats(false);
             timer.start();
         });
         actionPanel.add(copyBuyBtn);
 
-        JButton copySellBtn = new JButton("Copy Sell (" + formatGp(s.getSellPrice()) + ")");
-        copySellBtn.setFont(copySellBtn.getFont().deriveFont(10f));
-        copySellBtn.setBackground(new Color(0x6B, 0x0A, 0x0A));
-        copySellBtn.setForeground(Color.WHITE);
-        copySellBtn.setFocusPainted(false);
+        JButton copySellBtn = new JButton("Copy Sell");
+        styleActionButton(copySellBtn, new Color(0x5C, 0x0A, 0x0A));
         copySellBtn.addActionListener(e -> {
             java.awt.datatransfer.StringSelection sel =
                 new java.awt.datatransfer.StringSelection(String.valueOf(s.getSellPrice()));
             java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(sel, null);
-            copySellBtn.setText("Copied!");
-            Timer timer = new Timer(1500, ev -> copySellBtn.setText("Copy Sell (" + formatGp(s.getSellPrice()) + ")"));
+            copySellBtn.setText("\u2713 Copied");
+            Timer timer = new Timer(1200, ev -> copySellBtn.setText("Copy Sell"));
             timer.setRepeats(false);
             timer.start();
         });
@@ -843,6 +991,38 @@ public class GrandFlipOutPanel extends PluginPanel
         card.add(actionPanel);
 
         return card;
+    }
+
+    /**
+     * Style a small action button with consistent look.
+     */
+    private void styleActionButton(JButton btn, Color bgColor)
+    {
+        btn.setFont(btn.getFont().deriveFont(Font.BOLD, 10f));
+        btn.setBackground(bgColor);
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setOpaque(true);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    }
+
+    /**
+     * Build a compact meta-label with title on top and value below.
+     */
+    private JPanel createMetaLabel(String title, String value)
+    {
+        JPanel p = new JPanel(new BorderLayout(0, 1));
+        p.setOpaque(false);
+        JLabel t = new JLabel(title);
+        t.setForeground(new Color(0x60, 0x60, 0x80));
+        t.setFont(t.getFont().deriveFont(Font.PLAIN, 8f));
+        p.add(t, BorderLayout.NORTH);
+        JLabel v = new JLabel(value);
+        v.setForeground(Color.LIGHT_GRAY);
+        v.setFont(v.getFont().deriveFont(Font.PLAIN, 10f));
+        p.add(v, BorderLayout.CENTER);
+        return p;
     }
 
     private Color getQfGradeColor(String grade)
@@ -861,24 +1041,45 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private JPanel buildFlipCard(com.fliphelper.model.FlipItem flip)
     {
-        JPanel card = new JPanel(new GridLayout(3, 2, 4, 2));
-        card.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        card.setBorder(new EmptyBorder(6, 8, 6, 8));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
+        Color cardBg = new Color(0x1A, 0x1A, 0x2E);
 
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBackground(cardBg);
+        card.setBorder(new EmptyBorder(8, 10, 8, 10));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+
+        // ── Row 1: Name + State badge ──
+        JPanel row1 = new JPanel(new BorderLayout());
+        row1.setOpaque(false);
         JLabel nameLabel = new JLabel(flip.getItemName());
         nameLabel.setForeground(Color.WHITE);
-        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD));
-        card.add(nameLabel);
+        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 12f));
+        row1.add(nameLabel, BorderLayout.WEST);
 
-        JLabel stateLabel = new JLabel(flip.getState().getDisplayName());
-        stateLabel.setForeground(Color.YELLOW);
-        card.add(stateLabel);
+        String stateName = flip.getState().getDisplayName();
+        Color stateColor = stateName.contains("Buy") ? new Color(0x00, 0xD2, 0x6A)
+            : stateName.contains("Sell") ? new Color(0xFF, 0xB8, 0x00)
+            : new Color(0x3B, 0x82, 0xF6);
+        JLabel stateLabel = new JLabel(" " + stateName + " ");
+        stateLabel.setForeground(Color.WHITE);
+        stateLabel.setOpaque(true);
+        stateLabel.setBackground(stateColor.darker().darker());
+        stateLabel.setFont(stateLabel.getFont().deriveFont(Font.BOLD, 9f));
+        row1.add(stateLabel, BorderLayout.EAST);
+        card.add(row1);
+        card.add(Box.createVerticalStrut(4));
 
-        card.add(createInfoLabel("Qty: " + QuantityFormatter.formatNumber(flip.getQuantity())));
-        card.add(createInfoLabel("Buy: " + formatGp(flip.getBuyPrice())));
+        // ── Row 2: Qty | Buy Price | Slot ──
+        JPanel row2 = new JPanel(new GridLayout(1, 3, 4, 0));
+        row2.setOpaque(false);
+        row2.add(createMetaLabel("Qty", QuantityFormatter.formatNumber(flip.getQuantity())));
+        row2.add(createMetaLabel("Buy", formatGp(flip.getBuyPrice())));
+        row2.add(createMetaLabel("Slot", String.valueOf(flip.getGeSlot())));
+        card.add(row2);
+        card.add(Box.createVerticalStrut(4));
 
-        // Show expected sell price from market data
+        // ── Row 3: Expected profit ──
         PriceAggregate agg = priceService.getPrice(flip.getItemId());
         if (agg != null)
         {
@@ -887,45 +1088,73 @@ public class GrandFlipOutPanel extends PluginPanel
             long tax = Math.min((long) (expectedSell * 0.02), 5_000_000L) * flip.getQuantity();
             expectedProfit -= tax;
 
-            JLabel expectedLabel = new JLabel("Exp. Profit: " + formatGp(expectedProfit));
-            expectedLabel.setForeground(expectedProfit >= 0 ? Color.GREEN : Color.RED);
-            card.add(expectedLabel);
+            JPanel profitRow = new JPanel(new BorderLayout());
+            profitRow.setOpaque(false);
+            JLabel expectedLabel = new JLabel("Expected Profit: " + formatGp(expectedProfit));
+            expectedLabel.setForeground(expectedProfit >= 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
+            expectedLabel.setFont(expectedLabel.getFont().deriveFont(Font.BOLD, 11f));
+            profitRow.add(expectedLabel, BorderLayout.WEST);
+            card.add(profitRow);
         }
         else
         {
-            card.add(createInfoLabel("Exp. Profit: N/A"));
+            JLabel naLabel = new JLabel("Expected Profit: N/A");
+            naLabel.setForeground(new Color(0x60, 0x60, 0x80));
+            card.add(naLabel);
         }
-
-        card.add(createInfoLabel("Slot: " + flip.getGeSlot()));
 
         return card;
     }
 
     private JPanel buildHistoryCard(com.fliphelper.model.FlipItem flip)
     {
-        JPanel card = new JPanel(new GridLayout(2, 3, 4, 2));
-        card.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        card.setBorder(new EmptyBorder(4, 8, 4, 8));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
+        Color cardBg = new Color(0x1A, 0x1A, 0x2E);
+        long profit = flip.getProfit();
 
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBackground(cardBg);
+        card.setBorder(new EmptyBorder(6, 10, 6, 10));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
+
+        // ── Row 1: Name + Profit (colored) ──
+        JPanel row1 = new JPanel(new BorderLayout());
+        row1.setOpaque(false);
         JLabel nameLabel = new JLabel(flip.getItemName());
         nameLabel.setForeground(Color.WHITE);
-        card.add(nameLabel);
+        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 11f));
+        row1.add(nameLabel, BorderLayout.WEST);
 
-        card.add(createInfoLabel(QuantityFormatter.formatNumber(flip.getQuantity()) + "x"));
+        String profitText = (profit >= 0 ? "+" : "") + formatGp(profit);
+        JLabel profitLabel = new JLabel(profitText);
+        profitLabel.setForeground(profit >= 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
+        profitLabel.setFont(profitLabel.getFont().deriveFont(Font.BOLD, 11f));
+        row1.add(profitLabel, BorderLayout.EAST);
+        card.add(row1);
+        card.add(Box.createVerticalStrut(2));
 
-        long profit = flip.getProfit();
-        JLabel profitLabel = new JLabel(formatGp(profit));
-        profitLabel.setForeground(profit >= 0 ? Color.GREEN : Color.RED);
-        card.add(profitLabel);
-
-        card.add(createInfoLabel("Buy: " + formatGp(flip.getBuyPrice())));
-        card.add(createInfoLabel("Sell: " + formatGp(flip.getSellPrice())));
-
+        // ── Row 2: Qty | Buy | Sell | Duration ──
+        JPanel row2 = new JPanel(new GridLayout(1, 4, 4, 0));
+        row2.setOpaque(false);
+        row2.add(createCompactLabel(QuantityFormatter.formatNumber(flip.getQuantity()) + "x"));
+        row2.add(createCompactLabel("B:" + formatGp(flip.getBuyPrice())));
+        row2.add(createCompactLabel("S:" + formatGp(flip.getSellPrice())));
         long duration = flip.getFlipDurationSeconds();
-        card.add(createInfoLabel("Time: " + formatDuration(duration)));
+        row2.add(createCompactLabel("\u23F1 " + formatDuration(duration)));
+        card.add(row2);
 
         return card;
+    }
+
+    /**
+     * Compact info label for tight rows.
+     */
+    private JLabel createCompactLabel(String text)
+    {
+        JLabel label = new JLabel(text);
+        label.setForeground(new Color(0x80, 0x80, 0xA0));
+        label.setFont(label.getFont().deriveFont(Font.PLAIN, 9f));
+        return label;
     }
 
     // ==================== CATEGORY FILTERING ====================
@@ -977,19 +1206,19 @@ public class GrandFlipOutPanel extends PluginPanel
             JButton btn = categoryButtons[i];
             if (categories[i].equals(selectedCategory))
             {
-                // Highlight selected button
-                btn.setBackground(new Color(0xFF, 0x98, 0x1F)); // OSRS Gold
-                btn.setForeground(Color.BLACK);
+                btn.setBackground(new Color(0xFF, 0xB8, 0x00));
+                btn.setForeground(new Color(0x0F, 0x0F, 0x17));
                 btn.setOpaque(true);
-                btn.setBorderPainted(true);
+                btn.setBorderPainted(false);
+                btn.setFont(btn.getFont().deriveFont(Font.BOLD, 10f));
             }
             else
             {
-                // Default style
-                btn.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-                btn.setForeground(Color.WHITE);
+                btn.setBackground(new Color(0x1A, 0x1A, 0x2E));
+                btn.setForeground(new Color(0x80, 0x80, 0xA0));
                 btn.setOpaque(true);
                 btn.setBorderPainted(false);
+                btn.setFont(btn.getFont().deriveFont(Font.PLAIN, 10f));
             }
         }
     }
@@ -1032,13 +1261,14 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             PriceAggregate agg = allItems.get(i);
             JPanel card = buildPriceCard(agg);
-            // Alternating row colors for readability
-            if (i % 2 == 0)
-            {
-                card.setBackground(new Color(50, 50, 50));
-            }
             priceResultsPanel.add(card);
-            priceResultsPanel.add(Box.createVerticalStrut(4));
+            if (i < displayCount - 1)
+            {
+                JSeparator sep = new JSeparator();
+                sep.setForeground(new Color(0x2A, 0x2A, 0x45));
+                sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+                priceResultsPanel.add(sep);
+            }
         }
 
         if (allItems.isEmpty())
@@ -1132,29 +1362,65 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private JPanel buildPriceCard(PriceAggregate agg)
     {
-        JPanel card = new JPanel(new GridLayout(4, 2, 4, 2));
-        card.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        card.setBorder(new EmptyBorder(6, 8, 6, 8));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
+        Color cardBg = new Color(0x1A, 0x1A, 0x2E);
+        long margin = agg.getConsensusMargin();
 
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBackground(cardBg);
+        card.setBorder(new EmptyBorder(8, 10, 8, 10));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+
+        // ── Row 1: Name + Margin % badge ──
+        JPanel row1 = new JPanel(new BorderLayout());
+        row1.setOpaque(false);
         JLabel nameLabel = new JLabel(agg.getItemName());
         nameLabel.setForeground(Color.WHITE);
-        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD));
-        card.add(nameLabel);
+        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 12f));
+        row1.add(nameLabel, BorderLayout.WEST);
 
-        long margin = agg.getConsensusMargin();
-        JLabel marginLabel = new JLabel("Margin: " + formatGp(margin));
-        marginLabel.setForeground(margin > 0 ? Color.GREEN : Color.RED);
-        card.add(marginLabel);
+        double marginPct = agg.getConsensusMarginPercent();
+        Color marginColor = marginPct >= 5 ? new Color(0x00, 0xD2, 0x6A)
+            : marginPct >= 2 ? new Color(0xFF, 0xB8, 0x00)
+            : new Color(0xFF, 0x47, 0x57);
+        JLabel marginBadge = new JLabel(" " + String.format("%.1f%%", marginPct) + " ");
+        marginBadge.setForeground(Color.WHITE);
+        marginBadge.setOpaque(true);
+        marginBadge.setBackground(marginColor.darker());
+        marginBadge.setFont(marginBadge.getFont().deriveFont(Font.BOLD, 10f));
+        row1.add(marginBadge, BorderLayout.EAST);
+        card.add(row1);
+        card.add(Box.createVerticalStrut(4));
 
-        card.add(createInfoLabel("Insta-Buy: " + formatGp(agg.getBestHighPrice())));
-        card.add(createInfoLabel("Insta-Sell: " + formatGp(agg.getBestLowPrice())));
+        // ── Row 2: Buy / Sell / Margin ──
+        JPanel row2 = new JPanel(new GridLayout(1, 3, 4, 0));
+        row2.setOpaque(false);
+        row2.add(createMetaLabel("Insta-Buy", formatGp(agg.getBestHighPrice())));
+        row2.add(createMetaLabel("Insta-Sell", formatGp(agg.getBestLowPrice())));
+        JPanel marginMeta = createMetaLabel("Margin", formatGp(margin));
+        // Color the margin value
+        Component[] mcs = marginMeta.getComponents();
+        if (mcs.length > 1 && mcs[1] instanceof JLabel)
+        {
+            ((JLabel) mcs[1]).setForeground(margin > 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
+        }
+        row2.add(marginMeta);
+        card.add(row2);
+        card.add(Box.createVerticalStrut(2));
 
-        card.add(createInfoLabel("Vol/1h: " + QuantityFormatter.formatNumber(agg.getTotalVolume1h())));
-        card.add(createInfoLabel("Limit: " + QuantityFormatter.formatNumber(agg.getBuyLimit())));
-
-        card.add(createInfoLabel("Profit/Limit: " + formatGp(agg.getProfitPerLimit())));
-        card.add(createInfoLabel("Margin %: " + String.format("%.2f%%", agg.getConsensusMarginPercent())));
+        // ── Row 3: Vol | Limit | Profit/Limit ──
+        JPanel row3 = new JPanel(new GridLayout(1, 3, 4, 0));
+        row3.setOpaque(false);
+        row3.add(createMetaLabel("Vol/1h", QuantityFormatter.formatNumber(agg.getTotalVolume1h())));
+        row3.add(createMetaLabel("Limit", QuantityFormatter.formatNumber(agg.getBuyLimit())));
+        JPanel profitMeta = createMetaLabel("P/Limit", formatGp(agg.getProfitPerLimit()));
+        Component[] pcs = profitMeta.getComponents();
+        if (pcs.length > 1 && pcs[1] instanceof JLabel)
+        {
+            ((JLabel) pcs[1]).setForeground(new Color(0xFF, 0xB8, 0x00));
+        }
+        row3.add(profitMeta);
+        card.add(row3);
 
         return card;
     }
@@ -1172,15 +1438,15 @@ public class GrandFlipOutPanel extends PluginPanel
     {
         if (amount >= 1_000_000_000)
         {
-            return String.format("%.1fb gp", amount / 1_000_000_000.0);
+            return String.format("%.1fB", amount / 1_000_000_000.0);
         }
         if (amount >= 1_000_000)
         {
-            return String.format("%.1fm gp", amount / 1_000_000.0);
+            return String.format("%.1fM", amount / 1_000_000.0);
         }
         if (amount >= 1_000)
         {
-            return String.format("%.1fk gp", amount / 1_000.0);
+            return String.format("%.1fK", amount / 1_000.0);
         }
         return amount + " gp";
     }

@@ -1,6 +1,7 @@
 package com.fliphelper.tracker;
 
 import com.fliphelper.GrandFlipOutConfig;
+import com.fliphelper.debug.DebugManager;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.FlipState;
 import com.fliphelper.model.TradeRecord;
@@ -8,6 +9,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
@@ -33,6 +35,10 @@ public class FlipTracker
     }
 
     private FlipCompleteListener flipCompleteListener;
+
+    /** Optional debug manager for event instrumentation. */
+    @Setter
+    private DebugManager debugManager;
 
     public void setFlipCompleteListener(FlipCompleteListener listener)
     {
@@ -70,85 +76,105 @@ public class FlipTracker
         }
     }
 
+    // Lock for atomic buy/sell pairing to prevent race conditions
+    private final Object transactionLock = new Object();
+
     /**
      * Record a GE transaction (buy or sell).
      * Automatically pairs buys with sells to create flip records.
+     * Uses synchronized block to ensure atomic buy/sell pairing.
      */
     public void recordTransaction(TradeRecord trade)
     {
-        if (trade.isBought())
+        synchronized (transactionLock)
         {
-            // Record buy - add to pending buys
-            pendingBuys.computeIfAbsent(trade.getItemId(), k -> new ArrayDeque<>()).addLast(trade);
-
-            // Create or update active flip
-            FlipItem flip = FlipItem.builder()
-                .itemId(trade.getItemId())
-                .itemName(trade.getItemName())
-                .quantity(trade.getQuantity())
-                .buyPrice(trade.getPrice())
-                .buyTime(trade.getTimestamp())
-                .state(FlipState.BOUGHT)
-                .geSlot(trade.getGeSlot())
-                .build();
-
-            // Key by GE slot (not itemId) to track multiple flips of same item in different slots
-            activeFlips.put(trade.getGeSlot(), flip);
-            log.info("Recorded buy: {}x {} @ {}gp (slot {})", trade.getQuantity(), trade.getItemName(), trade.getPrice(), trade.getGeSlot());
-        }
-        else
-        {
-            // Record sell - try to match with a pending buy
-            Deque<TradeRecord> buys = pendingBuys.get(trade.getItemId());
-            if (buys != null && !buys.isEmpty())
+            if (trade.isBought())
             {
-                TradeRecord matchedBuy = buys.pollFirst();
+                // Record buy - add to pending buys
+                pendingBuys.computeIfAbsent(trade.getItemId(), k -> new ArrayDeque<>()).addLast(trade);
 
-                FlipItem completedFlip = FlipItem.builder()
+                // Create or update active flip
+                FlipItem flip = FlipItem.builder()
                     .itemId(trade.getItemId())
                     .itemName(trade.getItemName())
-                    .quantity(Math.min(matchedBuy.getQuantity(), trade.getQuantity()))
-                    .buyPrice(matchedBuy.getPrice())
-                    .sellPrice(trade.getPrice())
-                    .buyTime(matchedBuy.getTimestamp())
-                    .sellTime(trade.getTimestamp())
-                    .state(FlipState.COMPLETE)
+                    .quantity(trade.getQuantity())
+                    .buyPrice(trade.getPrice())
+                    .buyTime(trade.getTimestamp())
+                    .state(FlipState.BOUGHT)
                     .geSlot(trade.getGeSlot())
                     .build();
 
-                completedFlips.add(0, completedFlip);
-                activeFlips.remove(trade.getGeSlot());
-
-                long profit = completedFlip.getProfit();
-                sessionProfit.addAndGet(profit);
-                sessionFlipCount.incrementAndGet();
-
-                log.info("Completed flip: {}x {} | Buy: {}gp Sell: {}gp | Profit: {}gp",
-                    completedFlip.getQuantity(), completedFlip.getItemName(),
-                    completedFlip.getBuyPrice(), completedFlip.getSellPrice(), profit);
-
-                // Notify listener (profile logging, Discord alerts, etc.)
-                if (flipCompleteListener != null)
-                {
-                    try { flipCompleteListener.onFlipComplete(completedFlip); }
-                    catch (Exception e) { log.debug("Flip listener error: {}", e.getMessage()); }
-                }
-
-                // Trim history
-                while (completedFlips.size() > config.maxHistoryEntries())
-                {
-                    completedFlips.remove(completedFlips.size() - 1);
-                }
-
-                if (config.persistHistory())
-                {
-                    saveHistory();
-                }
+                // Key by GE slot (not itemId) to track multiple flips of same item in different slots
+                activeFlips.put(trade.getGeSlot(), flip);
+                log.info("Recorded buy: {}x {} @ {}gp (slot {})", trade.getQuantity(), trade.getItemName(), trade.getPrice(), trade.getGeSlot());
             }
             else
             {
-                // Sell without a tracked buy (could be a normal sale, not a flip)
-                log.debug("Sell recorded without matching buy for {}", trade.getItemName());
+                // Record sell - try to match with a pending buy
+                Deque<TradeRecord> buys = pendingBuys.get(trade.getItemId());
+                if (buys != null && !buys.isEmpty())
+                {
+                    TradeRecord matchedBuy = buys.pollFirst();
+
+                    FlipItem completedFlip = FlipItem.builder()
+                        .itemId(trade.getItemId())
+                        .itemName(trade.getItemName())
+                        .quantity(Math.min(matchedBuy.getQuantity(), trade.getQuantity()))
+                        .buyPrice(matchedBuy.getPrice())
+                        .sellPrice(trade.getPrice())
+                        .buyTime(matchedBuy.getTimestamp())
+                        .sellTime(trade.getTimestamp())
+                        .state(FlipState.COMPLETE)
+                        .geSlot(trade.getGeSlot())
+                        .build();
+
+                    completedFlips.add(0, completedFlip);
+                    activeFlips.remove(trade.getGeSlot());
+
+                    long profit = completedFlip.getProfit();
+                    sessionProfit.addAndGet(profit);
+                    sessionFlipCount.incrementAndGet();
+
+                    log.info("Completed flip: {}x {} | Buy: {}gp Sell: {}gp | Profit: {}gp",
+                        completedFlip.getQuantity(), completedFlip.getItemName(),
+                        completedFlip.getBuyPrice(), completedFlip.getSellPrice(), profit);
+
+                    // Record flip completion in debug manager
+                    if (debugManager != null)
+                    {
+                        debugManager.recordEvent("FLIP_COMPLETED",
+                            String.format("%dx | Buy: %dgp Sell: %dgp | Profit: %dgp",
+                                completedFlip.getQuantity(),
+                                completedFlip.getBuyPrice(), completedFlip.getSellPrice(), profit),
+                            completedFlip.getItemName());
+                    }
+
+                    // Notify listener outside the critical section to avoid deadlocks
+                    FlipItem flipToNotify = completedFlip;
+
+                    // Trim history
+                    while (completedFlips.size() > config.maxHistoryEntries())
+                    {
+                        completedFlips.remove(completedFlips.size() - 1);
+                    }
+
+                    if (config.persistHistory())
+                    {
+                        saveHistory();
+                    }
+
+                    // Notify listener (profile logging, Discord alerts, etc.)
+                    if (flipCompleteListener != null)
+                    {
+                        try { flipCompleteListener.onFlipComplete(flipToNotify); }
+                        catch (Exception e) { log.debug("Flip listener error: {}", e.getMessage()); }
+                    }
+                }
+                else
+                {
+                    // Sell without a tracked buy (could be a normal sale, not a flip)
+                    log.debug("Sell recorded without matching buy for {}", trade.getItemName());
+                }
             }
         }
     }

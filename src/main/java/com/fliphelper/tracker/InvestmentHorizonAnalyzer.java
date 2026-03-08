@@ -1,4 +1,4 @@
-package com.fliphelper.tracker;
+﻿package com.fliphelper.tracker;
 
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
@@ -323,9 +323,18 @@ public class InvestmentHorizonAnalyzer {
     }
 
     private static double estimateFlipsPerHour(int itemId, PriceAggregate priceData) {
-        // Estimate based on volume and GE limit
         long hourlyVolume = priceData.getHourlyVolume();
-        int geLimit = Math.max(10, (int)(priceData.getCurrentBuyPrice() * 10)); // Rough estimate
+        // FIX: Use actual GE buy limit from item mapping (was: price * 10, nonsensical)
+        int geLimit = priceData.getBuyLimit();
+        if (geLimit <= 0) {
+            // Fallback: estimate based on price tier
+            long price = priceData.getCurrentBuyPrice();
+            if (price >= 10_000_000) geLimit = 8;
+            else if (price >= 1_000_000) geLimit = 70;
+            else if (price >= 100_000) geLimit = 500;
+            else if (price >= 10_000) geLimit = 2000;
+            else geLimit = 10000;
+        }
 
         double potentialFlipsBasedOnVolume = hourlyVolume / (double) Math.max(1, geLimit);
         return Math.min(6, potentialFlipsBasedOnVolume); // Cap at 6 flips per hour

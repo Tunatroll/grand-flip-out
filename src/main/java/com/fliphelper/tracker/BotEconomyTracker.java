@@ -1,4 +1,4 @@
-package com.fliphelper.tracker;
+﻿package com.fliphelper.tracker;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
@@ -1079,7 +1079,18 @@ public class BotEconomyTracker {
 
                 if (profile != null && priceData != null && profile.typicalBotSupplyPercent > 35.0) {
                     long currentPrice = priceData.getCurrentPrice();
-                    long normalPrice = profile.getNormalPrice();
+                    // FIX: Use live mid-price as baseline instead of stale hardcoded normalPrice
+                    long normalPrice = priceData.getCurrentPrice() > 0 ? priceData.getCurrentPrice() : profile.getNormalPrice();
+                    // Use 7-day average if available for more stable baseline
+                    List<Long> history = priceData.getPriceHistory();
+                    if (history != null && history.size() >= 14) {
+                        long sum = 0;
+                        int count = Math.min(14, history.size());
+                        for (int i = history.size() - count; i < history.size(); i++) {
+                            sum += history.get(i);
+                        }
+                        normalPrice = sum / count;
+                    }
                     long targetPrice = (long) (normalPrice * 0.95);
 
                     // Only buy if price is well below normal

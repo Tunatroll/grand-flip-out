@@ -94,7 +94,7 @@ public class DebugOverlay extends Overlay
             addPriceDataAgeLine();
 
             // Active Flips
-            addActiveFLipsLine();
+            addActiveFlipsLine();
 
             // Items Tracked
             addItemsTrackedLine();
@@ -118,10 +118,12 @@ public class DebugOverlay extends Overlay
             ? "Never"
             : TIME_FORMATTER.format(lastApiCallTime);
 
+        String statusLabel = apiErrorCount > 0 ? "ERR" : "OK";
         Color statusColor = apiErrorCount > 0 ? Color.RED : Color.GREEN;
 
         panelComponent.getChildren().add(LineComponent.builder()
-            .left("API Status:")
+            .left("API [" + statusLabel + "]:")
+            .leftColor(statusColor)
             .right(apiStatus + " (Err: " + apiErrorCount + ")")
             .rightColor(statusColor)
             .build());
@@ -151,8 +153,10 @@ public class DebugOverlay extends Overlay
             memoryColor = Color.GREEN;
         }
 
+        String memLabel = usagePercent > 80 ? "WARN" : "OK";
         panelComponent.getChildren().add(LineComponent.builder()
-            .left("Memory:")
+            .left("Mem [" + memLabel + "]:")
+            .leftColor(memoryColor)
             .right(String.format("%d/%d MB (%.0f%%)", usedMb, maxMb, usagePercent))
             .rightColor(memoryColor)
             .build());
@@ -163,16 +167,18 @@ public class DebugOverlay extends Overlay
         Instant lastRefresh = priceService.getLastRefresh();
         long ageSeconds = Instant.now().getEpochSecond() - lastRefresh.getEpochSecond();
 
+        String ageLabel = ageSeconds > 120 ? "STALE" : "OK";
         Color ageColor = ageSeconds > 120 ? Color.RED : Color.GREEN;
 
         panelComponent.getChildren().add(LineComponent.builder()
-            .left("Data Age:")
+            .left("Data [" + ageLabel + "]:")
+            .leftColor(ageColor)
             .right(ageSeconds + "s")
             .rightColor(ageColor)
             .build());
     }
 
-    private void addActiveFLipsLine()
+    private void addActiveFlipsLine()
     {
         int activeCount = flipTracker.getActiveFlips().size();
         Color flipsColor = activeCount > 0 ? Color.YELLOW : Color.GRAY;

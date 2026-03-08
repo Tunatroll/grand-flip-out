@@ -1,23 +1,56 @@
-# Gradle
-.gradle/
+# === GRAND FLIP OUT — PUBLIC REPO ===
+# This repo is PUBLIC. Only plugin source + build files belong here.
+# Everything else lives in gfo-ecosystem (PRIVATE).
+
+# ===== SECRETS (NEVER COMMIT) =====
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.token
+
+# ===== PRIVATE COMPONENTS (live in gfo-ecosystem) =====
+server/
+discord-bot/
+website/
+
+# ===== DOCUMENTATION WITH STRATEGY (private) =====
+HANDOFF.md
+CHANGELOG*.md
+CHANGES_MADE.md
+PROJECT_CONTEXT.md
+RESEARCH_LOG.md
+docs/
+
+# ===== BUILD ARTIFACTS =====
 build/
-!gradle/wrapper/gradle-wrapper.jar
-
-# IDE
-.idea/
-*.iml
-.vscode/
-.settings/
-.project
-.classpath
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Build artifacts
+out/
 *.class
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+.cursor/
+.claude/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Gradle =====
+.gradle/
+gradle.properties
+
+# ===== Node (should not be here at all) =====
+node_modules/
+package-lock.json
+
+# ===== Python (should not be here at all) =====
+__pycache__/
+*.pyc
+venv/

@@ -17,16 +17,17 @@ import java.util.stream.Collectors;
 /**
  * MultiAccountDashboard for "Grand Flip Out" OSRS GE flipping RuneLite plugin.
  *
- * This dashboard tracks portfolio flipping activities across up to 10 separate accounts
- * for OSRS Grand Exchange item flipping strategies.
+ * This dashboard provides a READ-ONLY view of portfolio positions across multiple
+ * accounts for personal tracking purposes only.
  *
- * COMPLIANCE NOTES:
- * - Data stored locally only. No account credentials or RSNs are stored.
- * - Display names are user-provided labels for privacy and clarity.
+ * PLUGIN HUB COMPLIANCE:
+ * - DISPLAY ONLY: No cross-account coordination, suggestions, or automated actions.
+ * - Data stored locally only. No account credentials or RSNs are stored or transmitted.
+ * - Display names are user-provided labels for privacy (never actual RSNs).
  * - No automated trading functions. All buying/selling is manual and player-initiated.
  * - Multi-logging is permitted by Jagex rules (allowed since 2014).
- * - Coordinated market manipulation across accounts IS against ToS. This tool assists
- *   independent decision-making per account, not coordinated price manipulation.
+ * - This tool does NOT suggest which account to buy/sell on, does NOT coordinate
+ *   trades across accounts, and does NOT facilitate cross-account arbitrage.
  */
 @Slf4j
 public class MultiAccountDashboard
@@ -204,61 +205,10 @@ public class MultiAccountDashboard
 		return availability;
 	}
 
-	/**
-	 * Suggests the best account for a purchase based on GE limit availability,
-	 * cash on hand, diversification, and active position count.
-	 *
-	 * @param itemId The item ID to buy
-	 * @param price The buy price
-	 * @param quantity The desired quantity
-	 * @return The recommended Account, or null if no suitable account found
-	 */
-	public Account suggestAccountForPurchase(int itemId, long price, int quantity)
-	{
-		Map<String, Integer> availability = getGeLimitAvailability(itemId);
-
-		Account bestAccount = null;
-		int bestScore = Integer.MIN_VALUE;
-
-		for (Account account : accounts.values())
-		{
-			Integer remaining = availability.get(account.getAccountName());
-			if (remaining == null || remaining < quantity)
-			{
-				continue; // Can't buy this quantity
-			}
-
-			if (account.getCashStack() < (price * quantity))
-			{
-				continue; // Insufficient funds
-			}
-
-			// Scoring criteria
-			int score = 0;
-
-			// Higher score for more remaining GE limit
-			score += remaining;
-
-			// Higher score for more available cash (10 points per 1M gp)
-			score += (int) (account.getCashStack() / 1_000_000);
-
-			// Penalize for high concentration (fewer active positions is better)
-			score -= (account.getPositions().size() * 100);
-
-			if (score > bestScore)
-			{
-				bestScore = score;
-				bestAccount = account;
-			}
-		}
-
-		if (bestAccount != null)
-		{
-			log.info("Suggested account for itemId {}: {}", itemId, bestAccount.getAccountName());
-		}
-
-		return bestAccount;
-	}
+	// NOTE: suggestAccountForPurchase() was removed for Plugin Hub compliance.
+	// Cross-account purchase recommendations could be interpreted as facilitating
+	// coordinated market manipulation. Users should make independent decisions
+	// per account. Use getGeLimitAvailability() for display-only limit info.
 
 	/**
 	 * Returns a portfolio heatmap showing item distribution across accounts
@@ -326,20 +276,9 @@ public class MultiAccountDashboard
 			.build();
 	}
 
-	/**
-	 * Calculates the combined buying power across all accounts for a specific item.
-	 * This is the total quantity all accounts could purchase based on remaining GE limits.
-	 *
-	 * @param itemId The item ID
-	 * @return Total remaining GE limit quantity across all accounts
-	 */
-	public long getCombinedBuyingPower(int itemId)
-	{
-		Map<String, Integer> availability = getGeLimitAvailability(itemId);
-		return availability.values().stream()
-			.mapToLong(Integer::longValue)
-			.sum();
-	}
+	// NOTE: getCombinedBuyingPower() was removed for Plugin Hub compliance.
+	// Aggregating buying power across accounts could facilitate coordinated
+	// market cornering. Use getGeLimitAvailability() per-account instead.
 
 	/**
 	 * Returns a PortfolioRebalancer for analyzing diversification and cross-account arbitrage.
@@ -485,17 +424,17 @@ public class MultiAccountDashboard
 		}
 
 		/**
-		 * Gets rebalancing suggestions for all accounts.
+		 * Gets per-account diversification warnings (display-only, no cross-account suggestions).
 		 *
-		 * @return List of suggestion strings
+		 * @return List of warning strings for individual accounts
 		 */
-		public List<String> getRebalanceSuggestions()
+		public List<String> getDiversificationWarnings()
 		{
-			List<String> suggestions = new ArrayList<>();
+			List<String> warnings = new ArrayList<>();
 
 			for (Account account : dashboard.accounts.values())
 			{
-				// Check concentration in single item
+				// Check concentration in single item (per-account only)
 				Map<Integer, Long> itemValues = new HashMap<>();
 				long totalValue = 0;
 
@@ -513,8 +452,8 @@ public class MultiAccountDashboard
 						double percentage = (double) entry.getValue() / totalValue * 100;
 						if (percentage > 60)
 						{
-							suggestions.add(String.format(
-								"%s is %.1f%% concentrated in item ID %d. Consider diversifying.",
+							warnings.add(String.format(
+								"%s is %.1f%% concentrated in item ID %d.",
 								account.getAccountName(), percentage, entry.getKey()));
 						}
 					}
@@ -523,65 +462,17 @@ public class MultiAccountDashboard
 				// Check GE slot usage
 				if (account.getTotalGeSlotsUsed() >= 7)
 				{
-					suggestions.add(String.format(
+					warnings.add(String.format(
 						"%s is using %d/8 GE slots. Limit approaching.",
 						account.getAccountName(), account.getTotalGeSlotsUsed()));
 				}
 			}
 
-			// Check cross-account arbitrage opportunities
-			suggestions.addAll(findArbitrageOpportunities());
+			// NOTE: Cross-account arbitrage detection was removed for Plugin Hub compliance.
+			// Suggesting trades between accounts could be seen as facilitating coordinated
+			// market manipulation.
 
-			return suggestions;
-		}
-
-		/**
-		 * Detects potential arbitrage: one account holding an item near-sell price
-		 * while another could buy near-buy price.
-		 */
-		private List<String> findArbitrageOpportunities()
-		{
-			List<String> opportunities = new ArrayList<>();
-			Map<Integer, List<AccountPosition>> itemToPositions = new HashMap<>();
-
-			// Map all positions by item ID
-			for (Account account : dashboard.accounts.values())
-			{
-				for (AccountPosition pos : account.getPositions().values())
-				{
-					itemToPositions.computeIfAbsent(pos.getItemId(), k -> new ArrayList<>())
-						.add(pos);
-				}
-			}
-
-			// Check for arbitrage spreads (one account with high price, another with low)
-			for (Map.Entry<Integer, List<AccountPosition>> entry : itemToPositions.entrySet())
-			{
-				if (entry.getValue().size() > 1)
-				{
-					List<AccountPosition> positions = entry.getValue();
-					long minPrice = positions.stream()
-						.mapToLong(AccountPosition::getCurrentPrice)
-						.min()
-						.orElse(0);
-					long maxPrice = positions.stream()
-						.mapToLong(AccountPosition::getCurrentPrice)
-						.max()
-						.orElse(0);
-
-					long spread = maxPrice - minPrice;
-					double spreadPercent = (double) spread / minPrice * 100;
-
-					if (spreadPercent > 2) // More than 2% spread
-					{
-						opportunities.add(String.format(
-							"Item ID %d: Potential arbitrage - price spread of %.1f%% (%d - %d gp) across accounts",
-							entry.getKey(), spreadPercent, minPrice, maxPrice));
-					}
-				}
-			}
-
-			return opportunities;
+			return warnings;
 		}
 	}
 

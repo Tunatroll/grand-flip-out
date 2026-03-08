@@ -129,9 +129,10 @@ public class GrandFlipOutOverlay extends Overlay
             profitColor = Color.RED;
         }
 
+        String profitPrefix = profit > 0 ? "\u25B2 " : profit < 0 ? "\u25BC " : "";
         panelComponent.getChildren().add(LineComponent.builder()
             .left("Session Profit:")
-            .right(formatGp(profit))
+            .right(profitPrefix + formatGp(profit))
             .rightColor(profitColor)
             .build());
 
@@ -155,17 +156,11 @@ public class GrandFlipOutOverlay extends Overlay
             avgColor = Color.RED;
         }
 
+        String avgPrefix = avg > 0 ? "\u25B2 " : avg < 0 ? "\u25BC " : "";
         panelComponent.getChildren().add(LineComponent.builder()
-            .left("Avg/Flip:")
-            .right(formatGp((long) avg))
+            .left("Avg Profit/Flip:")
+            .right(avgPrefix + formatGp((long) avg))
             .rightColor(avgColor)
-            .build());
-
-        // Show current margin clearly
-        panelComponent.getChildren().add(LineComponent.builder()
-            .left("Margin ROI:")
-            .right(String.format("%.1f%%", flipTracker.getAverageProfitPerFlip() > 0 ?
-                (flipTracker.getAverageProfitPerFlip() / Math.max(1, flipTracker.getSessionFlipCount().get())) : 0))
             .build());
 
         // Show active flips count
@@ -266,9 +261,10 @@ public class GrandFlipOutOverlay extends Overlay
                     profitColor = Color.RED;
                 }
 
+                String expPrefix = expectedProfit > 0 ? "\u25B2 " : expectedProfit < 0 ? "\u25BC " : "";
                 panelComponent.getChildren().add(LineComponent.builder()
                     .left("  Exp. Profit:")
-                    .right(formatGp(expectedProfit))
+                    .right(expPrefix + formatGp(expectedProfit))
                     .rightColor(profitColor)
                     .build());
             }

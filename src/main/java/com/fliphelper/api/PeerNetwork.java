@@ -47,9 +47,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PeerNetwork
 {
-    /** Default seed peers — official + well-known community relays */
+    /** Default seed peers — official relay only (no localhost for Plugin Hub compliance) */
     private static final String[] DEFAULT_SEEDS = {
-        "http://localhost:3001",          // Local dev
         "https://gfo.tunatroll.com",      // Official relay
     };
 
@@ -92,12 +91,17 @@ public class PeerNetwork
             addPeer(seed);
         }
 
-        // Add user-configured seeds
+        // Add user-configured seeds (HTTPS required for security)
         for (String seed : seedUrls)
         {
             String trimmed = seed.trim();
             if (!trimmed.isEmpty())
             {
+                if (!isValidPeerUrl(trimmed))
+                {
+                    log.warn("GFO P2P: Rejecting peer URL '{}' — must use HTTPS and not be localhost", trimmed);
+                    continue;
+                }
                 addPeer(trimmed);
             }
         }
@@ -403,7 +407,8 @@ public class PeerNetwork
                         {
                             for (String url : peerUrls)
                             {
-                                if (!peers.containsKey(normalizeUrl(url)))
+                                String normalized = normalizeUrl(url);
+                                if (normalized != null && !peers.containsKey(normalized) && isValidPeerUrl(url))
                                 {
                                     addPeer(url);
                                     discovered.incrementAndGet();
@@ -519,6 +524,32 @@ public class PeerNetwork
             }
         }
         return false;
+    }
+
+    /**
+     * Validate that a peer URL is safe to connect to.
+     * Rejects localhost, HTTP (non-HTTPS), and private network addresses.
+     */
+    private boolean isValidPeerUrl(String url)
+    {
+        if (url == null || url.trim().isEmpty())
+        {
+            return false;
+        }
+        String lower = url.toLowerCase().trim();
+        // Must use HTTPS
+        if (!lower.startsWith("https://"))
+        {
+            return false;
+        }
+        // Reject localhost and private network addresses
+        if (lower.contains("localhost") || lower.contains("127.0.0.1")
+            || lower.contains("0.0.0.0") || lower.contains("192.168.")
+            || lower.contains("10.0.") || lower.contains("[::1]"))
+        {
+            return false;
+        }
+        return true;
     }
 
     private String normalizeUrl(String url)

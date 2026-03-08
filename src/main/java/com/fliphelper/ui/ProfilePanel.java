@@ -41,6 +41,8 @@ public class ProfilePanel extends JPanel
     private JTextField loginKeyField;
     private JTextField createNameField;
     private JLabel loginStatusLabel;
+    private JButton loginBtn;
+    private JButton createBtn;
 
     // Dashboard view components
     private JLabel nameLabel;
@@ -114,8 +116,9 @@ public class ProfilePanel extends JPanel
         panel.add(loginKeyField);
         panel.add(Box.createVerticalStrut(5));
 
-        JButton loginBtn = new JButton("Login");
+        loginBtn = new JButton("Login");
         loginBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        loginBtn.setToolTipText("Sign in with your existing API key");
         loginBtn.addActionListener(e -> doLogin());
         panel.add(loginBtn);
         panel.add(Box.createVerticalStrut(20));
@@ -134,8 +137,9 @@ public class ProfilePanel extends JPanel
         panel.add(createNameField);
         panel.add(Box.createVerticalStrut(5));
 
-        JButton createBtn = new JButton("Create Account");
+        createBtn = new JButton("Create Account");
         createBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        createBtn.setToolTipText("Create a free Grand Flip Out account");
         createBtn.addActionListener(e -> doCreateAccount());
         panel.add(createBtn);
         panel.add(Box.createVerticalStrut(10));
@@ -166,9 +170,13 @@ public class ProfilePanel extends JPanel
         if (key.isEmpty())
         {
             loginStatusLabel.setText("Enter your API key");
+            loginStatusLabel.setForeground(new Color(255, 100, 100));
             return;
         }
 
+        // Disable buttons to prevent double-clicks
+        loginBtn.setEnabled(false);
+        createBtn.setEnabled(false);
         loginStatusLabel.setText("Logging in...");
         loginStatusLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 
@@ -192,13 +200,27 @@ public class ProfilePanel extends JPanel
                     }
                     else
                     {
-                        loginStatusLabel.setText("Invalid API key or server unreachable");
+                        loginStatusLabel.setText("Invalid API key. Check and try again.");
                         loginStatusLabel.setForeground(new Color(255, 100, 100));
                     }
                 }
                 catch (Exception e)
                 {
-                    loginStatusLabel.setText("Login error: " + e.getMessage());
+                    String msg = e.getMessage();
+                    if (msg != null && msg.contains("connect"))
+                    {
+                        loginStatusLabel.setText("Cannot reach server. Check connection.");
+                    }
+                    else
+                    {
+                        loginStatusLabel.setText("Login error: " + msg);
+                    }
+                    loginStatusLabel.setForeground(new Color(255, 100, 100));
+                }
+                finally
+                {
+                    loginBtn.setEnabled(true);
+                    createBtn.setEnabled(true);
                 }
             }
         }.execute();
@@ -210,9 +232,19 @@ public class ProfilePanel extends JPanel
         if (name.isEmpty())
         {
             loginStatusLabel.setText("Enter a display name");
+            loginStatusLabel.setForeground(new Color(255, 100, 100));
+            return;
+        }
+        if (name.length() > 32)
+        {
+            loginStatusLabel.setText("Display name must be 32 chars or less");
+            loginStatusLabel.setForeground(new Color(255, 100, 100));
             return;
         }
 
+        // Disable buttons to prevent double-clicks
+        loginBtn.setEnabled(false);
+        createBtn.setEnabled(false);
         loginStatusLabel.setText("Creating account...");
         loginStatusLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 
@@ -236,12 +268,17 @@ public class ProfilePanel extends JPanel
                         Toolkit.getDefaultToolkit().getSystemClipboard()
                             .setContents(new StringSelection(newKey), null);
 
+                        // Mask the key in the dialog for security — only show first/last 4 chars
+                        String maskedKey = newKey.length() > 8
+                            ? newKey.substring(0, 4) + "..." + newKey.substring(newKey.length() - 4)
+                            : newKey;
+
                         JOptionPane.showMessageDialog(
                             ProfilePanel.this,
                             "Account created! Your API key has been copied to clipboard.\n\n"
-                            + "SAVE THIS KEY — you'll need it to log in on other devices:\n"
-                            + newKey + "\n\n"
-                            + "Go to Grand Flip Out config to paste it in the Profile API Key field.",
+                            + "Key: " + maskedKey + " (copied)\n\n"
+                            + "SAVE THIS KEY — you'll need it to log in on other devices.\n"
+                            + "Paste it into Grand Flip Out config > Profile API Key field.",
                             "Account Created",
                             JOptionPane.INFORMATION_MESSAGE
                         );
@@ -250,13 +287,27 @@ public class ProfilePanel extends JPanel
                     }
                     else
                     {
-                        loginStatusLabel.setText("Account creation failed — check server connection");
+                        loginStatusLabel.setText("Creation failed. Check server connection.");
                         loginStatusLabel.setForeground(new Color(255, 100, 100));
                     }
                 }
                 catch (Exception e)
                 {
-                    loginStatusLabel.setText("Error: " + e.getMessage());
+                    String msg = e.getMessage();
+                    if (msg != null && msg.contains("connect"))
+                    {
+                        loginStatusLabel.setText("Cannot reach server. Check connection.");
+                    }
+                    else
+                    {
+                        loginStatusLabel.setText("Error: " + msg);
+                    }
+                    loginStatusLabel.setForeground(new Color(255, 100, 100));
+                }
+                finally
+                {
+                    loginBtn.setEnabled(true);
+                    createBtn.setEnabled(true);
                 }
             }
         }.execute();

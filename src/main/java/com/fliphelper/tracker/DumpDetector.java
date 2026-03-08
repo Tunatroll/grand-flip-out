@@ -35,7 +35,10 @@ public class DumpDetector
 
     // Historical snapshots for trend analysis
     private final Map<Integer, List<PriceSnapshot>> priceHistory = new ConcurrentHashMap<>();
-    private static final int MAX_SNAPSHOTS = 60; // Keep 60 snapshots (~5h at 5min intervals)
+    private static final int MAX_SNAPSHOTS = 60;       // Keep 60 snapshots per item (~5h at 5min intervals)
+    private static final int MAX_TRACKED_ITEMS = 5000;  // Cap tracked items to prevent memory bloat
+    private static final long STALE_ITEM_MILLIS = 86_400_000; // 24h — remove items with no new data
+    private long lastCleanupTime = System.currentTimeMillis();
 
     public DumpDetector(PriceService priceService)
     {
@@ -76,6 +79,32 @@ public class DumpDetector
                     history.remove(0);
                 }
             }
+        }
+
+        // Periodic stale item cleanup (every 30 minutes)
+        long now2 = System.currentTimeMillis();
+        if (now2 - lastCleanupTime > 1_800_000)
+        {
+            lastCleanupTime = now2;
+            Instant staleThreshold = Instant.now().minusMillis(STALE_ITEM_MILLIS);
+            priceHistory.entrySet().removeIf(entry -> {
+                List<PriceSnapshot> h = entry.getValue();
+                if (h.isEmpty()) return true;
+                return h.get(h.size() - 1).getTimestamp().isBefore(staleThreshold);
+            });
+
+            // If still over cap, remove items with fewest snapshots
+            if (priceHistory.size() > MAX_TRACKED_ITEMS)
+            {
+                List<Map.Entry<Integer, List<PriceSnapshot>>> sorted = new ArrayList<>(priceHistory.entrySet());
+                sorted.sort(Comparator.comparingInt(e -> e.getValue().size()));
+                int toRemove = priceHistory.size() - MAX_TRACKED_ITEMS;
+                for (int i = 0; i < toRemove && i < sorted.size(); i++)
+                {
+                    priceHistory.remove(sorted.get(i).getKey());
+                }
+            }
+            log.debug("DumpDetector cleanup: tracking {} items", priceHistory.size());
         }
 
         long duration = System.currentTimeMillis() - startTime;
@@ -133,10 +162,14 @@ public class DumpDetector
             double spreadPercent = instaSell > 0 ? ((double)(instaBuy - instaSell) / instaSell) * 100 : 0;
 
             // Sell/buy pressure analysis (matches website logic)
-            long sellVol5m = wikiData.getHighVolume5m();
-            long buyVol5m = wikiData.getLowVolume5m();
-            double sellPressure = buyVol5m > 0 ? (double) sellVol5m / buyVol5m : 0;
-            double buyPressure = sellVol5m > 0 ? (double) buyVol5m / sellVol5m : 0;
+            // highVolume = volume at insta-buy prices (buy-side activity)
+            // lowVolume  = volume at insta-sell prices (sell-side activity)
+            long buySideVol5m = wikiData.getHighVolume5m();
+            long sellSideVol5m = wikiData.getLowVolume5m();
+            // sellPressure > 1 means more selling than buying → bearish (dump signal)
+            double sellPressure = buySideVol5m > 0 ? (double) sellSideVol5m / buySideVol5m : 0;
+            // buyPressure > 1 means more buying than selling → bullish (pump signal)
+            double buyPressure = sellSideVol5m > 0 ? (double) buySideVol5m / sellSideVol5m : 0;
 
             // Determine if this is alertworthy — more sensitive detection
             boolean isDump = highDeviation < -PRICE_CHANGE_THRESHOLD || lowDeviation < -PRICE_CHANGE_THRESHOLD

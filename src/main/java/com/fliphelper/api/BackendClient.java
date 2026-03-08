@@ -1,6 +1,8 @@
 package com.fliphelper.api;
 
+import com.fliphelper.debug.DebugManager;
 import com.google.gson.Gson;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 
@@ -41,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 @Singleton
 public class BackendClient
 {
-    private static final String DEFAULT_BACKEND_URL = "http://localhost:3001/api/contribute";
+    private static final String DEFAULT_BACKEND_URL = "https://gfo.tunatroll.com/api/contribute";
     private static final MediaType JSON_TYPE = MediaType.parse("application/json; charset=utf-8");
     private static final int FLUSH_INTERVAL_SECONDS = 15;
     private static final int MAX_BATCH_SIZE = 100;
@@ -55,6 +57,10 @@ public class BackendClient
 
     // P2P network — when set, trade batches fan out to ALL healthy peers
     private PeerNetwork peerNetwork;
+
+    /** Optional debug manager for contribution instrumentation. */
+    @Setter
+    private DebugManager debugManager;
 
     @Inject
     public BackendClient(OkHttpClient httpClient, Gson gson)
@@ -147,9 +153,29 @@ public class BackendClient
 
     /**
      * Set backend URL (for custom server deployments / fallback).
+     * Validates that the URL uses HTTPS for security.
      */
     public void setBackendUrl(String url)
     {
+        if (url == null || url.trim().isEmpty())
+        {
+            this.backendUrl = DEFAULT_BACKEND_URL;
+            return;
+        }
+        String trimmed = url.trim().toLowerCase();
+        // Enforce HTTPS and reject localhost for Plugin Hub compliance
+        if (!trimmed.startsWith("https://"))
+        {
+            log.warn("GFO BackendClient: Rejecting non-HTTPS backend URL '{}', using default", url);
+            this.backendUrl = DEFAULT_BACKEND_URL;
+            return;
+        }
+        if (trimmed.contains("localhost") || trimmed.contains("127.0.0.1") || trimmed.contains("0.0.0.0"))
+        {
+            log.warn("GFO BackendClient: Rejecting localhost backend URL '{}', using default", url);
+            this.backendUrl = DEFAULT_BACKEND_URL;
+            return;
+        }
         this.backendUrl = url;
     }
 
@@ -202,9 +228,18 @@ public class BackendClient
         // P2P MODE: Fan out to ALL healthy peers so every relay gets the data
         if (peerNetwork != null && peerNetwork.getHealthyCount() > 0)
         {
+            long p2pStart = System.currentTimeMillis();
             peerNetwork.fanoutPost("/api/contribute", jsonPayload);
+            long p2pDuration = System.currentTimeMillis() - p2pStart;
             log.debug("GFO P2P fanout: {} trade(s) to {} peer(s)",
                 batch.size(), peerNetwork.getHealthyCount());
+            if (debugManager != null)
+            {
+                debugManager.recordAPICall("p2p/contribute", p2pDuration, true);
+                debugManager.recordEvent("CONTRIBUTE_P2P",
+                    String.format("%d trade(s) to %d peers", batch.size(), peerNetwork.getHealthyCount()),
+                    null);
+            }
             return;
         }
 
@@ -225,6 +260,10 @@ public class BackendClient
             {
                 log.debug("GFO backend unreachable, dropped {} trade(s): {}",
                     batch.size(), e.getMessage());
+                if (debugManager != null)
+                {
+                    debugManager.recordAPICall("backend/contribute", 0, false);
+                }
                 // Don't re-queue — graceful degradation is better than memory buildup
             }
 
@@ -236,10 +275,18 @@ public class BackendClient
                     if (response.isSuccessful())
                     {
                         log.debug("GFO backend accepted {} trade(s)", batch.size());
+                        if (debugManager != null)
+                        {
+                            debugManager.recordAPICall("backend/contribute", 0, true);
+                        }
                     }
                     else
                     {
                         log.debug("GFO backend rejected batch: HTTP {}", response.code());
+                        if (debugManager != null)
+                        {
+                            debugManager.recordAPICall("backend/contribute", 0, false);
+                        }
                     }
                 }
                 finally

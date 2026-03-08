@@ -22,6 +22,7 @@ public class GpDropOverlay extends Overlay
 {
     private static final int DROP_DURATION_MS = 2500;
     private static final int DROP_RISE_PIXELS = 80;
+    private static final int MAX_CONCURRENT_DROPS = 4; // Cap to prevent UI clutter
     private static final Font GP_FONT = new Font("RuneScape Bold", Font.BOLD, 24);
     private static final Font GP_FONT_FALLBACK = new Font("Arial", Font.BOLD, 22);
 
@@ -51,6 +52,12 @@ public class GpDropOverlay extends Overlay
             return;
         }
 
+        // Cap concurrent drops to prevent UI clutter
+        if (activeDrops.size() >= MAX_CONCURRENT_DROPS)
+        {
+            return;
+        }
+
         // Stagger multiple drops slightly
         int offsetX = activeDrops.size() * 30;
         activeDrops.add(new GpDrop(profit, itemName, System.currentTimeMillis(), offsetX));
@@ -76,10 +83,11 @@ public class GpDropOverlay extends Overlay
         }
 
         // Render each active drop
-        // Use graphics clip bounds to determine canvas size
-        java.awt.geom.AffineTransform transform = graphics.getTransform();
-        int centerX = 400; // Approximate center (will be adjusted by overlay manager)
-        int baseY = 200; // Upper third of screen
+        // Use client canvas dimensions for proper positioning
+        int canvasWidth = client.getCanvasWidth();
+        int canvasHeight = client.getCanvasHeight();
+        int centerX = canvasWidth / 2;
+        int baseY = canvasHeight / 4; // Upper quarter of screen
 
         Graphics2D g2 = (Graphics2D) graphics.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);

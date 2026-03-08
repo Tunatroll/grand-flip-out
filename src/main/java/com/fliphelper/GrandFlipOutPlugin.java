@@ -1,10 +1,11 @@
-package com.fliphelper;
+﻿package com.fliphelper;
 
 import com.fliphelper.api.BackendClient;
 import com.fliphelper.api.PeerNetwork;
 import com.fliphelper.api.ProfileClient;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.ui.ProfilePanel;
+import com.fliphelper.ui.DebugPanel;
 import com.fliphelper.ui.GpDropOverlay;
 import com.fliphelper.debug.DebugManager;
 import com.fliphelper.debug.DebugOverlay;
@@ -122,6 +123,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private ProfileClient profileClient;
     private BackendClient backendClient;
     private DebugManager debugManager;
+    private DebugPanel debugPanel;
     private GrandFlipOutPanel panel;
     private ProfilePanel profilePanel;
     private GrandFlipOutOverlay overlay;
@@ -154,7 +156,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
+        priceService.setDebugManager(debugManager);
         flipTracker = new FlipTracker(config, DATA_DIR, gson);
+        flipTracker.setDebugManager(debugManager);
         // Wire profile flip logging — when a buy→sell pair completes, log it to the user's profile
         // Routes through ProfileClient → PeerNetwork for P2P failover
         flipTracker.setFlipCompleteListener(flip -> {
@@ -259,8 +263,13 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // ── Profile Panel (account UI tab) ──
         profilePanel = new ProfilePanel(profileClient, peerNetwork);
 
+        // ── Debug Panel (live stats + debug report) ──
+        debugPanel = new DebugPanel(debugManager);
+        panel.addTab("Debug", debugPanel);
+
         // ── Crowdsourced BackendClient (batched trade contributions) ──
         backendClient = new BackendClient(okHttpClient, gson);
+        backendClient.setDebugManager(debugManager);
         backendClient.setBackendUrl(config.backendUrl());
         backendClient.setPeerNetwork(peerNetwork); // P2P fanout mode
         backendClient.setProfileConfig(
@@ -399,6 +408,14 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
                 log.info("GE {} detected: {}x {} @ {}gp (slot {})",
                     isBuy ? "buy" : "sell", deltaQuantity, itemName, pricePerItem, slot);
+
+                // Record GE trade event in debug manager
+                if (debugManager != null)
+                {
+                    debugManager.recordEvent(isBuy ? "GE_BUY" : "GE_SELL",
+                        String.format("%dx @ %dgp (slot %d)", deltaQuantity, pricePerItem, slot),
+                        itemName);
+                }
 
                 // Trigger GP drop overlay for completed sells (profit celebration)
                 if (!isBuy && config.showGpDrops() && gpDropOverlay != null)
@@ -650,6 +667,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
     private void initialPriceLoad()
     {
+        long startMs = System.currentTimeMillis();
         try
         {
             log.info("Loading initial price data...");
@@ -662,17 +680,32 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             priceService.getHistoryCollector().seedTopItems(50);
 
             panel.updateAll();
+
+            long duration = System.currentTimeMillis() - startMs;
             log.info("Initial price data loaded: {} items, history seeded for top 50",
                 priceService.getAggregatedPrices().size());
+
+            if (debugManager != null)
+            {
+                debugManager.recordOperationTime("initialPriceLoad", duration);
+                debugManager.info("PriceService",
+                    String.format("Initial load: %d items in %dms",
+                        priceService.getAggregatedPrices().size(), duration));
+            }
         }
         catch (Exception e)
         {
             log.error("Failed to load initial price data", e);
+            if (debugManager != null)
+            {
+                debugManager.error("PriceService", "Initial load failed: " + e.getMessage());
+            }
         }
     }
 
     private void refreshPrices()
     {
+        long refreshStart = System.currentTimeMillis();
         try
         {
             priceService.refreshAll();
@@ -715,6 +748,15 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                                 alert.getItemName(),
                                 analysis.getRecommendedAction(),
                                 analysis.getConfidence());
+
+                            // Record dump event in debug manager
+                            if (debugManager != null)
+                            {
+                                debugManager.recordEvent("DUMP_DETECTED",
+                                    String.format("Action: %s, Confidence: %s",
+                                        analysis.getRecommendedAction(), analysis.getConfidence()),
+                                    alert.getItemName());
+                            }
                         }
                     }
                 }
@@ -727,11 +769,36 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             }
 
             panel.updateAll();
+            if (debugPanel != null)
+            {
+                debugPanel.refresh();
+            }
+
+            // Record refresh cycle performance + memory snapshot
+            if (debugManager != null)
+            {
+                long refreshDuration = System.currentTimeMillis() - refreshStart;
+                debugManager.recordOperationTime("refreshPrices", refreshDuration);
+
+                Runtime rt = Runtime.getRuntime();
+                debugManager.recordMemorySnapshot(
+                    rt.totalMemory() - rt.freeMemory(),
+                    rt.maxMemory(),
+                    priceService.getAggregatedPrices().size(),
+                    priceService.getHistoryCollector() != null
+                        ? priceService.getHistoryCollector().getTrackedItemCount() : 0
+                );
+            }
+
             log.debug("Price data refreshed");
         }
         catch (Exception e)
         {
             log.warn("Failed to refresh prices: {}", e.getMessage());
+            if (debugManager != null)
+            {
+                debugManager.error("refreshPrices", "Failed: " + e.getMessage());
+            }
         }
     }
 
@@ -854,26 +921,39 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
-    /**
-     * Converts a DumpDetector.PriceAlert to DumpKnowledgeEngine.PriceAlert format
-     * for compatibility with the dump knowledge engine analyzer.
+        /**
+     * Converts DumpDetector alert to DumpKnowledgeEngine format.
+     * FIXES: averageVolume now set (was 0, broke isHighVolume);
+     *        previousPrice derived from actual deviation (was hardcoded 5%).
      */
     private DumpKnowledgeEngine.PriceAlert convertToDumpKnowledgeAlert(DumpDetector.PriceAlert alert)
     {
-        // Get current price aggregate to fill in missing fields
         var agg = priceService.getPrice(alert.getItemId());
         long currentPrice = agg != null ? agg.getCurrentPrice() : 0;
-        long previousPrice = agg != null ? (currentPrice - (long)(currentPrice * 0.05)) : currentPrice; // Estimate previous
+        long hourlyVolume = agg != null ? agg.getTotalVolume1h() : 0;
+
+        // Derive previous price from deviation: current = previous * (1 + dev/100)
+        double deviation = alert.getLowDeviation();
+        long previousPrice;
+        if (Math.abs(deviation) > 0.01 && currentPrice > 0)
+        {
+            previousPrice = (long) (currentPrice / (1.0 + deviation / 100.0));
+        }
+        else
+        {
+            previousPrice = currentPrice;
+        }
 
         return DumpKnowledgeEngine.PriceAlert.builder()
             .itemId(alert.getItemId())
             .itemName(alert.getItemName())
             .currentPrice(currentPrice)
             .previousPrice(previousPrice)
-            .volume(agg != null ? agg.getTotalVolume1h() : 0)
+            .volume(hourlyVolume)
+            .averageVolume(hourlyVolume) // FIX: was missing - isHighVolume() always returned true
             .buyPrice(agg != null ? agg.getBestLowPrice() : currentPrice)
             .sellPrice(agg != null ? agg.getBestHighPrice() : currentPrice)
-            .priceMovement(((currentPrice - previousPrice) / (double) Math.max(1, previousPrice)) * 100.0)
+            .priceMovement(deviation)
             .build();
     }
 }

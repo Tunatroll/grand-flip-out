@@ -15,16 +15,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Client for the RuneLite item pricing API.
- * Uses RuneLite's internal pricing which is based on GE data.
+ * Supplementary price client that fetches 5-minute averaged data
+ * from the OSRS Wiki API as a second data source for cross-validation.
+ *
+ * FIX: Previous version parsed response as JSON array — Wiki /5m returns
+ * {"data": {"itemId": {...}}} which is an object, not an array.
+ * ClassCastException at runtime prevented this source from ever loading.
  */
 @Slf4j
 public class RuneLitePriceClient
 {
-    private static final String PRICES_URL = "https://prices.runescape.wiki/api/v1/osrs/latest";
-    // RuneLite also provides item prices via its own API
-    // Fallback: RuneLite prices API (version-independent endpoint)
-    private static final String RUNELITE_API_URL = "https://prices.runescape.wiki/api/v1/osrs/5m";
+    private static final String PRICES_URL = "https://prices.runescape.wiki/api/v1/osrs/5m";
 
     private final OkHttpClient httpClient;
     private Map<Integer, PriceData> prices = new HashMap<>();
@@ -35,13 +36,12 @@ public class RuneLitePriceClient
     }
 
     /**
-     * Fetch prices from RuneLite's pricing endpoint.
-     * RuneLite aggregates GE transaction data from its userbase.
+     * Fetch 5-minute averaged prices from the Wiki API.
      */
     public Map<Integer, PriceData> fetchPrices() throws IOException
     {
         Request request = new Request.Builder()
-            .url(RUNELITE_API_URL)
+            .url(PRICES_URL)
             .header("User-Agent", "GrandFlipOut RuneLite Plugin")
             .build();
 
@@ -49,52 +49,72 @@ public class RuneLitePriceClient
         {
             if (!response.isSuccessful() || response.body() == null)
             {
-                log.warn("RuneLite price API returned {}, falling back", response.code());
+                log.warn("RuneLite price API returned {}", response.code());
                 return prices;
             }
 
             String body = response.body().string();
 
-            // RuneLite returns an array of {id, name, price, ...}
-            // Parse as JSON array
-            var jsonArray = new JsonParser().parse(body).getAsJsonArray();
+            // FIX: Wiki /5m returns {"data": {"itemId": {...}}} — an object, NOT an array
+            JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+            JsonObject data = json.getAsJsonObject("data");
 
-            prices.clear();
-            for (JsonElement element : jsonArray)
+            if (data == null)
             {
-                JsonObject item = element.getAsJsonObject();
-                int itemId = item.get("id").getAsInt();
-                String name = item.has("name") ? item.get("name").getAsString() : "Item " + itemId;
-                long price = item.has("price") ? item.get("price").getAsLong() : 0;
-
-                PriceData priceData = PriceData.builder()
-                    .itemId(itemId)
-                    .itemName(name)
-                    .highPrice(price)
-                    .lowPrice(price)
-                    .source(PriceSource.RUNELITE)
-                    .build();
-
-                prices.put(itemId, priceData);
+                log.warn("RuneLite price API returned no 'data' field");
+                return prices;
             }
 
-            log.debug("Fetched {} prices from RuneLite API", prices.size());
+            Map<Integer, PriceData> newPrices = new HashMap<>();
+            for (Map.Entry<String, JsonElement> entry : data.entrySet())
+            {
+                try
+                {
+                    int itemId = Integer.parseInt(entry.getKey());
+                    JsonObject item = entry.getValue().getAsJsonObject();
+
+                    long avgHigh = getJsonLong(item, "avgHighPrice");
+                    long avgLow = getJsonLong(item, "avgLowPrice");
+                    long highVol = getJsonLong(item, "highPriceVolume");
+                    long lowVol = getJsonLong(item, "lowPriceVolume");
+
+                    if (avgHigh <= 0 && avgLow <= 0) continue;
+
+                    PriceData priceData = PriceData.builder()
+                        .itemId(itemId)
+                        .itemName("Item " + itemId)
+                        .highPrice(avgHigh)
+                        .lowPrice(avgLow)
+                        .avgHighPrice5m(avgHigh)
+                        .avgLowPrice5m(avgLow)
+                        .highVolume5m(highVol)
+                        .lowVolume5m(lowVol)
+                        .source(PriceSource.RUNELITE)
+                        .build();
+
+                    newPrices.put(itemId, priceData);
+                }
+                catch (NumberFormatException e) { /* skip non-numeric keys */ }
+            }
+
+            prices = newPrices;
+            log.debug("Fetched {} prices from supplementary API", prices.size());
             return prices;
         }
         catch (Exception e)
         {
-            log.warn("Failed to fetch RuneLite prices: {}", e.getMessage());
+            log.warn("Failed to fetch supplementary prices: {}", e.getMessage());
             return prices;
         }
     }
 
-    public Map<Integer, PriceData> getPrices()
-    {
-        return prices;
-    }
+    public Map<Integer, PriceData> getPrices() { return prices; }
+    public PriceData getPrice(int itemId) { return prices.get(itemId); }
 
-    public PriceData getPrice(int itemId)
+    private long getJsonLong(JsonObject obj, String key)
     {
-        return prices.get(itemId);
+        JsonElement element = obj.get(key);
+        if (element == null || element.isJsonNull()) return 0;
+        return element.getAsLong();
     }
 }

@@ -1,6 +1,7 @@
 package com.fliphelper.api;
 
 import com.fliphelper.GrandFlipOutConfig;
+import com.fliphelper.debug.DebugManager;
 import com.fliphelper.model.ItemMapping;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.model.PriceData;
@@ -8,6 +9,7 @@ import com.fliphelper.model.PriceSource;
 import com.fliphelper.tracker.PriceHistoryCollector;
 import com.google.gson.Gson;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 
@@ -28,13 +30,17 @@ public class PriceService
     private final OfficialGePriceClient officialGeClient;
 
     @Getter
-    private final Map<Integer, PriceAggregate> aggregatedPrices = new ConcurrentHashMap<>();
+    private volatile Map<Integer, PriceAggregate> aggregatedPrices = new ConcurrentHashMap<>();
 
     @Getter
     private Instant lastRefresh = Instant.EPOCH;
 
     @Getter
     private PriceHistoryCollector historyCollector;
+
+    /** Optional debug manager for API call instrumentation. */
+    @Setter
+    private DebugManager debugManager;
 
     private boolean mappingsLoaded = false;
 
@@ -88,10 +94,19 @@ public class PriceService
                 wiki1h = wikiClient.fetch1hPrices();
                 long wikiDuration = System.currentTimeMillis() - wikiStart;
                 log.debug("Wiki price fetch took {} ms", wikiDuration);
+                if (debugManager != null)
+                {
+                    debugManager.recordAPICall("wiki/latest+5m+1h", wikiDuration, true);
+                }
             }
             catch (IOException e)
             {
+                long wikiDuration = System.currentTimeMillis() - wikiStart;
                 log.warn("Failed to fetch Wiki prices: {}", e.getMessage());
+                if (debugManager != null)
+                {
+                    debugManager.recordAPICall("wiki/latest+5m+1h", wikiDuration, false);
+                }
             }
         }
 
@@ -103,10 +118,19 @@ public class PriceService
                 runeLitePrices = runeLiteClient.fetchPrices();
                 long rlDuration = System.currentTimeMillis() - rlStart;
                 log.debug("RuneLite price fetch took {} ms", rlDuration);
+                if (debugManager != null)
+                {
+                    debugManager.recordAPICall("runelite/prices", rlDuration, true);
+                }
             }
             catch (IOException e)
             {
+                long rlDuration = System.currentTimeMillis() - rlStart;
                 log.warn("Failed to fetch RuneLite prices: {}", e.getMessage());
+                if (debugManager != null)
+                {
+                    debugManager.recordAPICall("runelite/prices", rlDuration, false);
+                }
             }
         }
 
@@ -155,9 +179,8 @@ public class PriceService
             }
         }
 
-        // Atomic swap — readers always see a complete set of prices
-        aggregatedPrices.clear();
-        aggregatedPrices.putAll(newPrices);
+        // FIX: Single volatile reference swap - truly atomic for readers
+        this.aggregatedPrices = newPrices;
 
         lastRefresh = Instant.now();
 
