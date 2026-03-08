@@ -13,7 +13,9 @@
 # ===== PRIVATE COMPONENTS (live in gfo-ecosystem) =====
 server/
 discord-bot/
-website/
+website/*
+!website/index.html
+# V3 website is API-first - intelligence stays server-side, safe to deploy
 
 # ===== DOCUMENTATION WITH STRATEGY (private) =====
 HANDOFF.md

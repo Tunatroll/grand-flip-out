@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grand Flip Out — OSRS GE Flipping Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23ff981f'/><text x='50' y='68' text-anchor='middle' font-size='55' fill='%231a1410' font-weight='bold'>G</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-0:#09080a;--bg-1:#111014;--bg-2:#19171e;--bg-3:#201e26;--bg-4:#28262f;
+  --accent:#ff981f;--accent2:#ffb347;--accent-g:rgba(255,152,31,.12);
+  --gold:#d4af37;--green:#22c55e;--red:#ef4444;--blue:#3b82f6;--purple:#a78bfa;
+  --t1:#f0ece6;--t2:#b0a99e;--t3:#706b64;
+  --border:rgba(255,255,255,.06);--border-h:rgba(255,152,31,.2);
+  --r:8px;--r2:12px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg-0);color:var(--t1);line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg-4);border-radius:3px}
+
+/* === HEADER === */
+.hdr{background:var(--bg-1);border-bottom:1px solid var(--border);padding:10px 20px;position:sticky;top:0;z-index:100;backdrop-filter:blur(16px)}
+.hdr-in{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:16px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.logo-g{width:36px;height:36px;background:linear-gradient(135deg,#ff981f,#ffb347);border-radius:8px;display:grid;place-items:center;font-size:18px;font-weight:900;color:#1a1410}
+.logo-t{font-size:17px;font-weight:800;color:var(--t1);letter-spacing:-.3px}
+.logo-t span{color:var(--accent)}
+.search-box{flex:1;max-width:360px;position:relative}
+.search-box input{width:100%;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px 8px 34px;color:var(--t1);font-size:13px;transition:.2s}
+.search-box input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-g)}
+.search-box::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.5}
+.hdr-r{display:flex;align-items:center;gap:10px;margin-left:auto}
+.pill{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--bg-2);border:1px solid var(--border);border-radius:16px;font-size:11px;font-weight:600;color:var(--t2);cursor:pointer;transition:.2s}
+.pill:hover{border-color:var(--accent)}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+.dot.off{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* === NAV === */
+.nav{background:var(--bg-1);border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:90;overflow-x:auto}
+.nav-in{max-width:1400px;margin:0 auto;display:flex;gap:0;padding:0 20px}
+.tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--t3);padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:.2s;white-space:nowrap;font-family:inherit}
+.tab:hover{color:var(--t2);background:rgba(255,255,255,.02)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab .badge{display:inline-block;background:var(--accent-g);border:1px solid var(--border-h);color:var(--accent);font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:4px}
+
+/* === LAYOUT === */
+.page{max-width:1400px;margin:0 auto;padding:16px 20px}
+.panel{display:none}.panel.active{display:block}
+
+/* === STAT CARDS === */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.sc{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;transition:.2s}
+.sc:hover{border-color:var(--border-h);transform:translateY(-1px)}
+.sc-label{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.sc-val{font-size:22px;font-weight:800}
+.sc-sub{font-size:10px;color:var(--t3);margin-top:2px}
+.green{color:var(--green)}.red{color:var(--red)}.accent{color:var(--accent)}
+
+/* === TABLE === */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r2);background:var(--bg-2)}
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--bg-3);padding:8px 12px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border)}
+tbody tr{transition:.15s;cursor:pointer}
+tbody tr:hover{background:rgba(255,152,31,.03)}
+td{padding:8px 12px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
+.item-icon{width:28px;height:28px;border-radius:6px;background:var(--bg-4);display:inline-flex;align-items:center;justify-content:center;overflow:hidden;vertical-align:middle;margin-right:8px}
+.item-icon img{width:100%;height:100%;object-fit:contain}
+.item-name{font-weight:600;color:var(--t1)}
+.vpill{display:inline-block;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700}
+.vpill.great{background:rgba(34,197,94,.15);color:var(--green)}
+.vpill.good{background:rgba(34,197,94,.1);color:#4ade80}
+.vpill.decent{background:rgba(255,152,31,.12);color:var(--accent)}
+.vpill.slow{background:rgba(255,152,31,.08);color:#d97706}
+.vpill.dead{background:rgba(239,68,68,.1);color:var(--red)}
+.profit{color:var(--green);font-weight:700}
+.fav-btn{background:none;border:none;cursor:pointer;font-size:14px;color:var(--t3);transition:.2s}
+.fav-btn:hover,.fav-btn.on{color:var(--gold)}
+
+/* === CHARTS === */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+@media(max-width:900px){.chart-grid{grid-template-columns:1fr}}
+.chart-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r2);padding:14px}
+.chart-card h3{font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px}
+.chart-card canvas{width:100%!important;max-height:220px}
+
+/* === DUMPS/PUMPS === */
+.dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:768px){.dp-grid{grid-template-columns:1fr}}
+.dp-sec{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r2);padding:14px}
+.dp-hdr{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.dp-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:.15s}
+.dp-item:hover{background:rgba(255,152,31,.04);padding-left:4px}
+.dp-item:last-child{border:none}
+.dp-name{font-weight:600;font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dp-chg{font-weight:700;font-size:12px}
+
+/* === SNIPER === */
+.sniper-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r2);padding:14px;margin-bottom:8px;transition:.2s;cursor:pointer}
+.sniper-card:hover{border-color:var(--border-h);transform:translateY(-1px)}
+.sniper-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.sniper-name{font-weight:700;font-size:14px;flex:1}
+.sniper-action{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700}
+.sniper-action.buy{background:rgba(34,197,94,.15);color:var(--green)}
+.sniper-action.watch{background:rgba(255,152,31,.12);color:var(--accent)}
+.sniper-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.sniper-stat{background:var(--bg-3);border-radius:6px;padding:6px 10px}
+.sniper-stat-label{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px}
+.sniper-stat-val{font-size:13px;font-weight:700}
+
+/* === FILTERS === */
+.controls{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.ctrl-sel{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;color:var(--t1);font-size:12px;font-family:inherit}
+.pill-group{display:flex;gap:4px;flex-wrap:wrap}
+.fpill{padding:5px 10px;border-radius:14px;border:1px solid var(--border);background:var(--bg-3);color:var(--t3);font-size:11px;font-weight:600;cursor:pointer;transition:.2s;font-family:inherit}
+.fpill:hover{border-color:var(--accent);color:var(--t2)}
+.fpill.active{background:var(--accent-g);border-color:var(--accent);color:var(--accent)}
+
+/* === RECIPES === */
+.recipe-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;transition:.2s;cursor:pointer}
+.recipe-item:hover{border-color:var(--border-h);background:var(--bg-3)}
+.recipe-type{padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;flex-shrink:0}
+.recipe-type.herb{background:rgba(34,197,94,.12);color:var(--green)}
+.recipe-type.gem{background:rgba(167,139,250,.12);color:var(--purple)}
+.recipe-type.cooking{background:rgba(255,152,31,.1);color:var(--accent)}
+.recipe-type.smelting{background:rgba(239,68,68,.1);color:var(--red)}
+.recipe-flow{flex:1;font-size:12px;color:var(--t2)}
+.recipe-profit{font-weight:700;font-size:13px;color:var(--green);white-space:nowrap}
+
+/* === PAGINATION === */
+.pag{display:flex;gap:6px;margin-top:12px;align-items:center;justify-content:center}
+.pag button{background:var(--bg-3);border:1px solid var(--border);color:var(--t2);padding:5px 10px;border-radius:var(--r);cursor:pointer;font-size:11px;font-weight:600;transition:.2s}
+.pag button:hover{border-color:var(--accent);color:var(--accent)}
+.pag button:disabled{opacity:.4;cursor:not-allowed}
+.pag span{color:var(--t3);font-size:11px}
+
+/* === SETTINGS === */
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:1000;backdrop-filter:blur(4px)}
+.modal.open{display:flex;align-items:center;justify-content:center}
+.modal-box{background:var(--bg-2);border:1px solid var(--border-h);border-radius:var(--r2);padding:24px;max-width:460px;width:90%;max-height:80vh;overflow-y:auto}
+.modal-box h2{font-size:18px;font-weight:800;margin-bottom:16px}
+.modal-box label{display:block;font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;margin-top:14px}
+.modal-box input{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;color:var(--t1);font-size:12px;font-family:inherit}
+.modal-box input:focus{outline:none;border-color:var(--accent)}
+.mbtn{background:linear-gradient(135deg,var(--accent),var(--gold));color:#1a1410;border:none;border-radius:var(--r);padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-top:16px}
+
+/* === FOOTER === */
+.footer{background:var(--bg-1);border-top:1px solid var(--border);padding:20px;color:var(--t3);font-size:11px;text-align:center;margin-top:32px}
+
+/* === EMPTY === */
+.empty{text-align:center;padding:32px;color:var(--t3)}
+.empty-icon{font-size:32px;margin-bottom:8px}
+
+/* === INFO BANNER === */
+.info{background:var(--accent-g);border:1px solid var(--border-h);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2);line-height:1.6}
+.info strong{color:var(--accent)}
+
+/* === RESPONSIVE === */
+@media(max-width:768px){
+  .hdr-in{flex-wrap:wrap}.search-box{max-width:100%;order:3;flex-basis:100%}
+  .stats{grid-template-columns:1fr 1fr}
+  .dp-grid,.chart-grid{grid-template-columns:1fr}
+  td{padding:6px 8px;font-size:12px}
+  thead th{font-size:9px;padding:6px 8px}
+}
+@media(max-width:480px){.stats{grid-template-columns:1fr}}
+
+/* === Z-SCORE ALERT CARDS === */
+.zs-card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r2);padding:12px 16px;display:flex;align-items:center;gap:12px;transition:.3s;animation:zsFadeIn .4s ease;cursor:pointer}
+.zs-card:hover{border-color:var(--border-h);transform:translateY(-1px)}
+.zs-card.CRITICAL{border-left:3px solid #ff2222;background:rgba(255,34,34,.06)}
+.zs-card.ALERT{border-left:3px solid var(--red);background:rgba(239,68,68,.04)}
+.zs-card.WARNING{border-left:3px solid #f59e0b;background:rgba(245,158,11,.04)}
+.zs-card .zs-type{font-size:22px;flex-shrink:0}
+.zs-card .zs-info{flex:1;min-width:0}
+.zs-card .zs-name{font-weight:700;font-size:14px;color:var(--t1)}
+.zs-card .zs-meta{font-size:11px;color:var(--t3);margin-top:2px;display:flex;flex-wrap:wrap;gap:8px}
+.zs-card .zs-meta span{display:flex;align-items:center;gap:3px}
+.zs-card .zs-badge{padding:3px 8px;border-radius:12px;font-size:10px;font-weight:700;letter-spacing:.5px;flex-shrink:0}
+.zs-badge.PUMP{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.zs-badge.DUMP{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.zs-card .zs-score{font-size:20px;font-weight:900;font-family:monospace;flex-shrink:0}
+.zs-score.high{color:var(--red)}.zs-score.med{color:#f59e0b}.zs-score.low{color:var(--t2)}
+@keyframes zsFadeIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+.zs-time{font-size:10px;color:var(--t3);flex-shrink:0;text-align:right;min-width:50px}
+
+/* === CLICKABLE STAT CARDS === */
+.sc.clickable{cursor:pointer;position:relative}
+.sc.clickable:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(255,152,31,.1)}
+.sc.clickable .sc-sub{color:var(--accent);opacity:.7}
+
+/* === ITEM DETAIL MODAL === */
+.item-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.item-modal-overlay.open{display:flex}
+.item-modal{background:var(--bg-1);border:1px solid var(--border);border-radius:var(--r2);width:90%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 24px 48px rgba(0,0,0,.4);animation:modalIn .2s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.im-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+.im-header h3{font-size:16px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:10px}
+.im-close{background:none;border:none;color:var(--t3);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:var(--r)}
+.im-close:hover{color:var(--t1);background:var(--bg-3)}
+.im-body{padding:16px 20px}
+.im-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.im-row:last-child{border-bottom:none}
+.im-lbl{color:var(--t3);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.im-val{color:var(--t1);font-weight:700}
+.im-actions{display:flex;gap:8px;padding:12px 20px;border-top:1px solid var(--border)}
+.im-btn{flex:1;padding:10px 14px;border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:.2s;border:1px solid var(--border)}
+.im-btn.primary{background:var(--accent);color:#1a1410;border-color:var(--accent)}
+.im-btn.primary:hover{filter:brightness(1.1)}
+.im-btn.secondary{background:var(--bg-3);color:var(--t1)}
+.im-btn.secondary:hover{border-color:var(--accent)}
+
+/* === MOBILE TOUCH FIXES === */
+/* Ensure all clickable elements work on mobile */
+[onclick]{cursor:pointer;-webkit-tap-highlight-color:rgba(255,152,31,.2);touch-action:manipulation}
+.sc.clickable,.dp-item,.sniper-card,.recipe-item,.zs-card,tbody tr,.fpill,.tab,.pill,.fav-btn,.im-btn,.im-close,
+button,[role="button"]{touch-action:manipulation;-webkit-tap-highlight-color:rgba(255,152,31,.15)}
+/* Active/pressed states for touch feedback */
+.sc.clickable:active{transform:scale(.97);opacity:.85}
+.dp-item:active,.sniper-card:active,.recipe-item:active,.zs-card:active{transform:scale(.98);opacity:.85}
+tbody tr:active{background:rgba(255,152,31,.08)}
+.tab:active{opacity:.7}
+.fpill:active{opacity:.7}
+/* Ensure min touch target size on mobile */
+@media(max-width:768px){
+  .tab{padding:12px 14px;min-height:44px}
+  .fpill{min-height:36px;padding:6px 12px}
+  .sc.clickable{min-height:60px}
+  .dp-item{min-height:48px;padding:10px 4px}
+  .sniper-card{min-height:48px}
+  .recipe-item{min-height:48px}
+  .zs-card{min-height:52px;padding:14px 16px}
+  tbody td{padding:10px 12px}
+  .fav-btn{font-size:18px;padding:6px}
+  .im-btn{padding:14px;font-size:14px;min-height:48px}
+  .im-close{padding:8px 12px;font-size:24px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+  /* Prevent double-tap zoom on interactive elements */
+  .page{touch-action:pan-y}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+<div class="hdr-in">
+  <a class="logo" href="#">
+    <div class="logo-g">G</div>
+    <div class="logo-t">Grand <span>Flip</span> Out</div>
+  </a>
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Search items...">
+  </div>
+  <div class="hdr-r">
+    <div class="pill" id="statusPill" onclick="app.refresh()">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Connecting...</span>
+    </div>
+    <button style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--t2)" onclick="toggleSettings()">⚙️</button>
+  </div>
+</div>
+</header>
+
+<!-- NAV -->
+<nav class="nav">
+<div class="nav-in">
+  <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
+  <button class="tab" data-tab="top-flips">💰 Top Flips</button>
+  <button class="tab" data-tab="dumps-pumps">⚠️ Dumps & Pumps</button>
+  <button class="tab" data-tab="sniper">🎯 Dump Sniper</button>
+  <button class="tab" data-tab="recipes">🔬 Recipes</button>
+  <button class="tab" data-tab="watchlist">⭐ Watchlist <span class="badge" id="wlBadge" style="display:none">0</span></button>
+  <button class="tab" data-tab="zscore">🚨 Z-Score <span class="badge" id="zsBadge" style="display:none">0</span></button>
+  <button class="tab" data-tab="profile">👤 My Profile</button>
+</div>
+</nav>
+
+<!-- PAGE -->
+<main class="page">
+
+<!-- ===== DASHBOARD ===== -->
+<div id="dashboard" class="panel active">
+  <div class="info">
+    <strong>Live GE prices — all profit numbers include the 2% GE tax.</strong>
+    Buy at the green price, sell at the gold. Sorted by realistic 4-hour profit.
+  </div>
+  <div class="stats" id="dashStats"></div>
+  <div class="chart-grid">
+    <div class="chart-card" style="cursor:pointer" onclick="app.goTab('top-flips')" title="View full table"><h3>Top 10 — Realistic 4h Profit</h3><canvas id="chartProfit"></canvas></div>
+    <div class="chart-card" style="cursor:pointer" onclick="app.goTab('top-flips')" title="View full table"><h3>Profit Distribution (4h)</h3><canvas id="chartQuality"></canvas></div>
+  </div>
+  <div class="chart-grid">
+    <div class="chart-card" style="cursor:pointer" onclick="app.goTab('top-flips');setTimeout(()=>{document.getElementById('sortBy').value='volume';S.sortBy='volume';renderFlips()},100)" title="Sort by volume"><h3>Top 10 by Volume (est/hr)</h3><canvas id="chartVolume"></canvas></div>
+    <div class="chart-card" style="cursor:pointer" onclick="app.goTab('top-flips')" title="View full table"><h3>Profit/Item vs Volume (Top 50)</h3><canvas id="chartScatter"></canvas></div>
+  </div>
+</div>
+
+<!-- ===== TOP FLIPS ===== -->
+<div id="top-flips" class="panel">
+  <div class="info">
+    <strong>Top Flips</strong> — the most profitable items you can actually flip right now. Sorted by realistic 4-hour profit based on real trading volume, not theoretical buy limits.
+  </div>
+  <div class="controls">
+    <select class="ctrl-sel" id="sortBy">
+      <option value="realistic">Sort: 4h Profit</option>
+      <option value="margin">Sort: Profit/Item</option>
+      <option value="volume">Sort: Volume</option>
+      <option value="price">Sort: Price</option>
+    </select>
+    <div class="pill-group" id="priceFilter">
+      <button class="fpill active" data-range="all">All</button>
+      <button class="fpill" data-range="under1m">&lt;1M</button>
+      <button class="fpill" data-range="1m-10m">1-10M</button>
+      <button class="fpill" data-range="10m+">10M+</button>
+    </div>
+    <div class="pill-group" id="verdictFilter">
+      <button class="fpill active" data-v="all">All</button>
+      <button class="fpill" data-v="1m">1M+</button>
+      <button class="fpill" data-v="500k">500K+</button>
+      <button class="fpill" data-v="100k">100K+</button>
+    </div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th style="width:24px"></th>
+        <th>Item</th>
+        <th>4h Tier</th>
+        <th>Buy</th>
+        <th>Sell</th>
+        <th>Profit/Item</th>
+        <th>Vol/hr</th>
+        <th>Est. 4h Profit</th>
+        <th title="Z-Score volatility indicator">Z</th>
+      </tr></thead>
+      <tbody id="flipsBody"></tbody>
+    </table>
+  </div>
+  <div class="pag" id="pag" style="display:none">
+    <button id="prevBtn" onclick="app.prevPage()">← Prev</button>
+    <span id="pageInfo">Page 1</span>
+    <button id="nextBtn" onclick="app.nextPage()">Next →</button>
+  </div>
+</div>
+
+<!-- ===== DUMPS & PUMPS ===== -->
+<div id="dumps-pumps" class="panel">
+  <div class="info">
+    <strong>Dumps</strong> = items crashing in price — buy low opportunities.
+    <strong>Pumps</strong> = items spiking — demand surging. Updated every scan cycle.
+  </div>
+  <div class="dp-grid">
+    <div class="dp-sec">
+      <div class="dp-hdr red">📉 Price Dumps</div>
+      <div id="dumpsC"></div>
+    </div>
+    <div class="dp-sec">
+      <div class="dp-hdr green">📈 Price Pumps</div>
+      <div id="pumpsC"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DUMP SNIPER ===== -->
+<div id="sniper" class="panel">
+  <div class="info">
+    <strong>Dump Sniper</strong> — catches real price crashes. Only shows opportunities worth 300K+ with enough volume to actually fill. No noise, no junk items.
+  </div>
+  <div class="stats" id="sniperStats"></div>
+  <div id="sniperFeed"></div>
+</div>
+
+<!-- ===== RECIPES ===== -->
+<div id="recipes" class="panel">
+  <div class="info">
+    <strong>Recipes</strong> — profit from processing items. Buy raw, use skill, sell product. No flipping needed.
+  </div>
+  <div class="controls">
+    <select class="ctrl-sel" id="recipeSort">
+      <option value="profit">Sort: Profit</option>
+      <option value="roi">Sort: ROI</option>
+      <option value="name">Sort: Name</option>
+    </select>
+  </div>
+  <div id="recipesC"></div>
+</div>
+
+<!-- ===== WATCHLIST ===== -->
+<div id="watchlist" class="panel">
+  <div class="info"><strong>Your Watchlist</strong> — star any item to track it here.</div>
+  <div id="watchlistC">
+    <div class="empty"><div class="empty-icon">⭐</div><p>Click the star on any item to add it here</p></div>
+  </div>
+</div>
+
+<!-- ===== Z-SCORE ALERTS ===== -->
+<div id="zscore" class="panel">
+  <div class="stats">
+    <div class="sc clickable" onclick="document.getElementById('zsFilter').value='all';ZScore.render()" title="Show all alerts"><div class="sc-l">Active Alerts</div><div class="sc-v" id="zsActiveCount" style="color:var(--red)">0</div></div>
+    <div class="sc clickable" onclick="document.getElementById('zsFilter').value='PUMP';ZScore.render()" title="Filter to pumps"><div class="sc-l">Pumps Detected</div><div class="sc-v" id="zsPumps" style="color:var(--green)">0</div></div>
+    <div class="sc clickable" onclick="document.getElementById('zsFilter').value='DUMP';ZScore.render()" title="Filter to dumps"><div class="sc-l">Dumps Detected</div><div class="sc-v" id="zsDumps" style="color:var(--red)">0</div></div>
+    <div class="sc"><div class="sc-l">Total Checks</div><div class="sc-v" id="zsTotalChecks">0</div></div>
+  </div>
+  <div class="info" style="display:flex;justify-content:space-between;align-items:center">
+    <strong>🚨 Real-Time Z-Score Alerts</strong>
+    <div style="display:flex;gap:8px;align-items:center">
+      <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="zsSound" style="accent-color:var(--accent)"> Sound
+      </label>
+      <select id="zsFilter" style="background:var(--bg-3);border:1px solid var(--border);color:var(--t1);padding:4px 8px;border-radius:var(--r);font-size:11px">
+        <option value="all">All</option>
+        <option value="CRITICAL">Critical Only</option>
+        <option value="ALERT">Alert+</option>
+        <option value="PUMP">Pumps</option>
+        <option value="DUMP">Dumps</option>
+      </select>
+    </div>
+  </div>
+  <div id="zsAlertFeed" style="max-height:600px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-top:8px">
+    <div class="empty"><div class="empty-icon">📡</div><p>Waiting for Z-Score alerts... Data needs ~1 minute to warm up.</p></div>
+  </div>
+</div>
+
+<!-- ===== MY PROFILE ===== -->
+<div id="profile" class="panel">
+  <!-- Login / Create -->
+  <div id="profAuth" style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px 20px">
+    <div style="font-size:48px">🔐</div>
+    <h2 style="color:var(--t1);font-size:20px">Your Private Flip Profile</h2>
+    <p style="color:var(--t2);font-size:13px;text-align:center;max-width:400px">
+      Track your flips, P&L, and gains across all your RuneScape characters.<br>
+      Your data is <strong style="color:var(--accent)">private</strong> — no one can search or view your profile.
+    </p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <input id="profKeyInput" type="password" placeholder="Paste your API key..." style="background:var(--bg-2);border:1px solid var(--border);color:var(--t1);padding:8px 14px;border-radius:var(--r);font-size:13px;width:280px">
+      <button onclick="P.login()" style="background:var(--accent);color:#1a1410;border:none;padding:8px 16px;border-radius:var(--r);font-weight:700;cursor:pointer;font-size:13px">Sign In</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;color:var(--t3);font-size:12px">
+      <span>— or —</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center">
+      <input id="profNameInput" type="text" placeholder="Display name (optional)" style="background:var(--bg-2);border:1px solid var(--border);color:var(--t1);padding:8px 14px;border-radius:var(--r);font-size:13px;width:200px" maxlength="32">
+      <button onclick="P.createProfile()" style="background:var(--bg-3);color:var(--accent);border:1px solid var(--accent);padding:8px 16px;border-radius:var(--r);font-weight:700;cursor:pointer;font-size:13px">Create Profile</button>
+    </div>
+    <div id="profError" style="color:var(--red);font-size:12px;display:none"></div>
+  </div>
+
+  <!-- Logged-in Dashboard -->
+  <div id="profDash" style="display:none">
+    <!-- Header row -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:28px">👤</span>
+        <div>
+          <div id="profName" style="font-size:18px;font-weight:800;color:var(--t1)">Flipper</div>
+          <div id="profCharList" style="font-size:11px;color:var(--t3)"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <select id="profDays" onchange="P.loadStats()" style="background:var(--bg-3);border:1px solid var(--border);color:var(--t1);padding:5px 10px;border-radius:var(--r);font-size:11px">
+          <option value="7">7 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="90">90 days</option>
+          <option value="365">1 year</option>
+        </select>
+        <button onclick="P.showCharModal()" style="background:var(--bg-3);border:1px solid var(--border);color:var(--t2);padding:5px 10px;border-radius:var(--r);font-size:11px;cursor:pointer">+ Character</button>
+        <button onclick="P.logout()" style="background:var(--bg-3);border:1px solid var(--border);color:var(--red);padding:5px 10px;border-radius:var(--r);font-size:11px;cursor:pointer">Sign Out</button>
+      </div>
+    </div>
+
+    <!-- Stats cards -->
+    <div class="stats" id="profStats"></div>
+
+    <!-- P&L Chart -->
+    <div class="chart-card" style="margin:12px 0"><h3>Daily P&L</h3><canvas id="profPnlChart"></canvas></div>
+
+    <!-- Top items -->
+    <div class="info" style="margin-top:12px"><strong>Top Items (by profit)</strong></div>
+    <div id="profTopItems" style="margin-top:8px"></div>
+
+    <!-- Character breakdown -->
+    <div class="info" style="margin-top:16px"><strong>Character Breakdown</strong></div>
+    <div id="profCharBreakdown" style="margin-top:8px"></div>
+
+    <!-- Recent flips -->
+    <div class="info" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+      <strong>Recent Flips</strong>
+      <button onclick="P.loadMoreFlips()" style="background:var(--bg-3);border:1px solid var(--border);color:var(--t2);padding:4px 10px;border-radius:var(--r);font-size:11px;cursor:pointer">Load More</button>
+    </div>
+    <div id="profFlipLog" style="margin-top:8px;display:flex;flex-direction:column;gap:4px"></div>
+  </div>
+</div>
+
+</main>
+
+<!-- ITEM DETAIL MODAL -->
+<div class="item-modal-overlay" id="itemModal" onclick="if(event.target===this)app.closeItemModal()">
+  <div class="item-modal">
+    <div class="im-header">
+      <h3 id="imTitle">Item</h3>
+      <button class="im-close" onclick="app.closeItemModal()">✕</button>
+    </div>
+    <div class="im-body" id="imBody"></div>
+    <div class="im-actions" id="imActions"></div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal" id="settingsModal">
+<div class="modal-box">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h2>⚙️ Settings</h2>
+    <button style="background:none;border:none;font-size:20px;color:var(--t2);cursor:pointer" onclick="toggleSettings()">✕</button>
+  </div>
+  <label>Discord Webhook URL</label>
+  <input type="text" id="webhookUrl" placeholder="https://discord.com/api/webhooks/...">
+  <label>API Base URL</label>
+  <input type="text" id="apiUrl" placeholder="http://localhost:3001" value="http://localhost:3001">
+  <button class="mbtn" onclick="saveSettings()">Save Settings</button>
+</div>
+</div>
+
+<footer class="footer">
+  Grand Flip Out — OSRS GE Flipping Tool · Prices from OSRS Wiki API · Not affiliated with Jagex
+</footer>
+
+<script>
+// ==========================================
+// GRAND FLIP OUT v3 — Complete Rewrite
+// ==========================================
+
+const API_BASE = localStorage.getItem('gfo_api') || 'http://localhost:3001';
+const WIKI_ICON = name => `https://oldschool.runescape.wiki/images/${(name||'').replace(/ /g,'_')}`;
+
+// ── STATE ──
+const S = {
+  items: [], dumps: [], pumps: [], recipes: [],
+  zscoreAlerts: [], // Z-Score alert feed
+  watchlist: new Set(JSON.parse(localStorage.getItem('gfo_wl') || '[]')),
+  connected: false,
+  page: 1, perPage: 40,
+  sortBy: 'realistic',
+  priceRange: 'all',
+  verdictFilter: 'all',
+  search: ''
+};
+
+// ── UTILS ──
+function gp(v) {
+  if (!v && v !== 0) return '—';
+  const a = Math.abs(v);
+  if (a >= 1e6) return (v/1e6).toFixed(1) + 'M';
+  if (a >= 1e3) return (v/1e3).toFixed(1) + 'K';
+  return v.toLocaleString() + 'gp';
+}
+function geTax(price) { return Math.min(Math.floor(price * 0.02), 5000000); }
+function volPerHour(i) { return ((i.buyQuantity||0)+(i.sellQuantity||0)) * 12; }
+function realisticBuys(i) {
+  const v4h = volPerHour(i) * 4;
+  return i.ge_limit ? Math.min(v4h, i.ge_limit) : v4h;
+}
+function profit4h(i) {
+  const margin = (i.sellPrice||0) - (i.buyPrice||0) - geTax(i.sellPrice||0);
+  return margin > 0 ? margin * realisticBuys(i) : 0;
+}
+function zScoreIndicator(i) {
+  // Check if this item has Z-Score alert data
+  const alert = S.zscoreAlerts?.find(a => a.itemId === i.itemId);
+  if (alert) {
+    const absZ = Math.abs(alert.zScore || 0);
+    if (absZ >= 5) return { badge: '<span style="color:#ff4444;font-weight:700">!!!</span>', title: `CRITICAL Z=${alert.zScore} ${alert.type}` };
+    if (absZ >= 3) return { badge: '<span style="color:#ef4444;font-weight:700">!!</span>', title: `ALERT Z=${alert.zScore} ${alert.type}` };
+    if (absZ >= 2) return { badge: '<span style="color:#f59e0b;font-weight:600">!</span>', title: `WARNING Z=${alert.zScore} ${alert.type}` };
+  }
+  return { badge: '<span style="color:#555">—</span>', title: 'Normal volatility' };
+}
+function profitTier(i) {
+  const p = profit4h(i);
+  if (p >= 1000000) return { tier: '1m', label: '1M+', color: 'great' };
+  if (p >= 500000) return { tier: '500k', label: '500K+', color: 'good' };
+  if (p >= 100000) return { tier: '100k', label: '100K+', color: 'decent' };
+  if (p > 0) return { tier: 'under100k', label: '<100K', color: 'slow' };
+  return { tier: 'nothing', label: 'No profit', color: 'dead' };
+}
+function iconImg(icon, name, sz=28) {
+  if (!icon && !name) return '';
+  const url = icon ? WIKI_ICON(icon) : WIKI_ICON(name+'.png');
+  return `<div class="item-icon" style="width:${sz}px;height:${sz}px"><img src="${url}" onerror="this.style.display='none'" alt=""></div>`;
+}
+
+// ── API ──
+async function apiFetch(path) {
+  try {
+    const r = await fetch(API_BASE + path, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch(e) { console.warn('API:', path, e.message); return null; }
+}
+
+async function fetchItems() {
+  const d = await apiFetch('/api/items?limit=2000');
+  if (!d) return;
+  S.items = (d.items || d || []).map(i => ({
+    itemId: i.itemId || i.id, name: i.name || i.itemName,
+    icon: i.icon, buyPrice: i.buyPrice || i.low || 0,
+    sellPrice: i.sellPrice || i.high || 0,
+    buyQuantity: i.buyQuantity || 0, sellQuantity: i.sellQuantity || 0,
+    ge_limit: i.ge_limit || i.limit || 0,
+    margin: i.margin || 0
+  })).filter(i => i.buyPrice > 0 && i.sellPrice > 0);
+}
+
+async function fetchDumps() {
+  const d = await apiFetch('/api/dumps');
+  if (!d) return;
+  S.dumps = (d.dumps || []).filter(x => (x.percentChange||0) < 0);
+  S.pumps = (d.pumps || d.spikes || []).filter(x => (x.percentChange||0) > 0);
+}
+
+async function fetchRecipes() {
+  const d = await apiFetch('/api/recipes');
+  if (!d) return;
+  S.recipes = d.recipes || d || [];
+}
+
+// ── MOCK DATA (when API unavailable) ──
+function loadMockData() {
+  const items = [
+    {itemId:4151,name:'Abyssal whip',icon:'Abyssal_whip.png',buyPrice:1245000,sellPrice:1312000,buyQuantity:180,sellQuantity:195,ge_limit:8},
+    {itemId:11832,name:'Bandos chestplate',icon:'Bandos_chestplate.png',buyPrice:17450000,sellPrice:17820000,buyQuantity:12,sellQuantity:14,ge_limit:8},
+    {itemId:11834,name:'Bandos tassets',icon:'Bandos_tassets.png',buyPrice:24100000,sellPrice:24580000,buyQuantity:10,sellQuantity:11,ge_limit:8},
+    {itemId:2434,name:'Prayer potion(4)',icon:'Prayer_potion(4).png',buyPrice:7800,sellPrice:8450,buyQuantity:820,sellQuantity:890,ge_limit:2000},
+    {itemId:536,name:'Dragon bones',icon:'Dragon_bones.png',buyPrice:2150,sellPrice:2380,buyQuantity:1200,sellQuantity:1350,ge_limit:7500},
+    {itemId:560,name:'Death rune',icon:'Death_rune.png',buyPrice:176,sellPrice:195,buyQuantity:5800,sellQuantity:6200,ge_limit:18000},
+    {itemId:11235,name:'Dark bow',icon:'Dark_bow.png',buyPrice:425000,sellPrice:468000,buyQuantity:22,sellQuantity:25,ge_limit:8},
+    {itemId:12002,name:'Occult necklace',icon:'Occult_necklace.png',buyPrice:285000,sellPrice:312000,buyQuantity:18,sellQuantity:20,ge_limit:8},
+    {itemId:6585,name:'Amulet of fury',icon:'Amulet_of_fury.png',buyPrice:2450000,sellPrice:2580000,buyQuantity:28,sellQuantity:30,ge_limit:8},
+    {itemId:10564,name:'Rangers\' tunic',icon:"Rangers'_tunic.png",buyPrice:850000,sellPrice:915000,buyQuantity:5,sellQuantity:6,ge_limit:8},
+    {itemId:3024,name:'Super restore(4)',icon:'Super_restore(4).png',buyPrice:8200,sellPrice:8890,buyQuantity:950,sellQuantity:1020,ge_limit:2000},
+    {itemId:11785,name:'Armadyl crossbow',icon:'Armadyl_crossbow.png',buyPrice:8250000,sellPrice:8520000,buyQuantity:6,sellQuantity:7,ge_limit:8},
+    {itemId:2,name:'Cannonball',icon:'Cannonball.png',buyPrice:142,sellPrice:158,buyQuantity:12000,sellQuantity:13500,ge_limit:7500},
+    {itemId:5698,name:'Dragon dagger(p++)',icon:'Dragon_dagger(p++).png',buyPrice:17200,sellPrice:18500,buyQuantity:85,sellQuantity:90,ge_limit:125},
+    {itemId:11838,name:'Saradomin sword',icon:'Saradomin_sword.png',buyPrice:320000,sellPrice:345000,buyQuantity:15,sellQuantity:18,ge_limit:8},
+    {itemId:1747,name:'Black dragonhide',icon:'Black_dragonhide.png',buyPrice:2850,sellPrice:3120,buyQuantity:480,sellQuantity:520,ge_limit:13000},
+    {itemId:12924,name:'Toxic blowpipe',icon:'Toxic_blowpipe_(empty).png',buyPrice:2480000,sellPrice:2620000,buyQuantity:32,sellQuantity:35,ge_limit:8},
+    {itemId:4587,name:'Dragon scimitar',icon:'Dragon_scimitar.png',buyPrice:58000,sellPrice:62500,buyQuantity:42,sellQuantity:48,ge_limit:70},
+    {itemId:11836,name:'Bandos boots',icon:'Bandos_boots.png',buyPrice:145000,sellPrice:162000,buyQuantity:14,sellQuantity:16,ge_limit:8},
+    {itemId:3040,name:'Magic potion(4)',icon:'Magic_potion(4).png',buyPrice:185,sellPrice:245,buyQuantity:150,sellQuantity:180,ge_limit:2000},
+  ];
+  S.items = items;
+  S.dumps = [
+    {itemId:4151,itemName:'Abyssal whip',icon:'Abyssal_whip.png',percentChange:-7.2,buyPrice:1245000,sellPrice:1312000,margin:40760,totalProfit:326080,volumeTier:'active',action:'BUY'},
+    {itemId:11832,itemName:'Bandos chestplate',icon:'Bandos_chestplate.png',percentChange:-4.1,buyPrice:17450000,sellPrice:17820000,margin:13400,totalProfit:107200,volumeTier:'moderate',action:'WATCH'},
+    {itemId:12002,itemName:'Occult necklace',icon:'Occult_necklace.png',percentChange:-5.8,buyPrice:285000,sellPrice:312000,margin:20760,totalProfit:166080,volumeTier:'moderate',action:'WATCH'},
+  ];
+  S.pumps = [
+    {itemId:536,itemName:'Dragon bones',icon:'Dragon_bones.png',percentChange:8.5,buyPrice:2150,sellPrice:2380},
+    {itemId:2434,itemName:'Prayer potion(4)',icon:'Prayer_potion(4).png',percentChange:4.2,buyPrice:7800,sellPrice:8450},
+  ];
+  S.recipes = [
+    {name:'Ranarr weed → Ranarr potion (unf)',type:'herb',inputName:'Grimy ranarr weed',outputName:'Ranarr potion (unf)',profit:245,inputPrice:7800,outputPrice:8045,roi:3.1},
+    {name:'Uncut dragonstone → Dragonstone',type:'gem',inputName:'Uncut dragonstone',outputName:'Dragonstone',profit:890,inputPrice:12500,outputPrice:13390,roi:7.1},
+    {name:'Raw shark → Shark',type:'cooking',inputName:'Raw shark',outputName:'Shark',profit:120,inputPrice:780,outputPrice:900,roi:15.4},
+    {name:'Steel bar → Cannonball',type:'smelting',inputName:'Steel bar',outputName:'Cannonball',profit:340,inputPrice:420,outputPrice:760,roi:81.0},
+    {name:'Snapdragon → Snapdragon potion (unf)',type:'herb',inputName:'Grimy snapdragon',outputName:'Snapdragon potion (unf)',profit:180,inputPrice:8200,outputPrice:8380,roi:2.2},
+  ];
+}
+
+// ── RENDER: Dashboard Stats ──
+function renderDashStats() {
+  const best = S.items.reduce((m,i) => profit4h(i) > profit4h(m) ? i : m, S.items[0]||{});
+  const over1m = S.items.filter(i => profit4h(i) >= 1000000).length;
+  const over100k = S.items.filter(i => profit4h(i) >= 100000).length;
+  const el = document.getElementById('dashStats');
+  el.innerHTML = `
+    <div class="sc clickable" onclick="app.goTab('top-flips')" title="View all items"><div class="sc-label">Items Tracked</div><div class="sc-val accent">${S.items.length.toLocaleString()}</div><div class="sc-sub">with live prices →</div></div>
+    <div class="sc clickable" onclick="app.showItemDetail(${best.itemId||0})" title="View item details"><div class="sc-label">Best 4h Flip</div><div class="sc-val green">${gp(profit4h(best))}</div><div class="sc-sub">${best.name||'—'} →</div></div>
+    <div class="sc clickable" onclick="app.goTab('top-flips');setTimeout(()=>{const b=document.querySelector('[data-v=\\'1m\\']');if(b)b.click();},100)" title="View 1M+ flips"><div class="sc-label">1M+ Flips</div><div class="sc-val green">${over1m}</div><div class="sc-sub">items making over 1M in 4hrs →</div></div>
+    <div class="sc clickable" onclick="app.goTab('top-flips');setTimeout(()=>{const b=document.querySelector('[data-v=\\'100k\\']');if(b)b.click();},100)" title="View 100K+ flips"><div class="sc-label">100K+ Flips</div><div class="sc-val accent">${over100k}</div><div class="sc-sub">items making over 100K in 4hrs →</div></div>
+    <div class="sc clickable" onclick="app.goTab('dumps-pumps')" title="View dumps & pumps"><div class="sc-label">Active Dumps</div><div class="sc-val red">${S.dumps.length}</div><div class="sc-sub">crash opportunities →</div></div>
+  `;
+}
+
+// ── RENDER: Top Flips Table ──
+function renderFlips() {
+  let items = [...S.items];
+  // Search
+  if (S.search) items = items.filter(i => (i.name||'').toLowerCase().includes(S.search));
+  // Price filter
+  if (S.priceRange === 'under1m') items = items.filter(i => i.buyPrice < 1e6);
+  else if (S.priceRange === '1m-10m') items = items.filter(i => i.buyPrice >= 1e6 && i.buyPrice < 1e7);
+  else if (S.priceRange === '10m+') items = items.filter(i => i.buyPrice >= 1e7);
+  // Profit tier filter
+  if (S.verdictFilter !== 'all') items = items.filter(i => profitTier(i).tier === S.verdictFilter);
+  // Sort
+  if (S.sortBy === 'realistic') items.sort((a,b) => profit4h(b) - profit4h(a));
+  else if (S.sortBy === 'margin') items.sort((a,b) => ((b.sellPrice-b.buyPrice-geTax(b.sellPrice)) - (a.sellPrice-a.buyPrice-geTax(a.sellPrice))));
+  else if (S.sortBy === 'volume') items.sort((a,b) => volPerHour(b) - volPerHour(a));
+  else if (S.sortBy === 'price') items.sort((a,b) => b.buyPrice - a.buyPrice);
+
+  // Pagination
+  const total = items.length;
+  const pages = Math.ceil(total / S.perPage);
+  S.page = Math.min(S.page, pages || 1);
+  const start = (S.page-1)*S.perPage;
+  const pageItems = items.slice(start, start+S.perPage);
+
+  const body = document.getElementById('flipsBody');
+  body.innerHTML = pageItems.map(i => {
+    const m = (i.sellPrice||0)-(i.buyPrice||0)-geTax(i.sellPrice||0);
+    const pt = profitTier(i);
+    const isFav = S.watchlist.has(i.itemId);
+    const zInfo = zScoreIndicator(i);
+    return `<tr onclick="app.showItemDetail(${i.itemId})">
+      <td><button class="fav-btn ${isFav?'on':''}" onclick="event.stopPropagation();app.toggleFav(${i.itemId})">${isFav?'★':'☆'}</button></td>
+      <td>${iconImg(i.icon,i.name)} <span class="item-name">${i.name||'?'}</span></td>
+      <td><span class="vpill ${pt.color}">${pt.label}</span></td>
+      <td style="color:var(--green);font-weight:600">${gp(i.buyPrice)}</td>
+      <td style="color:var(--accent);font-weight:600">${gp(i.sellPrice)}</td>
+      <td class="profit">${gp(m)}</td>
+      <td>${volPerHour(i).toLocaleString()}</td>
+      <td class="profit">${gp(profit4h(i))}</td>
+      <td title="${zInfo.title}">${zInfo.badge}</td>
+    </tr>`;
+  }).join('');
+
+  // Pagination
+  const pagEl = document.getElementById('pag');
+  if (pages > 1) {
+    pagEl.style.display = 'flex';
+    document.getElementById('pageInfo').textContent = `Page ${S.page} of ${pages} (${total} items)`;
+    document.getElementById('prevBtn').disabled = S.page === 1;
+    document.getElementById('nextBtn').disabled = S.page === pages;
+  } else {
+    pagEl.style.display = 'none';
+  }
+}
+
+// ── Shared render helper for dump/pump/sniper lists ──
+function renderDPList(items, type) {
+  if (!items.length) return '<div class="empty"><p>None detected</p></div>';
+  return items.slice(0,15).map(d => {
+    const name = d.itemName || d.name || '?';
+    const chg = d.percentChange || 0;
+    const itemId = d.itemId || d.id;
+    return `<div class="dp-item" onclick="app.showItemDetail(${itemId})" title="Click for details">
+      ${iconImg(d.icon, name, 24)}
+      <span class="dp-name">${name}</span>
+      <span class="dp-chg ${chg<0?'red':'green'}">${chg>0?'+':''}${chg.toFixed(1)}%</span>
+      ${d.totalProfit ? `<span style="font-size:11px;color:var(--green);font-weight:600">${gp(d.totalProfit)}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER: Dumps & Pumps ──
+function renderDP() {
+  document.getElementById('dumpsC').innerHTML = renderDPList(S.dumps, 'dump');
+  document.getElementById('pumpsC').innerHTML = renderDPList(S.pumps, 'pump');
+}
+
+// ── RENDER: Sniper ──
+function renderSniper() {
+  const statsEl = document.getElementById('sniperStats');
+  const feedEl = document.getElementById('sniperFeed');
+  const scored = S.dumps.filter(d => (d.totalProfit||0) >= 300000 || (d.action === 'BUY'));
+
+  const best = scored.reduce((m,d) => (d.totalProfit||0) > (m.totalProfit||0) ? d : m, scored[0]||{});
+  statsEl.innerHTML = `
+    <div class="sc clickable" onclick="app.goTab('dumps-pumps')" title="View all dumps"><div class="sc-label">Active Targets</div><div class="sc-val red">${scored.length}</div><div class="sc-sub">view dumps →</div></div>
+    <div class="sc clickable" onclick="app.showItemDetail(${best.itemId||best.id||0})" title="View best opportunity"><div class="sc-label">Best Opportunity</div><div class="sc-val green">${gp(best.totalProfit||0)}</div><div class="sc-sub">${best.itemName||'scanning...'} →</div></div>
+  `;
+
+  if (!scored.length) {
+    feedEl.innerHTML = '<div class="empty"><div class="empty-icon">🎯</div><p>No quality dumps detected — filters are working. Only 300K+ opportunities show here.</p></div>';
+    return;
+  }
+  feedEl.innerHTML = scored.sort((a,b) => (b.totalProfit||0)-(a.totalProfit||0)).map(d => {
+    const chg = d.percentChange || 0;
+    const actionClass = d.action === 'BUY' ? 'buy' : 'watch';
+    const itemId = d.itemId || d.id;
+    return `<div class="sniper-card" onclick="app.showItemDetail(${itemId})" title="Click for details">
+      <div class="sniper-top">
+        ${iconImg(d.icon, d.itemName, 32)}
+        <span class="sniper-name">${d.itemName||'?'} <span style="color:var(--red);font-size:12px">${chg.toFixed(1)}%</span></span>
+        <span class="sniper-action ${actionClass}">${d.action||'WATCH'}</span>
+      </div>
+      <div class="sniper-row">
+        <div class="sniper-stat"><div class="sniper-stat-label">Buy At</div><div class="sniper-stat-val green">${gp(d.buyPrice)}</div></div>
+        <div class="sniper-stat"><div class="sniper-stat-label">Sell At</div><div class="sniper-stat-val accent">${gp(d.sellPrice)}</div></div>
+        <div class="sniper-stat"><div class="sniper-stat-label">Profit/Item</div><div class="sniper-stat-val green">${gp(d.margin)}</div></div>
+        <div class="sniper-stat"><div class="sniper-stat-label">Total Profit</div><div class="sniper-stat-val green">${gp(d.totalProfit)}</div></div>
+        <div class="sniper-stat"><div class="sniper-stat-label">Volume</div><div class="sniper-stat-val">${d.volumeTier||'?'}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER: Recipes ──
+function renderRecipes() {
+  const el = document.getElementById('recipesC');
+  let recipes = [...S.recipes];
+  const sort = document.getElementById('recipeSort')?.value || 'profit';
+  if (sort === 'profit') recipes.sort((a,b) => (b.profit||0)-(a.profit||0));
+  else if (sort === 'roi') recipes.sort((a,b) => (b.roi||0)-(a.roi||0));
+  else recipes.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+
+  el.innerHTML = recipes.map(r => `
+    <div class="recipe-item" onclick="app.showItemDetail(${r.outputId || r.itemId || 0})" title="Click for details">
+      <span class="recipe-type ${r.type||''}">${r.type||'?'}</span>
+      <span class="recipe-flow">${r.inputName||r.name} → ${r.outputName||'?'}</span>
+      <span class="recipe-profit">${gp(r.profit)} ${r.roi ? `<span style="font-size:10px;color:var(--t3)">(${r.roi.toFixed(1)}% ROI)</span>` : ''}</span>
+    </div>
+  `).join('') || '<div class="empty"><p>No recipes loaded</p></div>';
+}
+
+// ── RENDER: Watchlist ──
+function renderWatchlist() {
+  const el = document.getElementById('watchlistC');
+  const wlItems = S.items.filter(i => S.watchlist.has(i.itemId));
+  const badge = document.getElementById('wlBadge');
+  if (badge) { badge.textContent = wlItems.length; badge.style.display = wlItems.length ? '' : 'none'; }
+  if (!wlItems.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">⭐</div><p>Click the star on any item to add it here</p></div>';
+    return;
+  }
+  el.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th></th><th>Item</th><th>Buy</th><th>Sell</th><th>Profit/Item</th><th>4h Profit</th></tr></thead><tbody>${
+    wlItems.map(i => {
+      const m = (i.sellPrice||0)-(i.buyPrice||0)-geTax(i.sellPrice||0);
+      return `<tr onclick="app.showItemDetail(${i.itemId})"><td><button class="fav-btn on" onclick="event.stopPropagation();app.toggleFav(${i.itemId})">★</button></td>
+        <td>${iconImg(i.icon,i.name)} <span class="item-name">${i.name}</span></td>
+        <td style="color:var(--green)">${gp(i.buyPrice)}</td>
+        <td style="color:var(--accent)">${gp(i.sellPrice)}</td>
+        <td class="profit">${gp(m)}</td>
+        <td class="profit">${gp(profit4h(i))}</td></tr>`;
+    }).join('')
+  }</tbody></table></div>`;
+}
+
+// ── CHARTS ──
+const chartOpts = { responsive:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#706b64',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},y:{ticks:{color:'#706b64',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}}} };
+let charts = {};
+
+function initCharts() {
+  // Profit chart
+  const top10 = [...S.items].sort((a,b)=>profit4h(b)-profit4h(a)).slice(0,10);
+  charts.profit = new Chart(document.getElementById('chartProfit'), {
+    type:'bar', data:{labels:top10.map(i=>i.name?.substring(0,15)||'?'),datasets:[{data:top10.map(i=>profit4h(i)),backgroundColor:'rgba(34,197,94,.6)',borderRadius:4}]},
+    options:{...chartOpts,plugins:{...chartOpts.plugins,tooltip:{callbacks:{label:c=>gp(c.raw)}}}}
+  });
+  // Profit distribution — how many items in each money tier
+  const tiers = {'1M+':0,'500K-1M':0,'100K-500K':0,'Under 100K':0,'No profit':0};
+  S.items.forEach(i => {
+    const p = profit4h(i);
+    if (p >= 1e6) tiers['1M+']++;
+    else if (p >= 500000) tiers['500K-1M']++;
+    else if (p >= 100000) tiers['100K-500K']++;
+    else if (p > 0) tiers['Under 100K']++;
+    else tiers['No profit']++;
+  });
+  charts.quality = new Chart(document.getElementById('chartQuality'), {
+    type:'doughnut', data:{labels:Object.keys(tiers),datasets:[{data:Object.values(tiers),backgroundColor:['#22c55e','#4ade80','#ff981f','#d97706','#3b3b3b']}]},
+    options:{responsive:true,plugins:{legend:{position:'right',labels:{color:'#b0a99e',font:{size:11}}}}}
+  });
+  // Volume chart
+  const topVol = [...S.items].sort((a,b)=>volPerHour(b)-volPerHour(a)).slice(0,10);
+  charts.volume = new Chart(document.getElementById('chartVolume'), {
+    type:'bar', data:{labels:topVol.map(i=>i.name?.substring(0,15)||'?'),datasets:[{data:topVol.map(i=>volPerHour(i)),backgroundColor:'rgba(59,130,246,.5)',borderRadius:4}]},
+    options:chartOpts
+  });
+  // Scatter
+  const top50 = [...S.items].sort((a,b)=>profit4h(b)-profit4h(a)).slice(0,50);
+  charts.scatter = new Chart(document.getElementById('chartScatter'), {
+    type:'scatter', data:{datasets:[{data:top50.map(i=>({x:volPerHour(i),y:(i.sellPrice||0)-(i.buyPrice||0)-geTax(i.sellPrice||0)})),backgroundColor:'rgba(255,152,31,.5)',pointRadius:4}]},
+    options:{...chartOpts,plugins:{...chartOpts.plugins,tooltip:{callbacks:{label:c=>`Vol:${c.raw.x} Margin:${gp(c.raw.y)}`}}}}
+  });
+}
+
+// ── APP CLASS ──
+const app = {
+  async init() {
+    // Try live API first
+    const health = await apiFetch('/health');
+    if (health && health.status === 'ok') {
+      S.connected = true;
+      await Promise.all([fetchItems(), fetchDumps(), fetchRecipes()]);
+    } else {
+      loadMockData();
+    }
+    this.updateStatus();
+    this.renderAll();
+    setTimeout(() => initCharts(), 300);
+    this.bindEvents();
+    // Auto-refresh every 45s if connected
+    if (S.connected) setInterval(() => this.refresh(), 45000);
+  },
+
+  renderAll() {
+    renderDashStats();
+    renderFlips();
+    renderDP();
+    renderSniper();
+    renderRecipes();
+    renderWatchlist();
+  },
+
+  async refresh() {
+    if (!S.connected) {
+      const health = await apiFetch('/health');
+      if (health?.status === 'ok') S.connected = true;
+    }
+    if (S.connected) {
+      await Promise.all([fetchItems(), fetchDumps(), fetchRecipes()]);
+    }
+    this.updateStatus();
+    this.renderAll();
+    // Update charts
+    if (charts.profit) {
+      const top10 = [...S.items].sort((a,b)=>profit4h(b)-profit4h(a)).slice(0,10);
+      charts.profit.data.labels = top10.map(i=>i.name?.substring(0,15)||'?');
+      charts.profit.data.datasets[0].data = top10.map(i=>profit4h(i));
+      charts.profit.update();
+    }
+  },
+
+  updateStatus() {
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    dot.className = 'dot ' + (S.connected ? 'on' : 'off');
+    text.textContent = S.connected ? `Live · ${S.items.length} items` : 'Using sample data';
+  },
+
+  toggleFav(id) {
+    if (S.watchlist.has(id)) S.watchlist.delete(id);
+    else S.watchlist.add(id);
+    localStorage.setItem('gfo_wl', JSON.stringify([...S.watchlist]));
+    renderFlips();
+    renderWatchlist();
+  },
+
+  openItem(id) {
+    if (!id || id === 0) return;
+    window.open(`https://prices.runescape.wiki/osrs/item/${id}`, '_blank');
+  },
+
+  goTab(tabName) {
+    const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
+    if (tab) tab.click();
+  },
+
+  showItemDetail(id) {
+    if (!id || id === 0) return;
+    // Find the item in our data
+    const item = S.items.find(i => i.itemId === id || i.id === id)
+      || S.dumps.find(d => (d.itemId || d.id) === id)
+      || S.pumps?.find(p => (p.itemId || p.id) === id);
+    if (!item) { this.openItem(id); return; }
+
+    const name = item.name || item.itemName || '?';
+    const buy = item.buyPrice || 0;
+    const sell = item.sellPrice || 0;
+    const tax = geTax(sell);
+    const margin = sell - buy - tax;
+    const vol = volPerHour(item);
+    const p4h = profit4h(item);
+    const pt = profitTier(item);
+    const isFav = S.watchlist.has(id);
+    const zInfo = zScoreIndicator(item);
+
+    document.getElementById('imTitle').innerHTML = `${iconImg(item.icon, name, 28)} ${name}`;
+    document.getElementById('imBody').innerHTML = `
+      <div class="im-row"><span class="im-lbl">Buy Price</span><span class="im-val" style="color:var(--green)">${gp(buy)}</span></div>
+      <div class="im-row"><span class="im-lbl">Sell Price</span><span class="im-val" style="color:var(--accent)">${gp(sell)}</span></div>
+      <div class="im-row"><span class="im-lbl">GE Tax (2%)</span><span class="im-val" style="color:var(--red)">-${gp(tax)}</span></div>
+      <div class="im-row"><span class="im-lbl">Profit/Item</span><span class="im-val" style="color:${margin>=0?'var(--green)':'var(--red)'}">${gp(margin)}</span></div>
+      <div class="im-row"><span class="im-lbl">Volume/hr</span><span class="im-val">${vol.toLocaleString()}</span></div>
+      <div class="im-row"><span class="im-lbl">4h Profit</span><span class="im-val" style="color:var(--green);font-size:16px">${gp(p4h)}</span></div>
+      <div class="im-row"><span class="im-lbl">Tier</span><span class="im-val"><span class="vpill ${pt.color}">${pt.label}</span></span></div>
+      ${item.percentChange != null ? `<div class="im-row"><span class="im-lbl">Price Change</span><span class="im-val" style="color:${item.percentChange<0?'var(--red)':'var(--green)'}">${item.percentChange>0?'+':''}${item.percentChange.toFixed(1)}%</span></div>` : ''}
+      <div class="im-row"><span class="im-lbl">Z-Score</span><span class="im-val">${zInfo.badge}</span></div>
+    `;
+    document.getElementById('imActions').innerHTML = `
+      <button class="im-btn secondary" onclick="app.toggleFav(${id});app.showItemDetail(${id})">${isFav ? '★ Unwatch' : '☆ Add to Watchlist'}</button>
+      <button class="im-btn primary" onclick="app.openItem(${id})">View on Wiki →</button>
+    `;
+    document.getElementById('itemModal').classList.add('open');
+  },
+
+  closeItemModal() {
+    document.getElementById('itemModal').classList.remove('open');
+  },
+
+  prevPage() { S.page = Math.max(1, S.page-1); renderFlips(); },
+  nextPage() { S.page++; renderFlips(); },
+
+  bindEvents() {
+    // Tabs
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById(t.dataset.tab)?.classList.add('active');
+    }));
+    // Search
+    document.getElementById('searchInput')?.addEventListener('input', e => {
+      S.search = e.target.value.toLowerCase();
+      S.page = 1;
+      renderFlips();
+    });
+    // Sort
+    document.getElementById('sortBy')?.addEventListener('change', e => {
+      S.sortBy = e.target.value;
+      S.page = 1;
+      renderFlips();
+    });
+    // Price filter pills
+    document.querySelectorAll('#priceFilter .fpill').forEach(p => p.addEventListener('click', () => {
+      document.querySelectorAll('#priceFilter .fpill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      S.priceRange = p.dataset.range;
+      S.page = 1;
+      renderFlips();
+    }));
+    // Verdict filter pills
+    document.querySelectorAll('#verdictFilter .fpill').forEach(p => p.addEventListener('click', () => {
+      document.querySelectorAll('#verdictFilter .fpill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      S.verdictFilter = p.dataset.v;
+      S.page = 1;
+      renderFlips();
+    }));
+    // Recipe sort
+    document.getElementById('recipeSort')?.addEventListener('change', () => renderRecipes());
+    // ESC to close modal
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') app.closeItemModal(); });
+  }
+};
+
+// Settings
+function toggleSettings() { document.getElementById('settingsModal').classList.toggle('open'); }
+function saveSettings() {
+  const url = document.getElementById('apiUrl')?.value;
+  if (url) localStorage.setItem('gfo_api', url);
+  const wh = document.getElementById('webhookUrl')?.value;
+  if (wh) localStorage.setItem('gfo_webhook', wh);
+  toggleSettings();
+  location.reload();
+}
+
+// ==========================================
+// Z-SCORE ALERT SYSTEM
+// ==========================================
+
+const ZScore = {
+  audioCtx: null,
+
+  // Render a single Z-Score alert card
+  cardHtml(a) {
+    const icon = a.type === 'PUMP' ? '📈' : '📉';
+    const scoreClass = a.absZScore >= 5 ? 'high' : a.absZScore >= 3 ? 'med' : 'low';
+    const ago = Math.round((Date.now() - a.timestamp) / 1000);
+    const timeStr = ago < 60 ? `${ago}s ago` : `${Math.round(ago/60)}m ago`;
+    return `<div class="zs-card ${a.severity}" data-ts="${a.timestamp}" onclick="app.showItemDetail(${a.itemId})" title="Click for details">
+      <div class="zs-type">${icon}</div>
+      <div class="zs-info">
+        <div class="zs-name">${a.itemName}</div>
+        <div class="zs-meta">
+          <span>💰 ${a.currentPrice?.toLocaleString() || '?'}gp</span>
+          <span>${a.priceChange > 0 ? '+' : ''}${a.priceChange}%</span>
+          <span>📊 Vol ${a.volumeMultiplier}x</span>
+          <span>μ=${a.meanPrice?.toLocaleString() || '?'}</span>
+        </div>
+      </div>
+      <div class="zs-badge ${a.type}">${a.type}</div>
+      <div class="zs-score ${scoreClass}">Z=${a.zScore}</div>
+      <div class="zs-time">${timeStr}</div>
+    </div>`;
+  },
+
+  // Render the full feed
+  render() {
+    const feed = document.getElementById('zsAlertFeed');
+    if (!feed) return;
+    const filter = document.getElementById('zsFilter')?.value || 'all';
+
+    let alerts = [...S.zscoreAlerts];
+    if (filter === 'CRITICAL') alerts = alerts.filter(a => a.severity === 'CRITICAL');
+    else if (filter === 'ALERT') alerts = alerts.filter(a => a.severity !== 'WARNING');
+    else if (filter === 'PUMP') alerts = alerts.filter(a => a.type === 'PUMP');
+    else if (filter === 'DUMP') alerts = alerts.filter(a => a.type === 'DUMP');
+
+    if (alerts.length === 0) {
+      feed.innerHTML = '<div class="empty"><div class="empty-icon">📡</div><p>No alerts matching filter. Data needs ~1 minute to warm up.</p></div>';
+      return;
+    }
+
+    feed.innerHTML = alerts.map(a => this.cardHtml(a)).join('');
+  },
+
+  // Update stat cards
+  updateStats(stats) {
+    const el = id => document.getElementById(id);
+    if (stats) {
+      if (el('zsActiveCount')) el('zsActiveCount').textContent = stats.activeAlerts || 0;
+      if (el('zsPumps')) el('zsPumps').textContent = stats.pumpsDetected || 0;
+      if (el('zsDumps')) el('zsDumps').textContent = stats.dumpsDetected || 0;
+      if (el('zsTotalChecks')) el('zsTotalChecks').textContent = (stats.totalChecks || 0).toLocaleString();
+    }
+  },
+
+  // Play notification beep
+  beep() {
+    if (!document.getElementById('zsSound')?.checked) return;
+    try {
+      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+      osc.connect(gain); gain.connect(this.audioCtx.destination);
+      osc.frequency.value = 880; osc.type = 'sine';
+      gain.gain.value = 0.15;
+      osc.start(); osc.stop(this.audioCtx.currentTime + 0.15);
+    } catch(e) {}
+  },
+
+  // Handle incoming WebSocket Z-Score alerts
+  handleWsAlerts(data) {
+    if (!data.alerts || !data.alerts.length) return;
+
+    // Add new alerts to front
+    S.zscoreAlerts = [...data.alerts, ...S.zscoreAlerts];
+
+    // Trim to 100 max
+    if (S.zscoreAlerts.length > 100) S.zscoreAlerts = S.zscoreAlerts.slice(0, 100);
+
+    // Remove expired (>5 min old)
+    const cutoff = Date.now() - 5 * 60 * 1000;
+    S.zscoreAlerts = S.zscoreAlerts.filter(a => a.timestamp > cutoff);
+
+    // Update badge
+    const badge = document.getElementById('zsBadge');
+    if (badge) {
+      badge.textContent = data.alerts.length;
+      badge.style.display = 'inline-block';
+      setTimeout(() => { badge.style.display = 'none'; }, 5000);
+    }
+
+    // Play sound for ALERT+ severity
+    if (data.alerts.some(a => a.severity !== 'WARNING')) {
+      this.beep();
+    }
+
+    this.render();
+  },
+
+  // Fetch initial alerts from REST API
+  async fetchAlerts() {
+    try {
+      const res = await fetch(`${API_BASE}/api/zscore`);
+      if (!res.ok) return;
+      const data = await res.json();
+      S.zscoreAlerts = data.alerts || [];
+      this.updateStats(data.stats);
+      this.render();
+    } catch(e) { console.warn('Z-Score fetch failed:', e); }
+  }
+};
+
+// ==========================================
+// WEBSOCKET CLIENT
+// ==========================================
+
+let ws = null;
+function connectWS() {
+  const wsUrl = API_BASE.replace('http', 'ws');
+  try {
+    ws = new WebSocket(wsUrl);
+    ws.onopen = () => console.log('[WS] Connected');
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === 'zscore_alert') ZScore.handleWsAlerts(msg);
+
+        if (msg.type === 'price_update' && msg.data) {
+          // Live-update item prices without a full refetch
+          const updates = Array.isArray(msg.data) ? msg.data : [msg.data];
+          let changed = 0;
+          updates.forEach(u => {
+            const existing = S.items.find(i => i.itemId === u.itemId || i.id === u.itemId);
+            if (existing) {
+              if (u.buyPrice != null) existing.buyPrice = u.buyPrice;
+              if (u.sellPrice != null) existing.sellPrice = u.sellPrice;
+              if (u.margin != null) existing.margin = u.margin;
+              if (u.volume != null) existing.volume = u.volume;
+              if (u.jti != null) existing.jti = u.jti;
+              changed++;
+            }
+          });
+          if (changed > 0) {
+            renderFlips();
+            renderDashStats();
+            console.log(`[WS] Live-updated ${changed} item(s)`);
+          }
+        }
+
+        if (msg.type === 'dump_alert' && msg.data) {
+          // Push new dump alerts into the dumps panel in real-time
+          const alerts = Array.isArray(msg.data) ? msg.data : [msg.data];
+          alerts.forEach(d => {
+            // Avoid duplicates by itemId
+            const idx = S.dumps.findIndex(x => x.itemId === d.itemId);
+            if (idx >= 0) S.dumps[idx] = d;
+            else S.dumps.unshift(d);
+          });
+          // Re-render dumps panel
+          const dumpsEl = document.getElementById('dumpsC');
+          if (dumpsEl) dumpsEl.innerHTML = renderDPList(S.dumps, 'dump');
+          // Update dump sniper too
+          renderSniper();
+          renderDashStats();
+          // Flash the tab to indicate new data
+          const dumpTab = document.querySelector('[data-tab="dumps-pumps"]');
+          if (dumpTab && !dumpTab.classList.contains('active')) {
+            dumpTab.style.animation = 'none';
+            requestAnimationFrame(() => { dumpTab.style.animation = 'pulse 0.5s ease 2'; });
+          }
+          console.log(`[WS] ${alerts.length} dump alert(s) pushed`);
+        }
+      } catch(e) { console.warn('[WS] Message parse error:', e.message); }
+    };
+    ws.onclose = () => { console.log('[WS] Disconnected, reconnecting in 5s...'); setTimeout(connectWS, 5000); };
+    ws.onerror = () => {};
+  } catch(e) { setTimeout(connectWS, 5000); }
+}
+
+// Z-Score filter change
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'zsFilter') ZScore.render();
+});
+
+// ══════════════════════════════════════════════════════════════
+//  PROFILE SYSTEM
+// ══════════════════════════════════════════════════════════════
+const P = {
+  key: localStorage.getItem('gfo_profile_key') || null,
+  data: null,
+  stats: null,
+  flipPage: 1,
+  pnlChart: null,
+
+  async apiFetch(path, opts = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (P.key) headers['X-GFO-Key'] = P.key;
+    const r = await fetch(API_BASE + path, { ...opts, headers, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({ error: r.statusText }));
+      throw new Error(e.error || r.statusText);
+    }
+    return r.json();
+  },
+
+  async login() {
+    const key = document.getElementById('profKeyInput')?.value?.trim();
+    if (!key) return P.showError('Enter your API key');
+    try {
+      P.key = key;
+      const data = await P.apiFetch('/api/profile');
+      localStorage.setItem('gfo_profile_key', key);
+      P.data = data;
+      P.showDash();
+    } catch (e) {
+      P.key = null;
+      P.showError('Invalid API key: ' + e.message);
+    }
+  },
+
+  async createProfile() {
+    const name = document.getElementById('profNameInput')?.value?.trim() || 'Flipper';
+    try {
+      const result = await P.apiFetch('/api/profile', {
+        method: 'POST',
+        body: JSON.stringify({ displayName: name })
+      });
+      P.key = result.apiKey;
+      localStorage.setItem('gfo_profile_key', result.apiKey);
+      P.data = result.profile;
+      // Show the key to the user — they MUST save it
+      alert('🔑 Your API Key (SAVE THIS — it cannot be recovered!):\n\n' + result.apiKey + '\n\nCopy it somewhere safe now.');
+      P.showDash();
+    } catch (e) {
+      P.showError('Failed to create profile: ' + e.message);
+    }
+  },
+
+  logout() {
+    P.key = null;
+    P.data = null;
+    P.stats = null;
+    localStorage.removeItem('gfo_profile_key');
+    document.getElementById('profAuth').style.display = '';
+    document.getElementById('profDash').style.display = 'none';
+  },
+
+  showError(msg) {
+    const el = document.getElementById('profError');
+    if (el) { el.textContent = msg; el.style.display = 'block'; setTimeout(() => el.style.display = 'none', 5000); }
+  },
+
+  async showDash() {
+    document.getElementById('profAuth').style.display = 'none';
+    document.getElementById('profDash').style.display = '';
+    document.getElementById('profName').textContent = P.data?.displayName || 'Flipper';
+    P.renderCharList();
+    await P.loadStats();
+    P.flipPage = 1;
+    await P.loadFlips();
+  },
+
+  renderCharList() {
+    const chars = P.data?.characters || [];
+    const el = document.getElementById('profCharList');
+    if (!el) return;
+    el.innerHTML = chars.length
+      ? chars.map(c => `<span style="background:var(--bg-3);padding:2px 6px;border-radius:4px;margin-right:4px;font-size:10px">${c.rsn}</span>`).join('')
+      : '<span style="color:var(--t3);font-size:10px">No characters linked</span>';
+  },
+
+  async loadStats() {
+    const days = parseInt(document.getElementById('profDays')?.value || '30');
+    try {
+      P.stats = await P.apiFetch(`/api/profile/stats?days=${days}`);
+      P.renderStats();
+      P.renderPnlChart();
+      P.renderTopItems();
+      P.renderCharBreakdown();
+    } catch (e) { console.error('Stats load failed:', e); }
+  },
+
+  renderStats() {
+    const s = P.stats?.summary;
+    const a = P.stats?.allTime;
+    if (!s) return;
+    const el = document.getElementById('profStats');
+    if (!el) return;
+    const fmt = n => {
+      if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+      if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+      if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+      return n.toLocaleString();
+    };
+    const color = n => n >= 0 ? 'var(--green)' : 'var(--red)';
+    el.innerHTML = `
+      <div class="sc"><div class="sc-l">Period Profit</div><div class="sc-v" style="color:${color(s.totalProfit)}">${fmt(s.totalProfit)} gp</div></div>
+      <div class="sc"><div class="sc-l">Flips</div><div class="sc-v">${s.totalFlips}</div></div>
+      <div class="sc"><div class="sc-l">Win Rate</div><div class="sc-v" style="color:${s.winRate >= 50 ? 'var(--green)' : 'var(--red)'}">${s.winRate}%</div></div>
+      <div class="sc"><div class="sc-l">Avg Profit</div><div class="sc-v" style="color:${color(s.avgProfit)}">${fmt(s.avgProfit)} gp</div></div>
+      <div class="sc"><div class="sc-l">All-Time Profit</div><div class="sc-v" style="color:${color(a?.totalProfit || 0)}">${fmt(a?.totalProfit || 0)} gp</div></div>
+      <div class="sc"><div class="sc-l">Win Streak</div><div class="sc-v" style="color:var(--accent)">${a?.streakBest || 0} 🔥</div></div>
+    `;
+  },
+
+  renderPnlChart() {
+    const daily = P.stats?.dailyPnL;
+    if (!daily) return;
+    const ctx = document.getElementById('profPnlChart');
+    if (!ctx) return;
+    if (P.pnlChart) P.pnlChart.destroy();
+
+    const labels = daily.map(d => d.date.slice(5)); // MM-DD
+    const data = daily.map(d => d.profit);
+    const colors = data.map(v => v >= 0 ? 'rgba(34,197,94,.7)' : 'rgba(239,68,68,.7)');
+
+    P.pnlChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ label: 'Daily P&L (gp)', data, backgroundColor: colors, borderRadius: 3 }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#706b64', font: { size: 10 } }, grid: { display: false } },
+          y: { ticks: { color: '#706b64', font: { size: 10 }, callback: v => (v / 1e6).toFixed(1) + 'M' }, grid: { color: 'rgba(255,255,255,.04)' } }
+        }
+      }
+    });
+  },
+
+  renderTopItems() {
+    const items = P.stats?.topItems;
+    const el = document.getElementById('profTopItems');
+    if (!el || !items) return;
+    if (items.length === 0) { el.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:8px">No flips yet</div>'; return; }
+    const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : n.toLocaleString();
+    el.innerHTML = items.slice(0, 10).map(it => `
+      <div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--bg-2);border-radius:var(--r);margin-bottom:4px;font-size:12px;cursor:pointer" onclick="app.showItemDetail(${it.itemId})">
+        <span style="color:var(--t1);font-weight:600">${it.itemName}</span>
+        <span>
+          <span style="color:${it.profit >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${fmt(it.profit)} gp</span>
+          <span style="color:var(--t3);margin-left:8px">${it.flips} flips</span>
+        </span>
+      </div>
+    `).join('');
+  },
+
+  renderCharBreakdown() {
+    const chars = P.stats?.characterBreakdown;
+    const el = document.getElementById('profCharBreakdown');
+    if (!el || !chars) return;
+    if (chars.length === 0) { el.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:8px">No character data yet</div>'; return; }
+    const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : n.toLocaleString();
+    el.innerHTML = chars.map(c => `
+      <div style="display:flex;justify-content:space-between;padding:6px 10px;background:var(--bg-2);border-radius:var(--r);margin-bottom:4px;font-size:12px">
+        <span style="color:var(--accent);font-weight:600">${c.character}</span>
+        <span>
+          <span style="color:${c.profit >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${fmt(c.profit)} gp</span>
+          <span style="color:var(--t3);margin-left:8px">${c.flips} flips</span>
+        </span>
+      </div>
+    `).join('');
+  },
+
+  async loadFlips() {
+    try {
+      const result = await P.apiFetch(`/api/profile/flips?page=${P.flipPage}&limit=25`);
+      P.renderFlipLog(result.flips, P.flipPage === 1);
+    } catch (e) { console.error('Flips load failed:', e); }
+  },
+
+  async loadMoreFlips() {
+    P.flipPage++;
+    await P.loadFlips();
+  },
+
+  renderFlipLog(flips, replace = true) {
+    const el = document.getElementById('profFlipLog');
+    if (!el) return;
+    if (replace) el.innerHTML = '';
+    if (flips.length === 0 && replace) {
+      el.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:8px">No flips logged yet. Use the RuneLite plugin or log flips manually!</div>';
+      return;
+    }
+    const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : n.toLocaleString();
+    for (const f of flips) {
+      const d = new Date(f.timestamp);
+      const ts = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;justify-content:space-between;padding:5px 10px;background:var(--bg-2);border-radius:var(--r);font-size:11px;cursor:pointer';
+      div.onclick = () => app.showItemDetail(f.itemId);
+      div.innerHTML = `
+        <span>
+          <span style="color:var(--t1);font-weight:600">${f.itemName}</span>
+          <span style="color:var(--t3);margin-left:6px">x${f.quantity}</span>
+          ${f.character ? `<span style="color:var(--accent);margin-left:6px;font-size:10px">${f.character}</span>` : ''}
+        </span>
+        <span>
+          <span style="color:${f.profit >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${f.profit >= 0 ? '+' : ''}${fmt(f.profit)} gp</span>
+          <span style="color:var(--t3);margin-left:8px">${ts}</span>
+        </span>
+      `;
+      el.appendChild(div);
+    }
+  },
+
+  showCharModal() {
+    const rsn = prompt('Enter your RuneScape character name:');
+    if (!rsn?.trim()) return;
+    P.apiFetch('/api/profile/characters', { method: 'POST', body: JSON.stringify({ rsn: rsn.trim() }) })
+      .then(result => {
+        if (P.data) P.data.characters = result.characters;
+        P.renderCharList();
+        P.loadStats();
+      })
+      .catch(e => alert('Failed to link character: ' + e.message));
+  },
+
+  async autoLogin() {
+    if (!P.key) return;
+    try {
+      P.data = await P.apiFetch('/api/profile');
+      P.showDash();
+    } catch {
+      // Key is stale — don't clear it, just show login
+    }
+  }
+};
+
+// Mobile touch polyfill — ensures onclick fires reliably on all mobile devices
+(function mobileTouchFix() {
+  // Detect if touch device
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if (!isTouch) return;
+
+  let touchStartTarget = null;
+  let touchStartTime = 0;
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  document.addEventListener('touchstart', function(e) {
+    touchStartTarget = e.target;
+    touchStartTime = Date.now();
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, {passive: true});
+
+  document.addEventListener('touchend', function(e) {
+    if (!touchStartTarget) return;
+    const dt = Date.now() - touchStartTime;
+    const touch = e.changedTouches[0];
+    const dx = Math.abs(touch.clientX - touchStartX);
+    const dy = Math.abs(touch.clientY - touchStartY);
+
+    // Only treat as tap if quick (<400ms) and didn't scroll (< 10px movement)
+    if (dt > 400 || dx > 10 || dy > 10) { touchStartTarget = null; return; }
+
+    // Find nearest clickable ancestor
+    let el = touchStartTarget;
+    let clickTarget = null;
+    while (el && el !== document.body) {
+      if (el.hasAttribute('onclick') || el.classList.contains('clickable') ||
+          el.classList.contains('tab') || el.classList.contains('fpill') ||
+          el.classList.contains('fav-btn') || el.tagName === 'BUTTON' ||
+          el.tagName === 'A') {
+        clickTarget = el;
+        break;
+      }
+      el = el.parentElement;
+    }
+
+    // If we found a clickable element, ensure click fires
+    if (clickTarget && clickTarget.hasAttribute('onclick')) {
+      // Prevent ghost click
+      e.preventDefault();
+      // Fire the onclick
+      clickTarget.click();
+    }
+    touchStartTarget = null;
+  }, {passive: false});
+})();
+
+// Boot
+document.addEventListener('DOMContentLoaded', () => {
+  app.init();
+  connectWS();
+  ZScore.fetchAlerts();
+  P.autoLogin();
+  // Refresh Z-Score data every 30s
+  setInterval(() => ZScore.fetchAlerts(), 30000);
+});
+</script>
+</body>
+</html>
