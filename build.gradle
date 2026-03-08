@@ -30,14 +30,3 @@ targetCompatibility = '11'
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
-
-jar {
-    manifest {
-        attributes(
-            'Plugin-Id': 'grand-flip-out',
-            'Plugin-Provider': 'tuna troll',
-            'Plugin-Version': version,
-            'Plugin-Description': 'Comprehensive GE flipping assistant with multi-source pricing, flip tracking, profit analysis, and smart suggestions'
-        )
-    }
-}
