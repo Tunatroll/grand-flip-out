@@ -260,6 +260,30 @@ public interface AwfullyPureConfig extends Config
         return true;
     }
 
+    @ConfigItem(
+        keyName = "enableOverlay",
+        name = "GE Slot Highlights",
+        description = "Color-code GE slots: green=buy, blue=sell, orange=stale, red=dump, gold=complete.",
+        section = overlaySection,
+        position = 4
+    )
+    default boolean enableOverlay()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "enableLookupMenu",
+        name = "Right-Click Lookup",
+        description = "Add 'AP: Lookup' to right-click menu on any tradeable item. Shows margin, volume, ROI, and buy limit in chat.",
+        section = overlaySection,
+        position = 5
+    )
+    default boolean enableLookupMenu()
+    {
+        return true;
+    }
+
     // ==================== HOTKEYS ====================
 
     @ConfigItem(
@@ -373,7 +397,7 @@ public interface AwfullyPureConfig extends Config
     @ConfigItem(
         keyName = "setBuyPriceHotkey",
         name = "Set Buy Price (GE)",
-        description = "While in the GE price input, fills the optimal buy price from your last margin check or API data. Like Flipping Copilot's 'E' key.",
+        description = "While in the GE price input, fills the optimal buy price from your last margin check or API data.",
         section = hotkeysSection,
         position = 9
     )
@@ -833,19 +857,19 @@ public interface AwfullyPureConfig extends Config
     @ConfigItem(
         keyName = "enableP2P",
         name = "Enable P2P Network",
-        description = "Connect to the AP relay mesh for distributed pricing, failover, and community data sharing. Disabling falls back to single-server mode.",
+        description = "Connect to the Awfully Pure relay network for distributed pricing and community data sharing. Opt-in only — no data is sent without your consent.",
         section = p2pSection,
         position = 0
     )
     default boolean enableP2P()
     {
-        return true;
+        return false;
     }
 
     @ConfigItem(
         keyName = "additionalPeers",
         name = "Additional Relay Peers",
-        description = "Comma-separated list of extra AP relay URLs to connect to (HTTPS required, e.g., https://myserver.com:3001). Leave blank to use only the official relay.",
+        description = "Comma-separated list of extra GFO relay URLs to connect to (HTTPS required, e.g., https://myserver.com:3001). Leave blank to use only the official relay.",
         section = p2pSection,
         position = 1
     )
@@ -866,13 +890,13 @@ public interface AwfullyPureConfig extends Config
     @ConfigItem(
         keyName = "enableCrowdsourced",
         name = "Enable Crowdsourced Data",
-        description = "Send anonymous trade data to the Awfully Pure backend to improve Z-Score detection and consensus pricing. No RSN or account info is transmitted.",
+        description = "Send anonymous trade data to the Awfully Pure backend to improve Z-Score detection and consensus pricing. No RSN or account info is transmitted. Opt-in only.",
         section = crowdsourcedSection,
         position = 0
     )
     default boolean enableCrowdsourced()
     {
-        return true;
+        return false;
     }
 
     @ConfigItem(

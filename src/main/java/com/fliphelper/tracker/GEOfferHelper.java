@@ -388,4 +388,107 @@ public class GEOfferHelper
             default: return new java.awt.Color(0x60, 0x60, 0x80); // Gray
         }
     }
+
+    // ==================== BUY LIMIT TRACKER ====================
+    // Tracks the 4-hour GE buy limit cycle per item.
+    // When a player first buys an item, the 4-hour window starts.
+    // Buy limit countdown with progress tracking
+    // and they still haven't built it.
+
+    // itemId → {firstBuyTime, quantityBought, buyLimit}
+    private final java.util.Map<Integer, BuyLimitState> buyLimitStates = new java.util.HashMap<>();
+
+    public static class BuyLimitState
+    {
+        private Instant windowStart;
+        private int quantityBought;
+        private int buyLimit;
+
+        public BuyLimitState(int buyLimit)
+        {
+            this.windowStart = Instant.now();
+            this.quantityBought = 0;
+            this.buyLimit = buyLimit;
+        }
+
+        public Instant getWindowStart() { return windowStart; }
+        public int getQuantityBought() { return quantityBought; }
+        public int getBuyLimit() { return buyLimit; }
+
+        /** Seconds remaining until buy limit resets */
+        public long getSecondsUntilReset()
+        {
+            long elapsed = Instant.now().getEpochSecond() - windowStart.getEpochSecond();
+            long remaining = (4 * 3600) - elapsed;
+            return Math.max(0, remaining);
+        }
+
+        /** Progress as 0.0 to 1.0 (quantity bought / buy limit) */
+        public double getProgress()
+        {
+            if (buyLimit <= 0) return 0;
+            return Math.min(1.0, (double) quantityBought / buyLimit);
+        }
+
+        /** True if 4-hour window has expired */
+        public boolean isExpired()
+        {
+            return getSecondsUntilReset() <= 0;
+        }
+    }
+
+    /**
+     * Record a buy for buy-limit tracking.
+     * Called when a BUYING offer progresses.
+     */
+    public void recordBuy(int itemId, int quantity, int buyLimit)
+    {
+        BuyLimitState state = buyLimitStates.get(itemId);
+        if (state == null || state.isExpired())
+        {
+            state = new BuyLimitState(buyLimit);
+            buyLimitStates.put(itemId, state);
+        }
+        state.quantityBought += quantity;
+    }
+
+    /**
+     * Get buy-limit state for an item.
+     */
+    public BuyLimitState getBuyLimitState(int itemId)
+    {
+        BuyLimitState state = buyLimitStates.get(itemId);
+        if (state != null && state.isExpired())
+        {
+            buyLimitStates.remove(itemId);
+            return null;
+        }
+        return state;
+    }
+
+    /**
+     * Get formatted countdown string: "2h 15m" or "RESET"
+     */
+    public String getBuyLimitCountdown(int itemId)
+    {
+        BuyLimitState state = getBuyLimitState(itemId);
+        if (state == null) return "No limit data";
+        long secs = state.getSecondsUntilReset();
+        if (secs <= 0) return "RESET";
+        long hours = secs / 3600;
+        long mins = (secs % 3600) / 60;
+        return String.format("%dh %dm", hours, mins);
+    }
+
+    /**
+     * Get formatted limit usage: "1,234 / 2,000 (61%)"
+     */
+    public String getBuyLimitUsage(int itemId)
+    {
+        BuyLimitState state = getBuyLimitState(itemId);
+        if (state == null) return "—";
+        return String.format("%,d / %,d (%d%%)",
+            state.getQuantityBought(), state.getBuyLimit(),
+            (int) (state.getProgress() * 100));
+    }
 }

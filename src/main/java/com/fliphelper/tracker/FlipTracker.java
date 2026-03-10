@@ -120,7 +120,7 @@ public class FlipTracker
                 activeFlips.put(trade.getGeSlot(), flip);
                 log.info("Recorded buy: {}x {} @ {}gp (slot {})", trade.getQuantity(), trade.getItemName(), trade.getPrice(), trade.getGeSlot());
 
-                // Autosave to prevent data loss on crash (Flipping Utilities' #1 complaint)
+                // Autosave to prevent data loss on unexpected shutdown
                 if (config.persistHistory() && transactionsSinceLastSave.incrementAndGet() >= AUTOSAVE_INTERVAL)
                 {
                     saveHistory();

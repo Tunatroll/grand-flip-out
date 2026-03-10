@@ -392,6 +392,18 @@ public class PriceService
         log.info("Price service shut down");
     }
 
+    /**
+     * Get the most recent N price data points for sparkline rendering.
+     * Returns oldest→newest order. Used by SparklineRenderer.
+     */
+    public List<Long> getRecentPrices(int itemId, int count)
+    {
+        List<Long> full = getPriceHistoryForItem(itemId);
+        if (full == null || full.isEmpty()) return null;
+        int start = Math.max(0, full.size() - count);
+        return full.subList(start, full.size());
+    }
+
     private int getActiveSourceCount()
     {
         int count = 0;

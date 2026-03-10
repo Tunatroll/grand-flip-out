@@ -262,6 +262,32 @@ public class SlotsPanel extends JPanel
 
         card.add(row3);
 
+        // Row 4: Buy limit progress bar + countdown 
+        JPanel row4 = new JPanel(new GridLayout(1, 2, 4, 0));
+        row4.setOpaque(false);
+
+        JLabel limitLabel = new JLabel("—");
+        limitLabel.setName("limit_" + slot);
+        limitLabel.setForeground(DIM);
+        limitLabel.setFont(limitLabel.getFont().deriveFont(9f));
+        row4.add(wrapMeta("Buy Limit", limitLabel));
+
+        JLabel countdownLabel = new JLabel("—");
+        countdownLabel.setName("countdown_" + slot);
+        countdownLabel.setForeground(DIM);
+        countdownLabel.setFont(countdownLabel.getFont().deriveFont(9f));
+        row4.add(wrapMeta("Limit Reset", countdownLabel));
+
+        card.add(row4);
+
+        // Row 5: Sparkline mini-chart (60×20px) for price trend at a glance
+        JPanel sparklinePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        sparklinePanel.setOpaque(false);
+        sparklinePanel.setName("sparkline_" + slot);
+        sparklinePanel.setPreferredSize(new Dimension(Integer.MAX_VALUE, 22));
+        sparklinePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
+        card.add(sparklinePanel);
+
         return card;
     }
 
@@ -579,6 +605,68 @@ public class SlotsPanel extends JPanel
             }
         }
 
+        // Update buy-limit progress (Row 4)
+        JLabel limitLabel = findLabel(card, "limit_" + slot);
+        JLabel countdownLabel = findLabel(card, "countdown_" + slot);
+        if (geOfferHelper != null && itemId > 0)
+        {
+            GEOfferHelper.BuyLimitState limitState = geOfferHelper.getBuyLimitState(itemId);
+            if (limitState != null)
+            {
+                if (limitLabel != null)
+                {
+                    String usage = geOfferHelper.getBuyLimitUsage(itemId);
+                    limitLabel.setText(usage);
+                    double prog = limitState.getProgress();
+                    if (prog >= 0.95) limitLabel.setForeground(RED);        // Nearly full
+                    else if (prog >= 0.7) limitLabel.setForeground(GOLD);   // Getting close
+                    else limitLabel.setForeground(GREEN);                    // Plenty left
+                }
+                if (countdownLabel != null)
+                {
+                    String countdown = geOfferHelper.getBuyLimitCountdown(itemId);
+                    countdownLabel.setText(countdown);
+                    long secs = limitState.getSecondsUntilReset();
+                    if (secs < 600) countdownLabel.setForeground(GREEN);       // <10m — almost reset
+                    else if (secs < 3600) countdownLabel.setForeground(GOLD);  // <1h
+                    else countdownLabel.setForeground(DIM);                     // Normal
+                }
+            }
+            else
+            {
+                if (limitLabel != null) { limitLabel.setText("—"); limitLabel.setForeground(DIM); }
+                if (countdownLabel != null) { countdownLabel.setText("—"); countdownLabel.setForeground(DIM); }
+            }
+        }
+
+        // Update sparkline mini-chart
+        JPanel sparklinePanel = findPanel(card, "sparkline_" + slot);
+        if (sparklinePanel != null && priceService != null && itemId > 0)
+        {
+            sparklinePanel.removeAll();
+            PriceAggregate agg = priceService.getPrice(itemId);
+            if (agg != null)
+            {
+                // Get recent price history for sparkline (last 12 data points)
+                java.util.List<Long> priceHistory = priceService.getRecentPrices(itemId, 12);
+                if (priceHistory != null && priceHistory.size() >= 3)
+                {
+                    JPanel chart = SparklineRenderer.createPanel(priceHistory, 60, 18, null);
+                    sparklinePanel.add(chart);
+
+                    // Add tiny price change label next to sparkline
+                    long first = priceHistory.get(0);
+                    long last = priceHistory.get(priceHistory.size() - 1);
+                    double changePct = first > 0 ? ((double)(last - first) / first) * 100 : 0;
+                    JLabel changeLabel = new JLabel(String.format(" %+.1f%%", changePct));
+                    changeLabel.setFont(changeLabel.getFont().deriveFont(9f));
+                    changeLabel.setForeground(changePct > 0.5 ? GREEN : changePct < -0.5 ? RED : DIM);
+                    sparklinePanel.add(changeLabel);
+                }
+            }
+            sparklinePanel.revalidate();
+        }
+
         // Highlight completed offers with a subtle border
         if (state == GrandExchangeOfferState.BOUGHT || state == GrandExchangeOfferState.SOLD)
         {
@@ -681,6 +769,23 @@ public class SlotsPanel extends JPanel
             if (c instanceof Container)
             {
                 JLabel found = findLabel((Container) c, name);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private JPanel findPanel(Container parent, String name)
+    {
+        for (Component c : parent.getComponents())
+        {
+            if (c instanceof JPanel && name.equals(c.getName()))
+            {
+                return (JPanel) c;
+            }
+            if (c instanceof Container)
+            {
+                JPanel found = findPanel((Container) c, name);
                 if (found != null) return found;
             }
         }

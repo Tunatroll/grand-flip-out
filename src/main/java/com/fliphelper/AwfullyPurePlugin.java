@@ -8,12 +8,15 @@ import com.fliphelper.api.PriceService;
 import com.fliphelper.ui.ProfilePanel;
 import com.fliphelper.ui.DebugPanel;
 import com.fliphelper.ui.GpDropOverlay;
+import com.fliphelper.ui.GEHighlightOverlay;
+import com.fliphelper.ui.GEItemTooltipOverlay;
 import com.fliphelper.ui.SlotsPanel;
 import com.fliphelper.ui.StatsPanel;
 import com.fliphelper.debug.DebugManager;
 import com.fliphelper.debug.DebugOverlay;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.FlipState;
+import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.model.TradeRecord;
 import com.fliphelper.tracker.*;
 import com.fliphelper.ui.AwfullyPurePanel;
@@ -27,6 +30,7 @@ import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.Player;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GrandExchangeOfferChanged;
+import net.runelite.api.events.MenuOpened;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -91,6 +95,12 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
     @Inject
     private Gson gson;
 
+    @Inject
+    private net.runelite.client.game.ItemManager itemManager;
+
+    @Inject
+    private net.runelite.client.ui.overlay.tooltip.TooltipManager tooltipManager;
+
     private PriceService priceService;
     private FlipTracker flipTracker;
     private FlipSuggestionEngine suggestionEngine;
@@ -114,6 +124,7 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
     private ApHttpBatcher httpBatcher;
     private AccountDataManager accountDataManager;
     private GEOfferHelper geOfferHelper;
+    private FlipGuidance flipGuidance;
     private DebugManager debugManager;
     private DebugPanel debugPanel;
     private SlotsPanel slotsPanel;
@@ -123,6 +134,9 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
     private AwfullyPureOverlay overlay;
     private DebugOverlay debugOverlay;
     private GpDropOverlay gpDropOverlay;
+    private com.fliphelper.ui.GEHighlightOverlay geHighlightOverlay;
+    private com.fliphelper.ui.GEItemTooltipOverlay geItemTooltipOverlay;
+    private ItemLookupMenu itemLookupMenu;
     private NavigationButton navButton;
     private ScheduledExecutorService executor;
     private int currentAccountIndex = 0;
@@ -208,6 +222,8 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
         // Initialize GE offer helper (price-set hotkeys + slot timers)
         geOfferHelper = new GEOfferHelper(client, clientThread, config, priceService, accountDataManager);
 
+        // Initialize flip guidance engine (Quest Helper-style step-by-step coaching)
+
         // Initialize SmartAdvisor — the unified intelligence brain
         smartAdvisor = new SmartAdvisor(
             priceService, marketIntelligence, botEconomyTracker,
@@ -228,10 +244,30 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
         statsPanel = new StatsPanel(flipTracker, accountDataManager, priceService);
         panel.insertTab("Stats", statsPanel, 2); // After Slots and Smart
 
+        // Portfolio tab — intelligent 8-slot allocation with diversification
+        com.fliphelper.ui.PortfolioPanel portfolioPanel = new com.fliphelper.ui.PortfolioPanel(
+            config, priceService, smartAdvisor, slotOptimizer, suggestionEngine);
+        panel.addTab("Portfolio", portfolioPanel);
+
         // ProfilePanel added after initialization below (was null ref bug)
         overlay = new AwfullyPureOverlay(client, config, priceService, flipTracker);
         debugOverlay = new DebugOverlay(config, priceService, flipTracker, debugManager);
         gpDropOverlay = new GpDropOverlay(client, config);
+
+        // GE Slot Highlight Overlay with Quest Helper-style guidance
+        geHighlightOverlay = new com.fliphelper.ui.GEHighlightOverlay(client, config, flipTracker, geOfferHelper, priceService);
+
+        // FlipGuidance — Quest Helper-style step-by-step flip walkthrough
+        flipGuidance = new FlipGuidance(client, config, priceService);
+        flipGuidance.setHighlightOverlay(geHighlightOverlay);
+
+        // GE Item Tooltip Overlay — hover any item in GE/bank to see margin/ROI/volume
+        geItemTooltipOverlay = new com.fliphelper.ui.GEItemTooltipOverlay(client, config, priceService,
+            tooltipManager,
+            itemManager);
+
+        // Right-Click Item Lookup for quick price checks
+        itemLookupMenu = new ItemLookupMenu(client, config, priceService, itemManager);
 
         // Navigation button
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
@@ -246,6 +282,8 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
         overlayManager.add(overlay);
         overlayManager.add(debugOverlay);
         overlayManager.add(gpDropOverlay);
+        overlayManager.add(geHighlightOverlay);
+        overlayManager.add(geItemTooltipOverlay);
         keyManager.registerKeyListener(this);
 
         // P2P Network (fundamental to Awfully Pure architecture)
@@ -407,6 +445,8 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
         overlayManager.remove(overlay);
         overlayManager.remove(debugOverlay);
         overlayManager.remove(gpDropOverlay);
+        overlayManager.remove(geHighlightOverlay);
+        overlayManager.remove(geItemTooltipOverlay);
         clientToolbar.removeNavigation(navButton);
         keyManager.unregisterKeyListener(this);
 
@@ -444,6 +484,15 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
     }
 
     @Subscribe
+    public void onMenuOpened(MenuOpened event)
+    {
+        if (itemLookupMenu != null)
+        {
+            itemLookupMenu.onMenuOpened(event);
+        }
+    }
+
+    @Subscribe
     public void onGrandExchangeOfferChanged(GrandExchangeOfferChanged event)
     {
         if (!config.autoTrackFlips())
@@ -469,8 +518,22 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
             geOfferHelper.onOfferChanged(slot, itemId);
         }
 
-        // Detect when an offer completes (bought or sold)
-        if (state == GrandExchangeOfferState.BOUGHT || state == GrandExchangeOfferState.SOLD)
+        // Advance flip guidance state machine
+        if (flipGuidance != null && flipGuidance.isActive())
+        {
+            flipGuidance.onOfferChanged(slot, offer);
+        }
+
+        // ── SAME-TICK TRANSACTION FIX ──
+        // Edge case: handle offers that complete on the same tick
+        // it's posted. This happens when the GE state jumps directly to BOUGHT/SOLD
+        // without an intermediate BUYING/SELLING state being observed.
+        // Fix: detect ANY transition to BOUGHT/SOLD, not just from BUYING/SELLING.
+        boolean isCompletion = (state == GrandExchangeOfferState.BOUGHT || state == GrandExchangeOfferState.SOLD);
+        boolean isPartialFill = (state == GrandExchangeOfferState.BUYING || state == GrandExchangeOfferState.SELLING)
+            && currentQuantity > lastOfferQuantity[slot];
+
+        if (isCompletion || isPartialFill)
         {
             int deltaQuantity = currentQuantity - lastOfferQuantity[slot];
             if (deltaQuantity > 0)
@@ -593,6 +656,19 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
             {
                 flipTracker.cancelFlip(itemId);
                 panel.updateFlipsTab();
+            }
+        }
+
+        // Track buy-limit usage for the countdown/progress feature
+        if (geOfferHelper != null && currentQuantity > lastOfferQuantity[slot]
+            && (state == GrandExchangeOfferState.BUYING || state == GrandExchangeOfferState.BOUGHT))
+        {
+            int delta = currentQuantity - lastOfferQuantity[slot];
+            PriceAggregate agg = priceService != null ? priceService.getPrice(itemId) : null;
+            int buyLimit = agg != null ? agg.getBuyLimit() : 0;
+            if (buyLimit > 0)
+            {
+                geOfferHelper.recordBuy(itemId, delta, buyLimit);
             }
         }
 

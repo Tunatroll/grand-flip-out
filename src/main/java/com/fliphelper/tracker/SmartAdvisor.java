@@ -123,7 +123,7 @@ public class SmartAdvisor {
     
     public SmartPick analyze(int itemId) {
         // ATTEMPT 1: Try server-side intelligence (PRIMARY)
-        // This keeps proprietary algorithms safe from competitors
+        // Scoring logic runs server-side for data freshness
         if (serverConfig.isUseServerSideIntelligence() && serverConfig.isEnableSmartAdvisor()) {
             try {
                 var serverResult = serverClient.getSmartAdvisor(itemId);

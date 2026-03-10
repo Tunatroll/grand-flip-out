@@ -1,185 +1,20 @@
-# =============================================================================
-# CRITICAL: This .gitignore is for the PRIVATE monorepo (gfo-ecosystem)
-#
-# The PUBLIC repo (grand-flip-out) is a separate repository containing ONLY:
-#   - src/main/java/com/fliphelper/ (Java plugin source)
-#   - build.gradle, settings.gradle, gradle/
-#   - README.md, LICENSE, .github/
-#
-# Public repo sync strategy:
-#   - Maintained via GitHub UI or git subtree (see SYNC_STRATEGY.md)
-#   - NEVER include server/, discord-bot/, website/ in public repo
-#   - NEVER include docs/, HANDOFF.md, CLAUDE.md, or intelligence files
-# =============================================================================
-
-# ============================================================
-# BUILD & GRADLE (local, machine-specific)
-# ============================================================
+# Build artifacts
 build/
 .gradle/
-.gradletasknamecache
 *.class
 *.jar
-dist/
-out/
 
-# ============================================================
-# IDE & EDITOR
-# ============================================================
+# IDE
 .idea/
 *.iml
 .vscode/
-.DS_Store
-*.swp
-*.swo
-*~
-.project
-.classpath
-.c9/
-*.sublime-workspace
 
-# ============================================================
-# NODEJS (server/ directory)
-# ============================================================
-server/node_modules/
-server/package-lock.json
-server/dist/
-server/.next/
+# Node
+node_modules/
 
-# ============================================================
-# PYTHON (discord-bot/ directory)
-# ============================================================
-discord-bot/__pycache__/
-discord-bot/*.pyc
-discord-bot/*.pyo
-discord-bot/*.egg-info/
-discord-bot/.venv/
-discord-bot/venv/
-
-# ============================================================
-# ENVIRONMENT & SECRETS (HIGHEST PRIORITY)
-# ============================================================
+# Environment
 .env
-.env.local
-.env.*.local
-server/.env
-server/.env.local
-discord-bot/.env
-discord-bot/.env.local
 
-# ============================================================
-# RUNTIME DATA & DATABASES (generated, not source)
-# ============================================================
-server/data/
-server/logs/
-discord-bot/*.db
-discord-bot/gfo_tokens.json
-discord-bot/flip_sessions.db
-discord-bot/user_alerts.json
-discord-bot/user_portfolios.json
-website/data/*.json
-website/data/*.db
-
-# ============================================================
-# PRIVATE BACKEND COMPONENTS
-# ============================================================
-# In this PRIVATE repo (gfo-ecosystem), server/, discord-bot/,
-# and website/ are TRACKED. They are excluded from the PUBLIC
-# repo (grand-flip-out) via its own .gitignore.
-#
-# DO NOT add blanket server/ discord-bot/ website/ exclusions here.
-# Only exclude runtime artifacts (data/, logs/, .env, etc.)
-# which are handled in the sections above.
-# ============================================================
-rebrand.py
-
-# ============================================================
-# DEPLOYMENT & INFRASTRUCTURE
-# ============================================================
-# Dockerfiles and docker-compose are TRACKED in this private repo.
-# Only override files with potential secrets are excluded.
-docker-compose.override.yml
-
-# ============================================================
-# BATCH SCRIPTS & OS-SPECIFIC (Windows automation, not portable)
-# ============================================================
-*.bat
-*.vbs
-AP-*.bat
-AP-*.vbs
-AP-Start*.bat
-run-server.bat
-git-push.bat
-create-shortcuts.bat
-start.bat
-stop.bat
-
-# ============================================================
-# GENERATED ARCHIVES & DELIVERABLES (one-time exports)
-# ============================================================
-*.zip
-*.tar.gz
-*.tar
-*.7z
-Grand-Flip-Out-Full-Package.zip
-Grand_Flip_Out_Full_Codebase.txt
-DELIVERABLES.txt
-
-# ============================================================
-# DEPRECATED & TEMPORARY FILES
-# ============================================================
-*.docx
-*.pdf
-*.deprecated
-*_old.html
-*_v2.html
-*_v3.html
-*backup*
-ziihXcBp
-ziNSoUYd
-temp-ecosystem/
-temp-recovery/
-QUICK_START.md
-README_UPGRADE.md
-UPGRADE_SUMMARY.md
-IMPLEMENTATION_GUIDE.md
-*.log
-
-# ============================================================
-# MACOS & LINUX
-# ============================================================
+# OS
 .DS_Store
-.AppleDouble
-.LSOverride
-*.pem
-*.key
-
-# ============================================================
-# EDITOR BACKUP/TEMP FILES
-# ============================================================
-*.tmp
-*.bak
-.~lock*
-
-# ============================================================
-# NODE.JS SPECIFIC
-# ============================================================
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# ============================================================
-# PYTHON SPECIFIC
-# ============================================================
-.pytest_cache/
-.coverage
-htmlcov/
-dist/
-build/
-*.egg-info/
-
-# ============================================================
-# GIT-SPECIFIC
-# ============================================================
-.git/config.local
+Thumbs.db
