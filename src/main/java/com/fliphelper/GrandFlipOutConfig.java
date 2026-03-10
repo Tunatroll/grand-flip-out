@@ -10,7 +10,7 @@ import net.runelite.client.config.Range;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 
-@ConfigGroup("awfullypure")
+@ConfigGroup("grandflipout")
 public interface GrandFlipOutConfig extends Config
 {
     // ==================== SECTIONS ====================
@@ -117,7 +117,7 @@ public interface GrandFlipOutConfig extends Config
     )
     default String userAgent()
     {
-        return "AwfullyPure RuneLite Plugin - github.com/AwfulPure/awfully-pure";
+        return "GrandFlipOut RuneLite Plugin - github.com/Tunatroll/grand-flip-out";
     }
 
     // ==================== FLIP TRACKER ====================
@@ -908,7 +908,7 @@ public interface GrandFlipOutConfig extends Config
     )
     default String backendUrl()
     {
-        return "https://api.awfullypure.com/api/contribute";
+        return "";
     }
 
     @ConfigItem(

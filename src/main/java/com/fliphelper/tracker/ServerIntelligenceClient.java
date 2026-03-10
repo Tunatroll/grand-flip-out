@@ -168,7 +168,7 @@ public class ServerIntelligenceClient {
     private String fetchJson(String url) throws Exception {
         Request request = new Request.Builder()
                 .url(url)
-                .header("User-Agent", "AwfullyPure RuneLite Plugin")
+                .header("User-Agent", "GrandFlipOut RuneLite Plugin")
                 .build();
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful() || response.body() == null) {

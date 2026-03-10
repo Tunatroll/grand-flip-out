@@ -223,7 +223,7 @@ public class ProfileClient
             return "Create a AP account to unlock " + feature.displayName + " (free)";
         }
         return feature.displayName + " requires " + feature.requiredTier.displayName + " tier. "
-            + "Upgrade at api.awfullypure.com/upgrade";
+            + "See github.com/Tunatroll/grand-flip-out for updates";
     }
 
     

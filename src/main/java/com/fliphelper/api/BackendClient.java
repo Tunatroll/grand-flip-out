@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 @Singleton
 public class BackendClient
 {
-    private static final String DEFAULT_BACKEND_URL = "https://api.awfullypure.com/api/contribute";
+    private static final String DEFAULT_BACKEND_URL = "";
     private static final MediaType JSON_TYPE = MediaType.parse("application/json; charset=utf-8");
     private static final int FLUSH_INTERVAL_SECONDS = 15;
     private static final int MAX_BATCH_SIZE = 100;
@@ -197,7 +197,7 @@ public class BackendClient
         Request request = new Request.Builder()
             .url(backendUrl)
             .post(body)
-            .header("User-Agent", "AwfullyPure/2.0.0 RuneLite")
+            .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite")
             .header("Content-Type", "application/json")
             .build();
 
@@ -274,7 +274,7 @@ public class BackendClient
         Request request = new Request.Builder()
             .url(profileFlipUrl)
             .post(body)
-            .header("User-Agent", "AwfullyPure/2.0.0 RuneLite")
+            .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite")
             .header("Content-Type", "application/json")
             .header("X-AP-Key", profileApiKey)
             .build();

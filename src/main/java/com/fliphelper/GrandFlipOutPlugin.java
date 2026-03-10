@@ -679,7 +679,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     @Subscribe
     public void onConfigChanged(ConfigChanged event)
     {
-        if (!"awfullypure".equals(event.getGroup()))
+        if (!"grandflipout".equals(event.getGroup()))
         {
             return;
         }

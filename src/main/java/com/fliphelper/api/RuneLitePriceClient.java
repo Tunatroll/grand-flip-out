@@ -33,7 +33,7 @@ public class RuneLitePriceClient
     {
         Request request = new Request.Builder()
             .url(PRICES_URL)
-            .header("User-Agent", "AwfullyPure RuneLite Plugin")
+            .header("User-Agent", "GrandFlipOut RuneLite Plugin")
             .build();
 
         try (Response response = httpClient.newCall(request).execute())

@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 public class PeerNetwork
 {
     private static final String[] DEFAULT_SEEDS = {
-        "https://api.awfullypure.com",      // Official relay
+        // Seeds configured via plugin settings when backend is available
     };
 
     private static final int DISCOVERY_INTERVAL_SECONDS = 300;  // 5 min
@@ -179,7 +179,7 @@ public class PeerNetwork
                 Request request = new Request.Builder()
                     .url(peer.getBaseUrl() + path)
                     .get()
-                    .header("User-Agent", "AwfullyPure/2.0.0 RuneLite P2P")
+                    .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite P2P")
                     .build();
 
                 try (Response response = httpClient.newCall(request).execute())
@@ -216,7 +216,7 @@ public class PeerNetwork
                 Request.Builder builder = new Request.Builder()
                     .url(peer.getBaseUrl() + path)
                     .post(body)
-                    .header("User-Agent", "AwfullyPure/2.0.0 RuneLite P2P")
+                    .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite P2P")
                     .header("Content-Type", "application/json");
 
                 if (headers != null)
@@ -258,7 +258,7 @@ public class PeerNetwork
             Request request = new Request.Builder()
                 .url(peer.getBaseUrl() + path)
                 .post(body)
-                .header("User-Agent", "AwfullyPure/2.0.0 RuneLite P2P")
+                .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite P2P")
                 .header("Content-Type", "application/json")
                 .build();
 
@@ -313,7 +313,7 @@ public class PeerNetwork
                 Request request = new Request.Builder()
                     .url(peer.getBaseUrl() + "/api/peers")
                     .get()
-                    .header("User-Agent", "AwfullyPure/2.0.0 RuneLite P2P")
+                    .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite P2P")
                     .build();
 
                 try (Response response = httpClient.newCall(request).execute())
@@ -371,7 +371,7 @@ public class PeerNetwork
                 Request request = new Request.Builder()
                     .url(peer.getBaseUrl() + "/api/health")
                     .get()
-                    .header("User-Agent", "AwfullyPure/2.0.0 RuneLite P2P")
+                    .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite P2P")
                     .build();
 
                 try (Response response = httpClient.newCall(request).execute())

@@ -148,7 +148,7 @@ public class ApHttpBatcher
         Request request = new Request.Builder()
             .url(url)
             .post(RequestBody.create(JSON_TYPE, json))
-            .header("User-Agent", "AwfullyPure/" + PLUGIN_VERSION + " RuneLite")
+            .header("User-Agent", "GrandFlipOut/" + PLUGIN_VERSION + " RuneLite")
             .header("Content-Type", "application/json")
             .build();
 
