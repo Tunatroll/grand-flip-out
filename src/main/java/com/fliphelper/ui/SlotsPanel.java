@@ -80,7 +80,7 @@ public class SlotsPanel extends JPanel
         }
     }
 
-    // TOP BAR (Account Switcher)
+    // ==================== TOP BAR (Account Switcher) ====================
 
     private JPanel buildTopBar()
     {
@@ -147,7 +147,7 @@ public class SlotsPanel extends JPanel
         }
     }
 
-    // SLOTS AREA
+    // ==================== SLOTS AREA ====================
 
     private JScrollPane buildSlotsArea()
     {
@@ -303,7 +303,7 @@ public class SlotsPanel extends JPanel
         return p;
     }
 
-    // BOTTOM BAR
+    // ==================== BOTTOM BAR ====================
 
     private JPanel buildBottomBar()
     {
@@ -372,7 +372,7 @@ public class SlotsPanel extends JPanel
             "</html>";
     }
 
-    // REFRESH LOGIC
+    // ==================== REFRESH LOGIC ====================
 
     
     private void refreshSlotTimers()
@@ -682,7 +682,7 @@ public class SlotsPanel extends JPanel
         }
     }
 
-    // PUBLIC METHODS
+    // ==================== PUBLIC METHODS ====================
 
     
     public void refreshAccountList()
@@ -724,7 +724,7 @@ public class SlotsPanel extends JPanel
         refreshSlotTimers();
     }
 
-    // HELPERS
+    // ==================== HELPERS ====================
 
     private String getStateText(GrandExchangeOfferState state)
     {
@@ -794,7 +794,7 @@ public class SlotsPanel extends JPanel
 
     private String formatGp(long amount)
     {
-       
+        // Format with full comma-separated numbers per CLAUDE.md requirement
         // Never abbreviate GP values in user-facing output
         return String.format("%,d", amount);
     }

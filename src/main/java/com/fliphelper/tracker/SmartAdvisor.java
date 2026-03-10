@@ -536,7 +536,7 @@ public class SmartAdvisor {
         }
     }
 
-    // SERVER-SIDE INTELLIGENCE CONVERSION
+    // ==================== SERVER-SIDE INTELLIGENCE CONVERSION ====================
     // These methods convert server responses to Java SmartAdvisor data structures
 
     

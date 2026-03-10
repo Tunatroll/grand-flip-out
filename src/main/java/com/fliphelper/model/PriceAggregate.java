@@ -160,7 +160,7 @@ public class PriceAggregate
         return mapping.getHighalch() - 150 > buyPrice;
     }
 
-    // Convenience aliases for dependent classes
+    // ==================== Convenience aliases for dependent classes ====================
 
     public long getHighPrice() { return getBestHighPrice(); }
 

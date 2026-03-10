@@ -40,6 +40,7 @@ public class ServerIntelligenceConfig {
     
     
     private boolean isServerHealthy() {
+        // Placeholder - in real impl would do a health check
         return true;
     }
     

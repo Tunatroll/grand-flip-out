@@ -590,7 +590,7 @@ public class BotEconomyTracker {
         return marketHealth;
     }
 
-    // INNER CLASSES
+    // ============= INNER CLASSES =============
 
     // Detects ban waves by looking for simultaneous price spikes
     public static class SupplyShockDetector {
@@ -1140,7 +1140,7 @@ public class BotEconomyTracker {
         }
     }
 
-    // DATA CLASSES
+    // ============= DATA CLASSES =============
     @Data
     @Builder
     @AllArgsConstructor

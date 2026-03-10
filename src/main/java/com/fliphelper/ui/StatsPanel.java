@@ -61,7 +61,7 @@ public class StatsPanel extends JPanel
         add(buildMainContent(), BorderLayout.CENTER);
     }
 
-    // CONTROL BAR
+    // ==================== CONTROL BAR ====================
 
     private JPanel buildControlBar()
     {
@@ -183,7 +183,7 @@ public class StatsPanel extends JPanel
         return bar;
     }
 
-    // MAIN CONTENT
+    // ==================== MAIN CONTENT ====================
 
     private JScrollPane buildMainContent()
     {
@@ -198,7 +198,7 @@ public class StatsPanel extends JPanel
         return scroll;
     }
 
-    // REFRESH / DATA
+    // ==================== REFRESH / DATA ====================
 
     public void refresh()
     {
@@ -365,7 +365,7 @@ public class StatsPanel extends JPanel
         itemsContainer.repaint();
     }
 
-    // PER-ITEM STATS CARD
+    // ==================== PER-ITEM STATS CARD ====================
 
     private JPanel buildItemStatsCard(ItemAgg agg, int rank)
     {
@@ -505,7 +505,7 @@ public class StatsPanel extends JPanel
         return card;
     }
 
-    // ITEM AGGREGATION MODEL
+    // ==================== ITEM AGGREGATION MODEL ====================
 
     private static class ItemAgg
     {
@@ -593,7 +593,7 @@ public class StatsPanel extends JPanel
         }
     }
 
-    // HELPERS
+    // ==================== HELPERS ====================
 
     private void updateProjectionLabel(String name, String text)
     {

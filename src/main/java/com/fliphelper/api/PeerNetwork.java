@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 public class PeerNetwork
 {
     private static final String[] DEFAULT_SEEDS = {
-        // Seeds configured via plugin settings when backend is available
+        "https://api.grandflipout.com",      // Official relay
     };
 
     private static final int DISCOVERY_INTERVAL_SECONDS = 300;  // 5 min

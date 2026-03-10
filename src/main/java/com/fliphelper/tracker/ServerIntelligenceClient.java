@@ -54,7 +54,7 @@ public class ServerIntelligenceClient {
             }
             return Optional.ofNullable(result);
         } catch (Exception e) {
-            log.debug("Server SmartAdvisor unavailable for {}: {}", itemId, e.getMessage());
+            log.warn("Failed to fetch SmartAdvisor from server: {}", e.getMessage());
             return Optional.empty();
         }
     }
@@ -80,7 +80,7 @@ public class ServerIntelligenceClient {
             }
             return Optional.ofNullable(result);
         } catch (Exception e) {
-            // server down or unreachable — not an error, just use local
+            log.warn("Failed to fetch QuickFlip from server: {}", e.getMessage());
             return Optional.empty();
         }
     }
@@ -106,7 +106,7 @@ public class ServerIntelligenceClient {
             }
             return Optional.ofNullable(result);
         } catch (Exception e) {
-            log.debug("market-analysis endpoint failed, will use local TA");
+            log.warn("Failed to fetch market analysis from server: {}", e.getMessage());
             return Optional.empty();
         }
     }
@@ -131,7 +131,8 @@ public class ServerIntelligenceClient {
                 resultCache.put(cacheKey, new CachedResult(result, config.getCacheExpirySeconds()));
             }
             return Optional.ofNullable(result);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.warn("Failed to fetch dump analysis from server: {}", e.getMessage());
             return Optional.empty();
         }
     }
@@ -157,12 +158,12 @@ public class ServerIntelligenceClient {
             }
             return Optional.ofNullable(result);
         } catch (Exception e) {
-            log.warn("Market overview fetch failed ({})", e.getMessage());
+            log.warn("Failed to fetch market overview from server: {}", e.getMessage());
             return Optional.empty();
         }
     }
 
-    // HTTP Fetch
+    // ==================== HTTP Fetch ====================
 
     private String fetchJson(String url) throws Exception {
         Request request = new Request.Builder()
@@ -177,7 +178,7 @@ public class ServerIntelligenceClient {
         }
     }
 
-    // Gson Parsers
+    // ==================== Gson Parsers ====================
 
     private SmartAdvisorResult parseSmartAdvisorResponse(String json) {
         try {
@@ -202,7 +203,7 @@ public class ServerIntelligenceClient {
             r.warnings = getStringList(root, "warnings");
             return r;
         } catch (Exception e) {
-            log.warn("Bad SmartAdvisor JSON from server", e);
+            log.error("Failed to parse SmartAdvisor response: {}", e.getMessage());
             return null;
         }
     }
@@ -226,7 +227,7 @@ public class ServerIntelligenceClient {
             r.sellPrice = getLong(root, "sellPrice", 0);
             return r;
         } catch (Exception e) {
-            // malformed response, just skip
+            log.error("Failed to parse QuickFlip response: {}", e.getMessage());
             return null;
         }
     }
@@ -253,7 +254,7 @@ public class ServerIntelligenceClient {
             }
             return r;
         } catch (Exception e) {
-            log.debug("market analysis parse error: {}", e.getMessage());
+            log.error("Failed to parse MarketAnalysis response: {}", e.getMessage());
             return null;
         }
     }
@@ -276,7 +277,8 @@ public class ServerIntelligenceClient {
             r.riskLevel = getString(root, "riskLevel", "HIGH");
             r.reasoning = getString(root, "reasoning", "");
             return r;
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.error("Failed to parse DumpAnalysis response: {}", e.getMessage());
             return null;
         }
     }
@@ -309,13 +311,12 @@ public class ServerIntelligenceClient {
             r.alerts = getStringList(root, "alerts");
             return r;
         } catch (Exception e) {
-            log.warn("Couldn't parse market overview, got: {}", 
-                json != null ? json.substring(0, Math.min(80, json.length())) : "null");
+            log.error("Failed to parse MarketOverview response: {}", e.getMessage());
             return null;
         }
     }
 
-    // JSON Helpers
+    // ==================== JSON Helpers ====================
 
     private static int getInt(JsonObject obj, String key, int defaultVal) {
         return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsInt() : defaultVal;
@@ -343,7 +344,7 @@ public class ServerIntelligenceClient {
         return list;
     }
 
-    // Inner Classes
+    // ==================== Inner Classes ====================
 
     private static class CachedResult {
         final Object value;

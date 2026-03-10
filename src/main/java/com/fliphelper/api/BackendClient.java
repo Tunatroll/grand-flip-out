@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 @Singleton
 public class BackendClient
 {
-    private static final String DEFAULT_BACKEND_URL = "";
+    private static final String DEFAULT_BACKEND_URL = "https://api.grandflipout.com/api/contribute";
     private static final MediaType JSON_TYPE = MediaType.parse("application/json; charset=utf-8");
     private static final int FLUSH_INTERVAL_SECONDS = 15;
     private static final int MAX_BATCH_SIZE = 100;

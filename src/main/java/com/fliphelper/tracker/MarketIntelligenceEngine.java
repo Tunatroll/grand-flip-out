@@ -240,9 +240,9 @@ public class MarketIntelligenceEngine {
         return "LOW";
     }
 
-    // =
+    // ============================================================================
     // INNER CLASSES: Core Analysis Engines
-    // =
+    // ============================================================================
 
     
     public static class TimeSeriesAnalyzer {
@@ -1077,9 +1077,9 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    // =
+    // ============================================================================
     // DATA CLASSES
-    // =
+    // ============================================================================
 
     @Data
     @Builder

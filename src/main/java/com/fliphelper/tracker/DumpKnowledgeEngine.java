@@ -355,7 +355,7 @@ public class DumpKnowledgeEngine
 			.build());
 	}
 
-	// Calculation Methods
+	// ==================== Calculation Methods ====================
 
 	private float calculateDumpPercentage(PriceAlert alert)
 	{
@@ -642,7 +642,7 @@ public class DumpKnowledgeEngine
 		return distribution;
 	}
 
-	// Inner Classes
+	// ==================== Inner Classes ====================
 
 	
 	@Data
@@ -912,7 +912,7 @@ public class DumpKnowledgeEngine
 		private double priceMovement;
 	}
 
-	// Enums
+	// ==================== Enums ====================
 
 	public enum RecoveryPattern
 	{
