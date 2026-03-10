@@ -15,18 +15,7 @@ import java.text.NumberFormat;
 import java.util.Collection;
 import java.util.Locale;
 
-/**
- * Profile & Account panel embedded as a tab in the main Awfully Pure sidebar.
- *
- * Displays:
- *   - Login / account creation form (when logged out)
- *   - Profile dashboard with tier badge, stats, characters (when logged in)
- *   - P2P network status (connected peers, health)
- *   - Tier upgrade CTA for locked features
- *
- * This panel is added as a tab inside AwfullyPurePanel, not as a separate
- * navigation button (keeps the sidebar clean).
- */
+
 public class ProfilePanel extends JPanel
 {
     private final ProfileClient profileClient;
@@ -453,10 +442,7 @@ public class ProfilePanel extends JPanel
         }
     }
 
-    /**
-     * Refresh dashboard with current profile data.
-     * Called after login and periodically by the plugin.
-     */
+    
     public void refreshDashboard()
     {
         if (!profileClient.isLoggedIn())

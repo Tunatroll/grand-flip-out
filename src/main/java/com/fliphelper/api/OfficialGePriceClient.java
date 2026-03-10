@@ -14,11 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Client for the official Jagex Grand Exchange API.
- * Note: This API can be slow and data may be delayed.
- * URL: https://secure.runescape.com/m=itemdb_oldschool/api/catalogue/detail.json?item={id}
- */
+
 @Slf4j
 public class OfficialGePriceClient
 {
@@ -32,10 +28,7 @@ public class OfficialGePriceClient
         this.httpClient = httpClient;
     }
 
-    /**
-     * Fetch price for a single item from the official GE API.
-     * Note: This API only supports per-item lookups, not bulk.
-     */
+    
     public PriceData fetchPrice(int itemId) throws IOException
     {
         Request request = new Request.Builder()
@@ -96,9 +89,7 @@ public class OfficialGePriceClient
         }
     }
 
-    /**
-     * Fetch prices for multiple items (rate-limited sequential calls).
-     */
+    
     public Map<Integer, PriceData> fetchPrices(Iterable<Integer> itemIds) throws IOException
     {
         Map<Integer, PriceData> result = new HashMap<>();

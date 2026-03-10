@@ -12,16 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-/**
- * Detects sudden price movements (dumps and pumps) by comparing
- * current instant prices against recent averages.
- *
- * Detection logic:
- * 1. Compare insta-buy/sell vs 1h average - if deviation > threshold, flag it
- * 2. Compare 5m avg vs 1h avg - detects momentum shifts
- * 3. Volume spike detection - sudden volume increase often precedes price moves
- * 4. Spread analysis - widening spreads indicate uncertainty/manipulation
- */
+
 @Slf4j
 public class DumpDetector
 {
@@ -45,11 +36,7 @@ public class DumpDetector
         this.priceService = priceService;
     }
 
-    /**
-     * Take a snapshot of current prices for trend tracking.
-     *
-     * <p>Maintains a history of up to 60 snapshots per item (~5 hours at 5-minute intervals).</p>
-     */
+    
     public void takeSnapshot()
     {
         long startTime = System.currentTimeMillis();
@@ -111,12 +98,7 @@ public class DumpDetector
         log.debug("Price snapshot taken for {} items in {}ms", priceHistory.size(), duration);
     }
 
-    /**
-     * Scan all items and return detected anomalies sorted by severity.
-     *
-     * <p>Returns alerts sorted by severity (highest first).
-     * Minimum volume threshold: 50+ hourly trades to trigger alerts (filters noise).</p>
-     */
+    
     public List<PriceAlert> detectAnomalies()
     {
         long startTime = System.currentTimeMillis();
@@ -238,9 +220,7 @@ public class DumpDetector
         return alerts;
     }
 
-    /**
-     * Get items with the highest price velocity (rate of change).
-     */
+    
     public List<PriceVelocity> getTopMovers(int limit)
     {
         List<PriceVelocity> movers = new ArrayList<>();

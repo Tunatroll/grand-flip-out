@@ -13,10 +13,7 @@ import java.awt.*;
 import java.util.Iterator;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * Floating GP drop overlay — shows animated profit text rising and fading
- * when a profitable flip completes. Pure visual celebration, no game interaction.
- */
+
 @Slf4j
 public class GpDropOverlay extends Overlay
 {
@@ -40,11 +37,7 @@ public class GpDropOverlay extends Overlay
         setPriority(OverlayPriority.HIGHEST);
     }
 
-    /**
-     * Trigger a GP drop animation.
-     * @param profit The profit amount to display
-     * @param itemName The item name for context
-     */
+    
     public void triggerDrop(long profit, String itemName)
     {
         if (profit <= 0)

@@ -7,10 +7,7 @@ import lombok.Data;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Database of OSRS item recipes for the Awfully Pure RuneLite plugin.
- * Stores item transformation recipes that can be used to detect recipe flip opportunities.
- */
+
 public class RecipeDatabase {
 
     public static final List<Recipe> ALL_RECIPES = Collections.unmodifiableList(initializeRecipes());
@@ -538,24 +535,14 @@ public class RecipeDatabase {
         return recipes;
     }
 
-    /**
-     * Get all recipes for a specific category.
-     *
-     * @param category the recipe category to filter by
-     * @return list of recipes in the specified category
-     */
+    
     public static List<Recipe> getRecipesByCategory(RecipeCategory category) {
         return ALL_RECIPES.stream()
                 .filter(r -> r.getCategory() == category)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get all recipes that use a specific item as input.
-     *
-     * @param itemId the item ID to search for
-     * @return list of recipes that use this item as input
-     */
+    
     public static List<Recipe> getRecipesForInput(int itemId) {
         return ALL_RECIPES.stream()
                 .filter(r -> r.getInputs().stream()
@@ -563,12 +550,7 @@ public class RecipeDatabase {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get all recipes that produce a specific item as output.
-     *
-     * @param itemId the item ID to search for
-     * @return list of recipes that produce this item
-     */
+    
     public static List<Recipe> getRecipesForOutput(int itemId) {
         return ALL_RECIPES.stream()
                 .filter(r -> r.getOutputs().stream()
@@ -576,23 +558,14 @@ public class RecipeDatabase {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get a recipe by its name.
-     *
-     * @param name the name of the recipe to find
-     * @return the recipe if found, or empty Optional
-     */
+    
     public static Optional<Recipe> getRecipeByName(String name) {
         return ALL_RECIPES.stream()
                 .filter(r -> r.getName().equalsIgnoreCase(name))
                 .findFirst();
     }
 
-    /**
-     * Get all unique recipe categories in the database.
-     *
-     * @return set of all categories present in recipes
-     */
+    
     public static Set<RecipeCategory> getAllCategories() {
         return ALL_RECIPES.stream()
                 .map(Recipe::getCategory)
@@ -601,9 +574,7 @@ public class RecipeDatabase {
 
     // ==================== DATA CLASSES ====================
 
-    /**
-     * Represents a single recipe transformation.
-     */
+    
     @Data
     @Builder
     @AllArgsConstructor
@@ -616,9 +587,7 @@ public class RecipeDatabase {
         private RecipeCategory category;
     }
 
-    /**
-     * Represents an input item for a recipe.
-     */
+    
     @Data
     @Builder
     @AllArgsConstructor
@@ -628,9 +597,7 @@ public class RecipeDatabase {
         private int quantity;
     }
 
-    /**
-     * Represents an output item from a recipe.
-     */
+    
     @Data
     @Builder
     @AllArgsConstructor
@@ -640,9 +607,7 @@ public class RecipeDatabase {
         private int quantity;
     }
 
-    /**
-     * Enumeration of recipe categories.
-     */
+    
     public enum RecipeCategory {
         HERBLORE_UNFINISHED,
         HERBLORE_POTION,

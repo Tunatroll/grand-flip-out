@@ -56,25 +56,7 @@ import java.util.stream.Collectors;
 
 import static net.runelite.client.RuneLite.RUNELITE_DIR;
 
-/**
- * Awfully Pure — Comprehensive Grand Exchange flipping assistant for OSRS.
- *
- * <p><b>INFORMATION ONLY</b> — This plugin does NOT automate any Grand Exchange
- * interactions. All buy/sell offers are placed manually by the player.
- * The plugin reads completed transactions via RuneLite's event API and
- * displays price data, flip suggestions, dump analysis, and portfolio
- * tracking for informational purposes only.</p>
- *
- * <p>Compliant with Jagex third-party client guidelines and RuneLite
- * Plugin Hub requirements. No game packets are sent, no memory is read
- * beyond the RuneLite Client API, and no unfair mechanical advantages
- * are provided.</p>
- *
- * <p>Multi-account tracking is permitted under Jagex's multi-logging policy
- * (allowed since 2014). However, <b>coordinated market manipulation across
- * accounts is strictly against Jagex Terms of Service</b>. The multi-account
- * features in this plugin are for independent portfolio monitoring only.</p>
- */
+
 @Slf4j
 @PluginDescriptor(
     name = "Awfully Pure",
@@ -162,8 +144,9 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
 
         DATA_DIR.mkdirs();
 
-        // Initialize debug manager
+        // Initialize debug manager with local file logging
         debugManager = new DebugManager();
+        debugManager.setDataDir(DATA_DIR);
         debugManager.info(getClass().getSimpleName(), "Plugin startup initiated");
 
         // Initialize core services
@@ -804,10 +787,7 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
 
     // ==================== SUGGESTION PREVIEW ====================
 
-    /**
-     * Preview top flip suggestion — copies buy price to clipboard and shows a chat hint.
-     * INFORMATION ONLY — the player must manually open the GE and place the offer themselves.
-     */
+    
     private void previewSuggestion()
     {
         try
@@ -1052,12 +1032,7 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
         }
     }
 
-    /**
-     * Run a dump scan and display analysis results.
-     *
-     * <p><b>INFORMATION ONLY</b> — No GE actions are automated.
-     * The player must manually execute all trades.</p>
-     */
+    
     private void runDumpScan()
     {
         try
@@ -1125,11 +1100,7 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
         }
     }
 
-        /**
-     * Converts DumpDetector alert to DumpKnowledgeEngine format.
-     * FIXES: averageVolume now set (was 0, broke isHighVolume);
-     *        previousPrice derived from actual deviation (was hardcoded 5%).
-     */
+        
     private DumpKnowledgeEngine.PriceAlert convertToDumpKnowledgeAlert(DumpDetector.PriceAlert alert)
     {
         var agg = priceService.getPrice(alert.getItemId());

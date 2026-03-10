@@ -13,12 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Debug panel tab for Awfully Pure sidebar.
- *
- * Shows live performance stats, API call metrics, memory usage,
- * recent events, and a copyable debug report for bug reporting.
- */
+
 @Slf4j
 public class DebugPanel extends JPanel
 {
@@ -171,10 +166,7 @@ public class DebugPanel extends JPanel
 
     // ─-- Refresh --------------------------------------------
 
-    /**
-     * Refresh all stats from the debug manager.
-     * Called periodically by the panel's update cycle.
-     */
+    
     public void refresh()
     {
         SwingUtilities.invokeLater(() -> {
@@ -311,34 +303,18 @@ public class DebugPanel extends JPanel
         return VALUE_COLOR;
     }
 
-    /**
-     * Get recent events from the debug manager's event log.
-     * Uses reflection-free access via exportDebugReport parsing
-     * or direct field access if available.
-     */
+    
     private List<DebugManager.EventLogEntry> getRecentEvents(int count)
     {
-        // Access the event log — DebugManager exposes this through exportDebugReport
-        // but we can also access it directly since it's in the same package ecosystem
-        try
+        List<DebugManager.EventLogEntry> eventLog = debugManager.getEventLog();
+        int size = eventLog.size();
+        int start = Math.max(0, size - count);
+        List<DebugManager.EventLogEntry> recent = new java.util.ArrayList<>();
+        for (int i = size - 1; i >= start; i--)
         {
-            java.lang.reflect.Field field = DebugManager.class.getDeclaredField("eventLog");
-            field.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            List<DebugManager.EventLogEntry> eventLog = (List<DebugManager.EventLogEntry>) field.get(debugManager);
-            int size = eventLog.size();
-            int start = Math.max(0, size - count);
-            List<DebugManager.EventLogEntry> recent = new java.util.ArrayList<>();
-            for (int i = size - 1; i >= start; i--)
-            {
-                recent.add(eventLog.get(i));
-            }
-            return recent;
+            recent.add(eventLog.get(i));
         }
-        catch (Exception e)
-        {
-            return java.util.Collections.emptyList();
-        }
+        return recent;
     }
 
     // ─-- UI helpers ----------------------------------------─

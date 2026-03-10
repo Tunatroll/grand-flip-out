@@ -21,10 +21,7 @@ import net.runelite.client.util.QuantityFormatter;
 import javax.inject.Inject;
 import java.awt.*;
 
-/**
- * In-game overlay displayed when the Grand Exchange interface is open.
- * Shows current item margins, flip status, and session profit.
- */
+
 public class AwfullyPureOverlay extends Overlay
 {
     private final Client client;
@@ -114,19 +111,18 @@ public class AwfullyPureOverlay extends Overlay
             .build());
 
         long profit = flipTracker.getSessionProfit().get();
-        // Color coding: green for profit, orange for break-even, red for loss
         Color profitColor;
         if (profit > 0)
         {
-            profitColor = Color.GREEN;
+            profitColor = new Color(0x00, 0xE6, 0x76);
         }
         else if (profit == 0)
         {
-            profitColor = new Color(0xFF, 0xA5, 0x00); // Orange
+            profitColor = new Color(0xFF, 0xB8, 0x00);
         }
         else
         {
-            profitColor = Color.RED;
+            profitColor = new Color(0xFF, 0x66, 0x66);
         }
 
         String profitPrefix = profit > 0 ? "\u25B2 " : profit < 0 ? "\u25BC " : "";
@@ -136,39 +132,59 @@ public class AwfullyPureOverlay extends Overlay
             .rightColor(profitColor)
             .build());
 
+        long flipCount = flipTracker.getSessionFlipCount().get();
         panelComponent.getChildren().add(LineComponent.builder()
             .left("Flips:")
-            .right(String.valueOf(flipTracker.getSessionFlipCount().get()))
+            .right(String.valueOf(flipCount))
+            .build());
+
+        double gpPerHour = flipTracker.getGpPerHour();
+        Color gphColor;
+        if (gpPerHour > 0)
+        {
+            gphColor = new Color(0xFF, 0xB8, 0x00);
+        }
+        else if (gpPerHour == 0)
+        {
+            gphColor = Color.GRAY;
+        }
+        else
+        {
+            gphColor = new Color(0xFF, 0x66, 0x66);
+        }
+        panelComponent.getChildren().add(LineComponent.builder()
+            .left("GP/Hour:")
+            .right(formatGp((long) gpPerHour) + "/hr")
+            .rightColor(gphColor)
             .build());
 
         double avg = flipTracker.getAverageProfitPerFlip();
         Color avgColor;
         if (avg > 0)
         {
-            avgColor = Color.GREEN;
+            avgColor = new Color(0x00, 0xE6, 0x76);
         }
         else if (avg == 0)
         {
-            avgColor = new Color(0xFF, 0xA5, 0x00); // Orange
+            avgColor = new Color(0xFF, 0xB8, 0x00);
         }
         else
         {
-            avgColor = Color.RED;
+            avgColor = new Color(0xFF, 0x66, 0x66);
         }
 
         String avgPrefix = avg > 0 ? "\u25B2 " : avg < 0 ? "\u25BC " : "";
         panelComponent.getChildren().add(LineComponent.builder()
-            .left("Avg Profit/Flip:")
+            .left("Avg/Flip:")
             .right(avgPrefix + formatGp((long) avg))
             .rightColor(avgColor)
             .build());
 
-        // Show active flips count
         int activeCount = flipTracker.getActiveFlips().size();
         if (activeCount > 0)
         {
             panelComponent.getChildren().add(LineComponent.builder()
-                .left("Active Flips:")
+                .left("Active:")
                 .right(String.valueOf(activeCount))
                 .rightColor(Color.YELLOW)
                 .build());

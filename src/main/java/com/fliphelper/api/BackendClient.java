@@ -16,29 +16,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Batched HTTP client for crowdsourced trade data contribution.
- *
- * Collects trade events in a ConcurrentLinkedQueue and flushes them
- * every 15 seconds in a single batched POST request.
- * This design is critical for RuneLite Plugin Hub approval — they reject
- * plugins that spam external endpoints on every GE event.
- *
- * <h3>P2P Integration</h3>
- * When a PeerNetwork is configured, trade batches are FANNED OUT to
- * ALL healthy peers (not just one server). This means every relay in
- * the network gets the crowdsourced data, enabling truly distributed
- * Z-Score detection and consensus pricing.
- *
- * Falls back to direct HTTP if PeerNetwork is not configured.
- *
- * The backend uses this data for:
- *   - Z-Score pump/dump detection (real user trade prices vs Wiki API)
- *   - Consensus pricing (weighted average across Wiki, RuneLite, user data)
- *   - Volume spike analysis
- *
- * All data is anonymous — no RSN or account identifiers are transmitted.
- */
+
 @Slf4j
 @Singleton
 public class BackendClient
@@ -58,7 +36,6 @@ public class BackendClient
     // P2P network — when set, trade batches fan out to ALL healthy peers
     private PeerNetwork peerNetwork;
 
-    /** Optional debug manager for contribution instrumentation. */
     @Setter
     private DebugManager debugManager;
 
@@ -72,10 +49,7 @@ public class BackendClient
         this.enabled = true;
     }
 
-    /**
-     * Start the background flush worker.
-     * Call this from plugin startUp().
-     */
+    
     public void start()
     {
         if (flushExecutor != null)
@@ -92,10 +66,7 @@ public class BackendClient
         log.info("BackendClient started — flushing every {}s", FLUSH_INTERVAL_SECONDS);
     }
 
-    /**
-     * Stop the background flush worker and send any remaining data.
-     * Call this from plugin shutDown().
-     */
+    
     public void stop()
     {
         // Final flush to avoid losing data on logout
@@ -117,15 +88,7 @@ public class BackendClient
         log.info("BackendClient stopped");
     }
 
-    /**
-     * Queue a trade event for batched submission.
-     * Safe to call from any thread.
-     *
-     * @param itemId        OSRS item ID
-     * @param price         Price per item in gp
-     * @param quantityDelta Number of items in this partial fill
-     * @param isBuy         true if buy, false if sell
-     */
+    
     public void queueTrade(int itemId, long price, int quantityDelta, boolean isBuy)
     {
         if (!enabled || quantityDelta <= 0)
@@ -142,19 +105,13 @@ public class BackendClient
         ));
     }
 
-    /**
-     * Set whether crowdsourced contribution is enabled.
-     * Users can opt out via config.
-     */
+    
     public void setEnabled(boolean enabled)
     {
         this.enabled = enabled;
     }
 
-    /**
-     * Set backend URL (for custom server deployments / fallback).
-     * Validates that the URL uses HTTPS for security.
-     */
+    
     public void setBackendUrl(String url)
     {
         if (url == null || url.trim().isEmpty())
@@ -179,28 +136,19 @@ public class BackendClient
         this.backendUrl = url;
     }
 
-    /**
-     * Attach the P2P network for distributed trade contribution.
-     * When set, flushQueue() fans out to all healthy peers instead
-     * of posting to a single backendUrl.
-     */
+    
     public void setPeerNetwork(PeerNetwork peerNetwork)
     {
         this.peerNetwork = peerNetwork;
     }
 
-    /**
-     * Get the number of queued payloads waiting to be flushed.
-     */
+    
     public int getQueueSize()
     {
         return payloadQueue.size();
     }
 
-    /**
-     * Drain the queue and send a single batched POST to the backend.
-     * Called every 15 seconds by the scheduled executor.
-     */
+    
     private void flushQueue()
     {
         if (payloadQueue.isEmpty())
@@ -303,10 +251,7 @@ public class BackendClient
     private String profileCharacter;
     private String profileFlipUrl;
 
-    /**
-     * Configure profile integration for P&L tracking.
-     * Call from plugin startUp() after reading config.
-     */
+    
     public void setProfileConfig(String apiKey, String characterName, String baseUrl)
     {
         this.profileApiKey = (apiKey != null && !apiKey.isEmpty()) ? apiKey : null;
@@ -315,10 +260,7 @@ public class BackendClient
         this.profileFlipUrl = baseUrl.replace("/api/contribute", "/api/profile/flips");
     }
 
-    /**
-     * Submit a completed flip to the user's private profile.
-     * Separate from crowdsourced data — this goes to THEIR profile only.
-     */
+    
     public void logFlipToProfile(int itemId, String itemName, long buyPrice, long sellPrice, int quantity)
     {
         if (profileApiKey == null)
@@ -367,9 +309,7 @@ public class BackendClient
         });
     }
 
-    /**
-     * Flip payload for profile API.
-     */
+    
     public static class FlipPayload
     {
         public final int itemId;
@@ -390,10 +330,7 @@ public class BackendClient
         }
     }
 
-    /**
-     * Simple data class for trade payloads.
-     * Sent as JSON array in batched POST requests.
-     */
+    
     public static class TradePayload
     {
         public final int itemId;

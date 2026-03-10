@@ -33,9 +33,7 @@ public class MarginCheckTracker {
         loadCheckHistory();
     }
 
-    /**
-     * Start a margin check for an item
-     */
+    
     public void startCheck(int itemId, String name, int slot) {
         MarginCheck check = MarginCheck.builder()
                 .itemId(itemId)
@@ -48,9 +46,7 @@ public class MarginCheckTracker {
         log.info("Started margin check for {} (ID: {}) in slot {}", name, itemId, slot);
     }
 
-    /**
-     * Record the buy-1 price for a margin check
-     */
+    
     public void recordCheckBuy(int slot, long price) {
         MarginCheck check = activeChecks.get(slot);
         if (check != null) {
@@ -61,9 +57,7 @@ public class MarginCheckTracker {
         }
     }
 
-    /**
-     * Record the sell-1 price and calculate actual margin
-     */
+    
     public void recordCheckSell(int slot, long price) {
         MarginCheck check = activeChecks.get(slot);
         if (check != null) {
@@ -82,9 +76,7 @@ public class MarginCheckTracker {
         }
     }
 
-    /**
-     * Get the verified actual margin for an item
-     */
+    
     public long getActualMargin(int itemId) {
         return checkHistory.stream()
                 .filter(check -> check.itemId == itemId)
@@ -93,23 +85,17 @@ public class MarginCheckTracker {
                 .orElse(0);
     }
 
-    /**
-     * Get all completed margin checks
-     */
+    
     public List<MarginCheck> getCheckHistory() {
         return new ArrayList<>(checkHistory);
     }
 
-    /**
-     * Get active checks currently in progress
-     */
+    
     public Map<Integer, MarginCheck> getActiveChecks() {
         return new ConcurrentHashMap<>(activeChecks);
     }
 
-    /**
-     * Clear old margin check history
-     */
+    
     public void clearOldChecks(long maxAgeMillis) {
         long cutoffTime = System.currentTimeMillis() - maxAgeMillis;
         checkHistory.removeIf(check -> check.startTime.toEpochMilli() < cutoffTime);
@@ -145,9 +131,7 @@ public class MarginCheckTracker {
         }
     }
 
-    /**
-     * Inner class representing a single margin check
-     */
+    
     @Data
     @Builder
     @AllArgsConstructor

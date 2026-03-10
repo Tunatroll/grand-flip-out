@@ -10,23 +10,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/**
- * DumpKnowledgeEngine - Comprehensive dump/crash knowledge base for OSRS Grand Exchange analysis.
- *
- * This engine provides INFORMATION ONLY analysis of potential Grand Exchange crashes/dumps.
- * No automation of GE actions is performed. All trading decisions are manual player actions.
- *
- * Jagex Compliance: This tool is compliant with RuneLite plugin guidelines as it provides
- * informational analysis only and does not automate any Grand Exchange interactions.
- *
- * The engine includes:
- * - Built-in knowledge database of common dump patterns
- * - DumpProfiles for volatile OSRS items with historical behavior data
- * - Strategy generation based on dump detection alerts
- * - Multi-account portfolio tracking (information-only)
- * - Recovery tracking and projection
- * - Evidence-based heuristics for dump validation
- */
+// Tracks volatile items and their historical dump/recovery patterns.
 @Slf4j
 public class DumpKnowledgeEngine
 {
@@ -44,10 +28,6 @@ public class DumpKnowledgeEngine
 		log.info("DumpKnowledgeEngine initialized with {} known volatile items", knownDumpItems.size());
 	}
 
-	/**
-	 * Initialize built-in knowledge database of common OSRS dump patterns.
-	 * Each item includes historical behavior data and recovery patterns.
-	 */
 	private Map<Integer, DumpProfile> initializeKnownDumpProfiles()
 	{
 		Map<Integer, DumpProfile> profiles = new ConcurrentHashMap<>();
@@ -64,6 +44,7 @@ public class DumpKnowledgeEngine
 			.volumeCharacteristics("Very High - Panic selling during crashes")
 			.build());
 
+		// Claws always has decent volume, very liquid
 		profiles.put(13652, DumpProfile.builder()
 			.itemId(13652)
 			.itemName("Dragon Claws")
@@ -212,13 +193,7 @@ public class DumpKnowledgeEngine
 		return profiles;
 	}
 
-	/**
-	 * Analyze a detected dump/crash event and generate trading strategy.
-	 * INFORMATION ONLY - no automatic actions are taken.
-	 *
-	 * @param alert The price alert indicating a potential dump
-	 * @return DumpAnalysis with confidence, recommended action, and projections
-	 */
+	
 	public DumpAnalysis analyzeDump(PriceAlert alert)
 	{
 		float dumpPercentage = calculateDumpPercentage(alert);
@@ -261,13 +236,7 @@ public class DumpKnowledgeEngine
 			.build();
 	}
 
-	/**
-	 * Generate a multi-account trading plan based on dump opportunities.
-	 * INFORMATION ONLY - player manually executes all trades within GE limits.
-	 *
-	 * @param opportunities List of DumpAnalysis opportunities
-	 * @return Multi-account coordination plan
-	 */
+	
 	public MultiAccountPlan generateMultiAccountPlan(List<DumpAnalysis> opportunities)
 	{
 		List<DumpAnalysis> viableOpportunities = opportunities.stream()
@@ -327,14 +296,7 @@ public class DumpKnowledgeEngine
 			.build();
 	}
 
-	/**
-	 * Track a position entered during a dump for recovery monitoring.
-	 *
-	 * @param itemId Item ID purchased
-	 * @param entryPrice Purchase price
-	 * @param quantity Units purchased
-	 * @param expectedRecoveryPrice Target sell price
-	 */
+	
 	public void trackDumpRecovery(int itemId, long entryPrice, long quantity, long expectedRecoveryPrice)
 	{
 		recoveryTracker.addPosition(
@@ -349,12 +311,7 @@ public class DumpKnowledgeEngine
 		log.info("Tracking recovery for item {} purchased at {}", itemId, entryPrice);
 	}
 
-	/**
-	 * Update recovery tracking with current price and check for alerts.
-	 *
-	 * @param itemId Item ID to update
-	 * @param currentPrice Current market price
-	 */
+	
 	public void updateRecoveryTracking(int itemId, long currentPrice)
 	{
 		recoveryTracker.updatePosition(itemId, currentPrice);
@@ -373,12 +330,7 @@ public class DumpKnowledgeEngine
 		}
 	}
 
-	/**
-	 * Get recovery statistics for a tracked item.
-	 *
-	 * @param itemId Item ID to query
-	 * @return RecoveryStats with entry, current, expected prices and recovery percentage
-	 */
+	
 	public Optional<RecoveryStats> getRecoveryStats(int itemId)
 	{
 		Optional<RecoveryPosition> position = recoveryTracker.getPosition(itemId);
@@ -692,9 +644,7 @@ public class DumpKnowledgeEngine
 
 	// ==================== Inner Classes ====================
 
-	/**
-	 * DumpProfile - Historical behavior data for a known volatile OSRS item.
-	 */
+	
 	@Data
 	@Builder
 	public static class DumpProfile
@@ -709,10 +659,7 @@ public class DumpKnowledgeEngine
 		private String volumeCharacteristics;
 	}
 
-	/**
-	 * DumpAnalysis - Result of analyzing a detected dump event.
-	 * INFORMATION ONLY - provides analysis for manual player decision-making.
-	 */
+	
 	@Data
 	@Builder
 	public static class DumpAnalysis
@@ -731,10 +678,7 @@ public class DumpKnowledgeEngine
 		private Instant timestamp;
 	}
 
-	/**
-	 * AccountPortfolio - Information about an account's capital and positions.
-	 * INFORMATION ONLY - player manually executes all trades.
-	 */
+	
 	@Data
 	@Builder
 	public static class AccountPortfolio
@@ -746,9 +690,7 @@ public class DumpKnowledgeEngine
 		private long totalExposure;
 	}
 
-	/**
-	 * PositionInfo - Information about an open position.
-	 */
+	
 	@Data
 	@Builder
 	public static class PositionInfo
@@ -761,10 +703,7 @@ public class DumpKnowledgeEngine
 		private Instant entryTime;
 	}
 
-	/**
-	 * PortfolioManager - Tracks multiple accounts and their GE limit cycles.
-	 * INFORMATION ONLY - displays GE limit status across accounts.
-	 */
+	
 	@Slf4j
 	public static class PortfolioManager
 	{
@@ -833,10 +772,7 @@ public class DumpKnowledgeEngine
 		}
 	}
 
-	/**
-	 * MultiAccountPlan - Distributed trading plan across multiple accounts.
-	 * INFORMATION ONLY - shows what COULD be done; player executes manually.
-	 */
+	
 	@Data
 	@Builder
 	public static class MultiAccountPlan
@@ -848,9 +784,7 @@ public class DumpKnowledgeEngine
 		private Map<String, Float> riskDistribution;
 	}
 
-	/**
-	 * TradeRecommendation - Specific trade recommendation for an account.
-	 */
+	
 	@Data
 	@Builder
 	public static class TradeRecommendation
@@ -864,9 +798,7 @@ public class DumpKnowledgeEngine
 		private Instant geLimitResetAt;
 	}
 
-	/**
-	 * DumpRecoveryTracker - Monitors positions entered during dumps.
-	 */
+	
 	@Slf4j
 	public static class DumpRecoveryTracker
 	{
@@ -907,9 +839,7 @@ public class DumpKnowledgeEngine
 		}
 	}
 
-	/**
-	 * RecoveryPosition - A position being tracked for recovery.
-	 */
+	
 	@Data
 	@Builder
 	public static class RecoveryPosition
@@ -922,9 +852,7 @@ public class DumpKnowledgeEngine
 		private Instant entryTime;
 	}
 
-	/**
-	 * RecoveryStats - Statistics for a tracked position's recovery.
-	 */
+	
 	@Data
 	@Builder
 	public static class RecoveryStats
@@ -939,9 +867,7 @@ public class DumpKnowledgeEngine
 		private long totalProfit;
 	}
 
-	/**
-	 * DumpRuleEngine - Validates dump detection against evidence-based heuristics.
-	 */
+	
 	@Slf4j
 	public static class DumpRuleEngine
 	{
@@ -949,26 +875,19 @@ public class DumpKnowledgeEngine
 		private static final float SPREAD_THRESHOLD = 0.15f;
 		private static final int CANDLE_CONFIRMATION_COUNT = 3;
 
-		/**
-		 * Rule of 3: Validate that volume is genuinely high (2x normal).
-		 */
+		
 		public boolean validateVolumeRule(PriceAlert alert)
 		{
 			return alert.getVolume() > (alert.getAverageVolume() * VOLUME_MULTIPLIER);
 		}
 
-		/**
-		 * Spread Check: Validate that spread is not too wide (indicates uncertainty/manipulation).
-		 */
+		
 		public boolean validateSpreadRule(float spreadPercent)
 		{
 			return spreadPercent <= (SPREAD_THRESHOLD * 100);
 		}
 
-		/**
-		 * Rule of 3 Candles: Validate 3 consecutive 5-minute candles of declining price.
-		 * This is a simplified check - full implementation would need candle data.
-		 */
+		
 		public boolean validateConsecutiveCandleRule(PriceAlert alert)
 		{
 			// In production, would check actual candle data
@@ -977,10 +896,7 @@ public class DumpKnowledgeEngine
 		}
 	}
 
-	/**
-	 * PriceAlert - A price alert used by the dump analysis engine.
-	 * Contains all data needed to evaluate a potential dump opportunity.
-	 */
+	
 	@Data
 	@Builder
 	public static class PriceAlert

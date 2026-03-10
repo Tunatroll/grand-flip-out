@@ -19,16 +19,7 @@ import java.awt.*;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * GE Slots Panel — the "active flipping" tab inspired by Flipping Utilities' slots view.
- *
- * Shows:
- * - Account switcher dropdown at the top (auto-populated from AccountDataManager)
- * - 8 GE slot cards with item name, state, price, timer since last activity
- * - Color-coded timers: green (fresh) → yellow (aging) → red (stale)
- * - Hotkey hints for quick price-set (E = buy, R = sell, Q = max qty)
- * - Quick stats: session profit for the active account
- */
+
 public class SlotsPanel extends JPanel
 {
     // Colors
@@ -274,7 +265,6 @@ public class SlotsPanel extends JPanel
         return card;
     }
 
-    /** Wrap a value label with a title above it, like the existing createMetaLabel. */
     private JPanel wrapMeta(String title, JLabel valueLabel)
     {
         JPanel p = new JPanel(new BorderLayout(0, 1));
@@ -358,10 +348,7 @@ public class SlotsPanel extends JPanel
 
     // ==================== REFRESH LOGIC ====================
 
-    /**
-     * Called every 1 second by the refresh timer.
-     * Updates slot timers, colors, and state labels.
-     */
+    
     private void refreshSlotTimers()
     {
         if (client == null)
@@ -609,9 +596,7 @@ public class SlotsPanel extends JPanel
 
     // ==================== PUBLIC METHODS ====================
 
-    /**
-     * Refresh the account selector dropdown with all known accounts.
-     */
+    
     public void refreshAccountList()
     {
         if (accountDataManager == null || accountSelector == null)
@@ -644,9 +629,7 @@ public class SlotsPanel extends JPanel
         });
     }
 
-    /**
-     * Full refresh — call from updateAll().
-     */
+    
     public void refresh()
     {
         refreshAccountList();
@@ -686,9 +669,7 @@ public class SlotsPanel extends JPanel
         }
     }
 
-    /**
-     * Recursively find a JLabel by its name within a container.
-     */
+    
     private JLabel findLabel(Container container, String name)
     {
         for (Component c : container.getComponents())

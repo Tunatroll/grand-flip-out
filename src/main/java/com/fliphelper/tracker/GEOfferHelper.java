@@ -19,18 +19,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * GE Offer Helper — handles the "press key to set price" flow that makes
- * Flipping Copilot and Flipping Utilities feel so smooth.
- *
- * <p>When the user is in the GE price-entry chatbox, pressing the configured
- * hotkey fills the price from the last margin check, suggestion, or best
- * known price. This is INFORMATION ASSISTANCE ONLY — the player still
- * confirms and submits the offer manually.</p>
- *
- * <p>Also tracks GE slot timers (time since last offer activity) like
- * Flipping Utilities, so users know when to cancel stale offers.</p>
- */
+
 @Slf4j
 public class GEOfferHelper
 {
@@ -47,20 +36,16 @@ public class GEOfferHelper
     private final PriceService priceService;
     private final AccountDataManager accountDataManager;
 
-    /** Slot timers: slot index → Instant of last activity. */
     @Getter
     private final Map<Integer, Instant> slotLastActivity = new ConcurrentHashMap<>();
 
-    /** Slot item tracking: slot index → item ID currently in slot. */
     @Getter
     private final Map<Integer, Integer> slotItems = new ConcurrentHashMap<>();
 
-    /** Currently selected GE slot (0-7), or -1 if none. */
     @Getter
     @Setter
     private int selectedSlot = -1;
 
-    /** What kind of offer the user is currently setting up. */
     @Getter
     @Setter
     private boolean settingUpBuyOffer = false;
@@ -78,12 +63,7 @@ public class GEOfferHelper
 
     // ==================== PRICE SET HOTKEYS ====================
 
-    /**
-     * Set the buy price in the GE chatbox input.
-     * Priority: 1) Last margin check sell price (instant buy) → 2) Wiki insta-buy → 3) Best high price
-     *
-     * Called when user presses the "Set Buy Price" hotkey while in the GE price input.
-     */
+    
     public void setBuyPrice()
     {
         clientThread.invokeLater(() -> {
@@ -106,10 +86,7 @@ public class GEOfferHelper
         });
     }
 
-    /**
-     * Set the sell price in the GE chatbox input.
-     * Priority: 1) Last margin check buy price (instant sell) → 2) Wiki insta-sell → 3) Best low price
-     */
+    
     public void setSellPrice()
     {
         clientThread.invokeLater(() -> {
@@ -132,9 +109,7 @@ public class GEOfferHelper
         });
     }
 
-    /**
-     * Set the quantity to the item's GE buy limit.
-     */
+    
     public void setMaxQuantity()
     {
         clientThread.invokeLater(() -> {
@@ -155,10 +130,7 @@ public class GEOfferHelper
 
     // ==================== PRICE RESOLUTION ====================
 
-    /**
-     * Resolve the best buy price for an item.
-     * Uses margin check data if fresh, falls back to API prices.
-     */
+    
     private long resolveBuyPrice(int itemId)
     {
         // Priority 1: Fresh margin check — use the sell check price (= what someone will insta-sell to you)
@@ -189,10 +161,7 @@ public class GEOfferHelper
         return 0;
     }
 
-    /**
-     * Resolve the best sell price for an item.
-     * Uses margin check data if fresh, falls back to API prices.
-     */
+    
     private long resolveSellPrice(int itemId)
     {
         // Priority 1: Fresh margin check — use the buy check price (= what someone will insta-buy from you)
@@ -224,10 +193,7 @@ public class GEOfferHelper
 
     // ==================== GE WIDGET MANIPULATION ====================
 
-    /**
-     * Get the item ID of the item currently being offered in the GE.
-     * Reads from the GE offer setup widget.
-     */
+    
     private int getCurrentOfferItemId()
     {
         // Check each GE slot for an active offer being set up
@@ -267,11 +233,7 @@ public class GEOfferHelper
         return -1;
     }
 
-    /**
-     * Set the price input in the GE chatbox.
-     * Uses RuneLite's VarClientStr to write to the chatbox input field.
-     * The player must still press Enter to confirm — we don't auto-submit.
-     */
+    
     private void setGEPriceInput(long price)
     {
         try
@@ -292,9 +254,7 @@ public class GEOfferHelper
         }
     }
 
-    /**
-     * Set the quantity input in the GE chatbox.
-     */
+    
     private void setGEQuantityInput(int quantity)
     {
         try
@@ -315,9 +275,7 @@ public class GEOfferHelper
 
     // ==================== SLOT TIMERS ====================
 
-    /**
-     * Update slot activity timestamp. Called on every GrandExchangeOfferChanged.
-     */
+    
     public void onOfferChanged(int slot, int itemId)
     {
         slotLastActivity.put(slot, Instant.now());
@@ -327,10 +285,7 @@ public class GEOfferHelper
         }
     }
 
-    /**
-     * Get time since last activity for a slot, in seconds.
-     * Returns -1 if no activity recorded.
-     */
+    
     public long getSlotIdleSeconds(int slot)
     {
         Instant lastActivity = slotLastActivity.get(slot);
@@ -341,10 +296,7 @@ public class GEOfferHelper
         return Instant.now().getEpochSecond() - lastActivity.getEpochSecond();
     }
 
-    /**
-     * Get a human-readable idle time string for a slot.
-     * e.g. "2m 30s", "1h 15m", "3d 2h"
-     */
+    
     public String getSlotIdleString(int slot)
     {
         long seconds = getSlotIdleSeconds(slot);
@@ -367,28 +319,21 @@ public class GEOfferHelper
         return (seconds / 86400) + "d " + ((seconds % 86400) / 3600) + "h";
     }
 
-    /**
-     * Check if a slot has been idle long enough to suggest cancelling.
-     * Default threshold: 15 minutes for active flipping sessions.
-     */
+    
     public boolean isSlotStale(int slot, int thresholdMinutes)
     {
         long seconds = getSlotIdleSeconds(slot);
         return seconds > 0 && seconds > (thresholdMinutes * 60L);
     }
 
-    /**
-     * Check if the GE interface is currently open.
-     */
+    
     public boolean isGEOpen()
     {
         Widget geWidget = client.getWidget(GE_OFFER_CONTAINER, 0);
         return geWidget != null && !geWidget.isHidden();
     }
 
-    /**
-     * Check if the chatbox is in "enter price" or "enter quantity" input mode.
-     */
+    
     public boolean isChatboxInputActive()
     {
         Widget chatboxInput = client.getWidget(WidgetInfo.CHATBOX_FULL_INPUT);
@@ -397,11 +342,7 @@ public class GEOfferHelper
 
     // ==================== MARGIN FRESHNESS ====================
 
-    /**
-     * Get margin freshness level for an item (0-4).
-     * 4 = Fresh (<5 min), 3 = Recent (<30 min), 2 = Aging (<2 hr), 1 = Stale (<4 hr), 0 = Expired
-     * Used by the UI to show color-coded freshness dots.
-     */
+    
     public int getMarginFreshness(int itemId)
     {
         if (accountDataManager == null)
@@ -422,9 +363,7 @@ public class GEOfferHelper
         return 0;                          // expired
     }
 
-    /**
-     * Get freshness display string for UI.
-     */
+    
     public String getFreshnessLabel(int freshness)
     {
         switch (freshness)
@@ -437,10 +376,7 @@ public class GEOfferHelper
         }
     }
 
-    /**
-     * Get freshness color for UI rendering.
-     * Returns an AWT Color appropriate for the freshness level.
-     */
+    
     public java.awt.Color getFreshnessColor(int freshness)
     {
         switch (freshness)

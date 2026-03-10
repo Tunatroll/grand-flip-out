@@ -8,14 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * SmartAdvisor — Unified Intelligence Engine for Awfully Pure
- *
- * Combines signals from all analysis engines into a single, actionable recommendation
- * per item. This is the "brain" that turns raw data into smart trading advice.
- *
- * INFORMATION ONLY — does not automate any trades.
- */
+// Combines signals from all engines into a single recommendation per item.
 @Slf4j
 public class SmartAdvisor {
 
@@ -29,6 +22,8 @@ public class SmartAdvisor {
     private final RiskManager riskManager;
     private final InvestmentHorizonAnalyzer horizonAnalyzer;
     private final PriceHistoryCollector historyCollector;
+    private final ServerIntelligenceConfig serverConfig;
+    private final ServerIntelligenceClient serverClient;
 
     public SmartAdvisor(PriceService priceService,
                         MarketIntelligenceEngine marketIntelligence,
@@ -50,6 +45,13 @@ public class SmartAdvisor {
         this.riskManager = riskManager;
         this.horizonAnalyzer = horizonAnalyzer;
         this.historyCollector = historyCollector;
+
+        // Initialize server-side intelligence support
+        this.serverConfig = new ServerIntelligenceConfig();
+        this.serverClient = new ServerIntelligenceClient(serverConfig);
+
+        log.info("SmartAdvisor initialized with server-side intelligence support - fallback: {}",
+                 serverConfig.getFallbackDescription());
     }
 
     public enum SmartAction {
@@ -118,10 +120,34 @@ public class SmartAdvisor {
         private long timestamp;
     }
 
-    /**
-     * Get a SmartPick analysis for a single item.
-     */
+    
     public SmartPick analyze(int itemId) {
+        // ATTEMPT 1: Try server-side intelligence (PRIMARY)
+        // This keeps proprietary algorithms safe from competitors
+        if (serverConfig.isUseServerSideIntelligence() && serverConfig.isEnableSmartAdvisor()) {
+            try {
+                var serverResult = serverClient.getSmartAdvisor(itemId);
+                if (serverResult.isPresent()) {
+                    // Server result exists - convert and return
+                    return convertServerSmartAdvisor(serverResult.get());
+                }
+            } catch (Exception e) {
+                log.debug("Server SmartAdvisor unavailable for item {}, falling back to local", itemId, e);
+            }
+        }
+
+        // ATTEMPT 2: Fallback to local (ALWAYS AVAILABLE)
+        // If server is down or disabled, use local computation
+        if (!serverConfig.isFallbackToLocalOnError()) {
+            log.warn("Server-side intelligence required but unavailable for item {}", itemId);
+            return null;
+        }
+
+        return analyzeLocal(itemId);
+    }
+
+    
+    private SmartPick analyzeLocal(int itemId) {
         PriceAggregate agg = priceService.getPriceAggregate(itemId);
         if (agg == null) return null;
 
@@ -415,9 +441,7 @@ public class SmartAdvisor {
             .build();
     }
 
-    /**
-     * Get top SmartPicks — the best items to trade right now.
-     */
+    
     public List<SmartPick> getTopPicks(int limit) {
         try {
             // Start with top margin items as candidates
@@ -436,9 +460,7 @@ public class SmartAdvisor {
         }
     }
 
-    /**
-     * Get items to sell/avoid right now.
-     */
+    
     public List<SmartPick> getTopSells(int limit) {
         try {
             List<PriceAggregate> candidates = priceService.getTopByMargin(200, 10);
@@ -456,9 +478,7 @@ public class SmartAdvisor {
         }
     }
 
-    /**
-     * Get a full market overview combining all intelligence.
-     */
+    
     public MarketOverview getMarketOverview() {
         try {
             List<SmartPick> allPicks = getTopPicks(50);
@@ -514,5 +534,53 @@ public class SmartAdvisor {
             log.error("Error generating market overview", e);
             return null;
         }
+    }
+
+    // ==================== SERVER-SIDE INTELLIGENCE CONVERSION ====================
+    // These methods convert server responses to Java SmartAdvisor data structures
+
+    
+    private SmartPick convertServerSmartAdvisor(ServerIntelligenceClient.SmartAdvisorResult serverResult) {
+        if (serverResult == null) return null;
+
+        try {
+            SmartAction action = SmartAction.valueOf(serverResult.action);
+            Confidence confidence = Confidence.valueOf(serverResult.confidence);
+            RiskLevel risk = RiskLevel.valueOf(serverResult.risk);
+
+            return SmartPick.builder()
+                    .itemId(serverResult.itemId)
+                    .itemName(serverResult.itemName)
+                    .smartScore(serverResult.smartScore)
+                    .action(action)
+                    .confidence(confidence)
+                    .risk(risk)
+                    .reasons(serverResult.reasons)
+                    .warnings(serverResult.warnings)
+                    .currentPrice(serverResult.currentPrice)
+                    .estimatedProfitLow(serverResult.estimatedProfitLow)
+                    .estimatedProfitHigh(serverResult.estimatedProfitHigh)
+                    .holdTime(serverResult.holdTime)
+                    .timestamp(serverResult.currentPrice)  // Server timestamp
+                    .build();
+        } catch (Exception e) {
+            log.warn("Failed to convert server SmartAdvisor result: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    
+    public ServerIntelligenceConfig getServerConfig() {
+        return serverConfig;
+    }
+
+    
+    public boolean isUsingServerIntelligence() {
+        return serverConfig.isUseServerSideIntelligence();
+    }
+
+    
+    public boolean isServerIntelligenceAvailable() {
+        return serverConfig.isServerIntelligenceAvailable();
     }
 }

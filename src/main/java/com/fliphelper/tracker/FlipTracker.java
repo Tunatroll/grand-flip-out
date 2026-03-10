@@ -22,14 +22,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-/**
- * Tracks active flips and maintains flip history.
- * Automatically pairs buy/sell transactions to detect completed flips.
- */
+
 @Slf4j
 public class FlipTracker
 {
-    /** Callback for when a flip completes (buy→sell paired). */
     public interface FlipCompleteListener
     {
         void onFlipComplete(FlipItem flip);
@@ -37,7 +33,6 @@ public class FlipTracker
 
     private FlipCompleteListener flipCompleteListener;
 
-    /** Optional debug manager for event instrumentation. */
     @Setter
     private DebugManager debugManager;
 
@@ -65,30 +60,23 @@ public class FlipTracker
     @Getter
     private final AtomicInteger sessionFlipCount = new AtomicInteger(0);
 
-    /** Session start time for GP/hr calculations. */
     @Getter
     private Instant sessionStartTime = Instant.now();
 
-    /** Autosave counter — saves every N transactions to prevent data loss on crash. */
     private final AtomicInteger transactionsSinceLastSave = new AtomicInteger(0);
     private static final int AUTOSAVE_INTERVAL = 3; // Save every 3 transactions
 
-    /** Best single flip profit this session. */
     @Getter
     private final AtomicLong bestFlipProfit = new AtomicLong(0);
 
-    /** Worst single flip profit this session (can be negative). */
     @Getter
     private final AtomicLong worstFlipProfit = new AtomicLong(Long.MAX_VALUE);
 
-    /** Consecutive profitable flips (streak). */
     @Getter
     private final AtomicInteger winStreak = new AtomicInteger(0);
 
-    /** Current streak direction (true = winning, false = losing). */
     private volatile boolean streakPositive = true;
 
-    /** Per-item profit accumulator for the session. */
     @Getter
     private final Map<Integer, ItemStats> itemStatsMap = new ConcurrentHashMap<>();
 
@@ -107,11 +95,7 @@ public class FlipTracker
     // Lock for atomic buy/sell pairing to prevent race conditions
     private final Object transactionLock = new Object();
 
-    /**
-     * Record a GE transaction (buy or sell).
-     * Automatically pairs buys with sells to create flip records.
-     * Uses synchronized block to ensure atomic buy/sell pairing.
-     */
+    
     public void recordTransaction(TradeRecord trade)
     {
         synchronized (transactionLock)
@@ -241,9 +225,7 @@ public class FlipTracker
         }
     }
 
-    /**
-     * Manually add a flip (for retroactive tracking).
-     */
+    
     public void addManualFlip(FlipItem flip)
     {
         if (flip.isComplete())
@@ -263,9 +245,7 @@ public class FlipTracker
         }
     }
 
-    /**
-     * Cancel an active flip.
-     */
+    
     public void cancelFlip(int itemId)
     {
         FlipItem flip = activeFlips.remove(itemId);
@@ -277,9 +257,7 @@ public class FlipTracker
         }
     }
 
-    /**
-     * Get total profit over a time range.
-     */
+    
     public long getProfitSince(Instant since)
     {
         return completedFlips.stream()
@@ -288,9 +266,7 @@ public class FlipTracker
             .sum();
     }
 
-    /**
-     * Get the most profitable items historically.
-     */
+    
     public Map<String, Long> getMostProfitableItems(int limit)
     {
         return completedFlips.stream()
@@ -308,9 +284,7 @@ public class FlipTracker
             ));
     }
 
-    /**
-     * Get flip frequency per item.
-     */
+    
     public Map<String, Long> getFlipFrequency()
     {
         return completedFlips.stream()
@@ -318,9 +292,7 @@ public class FlipTracker
             .collect(Collectors.groupingBy(FlipItem::getItemName, Collectors.counting()));
     }
 
-    /**
-     * Get average profit per flip.
-     */
+    
     public double getAverageProfitPerFlip()
     {
         int flipCount = sessionFlipCount.get();
@@ -331,9 +303,7 @@ public class FlipTracker
         return (double) sessionProfit.get() / flipCount;
     }
 
-    /**
-     * Reset session statistics.
-     */
+    
     public void resetSession()
     {
         sessionProfit.set(0);
@@ -350,9 +320,7 @@ public class FlipTracker
 
     // ==================== ADVANCED ANALYTICS ====================
 
-    /**
-     * Get current GP/hour rate based on session duration.
-     */
+    
     public double getGpPerHour()
     {
         long elapsedMs = Instant.now().toEpochMilli() - sessionStartTime.toEpochMilli();
@@ -361,9 +329,7 @@ public class FlipTracker
         return sessionProfit.get() / Math.max(hours, 0.01);
     }
 
-    /**
-     * Get session duration in a human-readable format.
-     */
+    
     public String getSessionDuration()
     {
         long seconds = Instant.now().getEpochSecond() - sessionStartTime.getEpochSecond();
@@ -372,9 +338,7 @@ public class FlipTracker
         return (seconds / 3600) + "h " + ((seconds % 3600) / 60) + "m";
     }
 
-    /**
-     * Get win rate as percentage.
-     */
+    
     public double getWinRate()
     {
         int total = sessionFlipCount.get();
@@ -386,9 +350,7 @@ public class FlipTracker
         return (double) wins / total * 100.0;
     }
 
-    /**
-     * Get the top N most profitable items this session.
-     */
+    
     public List<ItemStats> getTopItems(int n)
     {
         return itemStatsMap.values().stream()
@@ -397,9 +359,7 @@ public class FlipTracker
             .collect(Collectors.toList());
     }
 
-    /**
-     * Per-item statistics tracker.
-     */
+    
     @Data
     public static class ItemStats
     {

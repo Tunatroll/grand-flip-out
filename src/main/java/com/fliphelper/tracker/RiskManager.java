@@ -12,9 +12,7 @@ import java.util.*;
 @Slf4j
 public class RiskManager {
 
-    /**
-     * Calculate recommended position size based on risk parameters
-     */
+    
     public long calculatePositionSize(long totalCapital, long itemPrice, int geLimit, double maxCapitalPercent) {
         if (itemPrice <= 0 || totalCapital <= 0) {
             return 0;
@@ -33,10 +31,7 @@ public class RiskManager {
         return recommendedSize;
     }
 
-    /**
-     * Get diversification score (0-100) based on how spread out capital is
-     * Higher score = better diversification
-     */
+    
     public int getDiversificationScore(Map<Integer, FlipItem> activeFlips) {
         if (activeFlips == null || activeFlips.isEmpty()) {
             return 100; // No capital deployed = no concentration risk
@@ -71,9 +66,7 @@ public class RiskManager {
         return score;
     }
 
-    /**
-     * Check if a position should be stopped out based on loss threshold
-     */
+    
     public boolean shouldStopLoss(int itemId, long currentPrice, long buyPrice, double maxLossPercent) {
         if (buyPrice <= 0 || currentPrice < 0) {
             return false;
@@ -90,9 +83,7 @@ public class RiskManager {
         return shouldStop;
     }
 
-    /**
-     * Get maximum recommended capital per slot
-     */
+    
     public long getMaxCapitalPerItem(long totalCapital, int totalSlots) {
         if (totalSlots <= 0) {
             return 0;
@@ -102,9 +93,7 @@ public class RiskManager {
         return maxPerSlot;
     }
 
-    /**
-     * Perform comprehensive risk assessment on an item
-     */
+    
     public RiskAssessment getRiskAssessment(PriceAggregate agg) {
         if (agg == null) {
             return RiskAssessment.builder()
@@ -191,17 +180,13 @@ public class RiskManager {
                 .build();
     }
 
-    /**
-     * Calculate position size based on daily volume
-     */
+    
     private long calculatePositionSizeFromVolume(long dailyVolume) {
         // Recommend at most 10% of daily volume to ensure quick exits
         return Math.max(1, dailyVolume / 10);
     }
 
-    /**
-     * Calculate suggested stop loss percentage
-     */
+    
     private double calculateSuggestedStopLoss(long spread, long avgPrice) {
         if (avgPrice <= 0) {
             return 5.0; // Default 5% stop loss
@@ -211,9 +196,7 @@ public class RiskManager {
         return Math.max(5.0, spreadPercent * 1.5);
     }
 
-    /**
-     * Risk level enumeration with colors and descriptions
-     */
+    
     public enum RiskLevel {
         LOW("Low Risk", "#00AA00", "Safe to trade with standard position sizing"),
         MEDIUM("Medium Risk", "#FFAA00", "Moderate risk - reduce position size by 25%"),
@@ -243,9 +226,7 @@ public class RiskManager {
         }
     }
 
-    /**
-     * Risk assessment result
-     */
+    
     @Data
     @Builder
     @AllArgsConstructor

@@ -2,9 +2,7 @@ package com.fliphelper.model;
 
 import lombok.Data;
 
-/**
- * Maps item IDs to metadata from the OSRS Wiki mapping endpoint.
- */
+
 @Data
 public class ItemMapping
 {

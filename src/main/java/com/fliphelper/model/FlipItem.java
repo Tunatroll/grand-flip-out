@@ -32,9 +32,7 @@ public class FlipItem
         return revenue - cost - totalTax;
     }
 
-    /**
-     * Get the GE tax for this flip.
-     */
+    
     public long getTax()
     {
         if (sellPrice <= 0)
@@ -45,17 +43,13 @@ public class FlipItem
         return taxPerItem * quantity;
     }
 
-    /**
-     * Get profit per item (after tax).
-     */
+    
     public long getProfitPerItem()
     {
         return quantity > 0 ? getProfit() / quantity : 0;
     }
 
-    /**
-     * Get return on investment as percentage.
-     */
+    
     public double getRoi()
     {
         if (buyPrice <= 0 || quantity <= 0)

@@ -16,16 +16,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/**
- * Per-account data persistence — the AP equivalent of Flipping Utilities'
- * .runelite/flipping/<username>.json system.
- *
- * Each OSRS account gets its own JSON file at:
- *   .runelite/awfully-pure/accounts/<rsn_sanitized>.json
- *
- * Auto-detects the active account via onGameStateChanged → client.getLocalPlayer().getName().
- * Supports switching between accounts with a dropdown in the panel.
- */
+
 @Slf4j
 public class AccountDataManager
 {
@@ -35,11 +26,9 @@ public class AccountDataManager
     private final File accountsDir;
     private final Gson gson;
 
-    /** Currently active RSN (set on login, null if logged out). */
     @Getter
     private String activeAccount;
 
-    /** All loaded account data, keyed by sanitized RSN. */
     private final Map<String, AccountData> loadedAccounts = new ConcurrentHashMap<>();
 
     public AccountDataManager(File dataDir, Gson gson)
@@ -51,10 +40,7 @@ public class AccountDataManager
 
     // ==================== ACCOUNT LIFECYCLE ====================
 
-    /**
-     * Called when a player logs in. Auto-creates account file if new.
-     * Wired from AwfullyPurePlugin.onGameStateChanged().
-     */
+    
     public void onAccountLogin(String rsn)
     {
         if (rsn == null || rsn.isEmpty())
@@ -99,9 +85,7 @@ public class AccountDataManager
         }
     }
 
-    /**
-     * Called on logout. Saves current account data to disk.
-     */
+    
     public void onAccountLogout()
     {
         if (activeAccount != null)
@@ -113,9 +97,7 @@ public class AccountDataManager
         }
     }
 
-    /**
-     * Save all loaded accounts to disk (call on plugin shutdown).
-     */
+    
     public void saveAll()
     {
         for (String key : loadedAccounts.keySet())
@@ -126,9 +108,7 @@ public class AccountDataManager
 
     // ==================== TRADE RECORDING ====================
 
-    /**
-     * Record a trade for the active account.
-     */
+    
     public void recordTrade(TradeRecord trade)
     {
         AccountData data = getActiveAccountData();
@@ -153,11 +133,7 @@ public class AccountDataManager
         }
     }
 
-    /**
-     * Record a margin check result for the active account.
-     * This is what powers the price-set hotkeys — when user presses "E",
-     * we pull the last margin check price for the current item.
-     */
+    
     public void recordMarginCheck(int itemId, long buyCheckPrice, long sellCheckPrice)
     {
         AccountData data = getActiveAccountData();
@@ -176,9 +152,7 @@ public class AccountDataManager
         data.marginChecks.put(itemId, result);
     }
 
-    /**
-     * Get the last margin check for an item on the active account.
-     */
+    
     public MarginCheckResult getLastMarginCheck(int itemId)
     {
         AccountData data = getActiveAccountData();
@@ -246,10 +220,7 @@ public class AccountDataManager
 
     // ==================== ACCOUNT ANALYTICS ====================
 
-    /**
-     * Get the top N items this account flips most frequently.
-     * Used by suggestions engine to prioritize familiar items.
-     */
+    
     public List<Map.Entry<Integer, Integer>> getTopFlippedItems(int limit)
     {
         AccountData data = getActiveAccountData();
@@ -270,10 +241,7 @@ public class AccountDataManager
             .collect(java.util.stream.Collectors.toList());
     }
 
-    /**
-     * Get total profit for this account across all sessions.
-     * Calculates from paired buy/sell records in trade history.
-     */
+    
     public long getLifetimeProfit()
     {
         AccountData data = getActiveAccountData();
@@ -284,9 +252,7 @@ public class AccountDataManager
         return data.totalProfit;
     }
 
-    /**
-     * Update the running profit total when a flip completes.
-     */
+    
     public void addCompletedFlipProfit(long profit)
     {
         AccountData data = getActiveAccountData();
@@ -297,10 +263,7 @@ public class AccountDataManager
         }
     }
 
-    /**
-     * Get all fresh margin checks for the active account.
-     * Used by the suggestions panel to show "checked" items.
-     */
+    
     public Map<Integer, MarginCheckResult> getAllFreshMarginChecks()
     {
         AccountData data = getActiveAccountData();
@@ -360,10 +323,7 @@ public class AccountDataManager
         }
     }
 
-    /**
-     * Sanitize RSN for use as filename.
-     * Replaces spaces with underscores, removes special chars, lowercases.
-     */
+    
     private String sanitizeRsn(String rsn)
     {
         return rsn.toLowerCase()
@@ -402,9 +362,7 @@ public class AccountDataManager
             return sellCheckPrice - buyCheckPrice;
         }
 
-        /**
-         * Is this margin check still fresh? (within 4 hours)
-         */
+        
         public boolean isFresh()
         {
             return timestamp != null &&

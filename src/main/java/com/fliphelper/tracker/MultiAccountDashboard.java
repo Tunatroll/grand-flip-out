@@ -14,21 +14,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/**
- * MultiAccountDashboard for "Awfully Pure" OSRS GE flipping RuneLite plugin.
- *
- * This dashboard provides a READ-ONLY view of portfolio positions across multiple
- * accounts for personal tracking purposes only.
- *
- * PLUGIN HUB COMPLIANCE:
- * - DISPLAY ONLY: No cross-account coordination, suggestions, or automated actions.
- * - Data stored locally only. No account credentials or RSNs are stored or transmitted.
- * - Display names are user-provided labels for privacy (never actual RSNs).
- * - No automated trading functions. All buying/selling is manual and player-initiated.
- * - Multi-logging is permitted by Jagex rules (allowed since 2014).
- * - This tool does NOT suggest which account to buy/sell on, does NOT coordinate
- *   trades across accounts, and does NOT facilitate cross-account arbitrage.
- */
+
 @Slf4j
 public class MultiAccountDashboard
 {
@@ -49,12 +35,7 @@ public class MultiAccountDashboard
 		loadFromFile();
 	}
 
-	/**
-	 * Adds a new account to the dashboard. Max 10 accounts.
-	 *
-	 * @param account The Account to add
-	 * @return true if added successfully, false if at capacity
-	 */
+	
 	public boolean addAccount(Account account)
 	{
 		if (accounts.size() >= MAX_ACCOUNTS)
@@ -70,12 +51,7 @@ public class MultiAccountDashboard
 		return true;
 	}
 
-	/**
-	 * Removes an account from the dashboard.
-	 *
-	 * @param accountName The display name of the account to remove
-	 * @return true if removed, false if not found
-	 */
+	
 	public boolean removeAccount(String accountName)
 	{
 		if (accounts.remove(accountName) != null)
@@ -87,32 +63,19 @@ public class MultiAccountDashboard
 		return false;
 	}
 
-	/**
-	 * Retrieves a specific account by display name.
-	 *
-	 * @param accountName The display name
-	 * @return The Account, or null if not found
-	 */
+	
 	public Account getAccount(String accountName)
 	{
 		return accounts.get(accountName);
 	}
 
-	/**
-	 * Returns all tracked accounts.
-	 *
-	 * @return Unmodifiable collection of accounts
-	 */
+	
 	public Collection<Account> getAllAccounts()
 	{
 		return Collections.unmodifiableCollection(accounts.values());
 	}
 
-	/**
-	 * Calculates aggregate statistics across all accounts.
-	 *
-	 * @return AggregateStats with portfolio totals
-	 */
+	
 	public AggregateStats getAggregateStats()
 	{
 		long totalCash = 0;
@@ -162,13 +125,7 @@ public class MultiAccountDashboard
 			.build();
 	}
 
-	/**
-	 * Determines which accounts can currently purchase a specific item
-	 * based on their 4-hour GE limit availability.
-	 *
-	 * @param itemId The item ID to check
-	 * @return Map of account name to remaining GE limit quantity
-	 */
+	
 	public Map<String, Integer> getGeLimitAvailability(int itemId)
 	{
 		Map<String, Integer> availability = new HashMap<>();
@@ -210,12 +167,7 @@ public class MultiAccountDashboard
 	// coordinated market manipulation. Users should make independent decisions
 	// per account. Use getGeLimitAvailability() for display-only limit info.
 
-	/**
-	 * Returns a portfolio heatmap showing item distribution across accounts
-	 * and concentration/overlap risks.
-	 *
-	 * @return PortfolioHeatmap with risk analysis
-	 */
+	
 	public PortfolioHeatmap getPortfolioHeatmap()
 	{
 		Map<Integer, ItemDistribution> itemMap = new HashMap<>();
@@ -280,17 +232,13 @@ public class MultiAccountDashboard
 	// Aggregating buying power across accounts could facilitate coordinated
 	// market cornering. Use getGeLimitAvailability() per-account instead.
 
-	/**
-	 * Returns a PortfolioRebalancer for analyzing diversification and cross-account arbitrage.
-	 */
+	
 	public PortfolioRebalancer createRebalancer()
 	{
 		return new PortfolioRebalancer(this);
 	}
 
-	/**
-	 * Saves the current dashboard state to JSON file.
-	 */
+	
 	public void saveToFile()
 	{
 		try
@@ -306,9 +254,7 @@ public class MultiAccountDashboard
 		}
 	}
 
-	/**
-	 * Loads the dashboard state from JSON file.
-	 */
+	
 	private void loadFromFile()
 	{
 		if (Files.exists(dataFilePath))
@@ -333,73 +279,51 @@ public class MultiAccountDashboard
 
 	// ==================== Inner Classes ====================
 
-	/**
-	 * Represents a single account in the multi-account portfolio.
-	 *
-	 * Display name is a user-provided label for privacy (not the actual RSN).
-	 */
+	
 	@Data
 	@Builder
 	@AllArgsConstructor
 	public static class Account
 	{
-		/** User-provided display name (NOT the actual RuneScape name for privacy) */
 		private String accountName;
 
-		/** Current cash stack in GP */
 		private long cashStack;
 
-		/** Total estimated bank value in GP */
 		private long totalBankValue;
 
-		/** Map of item positions (itemId -> AccountPosition) */
 		@Builder.Default
 		private Map<Integer, AccountPosition> positions = new ConcurrentHashMap<>();
 
-		/** Map of GE limit reset times per item (itemId -> Instant) */
 		@Builder.Default
 		private Map<Integer, Instant> geLimitResets = new ConcurrentHashMap<>();
 
-		/** Number of GE trading slots currently in use (0-8) */
 		private int totalGeSlotsUsed;
 
-		/** Whether this account has members status */
 		private boolean isMembers;
 
-		/** Last time this account was active */
 		private Instant lastActive;
 	}
 
-	/**
-	 * Represents a single position (buy order/holding) on an account.
-	 */
+	
 	@Data
 	@Builder
 	@AllArgsConstructor
 	public static class AccountPosition
 	{
-		/** GE item ID */
 		private int itemId;
 
-		/** Item name */
 		private String itemName;
 
-		/** Price paid per unit */
 		private long buyPrice;
 
-		/** Quantity held */
 		private int quantity;
 
-		/** When this position was opened */
 		private Instant buyTime;
 
-		/** Current market price (updated from price service) */
 		private long currentPrice;
 
-		/** Unrealized profit/loss in GP */
 		private double unrealizedPnL;
 
-		/** Current state of the position */
 		private PositionState state;
 
 		public enum PositionState
@@ -410,9 +334,7 @@ public class MultiAccountDashboard
 		}
 	}
 
-	/**
-	 * Analyzes portfolio for rebalancing opportunities and diversification issues.
-	 */
+	
 	@Slf4j
 	public static class PortfolioRebalancer
 	{
@@ -423,11 +345,7 @@ public class MultiAccountDashboard
 			this.dashboard = dashboard;
 		}
 
-		/**
-		 * Gets per-account diversification warnings (display-only, no cross-account suggestions).
-		 *
-		 * @return List of warning strings for individual accounts
-		 */
+		
 		public List<String> getDiversificationWarnings()
 		{
 			List<String> warnings = new ArrayList<>();
@@ -476,26 +394,19 @@ public class MultiAccountDashboard
 		}
 	}
 
-	/**
-	 * Portfolio heatmap showing concentration and overlap risks.
-	 */
+	
 	@Data
 	@Builder
 	public static class PortfolioHeatmap
 	{
-		/** Item ID -> which accounts hold it and their allocation */
 		private Map<Integer, ItemDistribution> itemDistribution;
 
-		/** Account name -> list of item IDs held */
 		private Map<String, List<Integer>> accountHoldings;
 
-		/** Concentration risk warnings */
 		private List<String> concentrationRisks;
 	}
 
-	/**
-	 * Shows which accounts hold a specific item.
-	 */
+	
 	@Data
 	@Builder
 	public static class ItemDistribution
@@ -506,9 +417,7 @@ public class MultiAccountDashboard
 		private Set<String> accountsHolding = new HashSet<>();
 	}
 
-	/**
-	 * Aggregate statistics across all accounts.
-	 */
+	
 	@Data
 	@Builder
 	public static class AggregateStats
@@ -522,9 +431,7 @@ public class MultiAccountDashboard
 		private long averageGPPerHour;
 	}
 
-	/**
-	 * Snapshot for JSON serialization/deserialization.
-	 */
+	
 	@Data
 	public static class DashboardSnapshot
 	{

@@ -19,18 +19,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
-/**
- * In-game debug overlay showing API status, memory usage, data age, and performance metrics.
- *
- * Toggleable via config (enableDebugOverlay).
- * Shows:
- * - API status (last successful call time, error count)
- * - Memory usage (heap used/max)
- * - Price data age (seconds since last refresh)
- * - Active flip count
- * - Items tracked count
- * - FPS impact (execution time of last overlay render)
- */
+
 @Slf4j
 public class DebugOverlay extends Overlay
 {
@@ -208,11 +197,7 @@ public class DebugOverlay extends Overlay
             .build());
     }
 
-    /**
-     * Update API call time tracking.
-     *
-     * @param success Whether the API call was successful
-     */
+    
     public void recordAPICall(boolean success)
     {
         this.lastApiCallTime = Instant.now();
@@ -222,9 +207,7 @@ public class DebugOverlay extends Overlay
         }
     }
 
-    /**
-     * Reset API error count (e.g., after successful refresh).
-     */
+    
     public void resetApiErrorCount()
     {
         apiErrorCount = 0;

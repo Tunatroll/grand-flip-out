@@ -16,17 +16,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
 
-/**
- * Profit Chart Panel — visual GP/hour and cumulative profit over time.
- *
- * Renders a custom Java2D chart showing:
- *   - Cumulative session profit line (green/red)
- *   - Individual flip dots with tooltips
- *   - GP/hour trend line
- *   - Session summary stats at top
- *
- * No external dependencies — pure Java2D rendering.
- */
+
 public class ProfitChartPanel extends JPanel
 {
     private final FlipTracker flipTracker;
@@ -173,7 +163,6 @@ public class ProfitChartPanel extends JPanel
     //  DATA + UPDATE
     // --------------------------------------------------------─
 
-    /** Call this whenever flip data changes. Thread-safe. */
     public void update()
     {
         SwingUtilities.invokeLater(() -> {
@@ -475,13 +464,7 @@ public class ProfitChartPanel extends JPanel
 
     private static String formatGp(long value)
     {
-        if (Math.abs(value) >= 1_000_000_000L)
-            return String.format("%.1fB", value / 1_000_000_000.0);
-        if (Math.abs(value) >= 1_000_000L)
-            return String.format("%.1fM", value / 1_000_000.0);
-        if (Math.abs(value) >= 1_000L)
-            return String.format("%.1fK", value / 1_000.0);
-        return value + "gp";
+        return String.format("%,d", value);
     }
 
     private static String formatGpShort(long value)

@@ -21,9 +21,7 @@ public class SlotOptimizer {
         initializeSlots();
     }
 
-    /**
-     * Initialize all 8 GE slots as empty
-     */
+    
     private void initializeSlots() {
         for (int i = 0; i < TOTAL_GE_SLOTS; i++) {
             slotStates.put(i, SlotState.builder()
@@ -33,16 +31,12 @@ public class SlotOptimizer {
         }
     }
 
-    /**
-     * Get the states of all GE slots
-     */
+    
     public Map<Integer, SlotState> getSlotStates() {
         return new ConcurrentHashMap<>(slotStates);
     }
 
-    /**
-     * Update a slot's state
-     */
+    
     public void updateSlot(int slot, SlotState state) {
         if (slot < 0 || slot >= TOTAL_GE_SLOTS) {
             log.warn("Invalid slot number: {}", slot);
@@ -53,10 +47,7 @@ public class SlotOptimizer {
         log.debug("Updated slot {} to state: {}", slot, state.state);
     }
 
-    /**
-     * Suggest optimal slot allocation based on flip suggestions and available capital
-     * Uses greedy knapsack algorithm - allocates highest profit/capital ratio items first
-     */
+    
     public List<SlotAllocation> suggestSlotAllocation(
             List<FlipSuggestionEngine.FlipSuggestion> suggestions,
             long totalCapital) {
@@ -116,18 +107,14 @@ public class SlotOptimizer {
         return allocations;
     }
 
-    /**
-     * Get the count of non-empty slots
-     */
+    
     public int getActiveSlotCount() {
         return (int) slotStates.values().stream()
                 .filter(state -> state.state != SlotState.State.EMPTY)
                 .count();
     }
 
-    /**
-     * Get total capital currently in use across all slots
-     */
+    
     public long getTotalCapitalInUse() {
         return slotStates.values().stream()
                 .filter(state -> state.state == SlotState.State.BUYING || state.state == SlotState.State.BOUGHT)
@@ -135,9 +122,7 @@ public class SlotOptimizer {
                 .sum();
     }
 
-    /**
-     * Get expected hourly profit across all active slots
-     */
+    
     public long getExpectedHourlyProfit() {
         return slotStates.values().stream()
                 .filter(state -> state.state != SlotState.State.EMPTY)
@@ -145,9 +130,7 @@ public class SlotOptimizer {
                 .sum();
     }
 
-    /**
-     * Get a list of available empty slots
-     */
+    
     public List<Integer> getAvailableSlots() {
         List<Integer> available = new ArrayList<>();
         slotStates.values().stream()
@@ -156,9 +139,7 @@ public class SlotOptimizer {
         return available;
     }
 
-    /**
-     * Inner class representing the state of a GE slot
-     */
+    
     @Data
     @Builder
     @AllArgsConstructor
@@ -187,9 +168,7 @@ public class SlotOptimizer {
         }
     }
 
-    /**
-     * Result of slot allocation suggestion
-     */
+    
     @Data
     @Builder
     @AllArgsConstructor
@@ -203,9 +182,7 @@ public class SlotOptimizer {
         private FlipSuggestionEngine.FlipSuggestion suggestion;
     }
 
-    /**
-     * Helper class for ranking suggestions
-     */
+    
     private static class SuggestionWithRatio {
         final FlipSuggestionEngine.FlipSuggestion suggestion;
         final double ratio;

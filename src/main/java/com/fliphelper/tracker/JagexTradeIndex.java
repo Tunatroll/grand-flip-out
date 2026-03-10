@@ -13,27 +13,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/**
- * JTI — Jagex Trade Index
- *
- * A composite real-time market intelligence score for every tradeable item.
- * JTI fuses six sub-signals into a single 0–100 actionable number:
- *
- *   1. FRESHNESS  (0-15)  — How recent is the price data? Stale data = lower score.
- *   2. LIQUIDITY  (0-20)  — Volume relative to GE limit. High liquidity = fast fills.
- *   3. MARGIN     (0-20)  — Net margin after tax as % of buy price. The flip profit signal.
- *   4. MOMENTUM   (0-15)  — 5m avg vs 1h avg price drift. Detects trends early.
- *   5. STABILITY  (0-15)  — Inverse of spread volatility. Stable margins = reliable flips.
- *   6. VELOCITY   (0-15)  — Estimated turnover speed. How fast can you cycle the limit?
- *
- * The final JTI is the sum of all sub-scores, giving a 0-100 composite.
- * Items with JTI > 70 are strong opportunities; 40-70 are decent; below 40 are risky.
- *
- * Additionally, JTI produces:
- *   - Predicted profit timeline (per hour, per 4h cycle, per day)
- *   - Confidence interval based on data quality
- *   - Market regime classification (trending, mean-reverting, volatile, dead)
- */
+
 @Slf4j
 public class JagexTradeIndex
 {
@@ -48,11 +28,7 @@ public class JagexTradeIndex
         this.priceService = priceService;
     }
 
-    /**
-     * Record current prices for velocity tracking. Call this on each refresh cycle.
-     *
-     * <p>Maintains a rolling window of 30 price points per item for velocity calculations.</p>
-     */
+    
     public void recordTick()
     {
         Instant now = Instant.now();
@@ -83,11 +59,7 @@ public class JagexTradeIndex
         }
     }
 
-    /**
-     * Compute JTI scores for ALL items. Returns sorted by score descending.
-     *
-     * <p>Filters out items with null aggregates or invalid JTI results.</p>
-     */
+    
     public List<JTIResult> computeAll()
     {
         List<JTIResult> results = new ArrayList<>();
@@ -112,12 +84,7 @@ public class JagexTradeIndex
         return results;
     }
 
-    /**
-     * Compute JTI for a single item.
-     *
-     * <p>Returns null if item has insufficient data or invalid prices.
-     * Minimum volume threshold: 3-5 trades per 5min window (30+ per hour) is considered liquid.</p>
-     */
+    
     public JTIResult compute(PriceAggregate agg)
     {
         if (agg == null) return null;

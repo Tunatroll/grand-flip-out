@@ -9,35 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Profile & Account Client — manages user accounts, authentication,
- * and feature tier gating within the RuneLite plugin.
- *
- * <h3>Account System</h3>
- * Players create a AP profile (no email required — just a display name).
- * They receive a private API key that authenticates all future requests.
- * Characters (RSNs) are linked to the profile for multi-account P&L tracking.
- *
- * <h3>Tier System (Paywall / Bot Deterrent)</h3>
- * Features are gated behind tiers to:
- *   1. Prevent bots from flooding the system with free accounts
- *   2. Fund server infrastructure for the P2P relay network
- *   3. Reward paying users with advanced analytics
- *
- * Tiers:
- *   - FREE:    Basic flip tracking, price lookup, manual margin checks
- *   - PRO:     Smart suggestions, dump detection, Z-Score alerts, profile P&L
- *   - ELITE:   Multi-account dashboard, market intelligence, bot economy tracker,
- *              investment horizon analysis, priority relay access, API access
- *
- * Tier validation happens server-side. The plugin caches the tier locally
- * and re-validates every 10 minutes to avoid hammering the backend.
- *
- * <h3>P2P Integration</h3>
- * All profile operations route through PeerNetwork. If the primary server
- * is down, the plugin automatically fails over to another relay that has
- * the user's profile (profiles are replicated across federated relays).
- */
+
 @Slf4j
 public class ProfileClient
 {
@@ -65,13 +37,7 @@ public class ProfileClient
 
     // --- Account Lifecycle ---
 
-    /**
-     * Create a new AP account from within the plugin.
-     * Returns the API key that the user should save in their config.
-     *
-     * @param displayName Player's chosen display name (max 32 chars)
-     * @return API key string, or null on failure
-     */
+    
     public String createAccount(String displayName)
     {
         String json = gson.toJson(Map.of("displayName", displayName));
@@ -108,13 +74,7 @@ public class ProfileClient
         return null;
     }
 
-    /**
-     * Login with an existing API key.
-     * Fetches profile data and validates tier.
-     *
-     * @param key API key from config
-     * @return true if login succeeded
-     */
+    
     public boolean login(String key)
     {
         if (key == null || key.trim().isEmpty())
@@ -211,9 +171,7 @@ public class ProfileClient
         }
     }
 
-    /**
-     * Logout — clear cached profile data.
-     */
+    
     public void logout()
     {
         this.apiKey = null;
@@ -225,9 +183,7 @@ public class ProfileClient
         log.info("AP logged out");
     }
 
-    /**
-     * Check if the user is currently logged in.
-     */
+    
     public boolean isLoggedIn()
     {
         return apiKey != null && profileId != null;
@@ -235,10 +191,7 @@ public class ProfileClient
 
     // --- Tier Gating ---
 
-    /**
-     * Check if the user has access to a specific feature.
-     * Re-validates tier from the server if cache is stale.
-     */
+    
     public boolean hasFeature(Feature feature)
     {
         // Free features are always available
@@ -262,9 +215,7 @@ public class ProfileClient
         return tier.level >= feature.requiredTier.level;
     }
 
-    /**
-     * Get a user-friendly message explaining why a feature is locked.
-     */
+    
     public String getUpgradeMessage(Feature feature)
     {
         if (!isLoggedIn())
@@ -275,9 +226,7 @@ public class ProfileClient
             + "Upgrade at api.awfullypure.com/upgrade";
     }
 
-    /**
-     * Refresh tier from server.
-     */
+    
     private void refreshTier()
     {
         if (apiKey == null)
@@ -309,9 +258,7 @@ public class ProfileClient
 
     // --- Character Management ---
 
-    /**
-     * Link an RS character (RSN) to the profile.
-     */
+    
     public boolean addCharacter(String rsn)
     {
         if (!isLoggedIn() || rsn == null || rsn.trim().isEmpty())
@@ -344,10 +291,7 @@ public class ProfileClient
         return false;
     }
 
-    /**
-     * Log a completed flip to the user's profile.
-     * Routes through PeerNetwork for failover.
-     */
+    
     public void logFlip(int itemId, String itemName, long buyPrice, long sellPrice, int quantity, String character)
     {
         if (!isLoggedIn())
@@ -381,9 +325,7 @@ public class ProfileClient
 
     // --- Profile Data Access ---
 
-    /**
-     * Fetch full profile from server (authenticated).
-     */
+    
     private String getAuthenticatedProfile()
     {
         if (apiKey == null)
@@ -398,12 +340,7 @@ public class ProfileClient
         return peerNetwork.postToBestPeer("/api/profile/me", "{}", headers);
     }
 
-    /**
-     * Fetch P&L stats for a given time period.
-     *
-     * @param days Number of days to look back (default 30)
-     * @return JSON string of stats, or null on failure
-     */
+    
     public String getStats(int days)
     {
         if (!isLoggedIn())
@@ -414,9 +351,7 @@ public class ProfileClient
         return peerNetwork.postToBestPeer("/api/profile/stats?days=" + days, "{}", headers);
     }
 
-    /**
-     * Fetch flip history (paginated).
-     */
+    
     public String getFlipHistory(int page, int limit, String character)
     {
         if (!isLoggedIn())
@@ -443,10 +378,7 @@ public class ProfileClient
 
     // --- Enums & Models ---
 
-    /**
-     * Account tiers — each tier unlocks progressively more features.
-     * Higher level = more access. Tier validation is server-authoritative.
-     */
+    
     public enum AccountTier
     {
         FREE(0, "Free"),
@@ -463,11 +395,7 @@ public class ProfileClient
         }
     }
 
-    /**
-     * Feature gate definitions.
-     * Each feature maps to a required tier.
-     * The plugin checks hasFeature(Feature.X) before enabling functionality.
-     */
+    
     public enum Feature
     {
         // FREE tier — basic functionality

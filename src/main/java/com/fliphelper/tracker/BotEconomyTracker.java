@@ -12,24 +12,8 @@ import java.util.stream.Collectors;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 
-/**
- * BotEconomyTracker - Supply Chain & Market Disruption Analyzer for Awfully Pure RuneLite Plugin
- *
- * This tracker analyzes publicly available GE price and volume data from the OSRS Wiki
- * real-time prices API to detect supply disruptions, volume anomalies, and cyclical
- * market patterns. It models supply-side dynamics (resource gathering rates, item sinks,
- * and production pipelines) to help players anticipate price movements.
- *
- * COMPLIANCE NOTE:
- * - Uses ONLY publicly available OSRS Wiki API data (prices.runescape.wiki)
- * - Does NOT interact with any third-party software or automation tools
- * - Does NOT automate any game actions — all trading is manual
- * - Analysis is purely informational, equivalent to reading price charts
- * - All players have equal access to the same public market data
- *
- * @author Awfully Pure
- * @version 1.0
- */
+// Analyzes supply shocks and market phases using Wiki price data.
+// Helps detect which items are being farmed/dumped by analyzing volume patterns.
 @Slf4j
 public class BotEconomyTracker {
 
@@ -42,50 +26,23 @@ public class BotEconomyTracker {
     private final BloodEssenceTracker bloodEssenceTracker;
     private final MarketHealthIndex marketHealth;
 
-    /**
-     * Enum representing the six phases of the supply-side lifecycle
-     * (F2P resource gatherers progress through these stages)
-     */
+    // Supply-side lifecycle phases
     public enum BotPhase {
-        F2P_FRESH,           // Low-level F2P resource gathering activity
-        F2P_LEVELED,         // Mid-level F2P resource gathering activity
-        F2P_BOND_READY,      // F2P accounts accumulating capital for bonds
-        P2P_EARLY,           // Early P2P resource gathering and combat drops
-        P2P_MID,             // Mid-tier P2P slayer and PvM drops
-        P2P_LATE             // High-tier PvM drops (Zulrah, Vorkath, Nex)
+        F2P_FRESH, F2P_LEVELED, F2P_BOND_READY, P2P_EARLY, P2P_MID, P2P_LATE
     }
 
-    /**
-     * Enum representing resource gathering activities that drive supply
-     */
     public enum BotActivity {
         WOODCUTTING, FISHING, MINING, COMBAT, SLAYER, BOSSING, RUNECRAFT, FLETCHING, HERBLORE
     }
 
-    /**
-     * Pipeline stages representing the overall supply-side market state
-     */
     public enum PipelineStage {
-        BOTS_BANNED,           // Post-disruption supply shock, items spiking
-        F2P_REBUILDING,        // F2P supply slowly recovering
-        F2P_SATURATED,         // F2P supply high, capital flowing to P2P
-        P2P_TRANSITION,        // Capital transitioning into P2P economy
-        P2P_FLOODING,          // P2P supply elevated, prices declining
-        EQUILIBRIUM            // Market stable, supply/demand balanced
+        BOTS_BANNED, F2P_REBUILDING, F2P_SATURATED, P2P_TRANSITION, P2P_FLOODING, EQUILIBRIUM
     }
 
-    /**
-     * Time horizons for trading recommendations
-     */
     public enum TimeHorizon {
-        SHORT_TERM,   // Hours to 1 day
-        MEDIUM_TERM,  // 1-7 days
-        LONG_TERM     // 7+ days
+        SHORT_TERM, MEDIUM_TERM, LONG_TERM
     }
 
-    /**
-     * Trade action types
-     */
     public enum TradeAction {
         BUY, SELL, HOLD, AVOID
     }
@@ -103,10 +60,8 @@ public class BotEconomyTracker {
         initializeBotItemDatabase();
     }
 
-    /**
-     * Initialize the complete bot item database with all bot-farmed items and their profiles
-     */
     private void initializeBotItemDatabase() {
+        // TODO: Consider adding more P2P_LATE items (zulrah, vorkath, nex uniques)
         // F2P_FRESH Phase Items
         botItemDatabase.put(1739, BotItemProfile.builder()
             .itemId(1739).itemName("Cowhide")
@@ -599,74 +554,45 @@ public class BotEconomyTracker {
         log.info("Initialized BotEconomyTracker with {} bot-affected items", botItemDatabase.size());
     }
 
-    /**
-     * Get the bot item profile for a specific item ID
-     */
     public BotItemProfile getBotItemProfile(int itemId) {
         return botItemDatabase.get(itemId);
     }
 
-    /**
-     * Get all bot-affected items in the database
-     */
     public Collection<BotItemProfile> getAllBotItems() {
         return botItemDatabase.values();
     }
 
-    /**
-     * Check if an item is in the bot-affected database
-     */
     public boolean isBotAffectedItem(int itemId) {
         return botItemDatabase.containsKey(itemId);
     }
 
-    /**
-     * Get the SupplyShockDetector for analyzing ban waves
-     */
     public SupplyShockDetector getSupplyShockDetector() {
         return supplyShockDetector;
     }
 
-    /**
-     * Get the F2P→P2P Pipeline Tracker
-     */
     public F2PToPPipelineTracker getPipelineTracker() {
         return pipelineTracker;
     }
 
-    /**
-     * Get the Profit Strategy analyzer
-     */
     public BotWaveProfitStrategy getProfitStrategy() {
         return profitStrategy;
     }
 
-    /**
-     * Get the Yew Bow Alch Chain Tracker
-     */
     public YewBowAlchChainTracker getYewBowTracker() {
         return yewBowTracker;
     }
 
-    /**
-     * Get the Blood Essence Tracker
-     */
     public BloodEssenceTracker getBloodEssenceTracker() {
         return bloodEssenceTracker;
     }
 
-    /**
-     * Get the Market Health Index
-     */
     public MarketHealthIndex getMarketHealth() {
         return marketHealth;
     }
 
     // ============= INNER CLASSES =============
 
-    /**
-     * Detects supply shocks caused by ban waves and bot returns
-     */
+    // Detects ban waves by looking for simultaneous price spikes
     public static class SupplyShockDetector {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BotEconomyTracker.SupplyShockDetector.class);
 
@@ -680,10 +606,6 @@ public class BotEconomyTracker {
             this.botItemDatabase = botItemDatabase;
         }
 
-        /**
-         * Detect ban wave signals by looking for simultaneous price spikes across multiple bot items
-         * A ban wave is confirmed when dragon bones, yew logs, and raw fish ALL spike at once.
-         */
         public boolean detectBanWaveSignals() {
             List<Integer> supplyShockItems = getSupplyShockItems();
 
@@ -691,7 +613,8 @@ public class BotEconomyTracker {
                 return false;
             }
 
-            // Check for key indicator items all spiking simultaneously
+            // Dragon bones, yew logs, raw shark are the best indicators
+            // If all three spike at once, almost always a ban wave
             boolean dragonBonesSpiking = supplyShockItems.contains(536);
             boolean yewLogsSpiking = supplyShockItems.contains(1515);
             boolean rawSharkSpiking = supplyShockItems.contains(383);
@@ -708,9 +631,6 @@ public class BotEconomyTracker {
             return banWaveDetected;
         }
 
-        /**
-         * Detect bot return signals by looking for gradual price decline across bot items
-         */
         public boolean detectBotReturnSignals() {
             List<Integer> supplyFloodItems = getSupplyFloodItems();
 
@@ -728,9 +648,6 @@ public class BotEconomyTracker {
             return botReturnDetected;
         }
 
-        /**
-         * Get confidence score (0-100) of how likely a ban wave recently happened
-         */
         public double getBanWaveConfidence() {
             if (lastBanWaveDetected == null) {
                 return 0.0;
@@ -750,9 +667,6 @@ public class BotEconomyTracker {
             return currentBanWaveConfidence;
         }
 
-        /**
-         * Get list of items currently in supply shock (price >15% above 7-day average)
-         */
         public List<Integer> getSupplyShockItems() {
             return botItemDatabase.keySet().stream()
                 .filter(itemId -> {
@@ -769,9 +683,6 @@ public class BotEconomyTracker {
                 .collect(Collectors.toList());
         }
 
-        /**
-         * Get list of items being flooded (price declining >5% over 3 days with rising volume)
-         */
         public List<Integer> getSupplyFloodItems() {
             return botItemDatabase.keySet().stream()
                 .filter(itemId -> {
@@ -789,9 +700,7 @@ public class BotEconomyTracker {
         }
     }
 
-    /**
-     * Tracks the F2P→P2P bot pipeline and estimates transition timing
-     */
+    // Estimates F2P→P2P bot transitions based on yew log supply patterns
     public static class F2PToPPipelineTracker {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BotEconomyTracker.F2PToPPipelineTracker.class);
 
@@ -805,10 +714,6 @@ public class BotEconomyTracker {
             this.botItemDatabase = botItemDatabase;
         }
 
-        /**
-         * Estimate when current F2P bots will accumulate enough GP to buy bonds (~7-8M)
-         * Based on the rate of yew log supply increase
-         */
         public int estimateTimeToP2PDays() {
             PriceAggregate yewLogData = priceService.getPriceAggregate(1515);
             if (yewLogData == null) return 30; // Default estimate
@@ -833,9 +738,6 @@ public class BotEconomyTracker {
             return 14; // Mid-range estimate
         }
 
-        /**
-         * Get current pipeline stage based on market signals
-         */
         public PipelineStage getPipelineStage() {
             double banWaveConfidence = supplyShockDetector.getBanWaveConfidence();
             List<Integer> floodingItems = supplyShockDetector.getSupplyFloodItems();
@@ -870,9 +772,6 @@ public class BotEconomyTracker {
             return PipelineStage.EQUILIBRIUM;
         }
 
-        /**
-         * Get items that signal strong F2P bot activity
-         */
         public List<Integer> getF2PIndicatorItems() {
             return botItemDatabase.values().stream()
                 .filter(profile -> profile.phase == BotPhase.F2P_LEVELED && profile.isF2P)
@@ -880,19 +779,12 @@ public class BotEconomyTracker {
                 .collect(Collectors.toList());
         }
 
-        /**
-         * Get items that spike FIRST when bots hit P2P (green dragons, early slayer)
-         */
         public List<Integer> getP2PEarlyWarningItems() {
             return botItemDatabase.values().stream()
                 .filter(profile -> profile.phase == BotPhase.P2P_EARLY)
                 .map(BotItemProfile::getItemId)
                 .collect(Collectors.toList());
         }
-
-        /**
-         * For each pipeline stage, recommend items to front-run
-         */
         public List<Integer> getItemsToFrontrun(PipelineStage stage) {
             switch (stage) {
                 case BOTS_BANNED:
@@ -935,10 +827,6 @@ public class BotEconomyTracker {
             }
         }
     }
-
-    /**
-     * Profit strategy recommendations based on bot waves
-     */
     public static class BotWaveProfitStrategy {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BotEconomyTracker.BotWaveProfitStrategy.class);
 
@@ -954,10 +842,6 @@ public class BotEconomyTracker {
             this.pipelineTracker = pipelineTracker;
             this.supplyShockDetector = supplyShockDetector;
         }
-
-        /**
-         * Get items to buy before a ban wave (they will spike when bots are gone)
-         */
         public List<BotTradeRecommendation> getPreBanWavePositions() {
             List<BotTradeRecommendation> recommendations = new ArrayList<>();
 
@@ -989,10 +873,6 @@ public class BotEconomyTracker {
 
             return recommendations;
         }
-
-        /**
-         * When to sell after a ban wave spike
-         */
         public List<BotTradeRecommendation> getPostBanWaveExits() {
             List<BotTradeRecommendation> recommendations = new ArrayList<>();
 
@@ -1026,10 +906,6 @@ public class BotEconomyTracker {
 
             return recommendations;
         }
-
-        /**
-         * Sell items before bots return to P2P (they'll crash in supply)
-         */
         public List<BotTradeRecommendation> getPreP2PFloodSells() {
             List<BotTradeRecommendation> recommendations = new ArrayList<>();
 
@@ -1063,10 +939,6 @@ public class BotEconomyTracker {
 
             return recommendations;
         }
-
-        /**
-         * Buy items AFTER bots flood supply (they'll recover after stabilization)
-         */
         public List<BotTradeRecommendation> getPostP2PFloodBuys() {
             List<BotTradeRecommendation> recommendations = new ArrayList<>();
 
@@ -1113,10 +985,7 @@ public class BotEconomyTracker {
         }
     }
 
-    /**
-     * Tracks the yew bow alch chain profitability
-     * Chain: yew logs + bowstring → yew longbow (u) → yew longbow → high alch (768gp)
-     */
+    // Tracks yew bow alch chain profitability
     public static class YewBowAlchChainTracker {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BotEconomyTracker.YewBowAlchChainTracker.class);
         private static final int HIGH_ALCH_VALUE = 768;
@@ -1126,10 +995,6 @@ public class BotEconomyTracker {
         public YewBowAlchChainTracker(PriceService priceService) {
             this.priceService = priceService;
         }
-
-        /**
-         * Calculate profit of the full yew bow alch chain
-         */
         public long getYewBowChainProfit() {
             PriceAggregate yewLogPrice = priceService.getPriceAggregate(1515);
             PriceAggregate bowstringPrice = priceService.getPriceAggregate(1777);
@@ -1149,17 +1014,9 @@ public class BotEconomyTracker {
 
             return profit;
         }
-
-        /**
-         * Check if the yew bow alch chain is profitable
-         */
         public boolean isYewBowChainProfitable() {
             return getYewBowChainProfit() > 100; // Profit must exceed 100gp per bow
         }
-
-        /**
-         * Get the bottleneck in the chain (what's making it unprofitable)
-         */
         public String getBottleneck() {
             PriceAggregate yewLogPrice = priceService.getPriceAggregate(1515);
             PriceAggregate bowstringPrice = priceService.getPriceAggregate(1777);
@@ -1186,10 +1043,6 @@ public class BotEconomyTracker {
             return "None - chain is profitable";
         }
     }
-
-    /**
-     * Tracks blood essence supply and blood rune crafting profitability
-     */
     @Slf4j
     public static class BloodEssenceTracker {
 
@@ -1204,10 +1057,6 @@ public class BotEconomyTracker {
             NORMAL,
             UNDERSUPPLIED   // Post ban wave, essence expensive, rune crafting unprofitable
         }
-
-        /**
-         * Get blood essence supply state
-         */
         public BloodEssenceState getBloodEssenceState() {
             PriceAggregate essencePrice = priceService.getPriceAggregate(26390);
 
@@ -1228,10 +1077,6 @@ public class BotEconomyTracker {
             return BloodEssenceState.NORMAL;
         }
 
-        /**
-         * Calculate blood rune crafting profit
-         * Blood runes sell for ~600gp, essence (charge) costs X
-         */
         public long getBloodRuneCraftingProfit() {
             PriceAggregate essencePrice = priceService.getPriceAggregate(26390);
 
@@ -1246,10 +1091,6 @@ public class BotEconomyTracker {
             return bloodRuneValue - essenceCost;
         }
     }
-
-    /**
-     * Composite market health index based on bot activity and price stability
-     */
     public static class MarketHealthIndex {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BotEconomyTracker.MarketHealthIndex.class);
 
@@ -1259,10 +1100,6 @@ public class BotEconomyTracker {
             this.supplyShockDetector = supplyShockDetector;
         }
 
-        /**
-         * Get overall market health score (0-100)
-         * 100 = perfectly stable, 0 = chaotic bot manipulation
-         */
         public int getMarketHealth() {
             int score = 100;
 
@@ -1280,10 +1117,6 @@ public class BotEconomyTracker {
 
             return Math.max(0, Math.min(100, score));
         }
-
-        /**
-         * Estimate percentage of GE transactions likely from bots (0-100)
-         */
         public double getBotLoadEstimate() {
             int supplyShockCount = supplyShockDetector.getSupplyShockItems().size();
             int supplyFloodCount = supplyShockDetector.getSupplyFloodItems().size();
@@ -1294,10 +1127,6 @@ public class BotEconomyTracker {
             // Cap at 80% (bots can't be 100% of the market)
             return Math.min(80.0, botLoad);
         }
-
-        /**
-         * Get human-readable health breakdown
-         */
         public String getHealthBreakdown() {
             int health = getMarketHealth();
             double botLoad = getBotLoadEstimate();
@@ -1312,10 +1141,6 @@ public class BotEconomyTracker {
     }
 
     // ============= DATA CLASSES =============
-
-    /**
-     * Profile of a bot-affected item with all metadata
-     */
     @Data
     @Builder
     @AllArgsConstructor
@@ -1330,10 +1155,6 @@ public class BotEconomyTracker {
         private String[] relatedItems;
         private int geLimitId;
     }
-
-    /**
-     * A single bot trade recommendation with confidence and reasoning
-     */
     @Data
     @Builder
     @AllArgsConstructor

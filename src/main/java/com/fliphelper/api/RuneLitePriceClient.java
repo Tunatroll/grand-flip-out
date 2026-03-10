@@ -14,14 +14,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Supplementary price client that fetches 5-minute averaged data
- * from the OSRS Wiki API as a second data source for cross-validation.
- *
- * FIX: Previous version parsed response as JSON array — Wiki /5m returns
- * {"data": {"itemId": {...}}} which is an object, not an array.
- * ClassCastException at runtime prevented this source from ever loading.
- */
+
 @Slf4j
 public class RuneLitePriceClient
 {
@@ -35,9 +28,7 @@ public class RuneLitePriceClient
         this.httpClient = httpClient;
     }
 
-    /**
-     * Fetch 5-minute averaged prices from the Wiki API.
-     */
+    
     public Map<Integer, PriceData> fetchPrices() throws IOException
     {
         Request request = new Request.Builder()

@@ -21,10 +21,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Main side panel for the Awfully Pure plugin.
- * Contains tabs for Prices, Flips, Suggestions, History, and Settings.
- */
+
 public class AwfullyPurePanel extends PluginPanel
 {
     private final AwfullyPureConfig config;
@@ -117,9 +114,7 @@ public class AwfullyPurePanel extends PluginPanel
         add(tabbedPane, BorderLayout.CENTER);
     }
 
-    /**
-     * Add an external panel as a tab (used by ProfilePanel for the Profile tab).
-     */
+    
     public void addTab(String title, JPanel tabPanel)
     {
         if (tabbedPane != null)
@@ -128,10 +123,7 @@ public class AwfullyPurePanel extends PluginPanel
         }
     }
 
-    /**
-     * Insert an external panel at a specific tab position.
-     * Use index 0 to make it the first (default) tab.
-     */
+    
     public void insertTab(String title, JPanel tabPanel, int index)
     {
         if (tabbedPane != null)
@@ -140,9 +132,7 @@ public class AwfullyPurePanel extends PluginPanel
         }
     }
 
-    /**
-     * Set which tab is selected by index.
-     */
+    
     public void setSelectedTabIndex(int index)
     {
         if (tabbedPane != null && index >= 0 && index < tabbedPane.getTabCount())
@@ -764,10 +754,7 @@ public class AwfullyPurePanel extends PluginPanel
         });
     }
 
-    /**
-     * Refresh any external panels that were added via addTab/insertTab.
-     * Called from updateAll() to keep everything in sync.
-     */
+    
     private void refreshExternalPanels()
     {
         // Walk tabs looking for StatsPanel instances
@@ -919,6 +906,12 @@ public class AwfullyPurePanel extends PluginPanel
         List<com.fliphelper.model.FlipItem> completed = flipTracker.getCompletedFlips();
         int displayCount = Math.min(completed.size(), 50);
 
+        if (!completed.isEmpty())
+        {
+            historyPanel.add(buildSessionSummaryPanel(completed));
+            historyPanel.add(Box.createVerticalStrut(8));
+        }
+
         for (int i = 0; i < displayCount; i++)
         {
             com.fliphelper.model.FlipItem flip = completed.get(i);
@@ -943,6 +936,62 @@ public class AwfullyPurePanel extends PluginPanel
 
         historyPanel.revalidate();
         historyPanel.repaint();
+    }
+
+    private JPanel buildSessionSummaryPanel(List<com.fliphelper.model.FlipItem> flips)
+    {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBackground(new Color(0x12, 0x12, 0x1E));
+        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 180));
+
+        JLabel headerLabel = new JLabel("Session Summary");
+        headerLabel.setForeground(new Color(0xFF, 0xB8, 0x00));
+        headerLabel.setFont(headerLabel.getFont().deriveFont(Font.BOLD, 12f));
+        panel.add(headerLabel);
+        panel.add(Box.createVerticalStrut(6));
+
+        long totalProfit = flips.stream().mapToLong(com.fliphelper.model.FlipItem::getProfit).sum();
+        int totalFlips = flips.size();
+        long wins = flips.stream().filter(f -> f.getProfit() >= 0).count();
+        long losses = totalFlips - wins;
+        long bestFlip = flips.stream().mapToLong(com.fliphelper.model.FlipItem::getProfit).max().orElse(0);
+        long worstFlip = flips.stream().mapToLong(com.fliphelper.model.FlipItem::getProfit).min().orElse(0);
+        double avgRoi = flips.stream().mapToDouble(com.fliphelper.model.FlipItem::getRoi).average().orElse(0);
+
+        JPanel statsRow1 = new JPanel(new GridLayout(1, 3, 8, 0));
+        statsRow1.setOpaque(false);
+        statsRow1.add(buildSummaryStat("TOTAL PROFIT", formatGp(totalProfit), totalProfit >= 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57)));
+        statsRow1.add(buildSummaryStat("TOTAL FLIPS", String.valueOf(totalFlips), Color.WHITE));
+        statsRow1.add(buildSummaryStat("WIN RATE", wins + "W / " + losses + "L", wins > losses ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57)));
+        panel.add(statsRow1);
+        panel.add(Box.createVerticalStrut(6));
+
+        JPanel statsRow2 = new JPanel(new GridLayout(1, 3, 8, 0));
+        statsRow2.setOpaque(false);
+        statsRow2.add(buildSummaryStat("BEST FLIP", formatGp(bestFlip), new Color(0xFF, 0xB8, 0x00)));
+        statsRow2.add(buildSummaryStat("WORST FLIP", formatGp(worstFlip), worstFlip >= 0 ? Color.LIGHT_GRAY : new Color(0xFF, 0x66, 0x66)));
+        statsRow2.add(buildSummaryStat("AVG ROI", String.format("%.1f%%", avgRoi), avgRoi >= 5 ? new Color(0x00, 0xD2, 0x6A) : Color.YELLOW));
+        panel.add(statsRow2);
+
+        return panel;
+    }
+
+    private JPanel buildSummaryStat(String title, String value, Color valueColor)
+    {
+        JPanel card = new JPanel(new BorderLayout(0, 3));
+        card.setBackground(new Color(0x1A, 0x1A, 0x2E));
+        card.setBorder(new EmptyBorder(6, 8, 6, 8));
+        JLabel t = new JLabel(title);
+        t.setForeground(new Color(0x60, 0x60, 0x80));
+        t.setFont(t.getFont().deriveFont(Font.BOLD, 8f));
+        card.add(t, BorderLayout.NORTH);
+        JLabel v = new JLabel(value);
+        v.setForeground(valueColor);
+        v.setFont(v.getFont().deriveFont(Font.BOLD, 11f));
+        card.add(v, BorderLayout.CENTER);
+        return card;
     }
 
     // ==================== CARD BUILDERS ====================
@@ -982,6 +1031,14 @@ public class AwfullyPurePanel extends PluginPanel
         JLabel nameLabel = new JLabel(" " + s.getItemName());
         nameLabel.setForeground(Color.WHITE);
         nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 13f));
+        nameLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        nameLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                java.awt.datatransfer.StringSelection sel = new java.awt.datatransfer.StringSelection(s.getItemName());
+                java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(sel, null);
+            }
+        });
         JPanel nameGroup = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         nameGroup.setOpaque(false);
         nameGroup.add(rankLabel);
@@ -1120,9 +1177,7 @@ public class AwfullyPurePanel extends PluginPanel
         return card;
     }
 
-    /**
-     * Style a small action button with consistent look.
-     */
+    
     private void styleActionButton(JButton btn, Color bgColor)
     {
         btn.setFont(btn.getFont().deriveFont(Font.BOLD, 10f));
@@ -1134,9 +1189,7 @@ public class AwfullyPurePanel extends PluginPanel
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
-    /**
-     * Build a compact meta-label with title on top and value below.
-     */
+    
     private JPanel createMetaLabel(String title, String value)
     {
         JPanel p = new JPanel(new BorderLayout(0, 1));
@@ -1235,59 +1288,88 @@ public class AwfullyPurePanel extends PluginPanel
 
     private JPanel buildHistoryCard(com.fliphelper.model.FlipItem flip)
     {
-        Color cardBg = new Color(0x1A, 0x1A, 0x2E);
         long profit = flip.getProfit();
+        Color cardBg = profit >= 0 ? new Color(0x0A, 0x2A, 0x0A) : new Color(0x2A, 0x0A, 0x0A);
 
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBackground(cardBg);
-        card.setBorder(new EmptyBorder(6, 10, 6, 10));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 68));
+        card.setBorder(new EmptyBorder(8, 10, 8, 10));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 88));
 
         // -- Row 1: Name + Profit (colored) + ROI --
         JPanel row1 = new JPanel(new BorderLayout());
         row1.setOpaque(false);
         JLabel nameLabel = new JLabel(flip.getItemName());
         nameLabel.setForeground(Color.WHITE);
-        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 11f));
+        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 12f));
         row1.add(nameLabel, BorderLayout.WEST);
 
         // Profit + ROI badge
         String profitText = (profit >= 0 ? "+" : "") + formatGp(profit);
         String roiText = String.format("%.1f%%", flip.getRoi());
-        JPanel profitGroup = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        JPanel profitGroup = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
         profitGroup.setOpaque(false);
         JLabel profitLabel = new JLabel(profitText);
-        profitLabel.setForeground(profit >= 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
-        profitLabel.setFont(profitLabel.getFont().deriveFont(Font.BOLD, 11f));
+        profitLabel.setForeground(profit >= 0 ? new Color(0x00, 0xE6, 0x76) : new Color(0xFF, 0x66, 0x66));
+        profitLabel.setFont(profitLabel.getFont().deriveFont(Font.BOLD, 12f));
         profitGroup.add(profitLabel);
         JLabel roiLabel = new JLabel(" " + roiText + " ");
         roiLabel.setForeground(Color.WHITE);
         roiLabel.setOpaque(true);
-        roiLabel.setBackground(profit >= 0 ? new Color(0x00, 0x6A, 0x35) : new Color(0x6A, 0x00, 0x00));
+        roiLabel.setBackground(profit >= 0 ? new Color(0x00, 0x5A, 0x2F) : new Color(0x5A, 0x00, 0x00));
         roiLabel.setFont(roiLabel.getFont().deriveFont(Font.BOLD, 9f));
         profitGroup.add(roiLabel);
         row1.add(profitGroup, BorderLayout.EAST);
         card.add(row1);
-        card.add(Box.createVerticalStrut(2));
+        card.add(Box.createVerticalStrut(4));
 
-        // -- Row 2: Qty | Buy | Sell | Tax | Duration --
-        JPanel row2 = new JPanel(new GridLayout(1, 5, 4, 0));
+        // -- Row 2: Buy Price | Sell Price | Margin --
+        JPanel row2 = new JPanel(new GridLayout(1, 3, 6, 0));
         row2.setOpaque(false);
-        row2.add(createCompactLabel(QuantityFormatter.formatNumber(flip.getQuantity()) + "x"));
-        row2.add(createCompactLabel("B:" + formatGp(flip.getBuyPrice())));
-        row2.add(createCompactLabel("S:" + formatGp(flip.getSellPrice())));
-        row2.add(createCompactLabel("Tax:" + formatGp(flip.getTax())));
-        long duration = flip.getFlipDurationSeconds();
-        row2.add(createCompactLabel("\u23F1 " + formatDuration(duration)));
+        row2.add(buildHistoryStatCell("BUY", formatGp(flip.getBuyPrice()), new Color(0x00, 0xD2, 0x6A)));
+        row2.add(buildHistoryStatCell("SELL", formatGp(flip.getSellPrice()), new Color(0xFF, 0x47, 0x57)));
+        row2.add(buildHistoryStatCell("MARGIN", formatGp(flip.getSellPrice() - flip.getBuyPrice()), new Color(0xFF, 0xB8, 0x00)));
         card.add(row2);
+        card.add(Box.createVerticalStrut(3));
+
+        // -- Row 3: Qty | Tax | Duration | Timestamp --
+        JPanel row3 = new JPanel(new GridLayout(1, 4, 6, 0));
+        row3.setOpaque(false);
+        row3.add(buildHistoryStatCell("QTY", QuantityFormatter.formatNumber(flip.getQuantity()) + "x", Color.LIGHT_GRAY));
+        row3.add(buildHistoryStatCell("TAX", formatGp(flip.getTax()), new Color(0xFF, 0x8C, 0x00)));
+        long duration = flip.getFlipDurationSeconds();
+        row3.add(buildHistoryStatCell("DURATION", formatDuration(duration), Color.LIGHT_GRAY));
+        String timeStr = flip.getSellTime() != null ? formatTimestamp(flip.getSellTime()) : "—";
+        row3.add(buildHistoryStatCell("SOLD", timeStr, new Color(0x80, 0x80, 0xA0)));
+        card.add(row3);
 
         return card;
     }
 
-    /**
-     * Compact info label for tight rows.
-     */
+    private JPanel buildHistoryStatCell(String title, String value, Color valueColor)
+    {
+        JPanel cell = new JPanel(new BorderLayout(0, 2));
+        cell.setOpaque(false);
+        JLabel t = new JLabel(title);
+        t.setForeground(new Color(0x60, 0x60, 0x80));
+        t.setFont(t.getFont().deriveFont(Font.BOLD, 7f));
+        cell.add(t, BorderLayout.NORTH);
+        JLabel v = new JLabel(value);
+        v.setForeground(valueColor);
+        v.setFont(v.getFont().deriveFont(Font.BOLD, 10f));
+        cell.add(v, BorderLayout.CENTER);
+        return cell;
+    }
+
+    private String formatTimestamp(Instant instant)
+    {
+        if (instant == null) return "—";
+        java.time.LocalTime time = instant.atZone(java.time.ZoneId.systemDefault()).toLocalTime();
+        return String.format("%02d:%02d", time.getHour(), time.getMinute());
+    }
+
+    
     private JLabel createCompactLabel(String text)
     {
         JLabel label = new JLabel(text);
@@ -1298,9 +1380,7 @@ public class AwfullyPurePanel extends PluginPanel
 
     // ==================== CATEGORY FILTERING ====================
 
-    /**
-     * Determines if an item name belongs to a given category based on keyword matching.
-     */
+    
     private boolean matchesCategory(String itemName, String category)
     {
         if ("All".equals(category))
@@ -1329,9 +1409,7 @@ public class AwfullyPurePanel extends PluginPanel
         }
     }
 
-    /**
-     * Update the visual styling of category buttons to highlight the selected one.
-     */
+    
     private void updateCategoryButtonStyles()
     {
         if (categoryButtons == null)
@@ -1362,9 +1440,7 @@ public class AwfullyPurePanel extends PluginPanel
         }
     }
 
-    /**
-     * Display all items (or items matching search) filtered by selected category.
-     */
+    
     private void displayAllItemsInCategory()
     {
         if (!priceService.isReady())
@@ -1588,9 +1664,7 @@ public class AwfullyPurePanel extends PluginPanel
         return (seconds / 3600) + "h " + ((seconds % 3600) / 60) + "m";
     }
 
-    /**
-     * Estimate how long a flip cycle will take based on trade volume.
-     */
+    
     private String estimateFlipTimeline(long volume1h, int buyLimit)
     {
         if (volume1h <= 0 || buyLimit <= 0)

@@ -14,16 +14,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-/**
- * Market Intelligence Engine for Awfully Pure RuneLite plugin.
- *
- * Implements advanced, Jagex-compliant analytical methods that go beyond
- * Flipping Utilities (no predictive analytics, no cross-item correlation)
- * and Flipping Copilot (requires external backend, subscription-based).
- *
- * ALL analysis runs locally with no external backend needed.
- * Leverages Wiki API timeseries for deep market analysis.
- */
+// Advanced market analysis from Wiki API timeseries.
 @Slf4j
 public class MarketIntelligenceEngine {
 
@@ -49,9 +40,7 @@ public class MarketIntelligenceEngine {
         this.marketRegimeDetector = new MarketRegimeDetector(priceService);
     }
 
-    /**
-     * Get comprehensive market analysis for a single item.
-     */
+    
     public MarketReport getFullAnalysis(int itemId) {
         try {
             PriceAggregate aggregate = priceService.getPriceAggregate(itemId);
@@ -73,12 +62,13 @@ public class MarketIntelligenceEngine {
             long low = aggregate.getLowPrice();
 
             // Time series analysis
+            // FIXME: VWAP calculation needs volume per price point (wiki API doesn't provide this)
             double ema14 = timeSeriesAnalyzer.calculateEMA(prices, 14);
             double ema50 = timeSeriesAnalyzer.calculateEMA(prices, 50);
             int rsi = timeSeriesAnalyzer.calculateRSI(prices, 14);
             BollingerBands bollingerBands = timeSeriesAnalyzer.calculateBollingerBands(prices, 20);
             MACD macd = timeSeriesAnalyzer.calculateMACD(prices);
-            double vwap = timeSeriesAnalyzer.calculateVWAP(prices, new ArrayList<>()); // Volume data not available, use empty list
+            double vwap = timeSeriesAnalyzer.calculateVWAP(prices, new ArrayList<>()); // Volume data not available
 
             // Mean reversion and momentum
             MeanReversionSignal meanReversionSignal = timeSeriesAnalyzer.detectMeanReversion(prices, 30);
@@ -141,9 +131,7 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    /**
-     * Get top trading opportunities ranked by composite intelligence score.
-     */
+    
     public List<MarketReport> getTopOpportunities(int limit) {
         try {
             List<Integer> items = new ArrayList<>(priceService.getAllItemIds());
@@ -160,9 +148,7 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    /**
-     * Get overall market briefing with aggregate statistics.
-     */
+    
     public MarketBriefing getMarketBriefing() {
         try {
             List<MarketReport> reports = getTopOpportunities(100);
@@ -208,9 +194,7 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    /**
-     * Compute composite intelligence score combining multiple signals.
-     */
+    
     private double calculateCompositeScore(int rsi, MomentumSignal momentum, MarketRegime regime,
                                           int liquidityScore, MeanReversionSignal meanReversion,
                                           double sinkPressure) {
@@ -260,9 +244,7 @@ public class MarketIntelligenceEngine {
     // INNER CLASSES: Core Analysis Engines
     // ============================================================================
 
-    /**
-     * TimeSeriesAnalyzer: EMA, RSI, Bollinger Bands, MACD, VWAP, mean reversion, momentum
-     */
+    
     public static class TimeSeriesAnalyzer {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MarketIntelligenceEngine.TimeSeriesAnalyzer.class);
         private final PriceService priceService;
@@ -420,9 +402,7 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    /**
-     * Categories of OSRS game updates that affect item prices
-     */
+    
     public enum UpdateCategory {
         COMBAT_UPDATES,
         SKILL_UPDATES,
@@ -431,9 +411,7 @@ public class MarketIntelligenceEngine {
         PVP_UPDATES
     }
 
-    /**
-     * UpdateImpactAnalyzer: Tracks how OSRS game updates affect item categories
-     */
+    
     public static class UpdateImpactAnalyzer {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MarketIntelligenceEngine.UpdateImpactAnalyzer.class);
         private final PriceService priceService;
@@ -560,9 +538,7 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    /**
-     * CrossItemCorrelator: Finds price correlations and arbitrage opportunities
-     */
+    
     public static class CrossItemCorrelator {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MarketIntelligenceEngine.CrossItemCorrelator.class);
         private final PriceService priceService;
@@ -590,10 +566,7 @@ public class MarketIntelligenceEngine {
             )));
         }
 
-        /**
-         * Find pairs of items with correlated prices (O(n^2) algorithm).
-         * Useful for spread trading opportunities.
-         */
+        
         public Map<Integer, Double> findCorrelatedPairs(Map<Integer, List<Long>> priceHistories) {
             Map<Integer, Double> correlations = new HashMap<>();
 
@@ -626,10 +599,7 @@ public class MarketIntelligenceEngine {
             return correlations;
         }
 
-        /**
-         * Detect lead-lag relationships between price series (O(n^2) algorithm).
-         * For large datasets, consider sampling or caching results.
-         */
+        
         public List<LeadLagRelationship> detectLeadLagRelationships(Map<Integer, List<Long>> priceHistories) {
             List<LeadLagRelationship> relationships = new ArrayList<>();
 
@@ -667,10 +637,7 @@ public class MarketIntelligenceEngine {
             return relationships;
         }
 
-        /**
-         * Find arbitrage opportunities based on correlated items with price divergence.
-         * High correlation + price divergence = mean reversion opportunity.
-         */
+        
         public List<ArbitrageOpportunity> getArbitrageOpportunities(Map<Integer, Long> currentPrices,
                                                                     Map<Integer, List<Long>> priceHistories) {
             List<ArbitrageOpportunity> opportunities = new ArrayList<>();
@@ -759,9 +726,7 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    /**
-     * LiquidityAnalyzer: Spread, depth, slippage, and liquidity scoring
-     */
+    
     public static class LiquidityAnalyzer {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MarketIntelligenceEngine.LiquidityAnalyzer.class);
         private final PriceService priceService;
@@ -826,9 +791,7 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    /**
-     * RecipeFlipDetector: AUTO-DETECTS recipe flip opportunities
-     */
+    
     public static class RecipeFlipDetector {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MarketIntelligenceEngine.RecipeFlipDetector.class);
         private final PriceService priceService;
@@ -902,9 +865,7 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    /**
-     * SeasonalPatternDetector: Identifies day/time patterns and update-day effects
-     */
+    
     public static class SeasonalPatternDetector {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MarketIntelligenceEngine.SeasonalPatternDetector.class);
         private final PriceService priceService;
@@ -951,9 +912,7 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    /**
-     * ItemSinkTracker: Tracks Jagex's 63+ item sink targets
-     */
+    
     public static class ItemSinkTracker {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MarketIntelligenceEngine.ItemSinkTracker.class);
         private final PriceService priceService;
@@ -994,9 +953,7 @@ public class MarketIntelligenceEngine {
         }
     }
 
-    /**
-     * MarketRegimeDetector: Identifies market regime and optimal strategy
-     */
+    
     public static class MarketRegimeDetector {
         private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MarketIntelligenceEngine.MarketRegimeDetector.class);
         private final PriceService priceService;

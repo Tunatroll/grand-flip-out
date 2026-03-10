@@ -8,26 +8,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * QuickFlipAnalyzer — Scores items for fast buy/sell flipping at the Grand Exchange.
- *
- * A "quick flip" means buying an item and reselling it within minutes.
- * Unlike long-term investments, quick flips depend on:
- *   1. High volume (fast fill times)
- *   2. Fresh price data (both sides < 120s old)
- *   3. Sweet-spot margin (3-8% — not too thin, not too wide to fill)
- *   4. Reasonable capital requirement
- *
- * INFORMATION ONLY — does not automate any trades.
- */
+
 @Slf4j
 public class QuickFlipAnalyzer
 {
     private static final long GE_TAX_CAP = 5_000_000L;
 
-    /**
-     * Grade enum for quick flip quality.
-     */
+    
     public enum QFGrade
     {
         S("Excellent — fills in <1 min, ideal margin"),
@@ -41,9 +28,7 @@ public class QuickFlipAnalyzer
         public String getDescription() { return description; }
     }
 
-    /**
-     * Result of a quick flip analysis for a single item.
-     */
+    
     @Data
     public static class QuickFlipResult
     {
@@ -61,9 +46,7 @@ public class QuickFlipAnalyzer
         private List<String> warnings;
     }
 
-    /**
-     * Analyze an item's suitability for quick flipping.
-     */
+    
     public QuickFlipResult analyze(PriceAggregate agg)
     {
         if (agg == null) return null;

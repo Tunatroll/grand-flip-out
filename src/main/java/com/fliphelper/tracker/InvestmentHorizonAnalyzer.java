@@ -11,19 +11,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/**
- * Analyzes OSRS GE items by ROI relative to investment horizon (hold time).
- *
- * Philosophy:
- * - Quick flips (minutes-hours): Traditional margin flipping within GE 4h cycle
- * - Short holds (1-7 days): Items trending up or recovering from dumps
- * - Medium holds (1-2 weeks): Update-driven plays, seasonal patterns, ban recovery
- * - Long holds (2-4 weeks): Deeper value plays, item sink pressure, meta shifts
- * - Very long holds (1+ month): Only justified by structural changes, new content, supply reduction
- *
- * Core principle: Quick flips prioritized. Longer holds must explicitly justify the wait
- * with catalysts, reasoning, and risk analysis.
- */
+// Scores items by ROI across different hold times (quick flips vs longer investments).
 @Slf4j
 public class InvestmentHorizonAnalyzer {
     private static final double RISK_FREE_RATE = 0.0; // No risk-free rate in OSRS
@@ -48,6 +36,7 @@ public class InvestmentHorizonAnalyzer {
 
     private final ConcurrentHashMap<Integer, HorizonReport> reportCache = new ConcurrentHashMap<>();
 
+    // TODO: Add cache eviction - some items sink/rise permanently, stale reports mislead
     public InvestmentHorizonAnalyzer(PriceService priceService) {
         this.priceService = priceService;
         this.quickFlipScorer = new QuickFlipScorer(priceService);
@@ -56,9 +45,7 @@ public class InvestmentHorizonAnalyzer {
         this.riskAdjustedRanker = new RiskAdjustedRanker(this.reportCache);
     }
 
-    /**
-     * Analyzes an item across all time horizons, returning comprehensive ROI breakdown.
-     */
+    
     public HorizonReport analyzeItem(int itemId) {
         return reportCache.computeIfAbsent(itemId, id -> {
             try {

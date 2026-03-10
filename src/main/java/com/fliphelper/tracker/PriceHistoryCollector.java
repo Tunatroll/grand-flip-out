@@ -9,16 +9,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.ArrayList;
 
-/**
- * Collects and stores rolling price history for items, enabling technical analysis.
- *
- * Snapshots the current price of each item every time recordSnapshot() is called
- * (typically every refresh cycle). Stores up to MAX_HISTORY_SIZE data points per item
- * in a circular buffer approach.
- *
- * This bridges the gap between the real-time price APIs (which only give current prices)
- * and the MarketIntelligenceEngine which needs price history for EMA/RSI/MACD/Bollinger.
- */
+
 @Slf4j
 public class PriceHistoryCollector {
 
@@ -47,9 +38,7 @@ public class PriceHistoryCollector {
         this.priceService = priceService;
     }
 
-    /**
-     * Record a snapshot of all current prices. Call this after each PriceService.refreshAll().
-     */
+    
     public void recordSnapshot() {
         long now = System.currentTimeMillis() / 1000;
 
@@ -111,11 +100,7 @@ public class PriceHistoryCollector {
         }
     }
 
-    /**
-     * Seed price history for a specific item from the Wiki timeseries API.
-     * This bootstraps the history so analysis works immediately instead of
-     * waiting hours for enough data points.
-     */
+    
     public void seedFromTimeseries(int itemId) {
         if (seededItems.contains(itemId)) return;
 
@@ -162,10 +147,7 @@ public class PriceHistoryCollector {
         }
     }
 
-    /**
-     * Seed the top N most-traded items from timeseries on startup.
-     * Rate-limited to avoid hammering the Wiki API.
-     */
+    
     public void seedTopItems(int count) {
         try {
             List<PriceAggregate> topItems = priceService.getTopByMargin(count, 10);
@@ -193,9 +175,7 @@ public class PriceHistoryCollector {
         }
     }
 
-    /**
-     * Get price history for an item (oldest first).
-     */
+    
     public List<Long> getPriceHistory(int itemId) {
         LinkedList<Long> history = priceHistory.get(itemId);
         if (history == null || history.isEmpty()) {
@@ -204,9 +184,7 @@ public class PriceHistoryCollector {
         return new ArrayList<>(history);
     }
 
-    /**
-     * Get volume history for an item (oldest first).
-     */
+    
     public List<Long> getVolumeHistory(int itemId) {
         LinkedList<Long> history = volumeHistory.get(itemId);
         if (history == null || history.isEmpty()) {
@@ -215,9 +193,7 @@ public class PriceHistoryCollector {
         return new ArrayList<>(history);
     }
 
-    /**
-     * Get timestamp history for an item (oldest first).
-     */
+    
     public List<Long> getTimestampHistory(int itemId) {
         LinkedList<Long> history = timestampHistory.get(itemId);
         if (history == null || history.isEmpty()) {
@@ -226,39 +202,29 @@ public class PriceHistoryCollector {
         return new ArrayList<>(history);
     }
 
-    /**
-     * Check if we have enough data points for meaningful analysis.
-     */
+    
     public boolean hasEnoughData(int itemId) {
         LinkedList<Long> history = priceHistory.get(itemId);
         return history != null && history.size() >= MIN_HISTORY_FOR_ANALYSIS;
     }
 
-    /**
-     * Get number of data points we have for an item.
-     */
+    
     public int getDataPointCount(int itemId) {
         LinkedList<Long> history = priceHistory.get(itemId);
         return history == null ? 0 : history.size();
     }
 
-    /**
-     * Get total number of items being tracked.
-     */
+    
     public int getTrackedItemCount() {
         return priceHistory.size();
     }
 
-    /**
-     * Get total snapshots recorded.
-     */
+    
     public int getTotalSnapshots() {
         return totalSnapshots;
     }
 
-    /**
-     * Check if an item has been seeded from timeseries.
-     */
+    
     public boolean isSeeded(int itemId) {
         return seededItems.contains(itemId);
     }

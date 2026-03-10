@@ -4,9 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 import java.time.Instant;
 
-/**
- * Represents a completed trade recorded from the GE history.
- */
+
 @Data
 @Builder
 public class TradeRecord

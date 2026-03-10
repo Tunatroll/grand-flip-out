@@ -17,26 +17,7 @@ import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Stats Panel — comprehensive trading statistics inspired by Flipping Utilities,
- * enhanced with Awfully Pure intelligence.
- *
- * Shows per-item breakdown with:
- * - Average buy price / sell price / margin
- * - Volume traded (quantity)
- * - Total profit per item
- * - Flip count and avg profit per flip
- * - ROI percentage
- * - Time since last flip
- *
- * Plus account-level stats:
- * - Win rate, best/worst flip, streak
- * - GP/hr over different time windows
- * - Top items ranking
- *
- * Filterable by: Today, This Week, All Time
- * Sortable by: Profit, Volume, ROI, Recent
- */
+
 public class StatsPanel extends JPanel
 {
     // Colors matching the rest of the UI
@@ -598,10 +579,7 @@ public class StatsPanel extends JPanel
             return flipCount > 0 ? totalDurationSeconds / flipCount : 0;
         }
 
-        /**
-         * Profit trend: compare avg profit of first half vs second half of flips.
-         * Returns percentage change. Positive = improving, negative = declining.
-         */
+        
         double getProfitTrend()
         {
             if (recentProfits.size() < 3) return 0;
@@ -679,13 +657,7 @@ public class StatsPanel extends JPanel
 
     private String formatGp(long amount)
     {
-        if (Math.abs(amount) >= 1_000_000_000)
-            return String.format("%.1fB", amount / 1_000_000_000.0);
-        if (Math.abs(amount) >= 1_000_000)
-            return String.format("%.1fM", amount / 1_000_000.0);
-        if (Math.abs(amount) >= 1_000)
-            return String.format("%.1fK", amount / 1_000.0);
-        return amount + " gp";
+        return String.format("%,d", amount);
     }
 
     private String formatDuration(long seconds)

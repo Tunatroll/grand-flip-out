@@ -12,42 +12,10 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-/**
- * P2P Network Layer — fundamental to Awfully Pure's distributed architecture.
- *
- * Instead of relying on a single backend, the plugin discovers and connects
- * to a mesh of community-hosted AP relay nodes. Any player can spin up a
- * node; the network self-heals when nodes go offline.
- *
- * Architecture:
- *   1. Bootstrap: Plugin starts with a seed list of known relays.
- *   2. Discovery: Each relay exposes GET /api/peers — a list of other
- *      known relays. The plugin crawls this to discover the full network.
- *   3. Health: Plugin pings each peer every 60s. Dead peers get demoted;
- *      consistently healthy peers get promoted (higher score).
- *   4. Routing: Requests (trade contributions, profile ops, price data)
- *      are sent to the best available peer. Failed requests automatically
- *      failover to the next peer.
- *   5. Fanout: Trade contributions are sent to ALL healthy peers (fanout)
- *      so the network stays in sync without centralized coordination.
- *
- * This is NOT a blockchain or gossip protocol — it's a simple relay mesh.
- * Each node is an independent AP backend (Node.js server) that:
- *   - Accepts trade contributions and runs its own Z-Score detection
- *   - Serves aggregated price data from its local + Wiki sources
- *   - Exposes a peer list so the network can self-discover
- *   - Optionally mirrors data to other peers (federation)
- *
- * Plugin Hub compliance:
- *   - No constant connections (HTTP only, no WebSockets)
- *   - Batched requests (reuses BackendClient's 15s flush interval)
- *   - Discovery runs once at startup + every 5 minutes (not spammy)
- *   - All requests use OkHttpClient from RuneLite's injector
- */
+
 @Slf4j
 public class PeerNetwork
 {
-    /** Default seed peers — official relay only (no localhost for Plugin Hub compliance) */
     private static final String[] DEFAULT_SEEDS = {
         "https://api.awfullypure.com",      // Official relay
     };
@@ -71,12 +39,7 @@ public class PeerNetwork
         this.peers = new ConcurrentHashMap<>();
     }
 
-    /**
-     * Bootstrap the peer network with seed URLs.
-     * Called from plugin startUp().
-     *
-     * @param seedUrls additional seed URLs from user config (can be empty)
-     */
+    
     public void start(List<String> seedUrls)
     {
         if (running)
@@ -132,10 +95,7 @@ public class PeerNetwork
         log.info("PeerNetwork started with {} seed peer(s)", peers.size());
     }
 
-    /**
-     * Shutdown the peer network gracefully.
-     * Called from plugin shutDown().
-     */
+    
     public void stop()
     {
         running = false;
@@ -157,9 +117,7 @@ public class PeerNetwork
 
     // --- Peer Management ---
 
-    /**
-     * Add a peer to the network. Normalizes the URL.
-     */
+    
     public void addPeer(String baseUrl)
     {
         String normalized = normalizeUrl(baseUrl);
@@ -178,10 +136,7 @@ public class PeerNetwork
         });
     }
 
-    /**
-     * Get the best peer for a request (highest score, healthy).
-     * Returns null if no healthy peers available.
-     */
+    
     public PeerInfo getBestPeer()
     {
         return peers.values().stream()
@@ -190,10 +145,7 @@ public class PeerNetwork
             .orElse(null);
     }
 
-    /**
-     * Get all healthy peers, sorted by score descending.
-     * Used for fanout operations (trade contributions go to ALL peers).
-     */
+    
     public List<PeerInfo> getHealthyPeers()
     {
         return peers.values().stream()
@@ -202,17 +154,13 @@ public class PeerNetwork
             .collect(Collectors.toList());
     }
 
-    /**
-     * Get all known peers (healthy + unhealthy) for status display.
-     */
+    
     public Collection<PeerInfo> getAllPeers()
     {
         return Collections.unmodifiableCollection(peers.values());
     }
 
-    /**
-     * Get the count of healthy peers.
-     */
+    
     public int getHealthyCount()
     {
         return (int) peers.values().stream().filter(PeerInfo::isHealthy).count();
@@ -220,13 +168,7 @@ public class PeerNetwork
 
     // --- Request Routing ---
 
-    /**
-     * Send a GET request to the best available peer.
-     * Automatically fails over to the next peer on failure.
-     *
-     * @param path API path (e.g., "/api/prices")
-     * @return Response body as string, or null if all peers failed
-     */
+    
     public String getFromBestPeer(String path)
     {
         List<PeerInfo> candidates = getHealthyPeers();
@@ -261,14 +203,7 @@ public class PeerNetwork
         return null; // all peers failed
     }
 
-    /**
-     * POST JSON to the best available peer, with automatic failover.
-     *
-     * @param path API path (e.g., "/api/profile/flips")
-     * @param json JSON body string
-     * @param headers Extra headers (e.g., X-AP-Key for auth)
-     * @return Response body as string, or null if all peers failed
-     */
+    
     public String postToBestPeer(String path, String json, Map<String, String> headers)
     {
         List<PeerInfo> candidates = getHealthyPeers();
@@ -313,10 +248,7 @@ public class PeerNetwork
         return null;
     }
 
-    /**
-     * Fanout POST — send to ALL healthy peers (fire-and-forget).
-     * Used for trade contributions so every node gets the data.
-     */
+    
     public void fanoutPost(String path, String json)
     {
         RequestBody body = RequestBody.create(JSON_TYPE, json);
@@ -363,10 +295,7 @@ public class PeerNetwork
 
     // --- Discovery & Health ---
 
-    /**
-     * Discover new peers by querying GET /api/peers on each known peer.
-     * This is how the network self-discovers without a central registry.
-     */
+    
     private void discoverPeers()
     {
         if (!running)
@@ -427,10 +356,7 @@ public class PeerNetwork
         }
     }
 
-    /**
-     * Health-check all known peers.
-     * Sends GET /api/health and updates scores based on response.
-     */
+    
     private void healthCheckAll()
     {
         if (!running)
@@ -518,10 +444,7 @@ public class PeerNetwork
         return false;
     }
 
-    /**
-     * Validate that a peer URL is safe to connect to.
-     * Rejects localhost, HTTP (non-HTTPS), and private network addresses.
-     */
+    
     private boolean isValidPeerUrl(String url)
     {
         if (url == null || url.trim().isEmpty())

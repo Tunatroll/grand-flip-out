@@ -13,19 +13,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Comprehensive data quality and price integrity engine for the Awfully Pure RuneLite plugin.
- *
- * This analyzer evaluates the LIFETIME of price data, how FRESH/STALE sources are, how HUMANLY ACCURATE
- * the trading patterns seem (versus bot or manipulated), and detects MANIPULATION patterns. Not all prices
- * on the OSRS Wiki API are equally trustworthy. Some are seconds old, some are hours old. Some reflect
- * genuine player trading, some reflect bot dumping, and some reflect deliberate price manipulation
- * (especially on low-volume luxury items). This analyzer scores every price point on trust.
- *
- * This analyzer evaluates publicly available OSRS Wiki API price data for quality and reliability.
- * It does NOT interact with game servers, automate any actions, or access any private data.
- * All analysis is informational, helping players make better-informed manual trading decisions.
- */
+// Scores price data freshness, reliability, and manipulation risk.
 @Slf4j
 @Data
 @AllArgsConstructor
@@ -37,11 +25,6 @@ public class DataQualityAnalyzer {
     private ManipulationDetector manipulationDetector;
     private PriceReliabilityCache cache;
 
-    /**
-     * Creates a DataQualityAnalyzer with all internal analyzers initialized.
-     *
-     * @param priceService the price data service to analyze
-     */
     public DataQualityAnalyzer(PriceService priceService) {
         this.priceService = priceService;
         this.manipulationDetector = new ManipulationDetector(priceService);
@@ -50,15 +33,7 @@ public class DataQualityAnalyzer {
         this.cache = new PriceReliabilityCache();
     }
 
-    /**
-     * Performs a comprehensive data quality assessment for any item price.
-     *
-     * Scoring formula:
-     * overallScore = (freshnessScore * 0.25) + (humanScore * 0.25) + (antiManipScore * 0.30) + (volumeScore * 0.20)
-     *
-     * @param itemId the item to evaluate
-     * @return comprehensive quality report
-     */
+    
     public DataQualityReport getDataQuality(int itemId) {
         DataQualityReport cached = cache.getCachedQuality(itemId);
         if (cached != null) {
@@ -115,12 +90,7 @@ public class DataQualityAnalyzer {
         return report;
     }
 
-    /**
-     * Gets bulk quality assessments for multiple items.
-     *
-     * @param itemIds the items to evaluate
-     * @return map of itemId to DataQualityReport
-     */
+    
     public Map<Integer, DataQualityReport> getBulkQuality(Set<Integer> itemIds) {
         return itemIds.stream()
                 .collect(Collectors.toMap(
@@ -129,12 +99,7 @@ public class DataQualityAnalyzer {
                 ));
     }
 
-    /**
-     * Gets the top quality items (safest to trade).
-     *
-     * @param limit number of items to return
-     * @return list of items with highest data quality
-     */
+    
     public List<Integer> getTopQualityItems(int limit) {
         return priceService.getAllItemIds().stream()
                 .map(this::getDataQuality)
@@ -144,12 +109,7 @@ public class DataQualityAnalyzer {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Gets the worst quality items (most dangerous to trade).
-     *
-     * @param limit number of items to return
-     * @return list of items with worst data quality
-     */
+    
     public List<Integer> getWorstQualityItems(int limit) {
         return priceService.getAllItemIds().stream()
                 .map(this::getDataQuality)
@@ -159,20 +119,12 @@ public class DataQualityAnalyzer {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Gets all items currently flagged as manipulation risks.
-     *
-     * @return list of potentially manipulated item IDs
-     */
+    
     public List<Integer> getManipulatedItems() {
         return manipulationDetector.getManipulationBlacklist();
     }
 
-    /**
-     * Gets all items with stale price data.
-     *
-     * @return list of items with stale prices (>30 minutes old)
-     */
+    
     public List<Integer> getStaleItems() {
         return priceService.getAllItemIds().stream()
                 .filter(id -> {
@@ -182,11 +134,7 @@ public class DataQualityAnalyzer {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Gets a market-wide data quality summary.
-     *
-     * @return summary statistics about overall data quality
-     */
+    
     public DataQualitySummary getDataQualitySummary() {
         List<Integer> allItems = priceService.getAllItemIds();
         List<DataQualityReport> allReports = allItems.stream()
@@ -271,6 +219,7 @@ public class DataQualityAnalyzer {
     }
 
     private ConfidenceBand determineConfidenceBand(int overallScore, PriceAge age, ManipulationAssessment manip) {
+        // Always prioritize manipulation risk over volume
         if (manip.getManipulationRisk() == ManipulationRisk.EXTREME) {
             return ConfidenceBand.DO_NOT_TRADE;
         }
@@ -339,9 +288,7 @@ public class DataQualityAnalyzer {
     // INNER CLASSES
     // ============================================================================
 
-    /**
-     * Evaluates how long a price has been "alive" (valid/current).
-     */
+    
     @Data
     public static class PriceLifetimeAnalyzer {
 
@@ -351,12 +298,7 @@ public class DataQualityAnalyzer {
             this.priceService = priceService;
         }
 
-        /**
-         * Gets the age of price data for an item.
-         *
-         * @param itemId the item to check
-         * @return price age information
-         */
+        
         public PriceAge getPriceAge(int itemId) {
             PriceData priceData = priceService.getLatestPrice(itemId);
             if (priceData == null) {
@@ -393,12 +335,7 @@ public class DataQualityAnalyzer {
                     .build();
         }
 
-        /**
-         * Gets the effective lifetime of the current price (how long it's been roughly the same).
-         *
-         * @param itemId the item to evaluate
-         * @return minutes the price has remained stable (±2%)
-         */
+        
         public long getEffectiveLifetime(int itemId) {
             List<PriceData> timeSeries = priceService.getPriceTimeseries(itemId, 24);
             if (timeSeries == null || timeSeries.isEmpty()) {
@@ -422,12 +359,7 @@ public class DataQualityAnalyzer {
             return stableMinutes;
         }
 
-        /**
-         * Gets the price decay rate for an item (how quickly prices go stale).
-         *
-         * @param itemId the item to evaluate
-         * @return decay rate enum (HIGH_VOLUME = fast refresh, LOW_VOLUME = slow refresh)
-         */
+        
         public DecayRate getPriceDecayRate(int itemId) {
             PriceAggregate agg = priceService.getPriceAggregate(itemId);
             if (agg == null) {
@@ -441,9 +373,7 @@ public class DataQualityAnalyzer {
         }
     }
 
-    /**
-     * Scores how "human" the trading patterns look (0-100 scale).
-     */
+    
     @Data
     public static class HumanAccuracyScorer {
 
@@ -455,13 +385,7 @@ public class DataQualityAnalyzer {
             this.manipulationDetector = manipulationDetector;
         }
 
-        /**
-         * Gets a human-trading probability score for an item.
-         * 100 = clearly human trading, 0 = clearly bot/automated.
-         *
-         * @param itemId the item to evaluate
-         * @return human score 0-100
-         */
+        
         public int getHumanScore(int itemId) {
             PriceAggregate agg = priceService.getPriceAggregate(itemId);
             if (agg == null) {
@@ -489,23 +413,13 @@ public class DataQualityAnalyzer {
             return Math.max(0, Math.min(100, score));
         }
 
-        /**
-         * Gets the probability that an item is primarily bot-traded.
-         *
-         * @param itemId the item to evaluate
-         * @return probability 0.0-1.0
-         */
+        
         public double getBotProbability(int itemId) {
             int humanScore = getHumanScore(itemId);
             return 1.0 - (humanScore / 100.0);
         }
 
-        /**
-         * Gets the trading pattern type for an item.
-         *
-         * @param itemId the item to evaluate
-         * @return pattern type
-         */
+        
         public TradePatternType getTradePatternType(int itemId) {
             int humanScore = getHumanScore(itemId);
 
@@ -682,9 +596,7 @@ public class DataQualityAnalyzer {
         }
     }
 
-    /**
-     * Detects items being actively price-manipulated.
-     */
+    
     @Data
     public static class ManipulationDetector {
 
@@ -706,12 +618,7 @@ public class DataQualityAnalyzer {
                 12817, 20997, 22325 // Elysian, Twisted bow, Scythe
         ));
 
-        /**
-         * Detects manipulation patterns for an item.
-         *
-         * @param itemId the item to analyze
-         * @return manipulation assessment
-         */
+        
         public ManipulationAssessment detectManipulation(int itemId) {
             ManipulationRisk risk = ManipulationRisk.LOW;
             List<String> evidence = new ArrayList<>();
@@ -787,11 +694,7 @@ public class DataQualityAnalyzer {
                     .build();
         }
 
-        /**
-         * Gets all items currently flagged as manipulation risks.
-         *
-         * @return list of flagged item IDs
-         */
+        
         public List<Integer> getManipulationBlacklist() {
             return priceService.getAllItemIds().stream()
                     .filter(id -> {
@@ -802,12 +705,7 @@ public class DataQualityAnalyzer {
                     .collect(Collectors.toList());
         }
 
-        /**
-         * Quick check: should this item be avoided?
-         *
-         * @param itemId the item to check
-         * @return true if item should be avoided
-         */
+        
         public boolean shouldAvoid(int itemId) {
             ManipulationAssessment assessment = detectManipulation(itemId);
             return assessment.getManipulationRisk() == ManipulationRisk.EXTREME ||
@@ -900,20 +798,13 @@ public class DataQualityAnalyzer {
         }
     }
 
-    /**
-     * Caches quality assessments to avoid recalculating every tick.
-     */
+    
     @Data
     public static class PriceReliabilityCache {
         private final Map<Integer, CachedReport> cache = new HashMap<>();
         private static final long CACHE_VALIDITY_MINUTES = 5;
 
-        /**
-         * Gets a cached quality report if it exists and is recent enough.
-         *
-         * @param itemId the item to check
-         * @return cached report or null if expired/not cached
-         */
+        
         public DataQualityReport getCachedQuality(int itemId) {
             CachedReport cached = cache.get(itemId);
             if (cached == null) return null;
@@ -927,21 +818,12 @@ public class DataQualityAnalyzer {
             return cached.getReport();
         }
 
-        /**
-         * Caches a quality report.
-         *
-         * @param itemId the item ID
-         * @param report the report to cache
-         */
+        
         public void cache(int itemId, DataQualityReport report) {
             cache.put(itemId, new CachedReport(report, LocalDateTime.now()));
         }
 
-        /**
-         * Forces recalculation by invalidating cache for an item.
-         *
-         * @param itemId the item to invalidate
-         */
+        
         public void invalidate(int itemId) {
             cache.remove(itemId);
         }

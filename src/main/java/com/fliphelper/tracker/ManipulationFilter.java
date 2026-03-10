@@ -7,18 +7,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * ManipulationFilter - protects users from recommending commonly manipulated items.
- *
- * Certain items in OSRS are routinely targeted by price manipulation clans
- * (e.g. 3rd age equipment, brutal arrows, certain rare cosmetics).
- * Recommending these as flips is misleading and potentially harmful to the user.
- *
- * Detection strategy (three layers):
- *   1. Hard blacklist  - known chronic manipulation targets by item ID
- *   2. Name heuristics - items whose names match known manipulation patterns
- *   3. Dynamic signals - extreme margin spike, low volume, tiny buy limit
- */
+
 @Slf4j
 public class ManipulationFilter
 {
@@ -98,16 +87,7 @@ public class ManipulationFilter
         }
     }
 
-    /**
-     * Assess an item for manipulation risk.
-     *
-     * @param itemId         RuneLite item ID
-     * @param itemName       Item display name
-     * @param currentMargin  Observed net margin (after tax), gp
-     * @param avgMargin30d   30-day average margin (0 if unknown)
-     * @param volume1h       1-hour trade volume
-     * @param buyLimit       GE buy limit
-     */
+    
     public RiskAssessment assess(int itemId, String itemName,
                                   long currentMargin, long avgMargin30d,
                                   long volume1h, int buyLimit)
@@ -167,9 +147,7 @@ public class ManipulationFilter
         return new RiskAssessment(ManipulationRisk.SAFE, "No manipulation signals detected.");
     }
 
-    /**
-     * Quick suppression check for use in filtering loops.
-     */
+    
     public boolean isSuppressed(int itemId, String itemName,
                                  long currentMargin, long avgMargin30d,
                                  long volume1h, int buyLimit)
@@ -178,9 +156,7 @@ public class ManipulationFilter
             volume1h, buyLimit).isSuppressed();
     }
 
-    /**
-     * Fast hard-blacklist check without dynamic signal evaluation.
-     */
+    
     public boolean isHardBlacklisted(int itemId, String itemName)
     {
         if (BLACKLISTED_IDS.contains(itemId)) return true;

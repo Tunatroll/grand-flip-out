@@ -6,6 +6,7 @@ import com.fliphelper.model.ItemMapping;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.model.PriceData;
 import com.fliphelper.model.PriceSource;
+import com.fliphelper.tracker.LocalDataCache;
 import com.fliphelper.tracker.PriceHistoryCollector;
 import com.google.gson.Gson;
 import lombok.Getter;
@@ -13,14 +14,15 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 
+import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Central service that aggregates price data from all configured sources.
- */
+import static net.runelite.client.RuneLite.RUNELITE_DIR;
+
+
 @Slf4j
 public class PriceService
 {
@@ -28,6 +30,7 @@ public class PriceService
     private final WikiPriceClient wikiClient;
     private final RuneLitePriceClient runeLiteClient;
     private final OfficialGePriceClient officialGeClient;
+    private final LocalDataCache localCache;
 
     @Getter
     private volatile Map<Integer, PriceAggregate> aggregatedPrices = new ConcurrentHashMap<>();
@@ -38,7 +41,6 @@ public class PriceService
     @Getter
     private PriceHistoryCollector historyCollector;
 
-    /** Optional debug manager for API call instrumentation. */
     @Setter
     private DebugManager debugManager;
 
@@ -47,15 +49,15 @@ public class PriceService
     public PriceService(OkHttpClient httpClient, AwfullyPureConfig config, Gson gson)
     {
         this.config = config;
-        this.wikiClient = new WikiPriceClient(httpClient, config.userAgent(), gson);
+        File dataDir = new File(RUNELITE_DIR, "awfully-pure");
+        this.localCache = new LocalDataCache(dataDir);
+        this.wikiClient = new WikiPriceClient(httpClient, config.userAgent(), gson, localCache);
         this.runeLiteClient = new RuneLitePriceClient(httpClient);
         this.officialGeClient = new OfficialGePriceClient(httpClient);
         this.historyCollector = new PriceHistoryCollector(this);
     }
 
-    /**
-     * Initialize by loading item mappings.
-     */
+    
     public void initialize() throws IOException
     {
         if (!mappingsLoaded)
@@ -66,9 +68,7 @@ public class PriceService
         }
     }
 
-    /**
-     * Refresh all price data from enabled sources.
-     */
+    
     public void refreshAll() throws IOException
     {
         long startTime = System.currentTimeMillis();
@@ -192,9 +192,7 @@ public class PriceService
             aggregatedPrices.size(), getActiveSourceCount(), totalDuration);
     }
 
-    /**
-     * Fetch official GE price for specific items (on-demand, slow).
-     */
+    
     public void fetchOfficialPrices(Collection<Integer> itemIds) throws IOException
     {
         if (!config.useOfficialGePrices())
@@ -213,17 +211,13 @@ public class PriceService
         }
     }
 
-    /**
-     * Get aggregated price for a single item.
-     */
+    
     public PriceAggregate getPrice(int itemId)
     {
         return aggregatedPrices.get(itemId);
     }
 
-    /**
-     * Search for items by name.
-     */
+    
     public List<PriceAggregate> searchByName(String query)
     {
         String lowerQuery = query.toLowerCase();
@@ -239,9 +233,7 @@ public class PriceService
         return results;
     }
 
-    /**
-     * Get top items by margin.
-     */
+    
     public List<PriceAggregate> getTopByMargin(int limit, int minVolume)
     {
         List<PriceAggregate> sorted = new ArrayList<>();
@@ -256,9 +248,7 @@ public class PriceService
         return sorted.subList(0, Math.min(limit, sorted.size()));
     }
 
-    /**
-     * Get top items by profit per GE limit.
-     */
+    
     public List<PriceAggregate> getTopByProfitPerLimit(int limit, int minVolume)
     {
         List<PriceAggregate> sorted = new ArrayList<>();
@@ -274,9 +264,7 @@ public class PriceService
         return sorted.subList(0, Math.min(limit, sorted.size()));
     }
 
-    /**
-     * Get items with margins exceeding a threshold percentage.
-     */
+    
     public List<PriceAggregate> getHighMarginItems(double minMarginPercent, int minVolume)
     {
         List<PriceAggregate> results = new ArrayList<>();
@@ -307,33 +295,25 @@ public class PriceService
         return mappingsLoaded && !aggregatedPrices.isEmpty();
     }
 
-    /**
-     * Get all tracked item IDs.
-     */
+    
     public List<Integer> getAllItemIds()
     {
         return new ArrayList<>(aggregatedPrices.keySet());
     }
 
-    /**
-     * Alias for getPrice() - returns PriceAggregate for an item.
-     */
+    
     public PriceAggregate getPriceAggregate(int itemId)
     {
         return getPrice(itemId);
     }
 
-    /**
-     * Alias for getPrice() - used by InvestmentHorizonAnalyzer.
-     */
+    
     public PriceAggregate getPriceData(int itemId)
     {
         return getPrice(itemId);
     }
 
-    /**
-     * Get latest PriceData for an item from the best source.
-     */
+    
     public PriceData getLatestPrice(int itemId)
     {
         PriceAggregate agg = aggregatedPrices.get(itemId);
@@ -354,10 +334,7 @@ public class PriceService
         return data;
     }
 
-    /**
-     * Get price timeseries for an item from the Wiki timeseries API.
-     * Returns actual historical data points at 5m or 1h resolution.
-     */
+    
     public List<PriceData> getPriceTimeseries(int itemId, int hours)
     {
         try
@@ -386,10 +363,7 @@ public class PriceService
         return series;
     }
 
-    /**
-     * Get price history as a list of longs for an item.
-     * Uses the history collector (accumulated snapshots) or seeds from Wiki timeseries.
-     */
+    
     public List<Long> getPriceHistoryForItem(int itemId)
     {
         // Try collected history first
@@ -409,9 +383,7 @@ public class PriceService
         return history;
     }
 
-    /**
-     * Shutdown the price service and release resources.
-     */
+    
     public void shutdown()
     {
         aggregatedPrices.clear();

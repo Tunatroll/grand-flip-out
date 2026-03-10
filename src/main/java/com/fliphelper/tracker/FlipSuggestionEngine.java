@@ -9,10 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Analyzes price data and suggests the best items to flip based on
- * margin, volume, buy limits, and configurable criteria.
- */
+
 @Slf4j
 public class FlipSuggestionEngine
 {
@@ -27,10 +24,7 @@ public class FlipSuggestionEngine
         this.quickFlipAnalyzer = quickFlipAnalyzer;
     }
 
-    /**
-     * Generate flip suggestions based on current config and market data.
-     * Uses a bounded priority queue for efficient top-N selection.
-     */
+    
     public List<FlipSuggestion> generateSuggestions()
     {
         long startTime = System.currentTimeMillis();
@@ -159,10 +153,7 @@ public class FlipSuggestionEngine
         }
     }
 
-    /**
-     * Get suggestions specifically optimized for quick flipping.
-     * Sorted by QF score descending, filtered to grade B or better (score >= 50).
-     */
+    
     public List<FlipSuggestion> getQuickFlipSuggestions()
     {
         List<FlipSuggestion> all = generateSuggestions();

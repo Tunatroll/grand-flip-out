@@ -1,5 +1,8 @@
 package com.fliphelper.debug;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -7,7 +10,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -16,23 +25,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-/**
- * Comprehensive debugging system for Awfully Pure.
- *
- * Provides:
- * - Ring buffer logging (last 500 entries)
- * - Performance metrics tracking
- * - API call monitoring
- * - Memory usage tracking
- * - Event logging
- * - Debug report export
- */
+
 @Slf4j
 public class DebugManager
 {
     private static final int LOG_BUFFER_SIZE = 500;
     private static final int MAX_SNAPSHOTS_PER_OP = 1000;
+    private static final int MAX_LOG_FILE_SIZE_MB = 5;
+    private static final long PERF_SUMMARY_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
+        .withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
         .withZone(ZoneId.systemDefault());
 
     // Ring buffer for log entries
@@ -47,12 +50,22 @@ public class DebugManager
     // Event log
     private final List<EventLogEntry> eventLog = new CopyOnWriteArrayList<>();
 
+    public List<EventLogEntry> getEventLog()
+    {
+        return eventLog;
+    }
+
     // Memory snapshots
     private final List<MemorySnapshot> memorySnapshots = new CopyOnWriteArrayList<>();
 
-    /**
-     * Log a message with timestamp and level.
-     */
+    // File-based logging and diagnostics
+    @Nullable
+    private File dataDir;
+    private final Object fileWriteLock = new Object();
+    private Instant lastPerfSummaryWrite = Instant.EPOCH;
+    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+
+    
     public synchronized void log(@Nonnull LogLevel level, @Nonnull String sourceClass, @Nonnull String message)
     {
         LogEntry entry = LogEntry.builder()
@@ -71,44 +84,253 @@ public class DebugManager
         }
     }
 
-    /**
-     * Log a debug message.
-     */
+    
     public void debug(@Nonnull String sourceClass, @Nonnull String message)
     {
         log(LogLevel.DEBUG, sourceClass, message);
     }
 
-    /**
-     * Log an info message.
-     */
+    
     public void info(@Nonnull String sourceClass, @Nonnull String message)
     {
         log(LogLevel.INFO, sourceClass, message);
     }
 
-    /**
-     * Log a warning message.
-     */
+
     public void warn(@Nonnull String sourceClass, @Nonnull String message)
     {
         log(LogLevel.WARN, sourceClass, message);
+        writeToDebugLog(LogLevel.WARN, sourceClass, message);
     }
 
-    /**
-     * Log an error message.
-     */
+
     public void error(@Nonnull String sourceClass, @Nonnull String message)
     {
         log(LogLevel.ERROR, sourceClass, message);
+        writeToDebugLog(LogLevel.ERROR, sourceClass, message);
     }
 
-    /**
-     * Record execution time for an operation.
-     *
-     * @param operationName The name of the operation
-     * @param durationMs The duration in milliseconds
-     */
+    public void setDataDir(@Nonnull File dir)
+    {
+        this.dataDir = dir;
+    }
+
+    private void writeToDebugLog(@Nonnull LogLevel level, @Nonnull String sourceClass, @Nonnull String message)
+    {
+        if (dataDir == null || (level != LogLevel.WARN && level != LogLevel.ERROR))
+        {
+            return;
+        }
+
+        synchronized (fileWriteLock)
+        {
+            try
+            {
+                File debugDir = new File(dataDir, "debug");
+                debugDir.mkdirs();
+                File debugLog = new File(debugDir, "debug.log");
+
+                checkAndRotateLog(debugLog);
+
+                String timestamp = ISO_FORMATTER.format(Instant.now());
+                String logLine = String.format("[%s] [%s] %s: %s%n", timestamp, level, sourceClass, message);
+
+                try (FileWriter fw = new FileWriter(debugLog, true))
+                {
+                    fw.write(logLine);
+                    fw.flush();
+                }
+            }
+            catch (Exception e)
+            {
+                log.warn("Failed to write to debug.log", e);
+            }
+        }
+    }
+
+    private void checkAndRotateLog(@Nonnull File debugLog)
+    {
+        if (!debugLog.exists())
+        {
+            return;
+        }
+
+        long sizeBytes = debugLog.length();
+        long maxSizeBytes = (long) MAX_LOG_FILE_SIZE_MB * 1024 * 1024;
+
+        if (sizeBytes > maxSizeBytes)
+        {
+            File rotated = new File(debugLog.getParentFile(), "debug.log.1");
+            if (rotated.exists())
+            {
+                rotated.delete();
+            }
+            debugLog.renameTo(rotated);
+        }
+    }
+
+    public void writePerformanceSummary()
+    {
+        Instant now = Instant.now();
+        if (Duration(now, lastPerfSummaryWrite) < PERF_SUMMARY_INTERVAL_MS)
+        {
+            return;
+        }
+
+        if (dataDir == null)
+        {
+            return;
+        }
+
+        synchronized (fileWriteLock)
+        {
+            try
+            {
+                File debugDir = new File(dataDir, "debug");
+                debugDir.mkdirs();
+                File perfFile = new File(debugDir, "perf-summary.json");
+
+                JsonObject summary = new JsonObject();
+                summary.addProperty("timestamp", ISO_FORMATTER.format(now));
+
+                // API latencies
+                JsonObject apiStats = new JsonObject();
+                for (Map.Entry<String, APICallStats> entry : apiCallStats.entrySet())
+                {
+                    APICallStats stats = entry.getValue();
+                    if (!stats.durations.isEmpty())
+                    {
+                        List<Long> sorted = new ArrayList<>(stats.durations);
+                        Collections.sort(sorted);
+
+                        JsonObject endpointStats = new JsonObject();
+                        endpointStats.addProperty("min_ms", sorted.get(0));
+                        endpointStats.addProperty("max_ms", sorted.get(sorted.size() - 1));
+                        endpointStats.addProperty("avg_ms", stats.getAverageDurationMs());
+                        endpointStats.addProperty("calls", stats.getTotalCalls().get());
+
+                        apiStats.add(entry.getKey(), endpointStats);
+                    }
+                }
+                summary.add("api_latencies", apiStats);
+
+                // Memory stats
+                if (!memorySnapshots.isEmpty())
+                {
+                    MemorySnapshot latest = memorySnapshots.get(memorySnapshots.size() - 1);
+                    JsonObject memStats = new JsonObject();
+                    memStats.addProperty("heap_used_mb", latest.getHeapUsedMb());
+                    memStats.addProperty("heap_max_mb", latest.getHeapMaxMb());
+                    memStats.addProperty("item_cache_size", latest.getItemCacheSize());
+                    summary.add("memory", memStats);
+                }
+
+                try (FileWriter fw = new FileWriter(perfFile, false))
+                {
+                    gson.toJson(summary, fw);
+                    fw.flush();
+                }
+
+                lastPerfSummaryWrite = now;
+            }
+            catch (Exception e)
+            {
+                log.warn("Failed to write perf-summary.json", e);
+            }
+        }
+    }
+
+    public void logStartupDiagnostics()
+    {
+        if (dataDir == null)
+        {
+            return;
+        }
+
+        String javaVersion = System.getProperty("java.version");
+        String osName = System.getProperty("os.name");
+        String osVersion = System.getProperty("os.version");
+
+        long dataDirSize = calculateDirSize(dataDir);
+        String dataDirSizeMb = String.format("%.2f", dataDirSize / (1024.0 * 1024.0));
+
+        String diagnostic = String.format(
+            "Startup Diagnostics: Java %s, OS %s %s, Data Dir Size: %s MB",
+            javaVersion, osName, osVersion, dataDirSizeMb
+        );
+
+        info("DebugManager", diagnostic);
+    }
+
+    private long calculateDirSize(@Nonnull File dir)
+    {
+        long size = 0;
+        File[] files = dir.listFiles();
+        if (files != null)
+        {
+            for (File file : files)
+            {
+                if (file.isDirectory())
+                {
+                    size += calculateDirSize(file);
+                }
+                else
+                {
+                    size += file.length();
+                }
+            }
+        }
+        return size;
+    }
+
+    public void writeCrashBreadcrumb(@Nonnull String context, @Nonnull Exception e)
+    {
+        if (dataDir == null)
+        {
+            return;
+        }
+
+        synchronized (fileWriteLock)
+        {
+            try
+            {
+                File debugDir = new File(dataDir, "debug");
+                debugDir.mkdirs();
+                File crashFile = new File(debugDir, "last-crash.txt");
+
+                StringBuilder sb = new StringBuilder();
+                sb.append("Timestamp: ").append(ISO_FORMATTER.format(Instant.now())).append("\n");
+                sb.append("Context: ").append(context).append("\n");
+                sb.append("Exception: ").append(e.getClass().getSimpleName()).append("\n");
+                sb.append("Message: ").append(e.getMessage()).append("\n");
+                sb.append("Stack Trace (first 10 frames):\n");
+
+                StackTraceElement[] trace = e.getStackTrace();
+                int limit = Math.min(10, trace.length);
+                for (int i = 0; i < limit; i++)
+                {
+                    sb.append("  at ").append(trace[i]).append("\n");
+                }
+
+                try (FileWriter fw = new FileWriter(crashFile, false))
+                {
+                    fw.write(sb.toString());
+                    fw.flush();
+                }
+            }
+            catch (Exception ex)
+            {
+                log.warn("Failed to write crash breadcrumb", ex);
+            }
+        }
+    }
+
+    private long Duration(@Nonnull Instant now, @Nonnull Instant last)
+    {
+        return now.toEpochMilli() - last.toEpochMilli();
+    }
+
+
     public void recordOperationTime(@Nonnull String operationName, long durationMs)
     {
         performanceMetrics.computeIfAbsent(operationName, k -> new CopyOnWriteArrayList<>())
@@ -122,12 +344,7 @@ public class DebugManager
         }
     }
 
-    /**
-     * Get statistics for a specific operation.
-     *
-     * @param operationName The operation to query
-     * @return Statistics or null if no data
-     */
+    
     @Nullable
     public OperationStats getOperationStats(@Nonnull String operationName)
     {
@@ -155,27 +372,26 @@ public class DebugManager
             .build();
     }
 
-    /**
-     * Record an API call.
-     */
+
     public void recordAPICall(@Nonnull String endpoint, long durationMs, boolean success)
     {
         APICallStats stats = apiCallStats.computeIfAbsent(endpoint, k -> new APICallStats(endpoint));
         stats.recordCall(durationMs, success);
+
+        if (!success)
+        {
+            writeToDebugLog(LogLevel.WARN, "APICall", String.format("API failure: %s (%d ms)", endpoint, durationMs));
+        }
     }
 
-    /**
-     * Get all API call statistics.
-     */
+    
     @Nonnull
     public Map<String, APICallStats> getAPICallStats()
     {
         return new HashMap<>(apiCallStats);
     }
 
-    /**
-     * Record memory usage snapshot.
-     */
+    
     public void recordMemorySnapshot(long heapUsed, long heapMax, int itemCacheSize, int priceHistoryEntries)
     {
         MemorySnapshot snapshot = MemorySnapshot.builder()
@@ -195,9 +411,7 @@ public class DebugManager
         }
     }
 
-    /**
-     * Record an event (flip completion, alert trigger, etc).
-     */
+    
     public void recordEvent(@Nonnull String eventType, @Nonnull String description, @Nullable String itemName)
     {
         EventLogEntry event = EventLogEntry.builder()
@@ -216,16 +430,12 @@ public class DebugManager
         }
     }
 
-    /**
-     * Export a comprehensive debug report for bug reporting.
-     *
-     * @return A formatted debug report as a string
-     */
+
     @Nonnull
     public String exportDebugReport()
     {
         StringBuilder sb = new StringBuilder();
-        sb.append("=== GRAND FLIP OUT DEBUG REPORT ===\n");
+        sb.append("=== AWFULLY PURE DEBUG REPORT ===\n");
         sb.append("Generated: ").append(TIME_FORMATTER.format(Instant.now())).append("\n\n");
 
         // ===== LOG BUFFER =====
@@ -319,13 +529,48 @@ public class DebugManager
         }
         sb.append("\n");
 
+        // ===== CRASH BREADCRUMB =====
+        if (dataDir != null)
+        {
+            File crashFile = new File(new File(dataDir, "debug"), "last-crash.txt");
+            if (crashFile.exists())
+            {
+                sb.append("=== LAST CRASH BREADCRUMB ===\n");
+                try
+                {
+                    String crashContent = new String(Files.readAllBytes(crashFile.toPath()), StandardCharsets.UTF_8);
+                    sb.append(crashContent);
+                }
+                catch (Exception e)
+                {
+                    sb.append("(Unable to read crash file)\n");
+                }
+                sb.append("\n");
+            }
+
+            // ===== PERF SUMMARY =====
+            File perfFile = new File(new File(dataDir, "debug"), "perf-summary.json");
+            if (perfFile.exists())
+            {
+                sb.append("=== PERFORMANCE SUMMARY (from file) ===\n");
+                try
+                {
+                    String perfContent = new String(Files.readAllBytes(perfFile.toPath()), StandardCharsets.UTF_8);
+                    sb.append(perfContent);
+                }
+                catch (Exception e)
+                {
+                    sb.append("(Unable to read perf summary)\n");
+                }
+                sb.append("\n");
+            }
+        }
+
         sb.append("=== END DEBUG REPORT ===\n");
         return sb.toString();
     }
 
-    /**
-     * Clear all debug data.
-     */
+    
     public void clearAll()
     {
         logBuffer.clear();

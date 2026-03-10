@@ -13,36 +13,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Batched HTTP client for plugin → backend intelligence event submission.
- *
- * <p>Collects JTI score events and Z-Score anomaly events in a
- * ConcurrentLinkedQueue and flushes them every 5 seconds as a single
- * batched POST to {@code /api/plugin/batch}.</p>
- *
- * <h3>Why batching matters for Plugin Hub approval</h3>
- * RuneLite Plugin Hub reviewers reject plugins that fire HTTP requests
- * on every game event. This batcher ensures a maximum of 1 request
- * per 5 seconds regardless of how many GE events occur.
- *
- * <h3>Event types</h3>
- * <ul>
- *   <li>{@link JtiEvent} — plugin-computed JTI score after a price refresh.
- *       Lets the server build consensus JTI from multiple clients.</li>
- *   <li>{@link ZScoreEvent} — plugin detected a Z-Score price anomaly.
- *       Server logs it and can broadcast via WebSocket to the website.</li>
- * </ul>
- *
- * <h3>Event type discriminator convention</h3>
- * Both event types use <b>lowercase</b> {@code type} strings:
- * {@code "jti"} and {@code "zscore"} — matching exactly what the server's
- * {@code /api/plugin/batch} handler expects.
- *
- * <h3>Graceful degradation</h3>
- * If the backend is unreachable, events are silently dropped.
- * The queue is capped at {@link #MAX_QUEUE_SIZE} to prevent memory
- * buildup during extended offline periods.
- */
+
 @Slf4j
 public class ApHttpBatcher
 {
@@ -71,7 +42,6 @@ public class ApHttpBatcher
 
     // --- Lifecycle ---
 
-    /** Start background flush worker. Call from plugin {@code startUp()}. */
     public void start()
     {
         if (flushExecutor != null) return;
@@ -87,7 +57,6 @@ public class ApHttpBatcher
         log.info("ApHttpBatcher started — flushing to {} every {}s", backendBaseUrl, FLUSH_INTERVAL_S);
     }
 
-    /** Drain remaining events and stop. Call from plugin {@code shutDown()}. */
     public void stop()
     {
         flush(); // final drain
@@ -109,18 +78,7 @@ public class ApHttpBatcher
 
     // --- Public API ---
 
-    /**
-     * Queue a JTI score event. Safe to call from any thread.
-     *
-     * @param itemId            OSRS item ID
-     * @param itemName          Display name
-     * @param jtiScore          JTI score 0–100
-     * @param marginPct         Margin as percentage (e.g. 4.5 for 4.5%)
-     * @param volume5m          Trade count in last 5-minute window
-     * @param buyPrice          Best buy (insta-sell) price
-     * @param sellPrice         Best sell (insta-buy) price
-     * @param taxAdjustedProfit Net profit per item after 2% GE tax
-     */
+    
     public void queueJtiEvent(int itemId, String itemName, double jtiScore,
                                double marginPct, int volume5m,
                                long buyPrice, long sellPrice, long taxAdjustedProfit)
@@ -131,20 +89,7 @@ public class ApHttpBatcher
                              System.currentTimeMillis()));
     }
 
-    /**
-     * Queue a Z-Score anomaly event. Safe to call from any thread.
-     *
-     * @param itemId              OSRS item ID
-     * @param itemName            Display name
-     * @param zScore              Z-Score (negative = dump, positive = pump)
-     * @param severity            "WARNING" | "ALERT" | "MAJOR" | "CRITICAL"
-     * @param currentPrice        Current item price
-     * @param avgPrice            Rolling average used as Z-Score baseline
-     * @param volumeRatio         Current volume / average volume
-     * @param classification      "DUMP" | "PUMP" | "VOLATILITY_SPIKE" | "MANIPULATION_SUSPECTED"
-     * @param confidence          Confidence 0.0–1.0
-     * @param recoveryProbability Estimated probability of price recovery 0.0–1.0
-     */
+    
     public void queueZScoreEvent(int itemId, String itemName, double zScore,
                                   String severity, long currentPrice, long avgPrice,
                                   double volumeRatio, String classification,
@@ -157,16 +102,12 @@ public class ApHttpBatcher
                                 System.currentTimeMillis()));
     }
 
-    /** Enable or disable batching (mirrors plugin config toggle). */
     public void setEnabled(boolean enabled)
     {
         this.enabled = enabled;
     }
 
-    /**
-     * Set backend base URL. Strips trailing slashes and /api suffixes.
-     * Example input: "http://localhost:3001" or "http://localhost:3001/api/contribute"
-     */
+    
     public void setBackendBaseUrl(String url)
     {
         this.backendBaseUrl = url
@@ -175,7 +116,6 @@ public class ApHttpBatcher
             .replaceAll("/$", "");
     }
 
-    /** Number of events currently waiting to flush. */
     public int getQueueSize() { return eventQueue.size(); }
 
     // --- Internal ---
@@ -242,12 +182,9 @@ public class ApHttpBatcher
 
     // --- Wire Format ---
 
-    /** Outer wrapper sent as the POST body to {@code /api/plugin/batch}. */
     public static class BatchPayload
     {
         public final String pluginVersion;
-        /** Polymorphic array — each element has a {@code type} field that is
-         *  either {@code "jti"} or {@code "zscore"}. */
         public final List<Object> events;
 
         public BatchPayload(String pluginVersion, List<Object> events)
@@ -257,7 +194,6 @@ public class ApHttpBatcher
         }
     }
 
-    /** JTI score event. Type discriminator: {@code "jti"} (lowercase). */
     public static class JtiEvent
     {
         public final String type = "jti"; // server routes on this field
@@ -287,10 +223,7 @@ public class ApHttpBatcher
         }
     }
 
-    /**
-     * Z-Score anomaly event. Type discriminator: {@code "zscore"} (lowercase).
-     * Negative zScore = price dump. Positive = pump.
-     */
+    
     public static class ZScoreEvent
     {
         public final String type = "zscore"; // server routes on this field
