@@ -1,6 +1,6 @@
 package com.fliphelper.tracker;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.debug.DebugManager;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.FlipState;
@@ -41,7 +41,7 @@ public class FlipTracker
         this.flipCompleteListener = listener;
     }
 
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final File dataDir;
     private final Gson gson;
 
@@ -80,7 +80,7 @@ public class FlipTracker
     @Getter
     private final Map<Integer, ItemStats> itemStatsMap = new ConcurrentHashMap<>();
 
-    public FlipTracker(AwfullyPureConfig config, File dataDir, Gson gson)
+    public FlipTracker(GrandFlipOutConfig config, File dataDir, Gson gson)
     {
         this.config = config;
         this.dataDir = dataDir;

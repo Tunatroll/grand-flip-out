@@ -19,7 +19,7 @@ import com.fliphelper.model.FlipState;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.model.TradeRecord;
 import com.fliphelper.tracker.*;
-import com.fliphelper.ui.AwfullyPurePanel;
+import com.fliphelper.ui.GrandFlipOutPanel;
 import com.google.gson.Gson;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
@@ -67,9 +67,9 @@ import static net.runelite.client.RuneLite.RUNELITE_DIR;
     description = "Comprehensive GE flipping assistant with multi-source pricing, flip tracking, profit analysis, and smart suggestions",
     tags = {"grand exchange", "flipping", "merching", "prices", "profit", "ge", "trading"}
 )
-public class AwfullyPurePlugin extends Plugin implements KeyListener
+public class GrandFlipOutPlugin extends Plugin implements KeyListener
 {
-    private static final File DATA_DIR = new File(RUNELITE_DIR, "awfully-pure");
+    private static final File DATA_DIR = new File(RUNELITE_DIR, "grand-flip-out");
 
     @Inject
     private Client client;
@@ -78,7 +78,7 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
     private ClientThread clientThread;
 
     @Inject
-    private AwfullyPureConfig config;
+    private GrandFlipOutConfig config;
 
     @Inject
     private ClientToolbar clientToolbar;
@@ -129,9 +129,9 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
     private DebugPanel debugPanel;
     private SlotsPanel slotsPanel;
     private StatsPanel statsPanel;
-    private AwfullyPurePanel panel;
+    private GrandFlipOutPanel panel;
     private ProfilePanel profilePanel;
-    private AwfullyPureOverlay overlay;
+    private GrandFlipOutOverlay overlay;
     private DebugOverlay debugOverlay;
     private GpDropOverlay gpDropOverlay;
     private com.fliphelper.ui.GEHighlightOverlay geHighlightOverlay;
@@ -146,15 +146,15 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
     private final GrandExchangeOfferState[] lastOfferState = new GrandExchangeOfferState[8];
 
     @Provides
-    AwfullyPureConfig provideConfig(ConfigManager configManager)
+    GrandFlipOutConfig provideConfig(ConfigManager configManager)
     {
-        return configManager.getConfig(AwfullyPureConfig.class);
+        return configManager.getConfig(GrandFlipOutConfig.class);
     }
 
     @Override
     protected void startUp() throws Exception
     {
-        log.info("Awfully Pure starting up");
+        log.info("Grand Flip Out starting up");
 
         DATA_DIR.mkdirs();
 
@@ -233,7 +233,7 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
         );
 
         // Create UI
-        panel = new AwfullyPurePanel(config, priceService, flipTracker, suggestionEngine, smartAdvisor);
+        panel = new GrandFlipOutPanel(config, priceService, flipTracker, suggestionEngine, smartAdvisor);
 
         // Create Slots Panel (GE slot timers, account switcher) — the first tab users see
         slotsPanel = new SlotsPanel(config, client, priceService, flipTracker, accountDataManager, geOfferHelper);
@@ -250,7 +250,7 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
         panel.addTab("Portfolio", portfolioPanel);
 
         // ProfilePanel added after initialization below (was null ref bug)
-        overlay = new AwfullyPureOverlay(client, config, priceService, flipTracker);
+        overlay = new GrandFlipOutOverlay(client, config, priceService, flipTracker);
         debugOverlay = new DebugOverlay(config, priceService, flipTracker, debugManager);
         gpDropOverlay = new GpDropOverlay(client, config);
 
@@ -286,7 +286,7 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
         overlayManager.add(geItemTooltipOverlay);
         keyManager.registerKeyListener(this);
 
-        // P2P Network (fundamental to Awfully Pure architecture)
+        // P2P Network (fundamental to Grand Flip Out architecture)
         peerNetwork = new PeerNetwork(okHttpClient, gson);
         if (config.enableP2P())
         {
@@ -376,13 +376,13 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
             TimeUnit.SECONDS
         );
 
-        log.info("Awfully Pure started successfully");
+        log.info("Grand Flip Out started successfully");
     }
 
     @Override
     protected void shutDown() throws Exception
     {
-        log.info("Awfully Pure shutting down");
+        log.info("Grand Flip Out shutting down");
 
         if (executor != null)
         {

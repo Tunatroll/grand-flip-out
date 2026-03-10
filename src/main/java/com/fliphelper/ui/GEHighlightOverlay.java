@@ -1,6 +1,6 @@
 package com.fliphelper.ui;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.tracker.FlipTracker;
@@ -54,7 +54,7 @@ public class GEHighlightOverlay extends Overlay
     private static final int MAX_SLOTS = 8;
 
     private final Client client;
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final FlipTracker flipTracker;
     private final GEOfferHelper offerHelper;
 
@@ -70,7 +70,7 @@ public class GEHighlightOverlay extends Overlay
     private final String[] slotReasons = new String[MAX_SLOTS];
 
     @Inject
-    public GEHighlightOverlay(Client client, AwfullyPureConfig config,
+    public GEHighlightOverlay(Client client, GrandFlipOutConfig config,
                               FlipTracker flipTracker, GEOfferHelper offerHelper, PriceService priceService)
     {
         this.client = client;

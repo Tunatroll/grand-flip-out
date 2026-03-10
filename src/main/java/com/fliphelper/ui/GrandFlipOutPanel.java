@@ -1,6 +1,6 @@
 package com.fliphelper.ui;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.tracker.FlipSuggestionEngine;
@@ -22,9 +22,9 @@ import java.util.List;
 import java.util.Map;
 
 
-public class AwfullyPurePanel extends PluginPanel
+public class GrandFlipOutPanel extends PluginPanel
 {
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final FlipTracker flipTracker;
     private final FlipSuggestionEngine suggestionEngine;
@@ -57,20 +57,20 @@ public class AwfullyPurePanel extends PluginPanel
     private String selectedCategory = "All";
     private JButton[] categoryButtons;
 
-    public AwfullyPurePanel(AwfullyPureConfig config, PriceService priceService,
+    public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
                            FlipTracker flipTracker, FlipSuggestionEngine suggestionEngine)
     {
         this(config, priceService, flipTracker, suggestionEngine, null, null);
     }
 
-    public AwfullyPurePanel(AwfullyPureConfig config, PriceService priceService,
+    public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
                            FlipTracker flipTracker, FlipSuggestionEngine suggestionEngine,
                            SmartAdvisor smartAdvisor)
     {
         this(config, priceService, flipTracker, suggestionEngine, smartAdvisor, null);
     }
 
-    public AwfullyPurePanel(AwfullyPureConfig config, PriceService priceService,
+    public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
                            FlipTracker flipTracker, FlipSuggestionEngine suggestionEngine,
                            SmartAdvisor smartAdvisor, SessionManager sessionManager)
     {
@@ -360,7 +360,7 @@ public class AwfullyPurePanel extends PluginPanel
         resetBtn.setToolTipText("Clear all session profit/loss data and start fresh");
         resetBtn.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(
-                AwfullyPurePanel.this,
+                GrandFlipOutPanel.this,
                 "Reset session data?\n\nThis will clear all profit/loss tracking for this session.\nYour flip history will NOT be deleted.",
                 "Confirm Reset",
                 JOptionPane.YES_NO_OPTION,
@@ -1651,7 +1651,7 @@ public class AwfullyPurePanel extends PluginPanel
 
     private String formatGp(long amount)
     {
-        // Format with full comma-separated numbers per CLAUDE.md requirement
+       
         // Never abbreviate GP values in user-facing output
         return String.format("%,d", amount);
     }

@@ -1,6 +1,6 @@
 package com.fliphelper.tracker;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.ui.GEHighlightOverlay;
@@ -31,7 +31,7 @@ import javax.inject.Singleton;
 public class FlipGuidance
 {
     private final Client client;
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private GEHighlightOverlay highlightOverlay;
 
@@ -46,7 +46,7 @@ public class FlipGuidance
     private long guidanceStartTime = 0;
 
     @Inject
-    public FlipGuidance(Client client, AwfullyPureConfig config, PriceService priceService)
+    public FlipGuidance(Client client, GrandFlipOutConfig config, PriceService priceService)
     {
         this.client = client;
         this.config = config;

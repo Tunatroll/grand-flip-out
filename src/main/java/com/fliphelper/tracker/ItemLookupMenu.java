@@ -1,6 +1,6 @@
 package com.fliphelper.tracker;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import net.runelite.api.Client;
@@ -36,12 +36,12 @@ public class ItemLookupMenu
     private static final String LOOKUP_OPTION = "AP: Lookup";
 
     private final Client client;
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final ItemManager itemManager;
 
     @Inject
-    public ItemLookupMenu(Client client, AwfullyPureConfig config,
+    public ItemLookupMenu(Client client, GrandFlipOutConfig config,
                           PriceService priceService, ItemManager itemManager)
     {
         this.client = client;

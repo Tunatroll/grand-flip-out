@@ -1,6 +1,6 @@
 package com.fliphelper.ui;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.tracker.FlipSuggestionEngine;
@@ -21,7 +21,7 @@ public class PortfolioPanel extends JPanel
 {
     private static final int GE_SLOTS = 8;
 
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final SmartAdvisor smartAdvisor;
     private final SlotOptimizer slotOptimizer;
@@ -38,7 +38,7 @@ public class PortfolioPanel extends JPanel
     private long userCapital = 5_000_000;
     private List<PortfolioEntry> currentPortfolio = new ArrayList<>();
 
-    public PortfolioPanel(AwfullyPureConfig config, PriceService priceService,
+    public PortfolioPanel(GrandFlipOutConfig config, PriceService priceService,
                          SmartAdvisor smartAdvisor, SlotOptimizer slotOptimizer,
                          FlipSuggestionEngine suggestionEngine)
     {

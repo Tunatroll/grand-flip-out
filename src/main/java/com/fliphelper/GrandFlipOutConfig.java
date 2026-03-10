@@ -11,7 +11,7 @@ import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 
 @ConfigGroup("awfullypure")
-public interface AwfullyPureConfig extends Config
+public interface GrandFlipOutConfig extends Config
 {
     // ==================== SECTIONS ====================
 
@@ -289,7 +289,7 @@ public interface AwfullyPureConfig extends Config
     @ConfigItem(
         keyName = "togglePanelHotkey",
         name = "Toggle Panel",
-        description = "Hotkey to open/close the Awfully Pure panel",
+        description = "Hotkey to open/close the Grand Flip Out panel",
         section = hotkeysSection,
         position = 0
     )
@@ -849,7 +849,7 @@ public interface AwfullyPureConfig extends Config
 
     @ConfigSection(
         name = "P2P Network",
-        description = "Peer-to-peer relay network — the backbone of Awfully Pure's distributed architecture",
+        description = "Peer-to-peer relay network — the backbone of Grand Flip Out's distributed architecture",
         position = 9
     )
     String p2pSection = "p2p";
@@ -857,7 +857,7 @@ public interface AwfullyPureConfig extends Config
     @ConfigItem(
         keyName = "enableP2P",
         name = "Enable P2P Network",
-        description = "Connect to the Awfully Pure relay network for distributed pricing and community data sharing. Opt-in only — no data is sent without your consent.",
+        description = "Connect to the Grand Flip Out relay network for distributed pricing and community data sharing. Opt-in only — no data is sent without your consent.",
         section = p2pSection,
         position = 0
     )
@@ -890,7 +890,7 @@ public interface AwfullyPureConfig extends Config
     @ConfigItem(
         keyName = "enableCrowdsourced",
         name = "Enable Crowdsourced Data",
-        description = "Send anonymous trade data to the Awfully Pure backend to improve Z-Score detection and consensus pricing. No RSN or account info is transmitted. Opt-in only.",
+        description = "Send anonymous trade data to the Grand Flip Out backend to improve Z-Score detection and consensus pricing. No RSN or account info is transmitted. Opt-in only.",
         section = crowdsourcedSection,
         position = 0
     )
@@ -902,7 +902,7 @@ public interface AwfullyPureConfig extends Config
     @ConfigItem(
         keyName = "backendUrl",
         name = "Backend URL",
-        description = "URL of the Awfully Pure backend server for crowdsourced data",
+        description = "URL of the Grand Flip Out backend server for crowdsourced data",
         section = crowdsourcedSection,
         position = 1
     )
@@ -914,7 +914,7 @@ public interface AwfullyPureConfig extends Config
     @ConfigItem(
         keyName = "profileApiKey",
         name = "Profile API Key",
-        description = "Your private Awfully Pure profile key. Flips will be logged to your profile for P&L tracking. Get one from the website's My Profile tab.",
+        description = "Your private Grand Flip Out profile key. Flips will be logged to your profile for P&L tracking. Get one from the website's My Profile tab.",
         section = crowdsourcedSection,
         position = 2,
         secret = true

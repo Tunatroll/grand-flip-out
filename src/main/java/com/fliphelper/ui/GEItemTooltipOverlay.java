@@ -1,6 +1,6 @@
 package com.fliphelper.ui;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import net.runelite.api.Client;
@@ -28,13 +28,13 @@ import java.awt.*;
 public class GEItemTooltipOverlay extends WidgetItemOverlay
 {
     private final Client client;
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final TooltipManager tooltipManager;
     private final ItemManager itemManager;
 
     @Inject
-    public GEItemTooltipOverlay(Client client, AwfullyPureConfig config,
+    public GEItemTooltipOverlay(Client client, GrandFlipOutConfig config,
                                 PriceService priceService, TooltipManager tooltipManager,
                                 ItemManager itemManager)
     {

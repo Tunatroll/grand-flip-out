@@ -1,6 +1,6 @@
 package com.fliphelper.ui;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import net.runelite.api.Client;
@@ -26,12 +26,12 @@ import java.awt.*;
 public class GETooltipOverlay extends WidgetItemOverlay
 {
     private final Client client;
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final TooltipManager tooltipManager;
 
     @Inject
-    public GETooltipOverlay(Client client, AwfullyPureConfig config,
+    public GETooltipOverlay(Client client, GrandFlipOutConfig config,
                             PriceService priceService, TooltipManager tooltipManager)
     {
         this.client = client;
@@ -66,7 +66,7 @@ public class GETooltipOverlay extends WidgetItemOverlay
 
         // Build tooltip using RuneLite's color tag format
         StringBuilder sb = new StringBuilder();
-        sb.append("<col=ffb800>Awfully Pure</col>");
+        sb.append("<col=ffb800>Grand Flip Out</col>");
         sb.append("</br>Buy: <col=00ff00>").append(fmtGp(buy)).append("</col>");
         sb.append(" | Sell: <col=ff4444>").append(fmtGp(sell)).append("</col>");
         sb.append("</br>Margin: <col=ffb800>").append(fmtGp(margin));

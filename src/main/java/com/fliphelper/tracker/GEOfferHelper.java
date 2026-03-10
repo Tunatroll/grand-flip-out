@@ -1,6 +1,6 @@
 package com.fliphelper.tracker;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import lombok.Getter;
@@ -32,7 +32,7 @@ public class GEOfferHelper
 
     private final Client client;
     private final ClientThread clientThread;
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final AccountDataManager accountDataManager;
 
@@ -51,7 +51,7 @@ public class GEOfferHelper
     private boolean settingUpBuyOffer = false;
 
     public GEOfferHelper(Client client, ClientThread clientThread,
-                         AwfullyPureConfig config, PriceService priceService,
+                         GrandFlipOutConfig config, PriceService priceService,
                          AccountDataManager accountDataManager)
     {
         this.client = client;

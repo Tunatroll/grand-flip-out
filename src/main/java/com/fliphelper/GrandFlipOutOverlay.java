@@ -22,10 +22,10 @@ import javax.inject.Inject;
 import java.awt.*;
 
 
-public class AwfullyPureOverlay extends Overlay
+public class GrandFlipOutOverlay extends Overlay
 {
     private final Client client;
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final FlipTracker flipTracker;
     private final PanelComponent panelComponent = new PanelComponent();
@@ -33,7 +33,7 @@ public class AwfullyPureOverlay extends Overlay
     private boolean visible = true;
 
     @Inject
-    public AwfullyPureOverlay(Client client, AwfullyPureConfig config,
+    public GrandFlipOutOverlay(Client client, GrandFlipOutConfig config,
                               PriceService priceService, FlipTracker flipTracker)
     {
         this.client = client;
@@ -370,7 +370,7 @@ public class AwfullyPureOverlay extends Overlay
 
     private String formatGp(long amount)
     {
-        // Format with full comma-separated numbers per CLAUDE.md requirement
+       
         // Never abbreviate GP values in user-facing output
         return String.format("%,d", amount);
     }

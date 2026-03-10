@@ -1,6 +1,6 @@
 package com.fliphelper.api;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.debug.DebugManager;
 import com.fliphelper.model.ItemMapping;
 import com.fliphelper.model.PriceAggregate;
@@ -26,7 +26,7 @@ import static net.runelite.client.RuneLite.RUNELITE_DIR;
 @Slf4j
 public class PriceService
 {
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final WikiPriceClient wikiClient;
     private final RuneLitePriceClient runeLiteClient;
     private final OfficialGePriceClient officialGeClient;
@@ -46,10 +46,10 @@ public class PriceService
 
     private boolean mappingsLoaded = false;
 
-    public PriceService(OkHttpClient httpClient, AwfullyPureConfig config, Gson gson)
+    public PriceService(OkHttpClient httpClient, GrandFlipOutConfig config, Gson gson)
     {
         this.config = config;
-        File dataDir = new File(RUNELITE_DIR, "awfully-pure");
+        File dataDir = new File(RUNELITE_DIR, "grand-flip-out");
         this.localCache = new LocalDataCache(dataDir);
         this.wikiClient = new WikiPriceClient(httpClient, config.userAgent(), gson, localCache);
         this.runeLiteClient = new RuneLitePriceClient(httpClient);

@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ServerIntelligenceConfig {
     // Feature toggles
     private boolean useServerSideIntelligence = true;  // Default: use server
-    // Set at runtime from AwfullyPureConfig.backendUrl()
+    // Set at runtime from GrandFlipOutConfig.backendUrl()
     private String serverBaseUrl = "";
     private int serverTimeoutMs = 5000;  // 5 second timeout before fallback
     private boolean fallbackToLocalOnError = true;  // Always have a fallback
@@ -40,7 +40,6 @@ public class ServerIntelligenceConfig {
     
     
     private boolean isServerHealthy() {
-        // Placeholder - in real impl would do a health check
         return true;
     }
     

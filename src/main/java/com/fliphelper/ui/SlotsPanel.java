@@ -1,6 +1,6 @@
 package com.fliphelper.ui;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.tracker.AccountDataManager;
@@ -33,7 +33,7 @@ public class SlotsPanel extends JPanel
     private static final Color DIM = new Color(0x60, 0x60, 0x80);
     private static final Color SEPARATOR = new Color(0x2A, 0x2A, 0x45);
 
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final Client client;
     private final PriceService priceService;
     private final FlipTracker flipTracker;
@@ -49,7 +49,7 @@ public class SlotsPanel extends JPanel
     private JLabel hotkeyHintLabel;
     private Timer refreshTimer;
 
-    public SlotsPanel(AwfullyPureConfig config, Client client, PriceService priceService,
+    public SlotsPanel(GrandFlipOutConfig config, Client client, PriceService priceService,
                      FlipTracker flipTracker, AccountDataManager accountDataManager,
                      GEOfferHelper geOfferHelper)
     {
@@ -794,7 +794,7 @@ public class SlotsPanel extends JPanel
 
     private String formatGp(long amount)
     {
-        // Format with full comma-separated numbers per CLAUDE.md requirement
+       
         // Never abbreviate GP values in user-facing output
         return String.format("%,d", amount);
     }

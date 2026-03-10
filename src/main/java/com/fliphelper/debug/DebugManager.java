@@ -435,7 +435,7 @@ public class DebugManager
     public String exportDebugReport()
     {
         StringBuilder sb = new StringBuilder();
-        sb.append("=== AWFULLY PURE DEBUG REPORT ===\n");
+        sb.append("=== Grand Flip Out DEBUG REPORT ===\n");
         sb.append("Generated: ").append(TIME_FORMATTER.format(Instant.now())).append("\n\n");
 
         // ===== LOG BUFFER =====

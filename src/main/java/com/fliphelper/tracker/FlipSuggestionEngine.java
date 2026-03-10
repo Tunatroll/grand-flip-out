@@ -1,6 +1,6 @@
 package com.fliphelper.tracker;
 
-import com.fliphelper.AwfullyPureConfig;
+import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import lombok.Data;
@@ -14,10 +14,10 @@ import java.util.stream.Collectors;
 public class FlipSuggestionEngine
 {
     private final PriceService priceService;
-    private final AwfullyPureConfig config;
+    private final GrandFlipOutConfig config;
     private final QuickFlipAnalyzer quickFlipAnalyzer;
 
-    public FlipSuggestionEngine(PriceService priceService, AwfullyPureConfig config, QuickFlipAnalyzer quickFlipAnalyzer)
+    public FlipSuggestionEngine(PriceService priceService, GrandFlipOutConfig config, QuickFlipAnalyzer quickFlipAnalyzer)
     {
         this.priceService = priceService;
         this.config = config;
