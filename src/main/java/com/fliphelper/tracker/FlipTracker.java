@@ -1,6 +1,6 @@
 package com.fliphelper.tracker;
 
-import com.fliphelper.GrandFlipOutConfig;
+import com.fliphelper.AwfullyPureConfig;
 import com.fliphelper.debug.DebugManager;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.FlipState;
@@ -8,6 +8,7 @@ import com.fliphelper.model.TradeRecord;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +46,7 @@ public class FlipTracker
         this.flipCompleteListener = listener;
     }
 
-    private final GrandFlipOutConfig config;
+    private final AwfullyPureConfig config;
     private final File dataDir;
     private final Gson gson;
 
@@ -64,7 +65,34 @@ public class FlipTracker
     @Getter
     private final AtomicInteger sessionFlipCount = new AtomicInteger(0);
 
-    public FlipTracker(GrandFlipOutConfig config, File dataDir, Gson gson)
+    /** Session start time for GP/hr calculations. */
+    @Getter
+    private Instant sessionStartTime = Instant.now();
+
+    /** Autosave counter — saves every N transactions to prevent data loss on crash. */
+    private final AtomicInteger transactionsSinceLastSave = new AtomicInteger(0);
+    private static final int AUTOSAVE_INTERVAL = 3; // Save every 3 transactions
+
+    /** Best single flip profit this session. */
+    @Getter
+    private final AtomicLong bestFlipProfit = new AtomicLong(0);
+
+    /** Worst single flip profit this session (can be negative). */
+    @Getter
+    private final AtomicLong worstFlipProfit = new AtomicLong(Long.MAX_VALUE);
+
+    /** Consecutive profitable flips (streak). */
+    @Getter
+    private final AtomicInteger winStreak = new AtomicInteger(0);
+
+    /** Current streak direction (true = winning, false = losing). */
+    private volatile boolean streakPositive = true;
+
+    /** Per-item profit accumulator for the session. */
+    @Getter
+    private final Map<Integer, ItemStats> itemStatsMap = new ConcurrentHashMap<>();
+
+    public FlipTracker(AwfullyPureConfig config, File dataDir, Gson gson)
     {
         this.config = config;
         this.dataDir = dataDir;
@@ -107,6 +135,13 @@ public class FlipTracker
                 // Key by GE slot (not itemId) to track multiple flips of same item in different slots
                 activeFlips.put(trade.getGeSlot(), flip);
                 log.info("Recorded buy: {}x {} @ {}gp (slot {})", trade.getQuantity(), trade.getItemName(), trade.getPrice(), trade.getGeSlot());
+
+                // Autosave to prevent data loss on crash (Flipping Utilities' #1 complaint)
+                if (config.persistHistory() && transactionsSinceLastSave.incrementAndGet() >= AUTOSAVE_INTERVAL)
+                {
+                    saveHistory();
+                    transactionsSinceLastSave.set(0);
+                }
             }
             else
             {
@@ -134,6 +169,33 @@ public class FlipTracker
                     long profit = completedFlip.getProfit();
                     sessionProfit.addAndGet(profit);
                     sessionFlipCount.incrementAndGet();
+
+                    // Track best/worst flip
+                    bestFlipProfit.accumulateAndGet(profit, Math::max);
+                    if (worstFlipProfit.get() == Long.MAX_VALUE || profit < worstFlipProfit.get())
+                    {
+                        worstFlipProfit.set(profit);
+                    }
+
+                    // Track win/loss streak
+                    if (profit >= 0)
+                    {
+                        if (streakPositive) winStreak.incrementAndGet();
+                        else { winStreak.set(1); streakPositive = true; }
+                    }
+                    else
+                    {
+                        if (!streakPositive) winStreak.incrementAndGet();
+                        else { winStreak.set(1); streakPositive = false; }
+                    }
+
+                    // Per-item stats
+                    itemStatsMap.compute(trade.getItemId(), (k, existing) -> {
+                        ItemStats stats = existing != null ? existing : new ItemStats(trade.getItemName());
+                        stats.addFlip(profit, completedFlip.getQuantity(),
+                            completedFlip.getFlipDurationSeconds());
+                        return stats;
+                    });
 
                     log.info("Completed flip: {}x {} | Buy: {}gp Sell: {}gp | Profit: {}gp",
                         completedFlip.getQuantity(), completedFlip.getItemName(),
@@ -276,8 +338,99 @@ public class FlipTracker
     {
         sessionProfit.set(0);
         sessionFlipCount.set(0);
+        sessionStartTime = Instant.now();
+        bestFlipProfit.set(0);
+        worstFlipProfit.set(Long.MAX_VALUE);
+        winStreak.set(0);
+        streakPositive = true;
+        itemStatsMap.clear();
         activeFlips.clear();
         pendingBuys.clear();
+    }
+
+    // ==================== ADVANCED ANALYTICS ====================
+
+    /**
+     * Get current GP/hour rate based on session duration.
+     */
+    public double getGpPerHour()
+    {
+        long elapsedMs = Instant.now().toEpochMilli() - sessionStartTime.toEpochMilli();
+        if (elapsedMs <= 0) return 0;
+        double hours = elapsedMs / 3_600_000.0;
+        return sessionProfit.get() / Math.max(hours, 0.01);
+    }
+
+    /**
+     * Get session duration in a human-readable format.
+     */
+    public String getSessionDuration()
+    {
+        long seconds = Instant.now().getEpochSecond() - sessionStartTime.getEpochSecond();
+        if (seconds < 60) return seconds + "s";
+        if (seconds < 3600) return (seconds / 60) + "m " + (seconds % 60) + "s";
+        return (seconds / 3600) + "h " + ((seconds % 3600) / 60) + "m";
+    }
+
+    /**
+     * Get win rate as percentage.
+     */
+    public double getWinRate()
+    {
+        int total = sessionFlipCount.get();
+        if (total == 0) return 0;
+        long wins = completedFlips.stream()
+            .filter(f -> f.isComplete() && f.getProfit() >= 0)
+            .limit(total)
+            .count();
+        return (double) wins / total * 100.0;
+    }
+
+    /**
+     * Get the top N most profitable items this session.
+     */
+    public List<ItemStats> getTopItems(int n)
+    {
+        return itemStatsMap.values().stream()
+            .sorted(Comparator.comparingLong(ItemStats::getTotalProfit).reversed())
+            .limit(n)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Per-item statistics tracker.
+     */
+    @Data
+    public static class ItemStats
+    {
+        private final String itemName;
+        private long totalProfit = 0;
+        private int flipCount = 0;
+        private int totalQuantity = 0;
+        private long avgFlipDuration = 0;
+        private long bestProfit = 0;
+        private long worstProfit = Long.MAX_VALUE;
+
+        public ItemStats(String itemName)
+        {
+            this.itemName = itemName;
+        }
+
+        public void addFlip(long profit, int quantity, long durationSeconds)
+        {
+            totalProfit += profit;
+            flipCount++;
+            totalQuantity += quantity;
+            bestProfit = Math.max(bestProfit, profit);
+            if (worstProfit == Long.MAX_VALUE || profit < worstProfit) worstProfit = profit;
+            // Rolling average duration
+            avgFlipDuration = (avgFlipDuration * (flipCount - 1) + durationSeconds) / flipCount;
+        }
+
+        public long getAvgProfitPerFlip()
+        {
+            return flipCount > 0 ? totalProfit / flipCount : 0;
+        }
     }
 
     private void saveHistory()

@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * MultiAccountDashboard for "Grand Flip Out" OSRS GE flipping RuneLite plugin.
+ * MultiAccountDashboard for "Awfully Pure" OSRS GE flipping RuneLite plugin.
  *
  * This dashboard provides a READ-ONLY view of portfolio positions across multiple
  * accounts for personal tracking purposes only.

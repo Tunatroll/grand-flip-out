@@ -16,7 +16,7 @@ import java.util.Collection;
 import java.util.Locale;
 
 /**
- * Profile & Account panel embedded as a tab in the main Grand Flip Out sidebar.
+ * Profile & Account panel embedded as a tab in the main Awfully Pure sidebar.
  *
  * Displays:
  *   - Login / account creation form (when logged out)
@@ -24,7 +24,7 @@ import java.util.Locale;
  *   - P2P network status (connected peers, health)
  *   - Tier upgrade CTA for locked features
  *
- * This panel is added as a tab inside GrandFlipOutPanel, not as a separate
+ * This panel is added as a tab inside AwfullyPurePanel, not as a separate
  * navigation button (keeps the sidebar clean).
  */
 public class ProfilePanel extends JPanel
@@ -95,7 +95,7 @@ public class ProfilePanel extends JPanel
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         // Header
-        JLabel header = new JLabel("Grand Flip Out Account");
+        JLabel header = new JLabel("Awfully Pure Account");
         header.setFont(header.getFont().deriveFont(Font.BOLD, 14f));
         header.setForeground(Color.WHITE);
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -112,7 +112,7 @@ public class ProfilePanel extends JPanel
         loginKeyField = new JTextField();
         loginKeyField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         loginKeyField.setAlignmentX(Component.LEFT_ALIGNMENT);
-        loginKeyField.setToolTipText("Paste your GFO API key here");
+        loginKeyField.setToolTipText("Paste your AP API key here");
         panel.add(loginKeyField);
         panel.add(Box.createVerticalStrut(5));
 
@@ -139,7 +139,7 @@ public class ProfilePanel extends JPanel
 
         createBtn = new JButton("Create Account");
         createBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        createBtn.setToolTipText("Create a free Grand Flip Out account");
+        createBtn.setToolTipText("Create a free Awfully Pure account");
         createBtn.addActionListener(e -> doCreateAccount());
         panel.add(createBtn);
         panel.add(Box.createVerticalStrut(10));
@@ -278,7 +278,7 @@ public class ProfilePanel extends JPanel
                             "Account created! Your API key has been copied to clipboard.\n\n"
                             + "Key: " + maskedKey + " (copied)\n\n"
                             + "SAVE THIS KEY — you'll need it to log in on other devices.\n"
-                            + "Paste it into Grand Flip Out config > Profile API Key field.",
+                            + "Paste it into Awfully Pure config > Profile API Key field.",
                             "Account Created",
                             JOptionPane.INFORMATION_MESSAGE
                         );

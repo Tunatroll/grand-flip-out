@@ -24,11 +24,46 @@ public class FlipItem
         {
             return 0;
         }
-        // GE tax is 2% capped at 5m per transaction total (not per unit)
         long revenue = sellPrice * quantity;
         long cost = buyPrice * quantity;
-        long tax = Math.min((long)(revenue * 0.02), 5_000_000L);
-        return revenue - cost - tax;
+        // GE tax: 2% of sell price per item, capped at 5M per item (not per transaction)
+        long taxPerItem = Math.min((long)(sellPrice * 0.02), 5_000_000L);
+        long totalTax = taxPerItem * quantity;
+        return revenue - cost - totalTax;
+    }
+
+    /**
+     * Get the GE tax for this flip.
+     */
+    public long getTax()
+    {
+        if (sellPrice <= 0)
+        {
+            return 0;
+        }
+        long taxPerItem = Math.min((long)(sellPrice * 0.02), 5_000_000L);
+        return taxPerItem * quantity;
+    }
+
+    /**
+     * Get profit per item (after tax).
+     */
+    public long getProfitPerItem()
+    {
+        return quantity > 0 ? getProfit() / quantity : 0;
+    }
+
+    /**
+     * Get return on investment as percentage.
+     */
+    public double getRoi()
+    {
+        if (buyPrice <= 0 || quantity <= 0)
+        {
+            return 0;
+        }
+        long investment = buyPrice * quantity;
+        return (double) getProfit() / investment * 100.0;
     }
 
     public double getProfitPercent()

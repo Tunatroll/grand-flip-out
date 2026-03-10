@@ -9,7 +9,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * SmartAdvisor — Unified Intelligence Engine for Grand Flip Out
+ * SmartAdvisor — Unified Intelligence Engine for Awfully Pure
  *
  * Combines signals from all analysis engines into a single, actionable recommendation
  * per item. This is the "brain" that turns raw data into smart trading advice.

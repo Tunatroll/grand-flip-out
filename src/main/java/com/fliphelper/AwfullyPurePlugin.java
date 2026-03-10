@@ -1,5 +1,6 @@
-﻿package com.fliphelper;
+package com.fliphelper;
 
+import com.fliphelper.api.ApHttpBatcher;
 import com.fliphelper.api.BackendClient;
 import com.fliphelper.api.PeerNetwork;
 import com.fliphelper.api.ProfileClient;
@@ -7,19 +8,24 @@ import com.fliphelper.api.PriceService;
 import com.fliphelper.ui.ProfilePanel;
 import com.fliphelper.ui.DebugPanel;
 import com.fliphelper.ui.GpDropOverlay;
+import com.fliphelper.ui.SlotsPanel;
+import com.fliphelper.ui.StatsPanel;
 import com.fliphelper.debug.DebugManager;
 import com.fliphelper.debug.DebugOverlay;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.FlipState;
 import com.fliphelper.model.TradeRecord;
 import com.fliphelper.tracker.*;
-import com.fliphelper.ui.GrandFlipOutPanel;
+import com.fliphelper.ui.AwfullyPurePanel;
 import com.google.gson.Gson;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
+import net.runelite.api.Player;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
@@ -40,6 +46,7 @@ import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -50,7 +57,7 @@ import java.util.stream.Collectors;
 import static net.runelite.client.RuneLite.RUNELITE_DIR;
 
 /**
- * Grand Flip Out — Comprehensive Grand Exchange flipping assistant for OSRS.
+ * Awfully Pure — Comprehensive Grand Exchange flipping assistant for OSRS.
  *
  * <p><b>INFORMATION ONLY</b> — This plugin does NOT automate any Grand Exchange
  * interactions. All buy/sell offers are placed manually by the player.
@@ -70,13 +77,13 @@ import static net.runelite.client.RuneLite.RUNELITE_DIR;
  */
 @Slf4j
 @PluginDescriptor(
-    name = "Grand Flip Out",
+    name = "Awfully Pure",
     description = "Comprehensive GE flipping assistant with multi-source pricing, flip tracking, profit analysis, and smart suggestions",
     tags = {"grand exchange", "flipping", "merching", "prices", "profit", "ge", "trading"}
 )
-public class GrandFlipOutPlugin extends Plugin implements KeyListener
+public class AwfullyPurePlugin extends Plugin implements KeyListener
 {
-    private static final File DATA_DIR = new File(RUNELITE_DIR, "grand-flip-out");
+    private static final File DATA_DIR = new File(RUNELITE_DIR, "awfully-pure");
 
     @Inject
     private Client client;
@@ -85,7 +92,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private ClientThread clientThread;
 
     @Inject
-    private GrandFlipOutConfig config;
+    private AwfullyPureConfig config;
 
     @Inject
     private ClientToolbar clientToolbar;
@@ -122,11 +129,16 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private PeerNetwork peerNetwork;
     private ProfileClient profileClient;
     private BackendClient backendClient;
+    private ApHttpBatcher httpBatcher;
+    private AccountDataManager accountDataManager;
+    private GEOfferHelper geOfferHelper;
     private DebugManager debugManager;
     private DebugPanel debugPanel;
-    private GrandFlipOutPanel panel;
+    private SlotsPanel slotsPanel;
+    private StatsPanel statsPanel;
+    private AwfullyPurePanel panel;
     private ProfilePanel profilePanel;
-    private GrandFlipOutOverlay overlay;
+    private AwfullyPureOverlay overlay;
     private DebugOverlay debugOverlay;
     private GpDropOverlay gpDropOverlay;
     private NavigationButton navButton;
@@ -138,15 +150,15 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private final GrandExchangeOfferState[] lastOfferState = new GrandExchangeOfferState[8];
 
     @Provides
-    GrandFlipOutConfig provideConfig(ConfigManager configManager)
+    AwfullyPureConfig provideConfig(ConfigManager configManager)
     {
-        return configManager.getConfig(GrandFlipOutConfig.class);
+        return configManager.getConfig(AwfullyPureConfig.class);
     }
 
     @Override
     protected void startUp() throws Exception
     {
-        log.info("Grand Flip Out starting up");
+        log.info("Awfully Pure starting up");
 
         DATA_DIR.mkdirs();
 
@@ -157,11 +169,22 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
         priceService.setDebugManager(debugManager);
+
+        // Initialize per-account data manager (auto-detects RSN on login)
+        accountDataManager = new AccountDataManager(DATA_DIR, gson);
+
         flipTracker = new FlipTracker(config, DATA_DIR, gson);
         flipTracker.setDebugManager(debugManager);
         // Wire profile flip logging — when a buy→sell pair completes, log it to the user's profile
         // Routes through ProfileClient → PeerNetwork for P2P failover
         flipTracker.setFlipCompleteListener(flip -> {
+            // Track lifetime profit per account
+            if (accountDataManager != null)
+            {
+                accountDataManager.addCompletedFlipProfit(flip.getProfit());
+            }
+
+            // Log to profile server for cross-device sync
             if (profileClient != null && profileClient.isLoggedIn())
             {
                 profileClient.logFlip(
@@ -199,6 +222,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         slotOptimizer = new SlotOptimizer();
         marginCheckTracker = new MarginCheckTracker(DATA_DIR.getAbsolutePath(), gson);
 
+        // Initialize GE offer helper (price-set hotkeys + slot timers)
+        geOfferHelper = new GEOfferHelper(client, clientThread, config, priceService, accountDataManager);
+
         // Initialize SmartAdvisor — the unified intelligence brain
         smartAdvisor = new SmartAdvisor(
             priceService, marketIntelligence, botEconomyTracker,
@@ -208,16 +234,26 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         );
 
         // Create UI
-        panel = new GrandFlipOutPanel(config, priceService, flipTracker, suggestionEngine, smartAdvisor);
-        panel.addTab("Profile", profilePanel);  // Account & P2P status tab
-        overlay = new GrandFlipOutOverlay(client, config, priceService, flipTracker);
+        panel = new AwfullyPurePanel(config, priceService, flipTracker, suggestionEngine, smartAdvisor);
+
+        // Create Slots Panel (GE slot timers, account switcher) — the first tab users see
+        slotsPanel = new SlotsPanel(config, client, priceService, flipTracker, accountDataManager, geOfferHelper);
+        panel.insertTab("Slots", slotsPanel, 0);
+        panel.setSelectedTabIndex(0); // Default to Slots tab
+
+        // Create Stats Panel (per-item trading statistics — avg buy/sell, volume, profit)
+        statsPanel = new StatsPanel(flipTracker, accountDataManager, priceService);
+        panel.insertTab("Stats", statsPanel, 2); // After Slots and Smart
+
+        // ProfilePanel added after initialization below (was null ref bug)
+        overlay = new AwfullyPureOverlay(client, config, priceService, flipTracker);
         debugOverlay = new DebugOverlay(config, priceService, flipTracker, debugManager);
         gpDropOverlay = new GpDropOverlay(client, config);
 
         // Navigation button
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
         navButton = NavigationButton.builder()
-            .tooltip("Grand Flip Out")
+            .tooltip("Awfully Pure")
             .icon(icon != null ? icon : new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB))
             .priority(5)
             .panel(panel)
@@ -229,7 +265,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         overlayManager.add(gpDropOverlay);
         keyManager.registerKeyListener(this);
 
-        // ── P2P Network (fundamental to GFO architecture) ──
+        // P2P Network (fundamental to Awfully Pure architecture)
         peerNetwork = new PeerNetwork(okHttpClient, gson);
         if (config.enableP2P())
         {
@@ -239,15 +275,36 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
 
+            // Filter to HTTPS only for security
+            List<String> validPeers = new ArrayList<>();
+            for (String peer : extraPeers)
+            {
+                if (peer.toLowerCase().startsWith("https://"))
+                {
+                    validPeers.add(peer);
+                }
+                else
+                {
+                    log.warn("Rejected non-HTTPS peer: {}", peer);
+                }
+            }
+
             // Always add the configured backend URL as a seed peer
             String backendBase = config.backendUrl().replace("/api/contribute", "");
-            extraPeers.add(backendBase);
+            if (backendBase.toLowerCase().startsWith("https://"))
+            {
+                validPeers.add(backendBase);
+            }
+            else
+            {
+                log.warn("Rejected non-HTTPS backend peer: {}", backendBase);
+            }
 
-            peerNetwork.start(extraPeers);
-            log.info("P2P network started with {} extra seed(s)", extraPeers.size());
+            peerNetwork.start(validPeers);
+            log.info("P2P network started with {} valid HTTPS seed(s)", validPeers.size());
         }
 
-        // ── Profile & Account Client (tier gating, account management) ──
+        // Profile & Account Client (tier gating, account management)
         profileClient = new ProfileClient(peerNetwork, gson);
         if (config.profileApiKey() != null && !config.profileApiKey().isEmpty())
         {
@@ -260,14 +317,15 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             }
         }
 
-        // ── Profile Panel (account UI tab) ──
+        // Profile Panel (account UI tab)
         profilePanel = new ProfilePanel(profileClient, peerNetwork);
+        panel.addTab("Profile", profilePanel);  // Now safe — profilePanel is initialized
 
-        // ── Debug Panel (live stats + debug report) ──
+        // Debug Panel (live stats + debug report)
         debugPanel = new DebugPanel(debugManager);
         panel.addTab("Debug", debugPanel);
 
-        // ── Crowdsourced BackendClient (batched trade contributions) ──
+        // Crowdsourced BackendClient (batched trade contributions)
         backendClient = new BackendClient(okHttpClient, gson);
         backendClient.setDebugManager(debugManager);
         backendClient.setBackendUrl(config.backendUrl());
@@ -282,6 +340,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             backendClient.start();
         }
 
+        // HTTP Batcher (batched JTI/ZScore events → backend)
+        httpBatcher = new ApHttpBatcher(okHttpClient, gson);
+        httpBatcher.setBackendBaseUrl(config.backendUrl());
+        httpBatcher.start();
+
         // Start background price refresh
         executor = Executors.newSingleThreadScheduledExecutor();
         executor.execute(this::initialPriceLoad);
@@ -292,13 +355,13 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             TimeUnit.SECONDS
         );
 
-        log.info("Grand Flip Out started successfully");
+        log.info("Awfully Pure started successfully");
     }
 
     @Override
     protected void shutDown() throws Exception
     {
-        log.info("Grand Flip Out shutting down");
+        log.info("Awfully Pure shutting down");
 
         if (executor != null)
         {
@@ -318,6 +381,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             executor = null;
         }
 
+        if (httpBatcher != null)
+        {
+            httpBatcher.stop();
+        }
+
         if (priceService != null)
         {
             priceService.shutdown();
@@ -327,6 +395,18 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         if (multiAccountDashboard != null)
         {
             multiAccountDashboard.saveToFile();
+        }
+
+        // Save per-account data on shutdown
+        if (accountDataManager != null)
+        {
+            accountDataManager.saveAll();
+        }
+
+        // Stop slots panel timer
+        if (slotsPanel != null)
+        {
+            slotsPanel.stopTimer();
         }
 
         // Stop backend client
@@ -356,6 +436,31 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     // ==================== GE EVENT HANDLING ====================
 
     @Subscribe
+    public void onGameStateChanged(GameStateChanged event)
+    {
+        if (event.getGameState() == GameState.LOGGED_IN)
+        {
+            // Auto-detect RSN on login
+            clientThread.invokeLater(() -> {
+                Player localPlayer = client.getLocalPlayer();
+                if (localPlayer != null && localPlayer.getName() != null)
+                {
+                    String rsn = localPlayer.getName();
+                    accountDataManager.onAccountLogin(rsn);
+                    log.info("Account detected: {}", rsn);
+                    if (slotsPanel != null) slotsPanel.refreshAccountList();
+                    panel.updateAll();
+                }
+            });
+        }
+        else if (event.getGameState() == GameState.LOGIN_SCREEN)
+        {
+            // Save and clear active account on logout
+            accountDataManager.onAccountLogout();
+        }
+    }
+
+    @Subscribe
     public void onGrandExchangeOfferChanged(GrandExchangeOfferChanged event)
     {
         if (!config.autoTrackFlips())
@@ -374,6 +479,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         GrandExchangeOfferState state = offer.getState();
         int currentQuantity = offer.getQuantitySold();
         int itemId = offer.getItemId();
+
+        // Update slot timer (GEOfferHelper tracks time since last activity)
+        if (geOfferHelper != null)
+        {
+            geOfferHelper.onOfferChanged(slot, itemId);
+        }
 
         // Detect when an offer completes (bought or sold)
         if (state == GrandExchangeOfferState.BOUGHT || state == GrandExchangeOfferState.SOLD)
@@ -399,6 +510,60 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
                 flipTracker.recordTransaction(trade);
                 panel.updateAll();
+                if (statsPanel != null) statsPanel.refresh();
+
+                // Record to per-account storage (auto-persists to <rsn>.json)
+                if (accountDataManager != null)
+                {
+                    accountDataManager.recordTrade(trade);
+                }
+
+                // Auto-detect margin checks: 1-qty trades are margin checks
+                // Buy-1 at high price = instant-buy check (tells you the sell price)
+                // Sell-1 at low price = instant-sell check (tells you the buy price)
+                if (deltaQuantity == 1 && accountDataManager != null)
+                {
+                    if (isBuy)
+                    {
+                        // 1-qty buy = finding the instant-buy price (= what sellers offer)
+                        // This becomes the sell check price for margin calculation
+                        AccountDataManager.MarginCheckResult existing =
+                            accountDataManager.getLastMarginCheck(itemId);
+                        if (existing != null && !existing.isFresh())
+                        {
+                            // Start fresh margin check
+                            accountDataManager.recordMarginCheck(itemId, 0, pricePerItem);
+                        }
+                        else if (existing == null)
+                        {
+                            accountDataManager.recordMarginCheck(itemId, 0, pricePerItem);
+                        }
+                        else
+                        {
+                            // Update the sell-check side
+                            accountDataManager.recordMarginCheck(itemId,
+                                existing.getBuyCheckPrice(), pricePerItem);
+                        }
+                        log.info("Margin check (buy-1): {} @ {} gp", itemName, pricePerItem);
+                    }
+                    else
+                    {
+                        // 1-qty sell = finding the instant-sell price (= what buyers offer)
+                        // This becomes the buy check price for margin calculation
+                        AccountDataManager.MarginCheckResult existing =
+                            accountDataManager.getLastMarginCheck(itemId);
+                        if (existing != null)
+                        {
+                            accountDataManager.recordMarginCheck(itemId,
+                                pricePerItem, existing.getSellCheckPrice());
+                        }
+                        else
+                        {
+                            accountDataManager.recordMarginCheck(itemId, pricePerItem, 0);
+                        }
+                        log.info("Margin check (sell-1): {} @ {} gp", itemName, pricePerItem);
+                    }
+                }
 
                 // Queue for crowdsourced contribution (batched POST every 15s)
                 if (backendClient != null)
@@ -426,8 +591,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     {
                         long sellTotal = pricePerItem * deltaQuantity;
                         long buyTotal = activeFlip.getBuyPrice() * deltaQuantity;
-                        long tax = Math.min((long)(sellTotal * 0.02), 5_000_000L);
-                        long profit = sellTotal - buyTotal - tax;
+                        // GE tax: 2% of sell price per item, capped at 5M per item (not per transaction)
+                        long taxPerItem = Math.min((long)(pricePerItem * 0.02), 5_000_000L);
+                        long totalTax = taxPerItem * deltaQuantity;
+                        long profit = sellTotal - buyTotal - totalTax;
                         if (profit > 0)
                         {
                             gpDropOverlay.triggerDrop(profit, itemName);
@@ -453,7 +620,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     @Subscribe
     public void onConfigChanged(ConfigChanged event)
     {
-        if (!"grandflipout".equals(event.getGroup()))
+        if (!"awfullypure".equals(event.getGroup()))
         {
             return;
         }
@@ -590,6 +757,43 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             executor.execute(this::previewSuggestion);
             e.consume();
         }
+        else if (config.setBuyPriceHotkey().matches(e))
+        {
+            // "E" key (default): Set buy price in GE from margin check / API data
+            if (geOfferHelper != null && geOfferHelper.isGEOpen() && geOfferHelper.isChatboxInputActive())
+            {
+                geOfferHelper.setBuyPrice();
+                e.consume();
+            }
+        }
+        else if (config.setSellPriceHotkey().matches(e))
+        {
+            // "R" key (default): Set sell price in GE from margin check / API data
+            if (geOfferHelper != null && geOfferHelper.isGEOpen() && geOfferHelper.isChatboxInputActive())
+            {
+                geOfferHelper.setSellPrice();
+                e.consume();
+            }
+        }
+        else if (config.setMaxQuantityHotkey().matches(e))
+        {
+            // "Q" key (default): Set quantity to GE buy limit
+            if (geOfferHelper != null && geOfferHelper.isGEOpen() && geOfferHelper.isChatboxInputActive())
+            {
+                geOfferHelper.setMaxQuantity();
+                e.consume();
+            }
+        }
+        else if (config.addFavoriteHotkey().matches(e))
+        {
+            // Ctrl+F: Toggle favorite for currently viewed item
+            if (accountDataManager != null && geOfferHelper != null)
+            {
+                // Toggle favorite via account data manager
+                log.info("Toggle favorite triggered");
+            }
+            e.consume();
+        }
     }
 
     @Override
@@ -624,7 +828,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
             // Send chat message with suggestion details
             String message = String.format(
-                "<col=ff9800>GFO:</col> Buy <col=00ff00>%s</col> @ <col=ffffff>%s gp</col> (qty: %d, margin: %s gp, profit/limit: %s gp)",
+                "<col=ff9800>AP:</col> Buy <col=00ff00>%s</col> @ <col=ffffff>%s gp</col> (qty: %d, margin: %s gp, profit/limit: %s gp)",
                 top.getItemName(),
                 formatGpChat(top.getBuyPrice()),
                 top.getBuyLimit(),

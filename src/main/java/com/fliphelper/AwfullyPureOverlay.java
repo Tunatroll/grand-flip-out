@@ -25,10 +25,10 @@ import java.awt.*;
  * In-game overlay displayed when the Grand Exchange interface is open.
  * Shows current item margins, flip status, and session profit.
  */
-public class GrandFlipOutOverlay extends Overlay
+public class AwfullyPureOverlay extends Overlay
 {
     private final Client client;
-    private final GrandFlipOutConfig config;
+    private final AwfullyPureConfig config;
     private final PriceService priceService;
     private final FlipTracker flipTracker;
     private final PanelComponent panelComponent = new PanelComponent();
@@ -36,7 +36,7 @@ public class GrandFlipOutOverlay extends Overlay
     private boolean visible = true;
 
     @Inject
-    public GrandFlipOutOverlay(Client client, GrandFlipOutConfig config,
+    public AwfullyPureOverlay(Client client, AwfullyPureConfig config,
                               PriceService priceService, FlipTracker flipTracker)
     {
         this.client = client;
@@ -109,7 +109,7 @@ public class GrandFlipOutOverlay extends Overlay
     private void renderSessionStats()
     {
         panelComponent.getChildren().add(TitleComponent.builder()
-            .text("Grand Flip Out")
+            .text("Awfully Pure")
             .color(Color.CYAN)
             .build());
 
@@ -243,9 +243,10 @@ public class GrandFlipOutOverlay extends Overlay
 
                 // Expected profit for this flip with color coding
                 long expectedSell = agg.getBestHighPrice();
-                long totalRevenue = expectedSell * flip.getQuantity();
-                long tax = Math.min((long) (totalRevenue * 0.02), 5_000_000L);
-                long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity() - tax;
+                // GE tax: 2% of sell price per item, capped at 5M per item (not per transaction)
+                long taxPerItem = Math.min((long) (expectedSell * 0.02), 5_000_000L);
+                long totalTax = taxPerItem * flip.getQuantity();
+                long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity() - totalTax;
 
                 Color profitColor;
                 if (expectedProfit > 0)
@@ -353,14 +354,8 @@ public class GrandFlipOutOverlay extends Overlay
 
     private String formatGp(long amount)
     {
-        if (Math.abs(amount) >= 1_000_000)
-        {
-            return String.format("%.1fm", amount / 1_000_000.0);
-        }
-        if (Math.abs(amount) >= 1_000)
-        {
-            return String.format("%.1fk", amount / 1_000.0);
-        }
-        return amount + " gp";
+        // Format with full comma-separated numbers per CLAUDE.md requirement
+        // Never abbreviate GP values in user-facing output
+        return String.format("%,d", amount);
     }
 }

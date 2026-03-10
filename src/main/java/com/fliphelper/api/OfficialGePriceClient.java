@@ -40,7 +40,7 @@ public class OfficialGePriceClient
     {
         Request request = new Request.Builder()
             .url(BASE_URL + itemId)
-            .header("User-Agent", "GrandFlipOut RuneLite Plugin")
+            .header("User-Agent", "AwfullyPure RuneLite Plugin")
             .build();
 
         try (Response response = httpClient.newCall(request).execute())

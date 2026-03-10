@@ -14,7 +14,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Comprehensive data quality and price integrity engine for the Grand Flip Out RuneLite plugin.
+ * Comprehensive data quality and price integrity engine for the Awfully Pure RuneLite plugin.
  *
  * This analyzer evaluates the LIFETIME of price data, how FRESH/STALE sources are, how HUMANLY ACCURATE
  * the trading patterns seem (versus bot or manipulated), and detects MANIPULATION patterns. Not all prices

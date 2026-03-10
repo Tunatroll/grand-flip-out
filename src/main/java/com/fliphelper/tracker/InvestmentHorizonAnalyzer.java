@@ -1,4 +1,4 @@
-﻿package com.fliphelper.tracker;
+package com.fliphelper.tracker;
 
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;

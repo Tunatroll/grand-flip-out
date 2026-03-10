@@ -1,6 +1,6 @@
 package com.fliphelper.debug;
 
-import com.fliphelper.GrandFlipOutConfig;
+import com.fliphelper.AwfullyPureConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.tracker.FlipTracker;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +34,7 @@ import java.time.format.DateTimeFormatter;
 @Slf4j
 public class DebugOverlay extends Overlay
 {
-    private final GrandFlipOutConfig config;
+    private final AwfullyPureConfig config;
     private final PriceService priceService;
     private final FlipTracker flipTracker;
     private final DebugManager debugManager;
@@ -48,7 +48,7 @@ public class DebugOverlay extends Overlay
         .withZone(ZoneId.systemDefault());
 
     @Inject
-    public DebugOverlay(GrandFlipOutConfig config, PriceService priceService,
+    public DebugOverlay(AwfullyPureConfig config, PriceService priceService,
                         FlipTracker flipTracker, DebugManager debugManager)
     {
         this.config = config;

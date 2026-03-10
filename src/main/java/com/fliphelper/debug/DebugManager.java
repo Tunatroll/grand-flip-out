@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
- * Comprehensive debugging system for Grand Flip Out.
+ * Comprehensive debugging system for Awfully Pure.
  *
  * Provides:
  * - Ring buffer logging (last 500 entries)

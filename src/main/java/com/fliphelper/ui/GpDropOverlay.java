@@ -1,6 +1,6 @@
 package com.fliphelper.ui;
 
-import com.fliphelper.GrandFlipOutConfig;
+import com.fliphelper.AwfullyPureConfig;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.client.ui.overlay.Overlay;
@@ -27,11 +27,11 @@ public class GpDropOverlay extends Overlay
     private static final Font GP_FONT_FALLBACK = new Font("Arial", Font.BOLD, 22);
 
     private final Client client;
-    private final GrandFlipOutConfig config;
+    private final AwfullyPureConfig config;
     private final CopyOnWriteArrayList<GpDrop> activeDrops = new CopyOnWriteArrayList<>();
 
     @Inject
-    public GpDropOverlay(Client client, GrandFlipOutConfig config)
+    public GpDropOverlay(Client client, AwfullyPureConfig config)
     {
         this.client = client;
         this.config = config;

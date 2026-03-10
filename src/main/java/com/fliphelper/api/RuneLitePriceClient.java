@@ -42,7 +42,7 @@ public class RuneLitePriceClient
     {
         Request request = new Request.Builder()
             .url(PRICES_URL)
-            .header("User-Agent", "GrandFlipOut RuneLite Plugin")
+            .header("User-Agent", "AwfullyPure RuneLite Plugin")
             .build();
 
         try (Response response = httpClient.newCall(request).execute())
@@ -56,7 +56,7 @@ public class RuneLitePriceClient
             String body = response.body().string();
 
             // FIX: Wiki /5m returns {"data": {"itemId": {...}}} — an object, NOT an array
-            JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+            JsonObject json = new JsonParser().parse(body).getAsJsonObject();
             JsonObject data = json.getAsJsonObject("data");
 
             if (data == null)

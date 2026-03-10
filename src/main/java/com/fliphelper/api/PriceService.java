@@ -1,6 +1,6 @@
 package com.fliphelper.api;
 
-import com.fliphelper.GrandFlipOutConfig;
+import com.fliphelper.AwfullyPureConfig;
 import com.fliphelper.debug.DebugManager;
 import com.fliphelper.model.ItemMapping;
 import com.fliphelper.model.PriceAggregate;
@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class PriceService
 {
-    private final GrandFlipOutConfig config;
+    private final AwfullyPureConfig config;
     private final WikiPriceClient wikiClient;
     private final RuneLitePriceClient runeLiteClient;
     private final OfficialGePriceClient officialGeClient;
@@ -44,7 +44,7 @@ public class PriceService
 
     private boolean mappingsLoaded = false;
 
-    public PriceService(OkHttpClient httpClient, GrandFlipOutConfig config, Gson gson)
+    public PriceService(OkHttpClient httpClient, AwfullyPureConfig config, Gson gson)
     {
         this.config = config;
         this.wikiClient = new WikiPriceClient(httpClient, config.userAgent(), gson);

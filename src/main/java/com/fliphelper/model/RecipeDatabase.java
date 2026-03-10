@@ -8,7 +8,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Database of OSRS item recipes for the Grand Flip Out RuneLite plugin.
+ * Database of OSRS item recipes for the Awfully Pure RuneLite plugin.
  * Stores item transformation recipes that can be used to detect recipe flip opportunities.
  */
 public class RecipeDatabase {

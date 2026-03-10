@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 @Singleton
 public class BackendClient
 {
-    private static final String DEFAULT_BACKEND_URL = "https://gfo.tunatroll.com/api/contribute";
+    private static final String DEFAULT_BACKEND_URL = "https://api.awfullypure.com/api/contribute";
     private static final MediaType JSON_TYPE = MediaType.parse("application/json; charset=utf-8");
     private static final int FLUSH_INTERVAL_SECONDS = 15;
     private static final int MAX_BATCH_SIZE = 100;
@@ -89,7 +89,7 @@ public class BackendClient
             FLUSH_INTERVAL_SECONDS,
             TimeUnit.SECONDS
         );
-        log.info("GFO BackendClient started — flushing every {}s", FLUSH_INTERVAL_SECONDS);
+        log.info("BackendClient started — flushing every {}s", FLUSH_INTERVAL_SECONDS);
     }
 
     /**
@@ -114,12 +114,12 @@ public class BackendClient
             }
             flushExecutor = null;
         }
-        log.info("GFO BackendClient stopped");
+        log.info("BackendClient stopped");
     }
 
     /**
      * Queue a trade event for batched submission.
-     * This is safe to call from any thread (game thread, event thread, etc.)
+     * Safe to call from any thread.
      *
      * @param itemId        OSRS item ID
      * @param price         Price per item in gp
@@ -166,13 +166,13 @@ public class BackendClient
         // Enforce HTTPS and reject localhost for Plugin Hub compliance
         if (!trimmed.startsWith("https://"))
         {
-            log.warn("GFO BackendClient: Rejecting non-HTTPS backend URL '{}', using default", url);
+            log.warn("BackendClient: Rejecting non-HTTPS backend URL '{}', using default", url);
             this.backendUrl = DEFAULT_BACKEND_URL;
             return;
         }
         if (trimmed.contains("localhost") || trimmed.contains("127.0.0.1") || trimmed.contains("0.0.0.0"))
         {
-            log.warn("GFO BackendClient: Rejecting localhost backend URL '{}', using default", url);
+            log.warn("BackendClient: Rejecting localhost backend URL '{}', using default", url);
             this.backendUrl = DEFAULT_BACKEND_URL;
             return;
         }
@@ -231,7 +231,7 @@ public class BackendClient
             long p2pStart = System.currentTimeMillis();
             peerNetwork.fanoutPost("/api/contribute", jsonPayload);
             long p2pDuration = System.currentTimeMillis() - p2pStart;
-            log.debug("GFO P2P fanout: {} trade(s) to {} peer(s)",
+            log.debug("P2P fanout: {} trade(s) to {} peer(s)",
                 batch.size(), peerNetwork.getHealthyCount());
             if (debugManager != null)
             {
@@ -249,7 +249,7 @@ public class BackendClient
         Request request = new Request.Builder()
             .url(backendUrl)
             .post(body)
-            .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite")
+            .header("User-Agent", "AwfullyPure/2.0.0 RuneLite")
             .header("Content-Type", "application/json")
             .build();
 
@@ -258,7 +258,7 @@ public class BackendClient
             @Override
             public void onFailure(Call call, IOException e)
             {
-                log.debug("GFO backend unreachable, dropped {} trade(s): {}",
+                log.debug("Backend unreachable, dropped {} trade(s): {}",
                     batch.size(), e.getMessage());
                 if (debugManager != null)
                 {
@@ -274,7 +274,7 @@ public class BackendClient
                 {
                     if (response.isSuccessful())
                     {
-                        log.debug("GFO backend accepted {} trade(s)", batch.size());
+                        log.debug("Backend accepted {} trade(s)", batch.size());
                         if (debugManager != null)
                         {
                             debugManager.recordAPICall("backend/contribute", 0, true);
@@ -282,7 +282,7 @@ public class BackendClient
                     }
                     else
                     {
-                        log.debug("GFO backend rejected batch: HTTP {}", response.code());
+                        log.debug("Backend rejected batch: HTTP {}", response.code());
                         if (debugManager != null)
                         {
                             debugManager.recordAPICall("backend/contribute", 0, false);
@@ -297,9 +297,7 @@ public class BackendClient
         });
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  PROFILE FLIP LOGGING
-    // ═══════════════════════════════════════════════════════
+    // --- Profile Flip Logging ---
 
     private String profileApiKey;
     private String profileCharacter;
@@ -334,9 +332,9 @@ public class BackendClient
         Request request = new Request.Builder()
             .url(profileFlipUrl)
             .post(body)
-            .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite")
+            .header("User-Agent", "AwfullyPure/2.0.0 RuneLite")
             .header("Content-Type", "application/json")
-            .header("X-GFO-Key", profileApiKey)
+            .header("X-AP-Key", profileApiKey)
             .build();
 
         httpClient.newCall(request).enqueue(new Callback()

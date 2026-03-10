@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Debug panel tab for Grand Flip Out sidebar.
+ * Debug panel tab for Awfully Pure sidebar.
  *
  * Shows live performance stats, API call metrics, memory usage,
  * recent events, and a copyable debug report for bug reporting.
@@ -58,23 +58,23 @@ public class DebugPanel extends JPanel
         content.setBackground(BG_COLOR);
         content.setBorder(new EmptyBorder(8, 8, 8, 8));
 
-        // ── Performance card ──
+        // -- Performance card --
         content.add(buildPerformanceCard());
         content.add(Box.createVerticalStrut(8));
 
-        // ── API Stats card ──
+        // -- API Stats card --
         content.add(buildApiStatsCard());
         content.add(Box.createVerticalStrut(8));
 
-        // ── Memory card ──
+        // -- Memory card --
         content.add(buildMemoryCard());
         content.add(Box.createVerticalStrut(8));
 
-        // ── Recent Events ──
+        // -- Recent Events --
         content.add(buildEventsCard());
         content.add(Box.createVerticalStrut(12));
 
-        // ── Action buttons ──
+        // -- Action buttons --
         content.add(buildButtonBar());
 
         JScrollPane scrollPane = new JScrollPane(content);
@@ -83,7 +83,7 @@ public class DebugPanel extends JPanel
         add(scrollPane, BorderLayout.CENTER);
     }
 
-    // ─── Card builders ──────────────────────────────────────
+    // ─-- Card builders --------------------------------------
 
     private JPanel buildPerformanceCard()
     {
@@ -169,7 +169,7 @@ public class DebugPanel extends JPanel
         return bar;
     }
 
-    // ─── Refresh ────────────────────────────────────────────
+    // ─-- Refresh --------------------------------------------
 
     /**
      * Refresh all stats from the debug manager.
@@ -341,7 +341,7 @@ public class DebugPanel extends JPanel
         }
     }
 
-    // ─── UI helpers ─────────────────────────────────────────
+    // ─-- UI helpers ----------------------------------------─
 
     private JPanel createCard(String title)
     {

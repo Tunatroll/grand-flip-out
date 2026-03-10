@@ -1,4 +1,4 @@
-﻿package com.fliphelper.tracker;
+package com.fliphelper.tracker;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +13,7 @@ import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 
 /**
- * BotEconomyTracker - Supply Chain & Market Disruption Analyzer for Grand Flip Out RuneLite Plugin
+ * BotEconomyTracker - Supply Chain & Market Disruption Analyzer for Awfully Pure RuneLite Plugin
  *
  * This tracker analyzes publicly available GE price and volume data from the OSRS Wiki
  * real-time prices API to detect supply disruptions, volume anomalies, and cyclical
@@ -27,7 +27,7 @@ import com.fliphelper.model.PriceAggregate;
  * - Analysis is purely informational, equivalent to reading price charts
  * - All players have equal access to the same public market data
  *
- * @author Grand Flip Out
+ * @author Awfully Pure
  * @version 1.0
  */
 @Slf4j

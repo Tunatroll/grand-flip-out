@@ -87,7 +87,8 @@ public class SessionManager {
         if (flip != null) {
             activeSession.itemsTracked.put(flip.getItemId(), flip);
             activeSession.flipCount++;
-            long profit = (flip.getSellPrice() - flip.getBuyPrice()) * flip.getQuantity();
+            // Use FlipItem.getProfit() which includes GE tax calculation (2% capped at 5M per item)
+            long profit = flip.getProfit();
             activeSession.actualProfit += profit;
             log.debug("Recorded flip in session - profit: {}, total: {}", profit, activeSession.actualProfit);
         }

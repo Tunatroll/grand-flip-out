@@ -10,8 +10,8 @@ import net.runelite.client.config.Range;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 
-@ConfigGroup("grandflipout")
-public interface GrandFlipOutConfig extends Config
+@ConfigGroup("awfullypure")
+public interface AwfullyPureConfig extends Config
 {
     // ==================== SECTIONS ====================
 
@@ -117,7 +117,7 @@ public interface GrandFlipOutConfig extends Config
     )
     default String userAgent()
     {
-        return "GrandFlipOut RuneLite Plugin - github.com/Tunatroll/grand-flip-out";
+        return "AwfullyPure RuneLite Plugin - github.com/AwfulPure/awfully-pure";
     }
 
     // ==================== FLIP TRACKER ====================
@@ -265,7 +265,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "togglePanelHotkey",
         name = "Toggle Panel",
-        description = "Hotkey to open/close the Grand Flip Out panel",
+        description = "Hotkey to open/close the Awfully Pure panel",
         section = hotkeysSection,
         position = 0
     )
@@ -368,6 +368,54 @@ public interface GrandFlipOutConfig extends Config
     default Keybind suggestionPreviewHotkey()
     {
         return new Keybind(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+    }
+
+    @ConfigItem(
+        keyName = "setBuyPriceHotkey",
+        name = "Set Buy Price (GE)",
+        description = "While in the GE price input, fills the optimal buy price from your last margin check or API data. Like Flipping Copilot's 'E' key.",
+        section = hotkeysSection,
+        position = 9
+    )
+    default Keybind setBuyPriceHotkey()
+    {
+        return new Keybind(KeyEvent.VK_E, 0);
+    }
+
+    @ConfigItem(
+        keyName = "setSellPriceHotkey",
+        name = "Set Sell Price (GE)",
+        description = "While in the GE price input, fills the optimal sell price from your last margin check or API data.",
+        section = hotkeysSection,
+        position = 10
+    )
+    default Keybind setSellPriceHotkey()
+    {
+        return new Keybind(KeyEvent.VK_R, 0);
+    }
+
+    @ConfigItem(
+        keyName = "setMaxQuantityHotkey",
+        name = "Set Max Quantity (GE)",
+        description = "While in the GE quantity input, fills the item's GE buy limit.",
+        section = hotkeysSection,
+        position = 11
+    )
+    default Keybind setMaxQuantityHotkey()
+    {
+        return new Keybind(KeyEvent.VK_Q, 0);
+    }
+
+    @ConfigItem(
+        keyName = "addFavoriteHotkey",
+        name = "Toggle Favorite",
+        description = "Add/remove the currently viewed item to your favorites list for quick access.",
+        section = hotkeysSection,
+        position = 12
+    )
+    default Keybind addFavoriteHotkey()
+    {
+        return new Keybind(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK);
     }
 
     // ==================== DUMP DETECTION ====================
@@ -777,7 +825,7 @@ public interface GrandFlipOutConfig extends Config
 
     @ConfigSection(
         name = "P2P Network",
-        description = "Peer-to-peer relay network — the backbone of Grand Flip Out's distributed architecture",
+        description = "Peer-to-peer relay network — the backbone of Awfully Pure's distributed architecture",
         position = 9
     )
     String p2pSection = "p2p";
@@ -785,7 +833,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "enableP2P",
         name = "Enable P2P Network",
-        description = "Connect to the GFO relay mesh for distributed pricing, failover, and community data sharing. Disabling falls back to single-server mode.",
+        description = "Connect to the AP relay mesh for distributed pricing, failover, and community data sharing. Disabling falls back to single-server mode.",
         section = p2pSection,
         position = 0
     )
@@ -797,7 +845,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "additionalPeers",
         name = "Additional Relay Peers",
-        description = "Comma-separated list of extra GFO relay URLs to connect to (HTTPS required, e.g., https://myserver.com:3001). Leave blank to use only the official relay.",
+        description = "Comma-separated list of extra AP relay URLs to connect to (HTTPS required, e.g., https://myserver.com:3001). Leave blank to use only the official relay.",
         section = p2pSection,
         position = 1
     )
@@ -818,7 +866,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "enableCrowdsourced",
         name = "Enable Crowdsourced Data",
-        description = "Send anonymous trade data to the GFO backend to improve Z-Score detection and consensus pricing. No RSN or account info is transmitted.",
+        description = "Send anonymous trade data to the Awfully Pure backend to improve Z-Score detection and consensus pricing. No RSN or account info is transmitted.",
         section = crowdsourcedSection,
         position = 0
     )
@@ -830,19 +878,19 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "backendUrl",
         name = "Backend URL",
-        description = "URL of the GFO backend server for crowdsourced data",
+        description = "URL of the Awfully Pure backend server for crowdsourced data",
         section = crowdsourcedSection,
         position = 1
     )
     default String backendUrl()
     {
-        return "https://gfo.tunatroll.com/api/contribute";
+        return "https://api.awfullypure.com/api/contribute";
     }
 
     @ConfigItem(
         keyName = "profileApiKey",
         name = "Profile API Key",
-        description = "Your private GFO profile key. Flips will be logged to your profile for P&L tracking. Get one from the website's My Profile tab.",
+        description = "Your private Awfully Pure profile key. Flips will be logged to your profile for P&L tracking. Get one from the website's My Profile tab.",
         section = crowdsourcedSection,
         position = 2,
         secret = true

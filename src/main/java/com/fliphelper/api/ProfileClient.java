@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * and feature tier gating within the RuneLite plugin.
  *
  * <h3>Account System</h3>
- * Players create a GFO profile (no email required — just a display name).
+ * Players create a AP profile (no email required — just a display name).
  * They receive a private API key that authenticates all future requests.
  * Characters (RSNs) are linked to the profile for multi-account P&L tracking.
  *
@@ -63,12 +63,10 @@ public class ProfileClient
         this.characters = new ArrayList<>();
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  ACCOUNT LIFECYCLE
-    // ═══════════════════════════════════════════════════════
+    // --- Account Lifecycle ---
 
     /**
-     * Create a new GFO account from within the plugin.
+     * Create a new AP account from within the plugin.
      * Returns the API key that the user should save in their config.
      *
      * @param displayName Player's chosen display name (max 32 chars)
@@ -95,7 +93,7 @@ public class ProfileClient
 
                 // Immediately login with the new key to populate cache
                 login(newKey);
-                log.info("GFO profile created: {}", displayName);
+                log.info("AP profile created: {}", displayName);
                 return newKey;
             }
             else if (obj.has("error"))
@@ -125,7 +123,7 @@ public class ProfileClient
         }
 
         this.apiKey = key.trim();
-        Map<String, String> headers = Map.of("X-GFO-Key", this.apiKey);
+        Map<String, String> headers = Map.of("X-AP-Key", this.apiKey);
         String response = peerNetwork.postToBestPeer("/api/profile/validate", "{}", headers);
 
         // Fallback: try GET /api/profile if validate endpoint doesn't exist
@@ -200,7 +198,7 @@ public class ProfileClient
                 this.stats.setStreakBest(s.has("streakBest") ? s.get("streakBest").getAsInt() : 0);
             }
 
-            log.info("GFO logged in: {} (tier: {}, {} characters, {} total flips)",
+            log.info("AP logged in: {} (tier: {}, {} characters, {} total flips)",
                 displayName, tier, characters.size(),
                 stats != null ? stats.getTotalFlips() : 0);
             return true;
@@ -224,7 +222,7 @@ public class ProfileClient
         this.tier = AccountTier.FREE;
         this.characters = new ArrayList<>();
         this.stats = null;
-        log.info("GFO logged out");
+        log.info("AP logged out");
     }
 
     /**
@@ -235,9 +233,7 @@ public class ProfileClient
         return apiKey != null && profileId != null;
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  TIER GATING
-    // ═══════════════════════════════════════════════════════
+    // --- Tier Gating ---
 
     /**
      * Check if the user has access to a specific feature.
@@ -273,10 +269,10 @@ public class ProfileClient
     {
         if (!isLoggedIn())
         {
-            return "Create a GFO account to unlock " + feature.displayName + " (free)";
+            return "Create a AP account to unlock " + feature.displayName + " (free)";
         }
         return feature.displayName + " requires " + feature.requiredTier.displayName + " tier. "
-            + "Upgrade at gfo.tunatroll.com/upgrade";
+            + "Upgrade at api.awfullypure.com/upgrade";
     }
 
     /**
@@ -291,7 +287,7 @@ public class ProfileClient
 
         try
         {
-            Map<String, String> headers = Map.of("X-GFO-Key", apiKey);
+            Map<String, String> headers = Map.of("X-AP-Key", apiKey);
             String response = peerNetwork.postToBestPeer("/api/profile/tier", "{}", headers);
 
             if (response != null)
@@ -311,9 +307,7 @@ public class ProfileClient
         }
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  CHARACTER MANAGEMENT
-    // ═══════════════════════════════════════════════════════
+    // --- Character Management ---
 
     /**
      * Link an RS character (RSN) to the profile.
@@ -326,7 +320,7 @@ public class ProfileClient
         }
 
         String json = gson.toJson(Map.of("rsn", rsn.trim()));
-        Map<String, String> headers = Map.of("X-GFO-Key", apiKey);
+        Map<String, String> headers = Map.of("X-AP-Key", apiKey);
         String response = peerNetwork.postToBestPeer("/api/profile/characters", json, headers);
 
         if (response != null)
@@ -379,15 +373,13 @@ public class ProfileClient
         }
 
         String json = gson.toJson(flip);
-        Map<String, String> headers = Map.of("X-GFO-Key", apiKey);
+        Map<String, String> headers = Map.of("X-AP-Key", apiKey);
 
         // Fire-and-forget to best peer
         peerNetwork.postToBestPeer("/api/profile/flips", json, headers);
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  PROFILE DATA ACCESS
-    // ═══════════════════════════════════════════════════════
+    // --- Profile Data Access ---
 
     /**
      * Fetch full profile from server (authenticated).
@@ -402,7 +394,7 @@ public class ProfileClient
         // Use a simple GET with auth header
         // PeerNetwork's getBestPeer doesn't support custom headers for GET,
         // so we route through postToBestPeer with an empty body
-        Map<String, String> headers = Map.of("X-GFO-Key", apiKey);
+        Map<String, String> headers = Map.of("X-AP-Key", apiKey);
         return peerNetwork.postToBestPeer("/api/profile/me", "{}", headers);
     }
 
@@ -418,7 +410,7 @@ public class ProfileClient
         {
             return null;
         }
-        Map<String, String> headers = Map.of("X-GFO-Key", apiKey);
+        Map<String, String> headers = Map.of("X-AP-Key", apiKey);
         return peerNetwork.postToBestPeer("/api/profile/stats?days=" + days, "{}", headers);
     }
 
@@ -436,13 +428,11 @@ public class ProfileClient
         {
             query += "&character=" + character;
         }
-        Map<String, String> headers = Map.of("X-GFO-Key", apiKey);
+        Map<String, String> headers = Map.of("X-AP-Key", apiKey);
         return peerNetwork.postToBestPeer(query, "{}", headers);
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  GETTERS
-    // ═══════════════════════════════════════════════════════
+    // --- Getters ---
 
     public String getApiKey() { return apiKey; }
     public String getProfileId() { return profileId; }
@@ -451,9 +441,7 @@ public class ProfileClient
     public List<CharacterInfo> getCharacters() { return characters; }
     public ProfileStats getStats() { return stats; }
 
-    // ═══════════════════════════════════════════════════════
-    //  ENUMS & MODELS
-    // ═══════════════════════════════════════════════════════
+    // --- Enums & Models ---
 
     /**
      * Account tiers — each tier unlocks progressively more features.

@@ -13,10 +13,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
- * P2P Network Layer — fundamental to Grand Flip Out's distributed architecture.
+ * P2P Network Layer — fundamental to Awfully Pure's distributed architecture.
  *
  * Instead of relying on a single backend, the plugin discovers and connects
- * to a mesh of community-hosted GFO relay nodes. Any player can spin up a
+ * to a mesh of community-hosted AP relay nodes. Any player can spin up a
  * node; the network self-heals when nodes go offline.
  *
  * Architecture:
@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
  *      so the network stays in sync without centralized coordination.
  *
  * This is NOT a blockchain or gossip protocol — it's a simple relay mesh.
- * Each node is an independent GFO backend (Node.js server) that:
+ * Each node is an independent AP backend (Node.js server) that:
  *   - Accepts trade contributions and runs its own Z-Score detection
  *   - Serves aggregated price data from its local + Wiki sources
  *   - Exposes a peer list so the network can self-discover
@@ -49,7 +49,7 @@ public class PeerNetwork
 {
     /** Default seed peers — official relay only (no localhost for Plugin Hub compliance) */
     private static final String[] DEFAULT_SEEDS = {
-        "https://gfo.tunatroll.com",      // Official relay
+        "https://api.awfullypure.com",      // Official relay
     };
 
     private static final int DISCOVERY_INTERVAL_SECONDS = 300;  // 5 min
@@ -99,7 +99,7 @@ public class PeerNetwork
             {
                 if (!isValidPeerUrl(trimmed))
                 {
-                    log.warn("GFO P2P: Rejecting peer URL '{}' — must use HTTPS and not be localhost", trimmed);
+                    log.warn("P2P: Rejecting peer URL '{}' — must use HTTPS and not be localhost", trimmed);
                     continue;
                 }
                 addPeer(trimmed);
@@ -107,7 +107,7 @@ public class PeerNetwork
         }
 
         scheduler = Executors.newScheduledThreadPool(2, r -> {
-            Thread t = new Thread(r, "GFO-PeerNetwork");
+            Thread t = new Thread(r, "AP-PeerNetwork");
             t.setDaemon(true);
             return t;
         });
@@ -129,7 +129,7 @@ public class PeerNetwork
             TimeUnit.SECONDS
         );
 
-        log.info("GFO PeerNetwork started with {} seed peer(s)", peers.size());
+        log.info("PeerNetwork started with {} seed peer(s)", peers.size());
     }
 
     /**
@@ -152,12 +152,10 @@ public class PeerNetwork
             }
             scheduler = null;
         }
-        log.info("GFO PeerNetwork stopped");
+        log.info("PeerNetwork stopped");
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  PEER MANAGEMENT
-    // ═══════════════════════════════════════════════════════
+    // --- Peer Management ---
 
     /**
      * Add a peer to the network. Normalizes the URL.
@@ -220,9 +218,7 @@ public class PeerNetwork
         return (int) peers.values().stream().filter(PeerInfo::isHealthy).count();
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  REQUEST ROUTING
-    // ═══════════════════════════════════════════════════════
+    // --- Request Routing ---
 
     /**
      * Send a GET request to the best available peer.
@@ -241,7 +237,7 @@ public class PeerNetwork
                 Request request = new Request.Builder()
                     .url(peer.getBaseUrl() + path)
                     .get()
-                    .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite P2P")
+                    .header("User-Agent", "AwfullyPure/2.0.0 RuneLite P2P")
                     .build();
 
                 try (Response response = httpClient.newCall(request).execute())
@@ -270,7 +266,7 @@ public class PeerNetwork
      *
      * @param path API path (e.g., "/api/profile/flips")
      * @param json JSON body string
-     * @param headers Extra headers (e.g., X-GFO-Key for auth)
+     * @param headers Extra headers (e.g., X-AP-Key for auth)
      * @return Response body as string, or null if all peers failed
      */
     public String postToBestPeer(String path, String json, Map<String, String> headers)
@@ -285,7 +281,7 @@ public class PeerNetwork
                 Request.Builder builder = new Request.Builder()
                     .url(peer.getBaseUrl() + path)
                     .post(body)
-                    .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite P2P")
+                    .header("User-Agent", "AwfullyPure/2.0.0 RuneLite P2P")
                     .header("Content-Type", "application/json");
 
                 if (headers != null)
@@ -330,7 +326,7 @@ public class PeerNetwork
             Request request = new Request.Builder()
                 .url(peer.getBaseUrl() + path)
                 .post(body)
-                .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite P2P")
+                .header("User-Agent", "AwfullyPure/2.0.0 RuneLite P2P")
                 .header("Content-Type", "application/json")
                 .build();
 
@@ -365,9 +361,7 @@ public class PeerNetwork
         }
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  DISCOVERY & HEALTH
-    // ═══════════════════════════════════════════════════════
+    // --- Discovery & Health ---
 
     /**
      * Discover new peers by querying GET /api/peers on each known peer.
@@ -390,7 +384,7 @@ public class PeerNetwork
                 Request request = new Request.Builder()
                     .url(peer.getBaseUrl() + "/api/peers")
                     .get()
-                    .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite P2P")
+                    .header("User-Agent", "AwfullyPure/2.0.0 RuneLite P2P")
                     .build();
 
                 try (Response response = httpClient.newCall(request).execute())
@@ -428,7 +422,7 @@ public class PeerNetwork
 
         if (discovered.get() > 0)
         {
-            log.info("GFO P2P: Discovered {} new peer(s), total: {} ({} healthy)",
+            log.info("P2P: Discovered {} new peer(s), total: {} ({} healthy)",
                 discovered.get(), peers.size(), getHealthyCount());
         }
     }
@@ -451,7 +445,7 @@ public class PeerNetwork
                 Request request = new Request.Builder()
                     .url(peer.getBaseUrl() + "/api/health")
                     .get()
-                    .header("User-Agent", "GrandFlipOut/2.0.0 RuneLite P2P")
+                    .header("User-Agent", "AwfullyPure/2.0.0 RuneLite P2P")
                     .build();
 
                 try (Response response = httpClient.newCall(request).execute())
@@ -485,9 +479,7 @@ public class PeerNetwork
         );
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  SCORING
-    // ═══════════════════════════════════════════════════════
+    // --- Scoring ---
 
     private void promotePeer(PeerInfo peer)
     {
@@ -497,7 +489,7 @@ public class PeerNetwork
         if (!peer.isHealthy())
         {
             peer.setHealthy(true);
-            log.info("GFO P2P: Peer recovered: {}", peer.getBaseUrl());
+            log.info("P2P: Peer recovered: {}", peer.getBaseUrl());
         }
     }
 
@@ -510,7 +502,7 @@ public class PeerNetwork
         if (peer.getConsecutiveFailures() >= 3 && peer.isHealthy())
         {
             peer.setHealthy(false);
-            log.info("GFO P2P: Peer marked unhealthy: {} ({})", peer.getBaseUrl(), reason);
+            log.info("P2P: Peer marked unhealthy: {} ({})", peer.getBaseUrl(), reason);
         }
     }
 
@@ -567,9 +559,7 @@ public class PeerNetwork
         return trimmed;
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  PEER INFO MODEL
-    // ═══════════════════════════════════════════════════════
+    // --- Peer Info Model ---
 
     @Data
     public static class PeerInfo

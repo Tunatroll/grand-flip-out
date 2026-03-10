@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Market Intelligence Engine for Grand Flip Out RuneLite plugin.
+ * Market Intelligence Engine for Awfully Pure RuneLite plugin.
  *
  * Implements advanced, Jagex-compliant analytical methods that go beyond
  * Flipping Utilities (no predictive analytics, no cross-item correlation)

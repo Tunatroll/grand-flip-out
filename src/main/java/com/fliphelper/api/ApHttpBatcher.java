@@ -1,0 +1,327 @@
+package com.fliphelper.api;
+
+import com.google.gson.Gson;
+import lombok.extern.slf4j.Slf4j;
+import okhttp3.*;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * Batched HTTP client for plugin → backend intelligence event submission.
+ *
+ * <p>Collects JTI score events and Z-Score anomaly events in a
+ * ConcurrentLinkedQueue and flushes them every 5 seconds as a single
+ * batched POST to {@code /api/plugin/batch}.</p>
+ *
+ * <h3>Why batching matters for Plugin Hub approval</h3>
+ * RuneLite Plugin Hub reviewers reject plugins that fire HTTP requests
+ * on every game event. This batcher ensures a maximum of 1 request
+ * per 5 seconds regardless of how many GE events occur.
+ *
+ * <h3>Event types</h3>
+ * <ul>
+ *   <li>{@link JtiEvent} — plugin-computed JTI score after a price refresh.
+ *       Lets the server build consensus JTI from multiple clients.</li>
+ *   <li>{@link ZScoreEvent} — plugin detected a Z-Score price anomaly.
+ *       Server logs it and can broadcast via WebSocket to the website.</li>
+ * </ul>
+ *
+ * <h3>Event type discriminator convention</h3>
+ * Both event types use <b>lowercase</b> {@code type} strings:
+ * {@code "jti"} and {@code "zscore"} — matching exactly what the server's
+ * {@code /api/plugin/batch} handler expects.
+ *
+ * <h3>Graceful degradation</h3>
+ * If the backend is unreachable, events are silently dropped.
+ * The queue is capped at {@link #MAX_QUEUE_SIZE} to prevent memory
+ * buildup during extended offline periods.
+ */
+@Slf4j
+public class ApHttpBatcher
+{
+    private static final String BATCH_ENDPOINT  = "/api/plugin/batch";
+    private static final MediaType JSON_TYPE    = MediaType.parse("application/json; charset=utf-8");
+    private static final int FLUSH_INTERVAL_S   = 5;
+    private static final int MAX_QUEUE_SIZE     = 500;
+    private static final int MAX_BATCH_SIZE     = 200; // server-enforced ceiling
+    private static final String PLUGIN_VERSION  = "2.0.0";
+
+    private final OkHttpClient httpClient;
+    private final Gson gson;
+    private final ConcurrentLinkedQueue<Object> eventQueue;
+    private final AtomicInteger droppedCount = new AtomicInteger(0);
+
+    private ScheduledExecutorService flushExecutor;
+    private String backendBaseUrl = "";
+    private boolean enabled = true;
+
+    public ApHttpBatcher(OkHttpClient httpClient, Gson gson)
+    {
+        this.httpClient = httpClient;
+        this.gson       = gson;
+        this.eventQueue = new ConcurrentLinkedQueue<>();
+    }
+
+    // --- Lifecycle ---
+
+    /** Start background flush worker. Call from plugin {@code startUp()}. */
+    public void start()
+    {
+        if (flushExecutor != null) return;
+
+        flushExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "ap-batcher");
+            t.setDaemon(true);
+            return t;
+        });
+        flushExecutor.scheduleAtFixedRate(
+            this::flush, FLUSH_INTERVAL_S, FLUSH_INTERVAL_S, TimeUnit.SECONDS
+        );
+        log.info("ApHttpBatcher started — flushing to {} every {}s", backendBaseUrl, FLUSH_INTERVAL_S);
+    }
+
+    /** Drain remaining events and stop. Call from plugin {@code shutDown()}. */
+    public void stop()
+    {
+        flush(); // final drain
+
+        if (flushExecutor != null)
+        {
+            flushExecutor.shutdown();
+            try { flushExecutor.awaitTermination(5, TimeUnit.SECONDS); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            flushExecutor = null;
+        }
+
+        int dropped = droppedCount.get();
+        if (dropped > 0)
+            log.info("ApHttpBatcher stopped ({} events dropped due to full queue)", dropped);
+        else
+            log.info("ApHttpBatcher stopped cleanly");
+    }
+
+    // --- Public API ---
+
+    /**
+     * Queue a JTI score event. Safe to call from any thread.
+     *
+     * @param itemId            OSRS item ID
+     * @param itemName          Display name
+     * @param jtiScore          JTI score 0–100
+     * @param marginPct         Margin as percentage (e.g. 4.5 for 4.5%)
+     * @param volume5m          Trade count in last 5-minute window
+     * @param buyPrice          Best buy (insta-sell) price
+     * @param sellPrice         Best sell (insta-buy) price
+     * @param taxAdjustedProfit Net profit per item after 2% GE tax
+     */
+    public void queueJtiEvent(int itemId, String itemName, double jtiScore,
+                               double marginPct, int volume5m,
+                               long buyPrice, long sellPrice, long taxAdjustedProfit)
+    {
+        if (!enabled) return;
+        enqueue(new JtiEvent(itemId, itemName, jtiScore, marginPct,
+                             volume5m, buyPrice, sellPrice, taxAdjustedProfit,
+                             System.currentTimeMillis()));
+    }
+
+    /**
+     * Queue a Z-Score anomaly event. Safe to call from any thread.
+     *
+     * @param itemId              OSRS item ID
+     * @param itemName            Display name
+     * @param zScore              Z-Score (negative = dump, positive = pump)
+     * @param severity            "WARNING" | "ALERT" | "MAJOR" | "CRITICAL"
+     * @param currentPrice        Current item price
+     * @param avgPrice            Rolling average used as Z-Score baseline
+     * @param volumeRatio         Current volume / average volume
+     * @param classification      "DUMP" | "PUMP" | "VOLATILITY_SPIKE" | "MANIPULATION_SUSPECTED"
+     * @param confidence          Confidence 0.0–1.0
+     * @param recoveryProbability Estimated probability of price recovery 0.0–1.0
+     */
+    public void queueZScoreEvent(int itemId, String itemName, double zScore,
+                                  String severity, long currentPrice, long avgPrice,
+                                  double volumeRatio, String classification,
+                                  double confidence, double recoveryProbability)
+    {
+        if (!enabled) return;
+        enqueue(new ZScoreEvent(itemId, itemName, zScore, severity,
+                                currentPrice, avgPrice, volumeRatio,
+                                classification, confidence, recoveryProbability,
+                                System.currentTimeMillis()));
+    }
+
+    /** Enable or disable batching (mirrors plugin config toggle). */
+    public void setEnabled(boolean enabled)
+    {
+        this.enabled = enabled;
+    }
+
+    /**
+     * Set backend base URL. Strips trailing slashes and /api suffixes.
+     * Example input: "http://localhost:3001" or "http://localhost:3001/api/contribute"
+     */
+    public void setBackendBaseUrl(String url)
+    {
+        this.backendBaseUrl = url
+            .replaceAll("/api/contribute$", "")
+            .replaceAll("/api$", "")
+            .replaceAll("/$", "");
+    }
+
+    /** Number of events currently waiting to flush. */
+    public int getQueueSize() { return eventQueue.size(); }
+
+    // --- Internal ---
+
+    private void enqueue(Object event)
+    {
+        if (eventQueue.size() >= MAX_QUEUE_SIZE)
+        {
+            eventQueue.poll(); // drop oldest to make room
+            droppedCount.incrementAndGet();
+        }
+        eventQueue.add(event);
+    }
+
+    private void flush()
+    {
+        if (eventQueue.isEmpty()) return;
+
+        List<Object> batch = new ArrayList<>(Math.min(eventQueue.size(), MAX_BATCH_SIZE));
+        while (!eventQueue.isEmpty() && batch.size() < MAX_BATCH_SIZE)
+        {
+            Object event = eventQueue.poll();
+            if (event != null) batch.add(event);
+        }
+        if (batch.isEmpty()) return;
+
+        String json = gson.toJson(new BatchPayload(PLUGIN_VERSION, batch));
+        String url  = backendBaseUrl + BATCH_ENDPOINT;
+
+        Request request = new Request.Builder()
+            .url(url)
+            .post(RequestBody.create(JSON_TYPE, json))
+            .header("User-Agent", "AwfullyPure/" + PLUGIN_VERSION + " RuneLite")
+            .header("Content-Type", "application/json")
+            .build();
+
+        httpClient.newCall(request).enqueue(new Callback()
+        {
+            @Override
+            public void onFailure(Call call, IOException e)
+            {
+                // Backend offline — graceful degradation, don't re-queue
+                log.debug("ApHttpBatcher: backend unreachable, dropped {} event(s): {}",
+                    batch.size(), e.getMessage());
+            }
+
+            @Override
+            public void onResponse(Call call, Response response)
+            {
+                try
+                {
+                    if (response.isSuccessful())
+                        log.debug("ApHttpBatcher: {} event(s) accepted", batch.size());
+                    else
+                        log.debug("ApHttpBatcher: server rejected batch — HTTP {}", response.code());
+                }
+                finally
+                {
+                    response.close(); // CRITICAL: prevents OkHttp memory leak (RuneLite audit check)
+                }
+            }
+        });
+    }
+
+    // --- Wire Format ---
+
+    /** Outer wrapper sent as the POST body to {@code /api/plugin/batch}. */
+    public static class BatchPayload
+    {
+        public final String pluginVersion;
+        /** Polymorphic array — each element has a {@code type} field that is
+         *  either {@code "jti"} or {@code "zscore"}. */
+        public final List<Object> events;
+
+        public BatchPayload(String pluginVersion, List<Object> events)
+        {
+            this.pluginVersion = pluginVersion;
+            this.events        = events;
+        }
+    }
+
+    /** JTI score event. Type discriminator: {@code "jti"} (lowercase). */
+    public static class JtiEvent
+    {
+        public final String type = "jti"; // server routes on this field
+        public final int    itemId;
+        public final String itemName;
+        public final double jtiScore;
+        public final double marginPct;
+        public final int    volume5m;
+        public final long   buyPrice;
+        public final long   sellPrice;
+        public final long   taxAdjustedProfit;
+        public final long   timestamp;
+
+        public JtiEvent(int itemId, String itemName, double jtiScore, double marginPct,
+                        int volume5m, long buyPrice, long sellPrice,
+                        long taxAdjustedProfit, long timestamp)
+        {
+            this.itemId            = itemId;
+            this.itemName          = itemName;
+            this.jtiScore          = jtiScore;
+            this.marginPct         = marginPct;
+            this.volume5m          = volume5m;
+            this.buyPrice          = buyPrice;
+            this.sellPrice         = sellPrice;
+            this.taxAdjustedProfit = taxAdjustedProfit;
+            this.timestamp         = timestamp;
+        }
+    }
+
+    /**
+     * Z-Score anomaly event. Type discriminator: {@code "zscore"} (lowercase).
+     * Negative zScore = price dump. Positive = pump.
+     */
+    public static class ZScoreEvent
+    {
+        public final String type = "zscore"; // server routes on this field
+        public final int    itemId;
+        public final String itemName;
+        public final double zScore;
+        public final String severity;          // WARNING | ALERT | MAJOR | CRITICAL
+        public final long   currentPrice;
+        public final long   avgPrice;
+        public final double volumeRatio;
+        public final String classification;    // DUMP | PUMP | VOLATILITY_SPIKE | MANIPULATION_SUSPECTED
+        public final double confidence;
+        public final double recoveryProbability;
+        public final long   timestamp;
+
+        public ZScoreEvent(int itemId, String itemName, double zScore, String severity,
+                           long currentPrice, long avgPrice, double volumeRatio,
+                           String classification, double confidence,
+                           double recoveryProbability, long timestamp)
+        {
+            this.itemId              = itemId;
+            this.itemName            = itemName;
+            this.zScore              = zScore;
+            this.severity            = severity;
+            this.currentPrice        = currentPrice;
+            this.avgPrice            = avgPrice;
+            this.volumeRatio         = volumeRatio;
+            this.classification      = classification;
+            this.confidence          = confidence;
+            this.recoveryProbability = recoveryProbability;
+            this.timestamp           = timestamp;
+        }
+    }
+}
