@@ -59,7 +59,7 @@ import static net.runelite.client.RuneLite.RUNELITE_DIR;
 
 @Slf4j
 @PluginDescriptor(
-    name = "Awfully Pure",
+    name = "Grand Flip Out",
     description = "Comprehensive GE flipping assistant with multi-source pricing, flip tracking, profit analysis, and smart suggestions",
     tags = {"grand exchange", "flipping", "merching", "prices", "profit", "ge", "trading"}
 )
@@ -236,7 +236,7 @@ public class AwfullyPurePlugin extends Plugin implements KeyListener
         // Navigation button
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
         navButton = NavigationButton.builder()
-            .tooltip("Awfully Pure")
+            .tooltip("Grand Flip Out")
             .icon(icon != null ? icon : new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB))
             .priority(5)
             .panel(panel)

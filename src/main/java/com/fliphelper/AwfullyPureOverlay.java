@@ -106,7 +106,7 @@ public class AwfullyPureOverlay extends Overlay
     private void renderSessionStats()
     {
         panelComponent.getChildren().add(TitleComponent.builder()
-            .text("Awfully Pure")
+            .text("Grand Flip Out")
             .color(Color.CYAN)
             .build());
 

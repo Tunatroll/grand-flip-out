@@ -151,7 +151,7 @@ public class AwfullyPurePanel extends PluginPanel
         // Title row with brand
         JPanel titleRow = new JPanel(new BorderLayout());
         titleRow.setOpaque(false);
-        JLabel titleLabel = new JLabel("Awfully Pure");
+        JLabel titleLabel = new JLabel("Grand Flip Out");
         titleLabel.setForeground(new Color(0xFF, 0xB8, 0x00)); // Gold
         titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 16f));
         titleRow.add(titleLabel, BorderLayout.WEST);
