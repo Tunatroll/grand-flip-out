@@ -241,7 +241,7 @@ public class MarketIntelligenceEngine {
     }
 
     // ~~~ = ~~~
-    // INNER CLASSES: Core Analysis Engines
+    // analysis engine types
     /* = */
 
     
@@ -581,8 +581,7 @@ public class MarketIntelligenceEngine {
                     List<Long> prices1 = priceHistories.get(id1);
                     List<Long> prices2 = priceHistories.get(id2);
 
-                    // Null safety check
-                    if (prices1 == null || prices2 == null)
+                                        if (prices1 == null || prices2 == null)
                     {
                         continue;
                     }
@@ -616,8 +615,7 @@ public class MarketIntelligenceEngine {
                     List<Long> leaderPrices = priceHistories.get(leaderId);
                     List<Long> followerPrices = priceHistories.get(followerId);
 
-                    // Null safety check
-                    if (leaderPrices == null || followerPrices == null)
+                                        if (leaderPrices == null || followerPrices == null)
                     {
                         continue;
                     }
@@ -666,8 +664,7 @@ public class MarketIntelligenceEngine {
                         List<Long> prices1 = priceHistories.get(id1);
                         List<Long> prices2 = priceHistories.get(id2);
 
-                        // Null safety check
-                        if (prices1 == null || prices2 == null) continue;
+                                                if (prices1 == null || prices2 == null) continue;
 
                         double correlation = calculatePearsonCorrelation(prices1, prices2);
 

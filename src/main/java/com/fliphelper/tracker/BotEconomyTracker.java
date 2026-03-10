@@ -590,7 +590,7 @@ public class BotEconomyTracker {
         return marketHealth;
     }
 
-    // INNER CLASSES //
+    // --- inner types ---
 
     // Detects ban waves by looking for simultaneous price spikes
     public static class SupplyShockDetector {
@@ -674,7 +674,7 @@ public class BotEconomyTracker {
                     if (priceData == null) return false;
 
                     long currentPrice = priceData.getCurrentPrice();
-                    // Approximate 7-day average using high/low price range
+                    // rough weekly average from hi/lo spread
                     long sevenDayAvg = (priceData.getHighPrice() + priceData.getLowPrice()) / 2;
 
                     double percentChange = ((currentPrice - sevenDayAvg) / (double) sevenDayAvg) * 100;
@@ -723,7 +723,7 @@ public class BotEconomyTracker {
             // This is a heuristic estimate
 
             long current = yewLogData.getCurrentPrice();
-            // Approximate 7-day average using high/low price range
+            // ~7d avg estimate
             long sevenDayAvg = (yewLogData.getHighPrice() + yewLogData.getLowPrice()) / 2;
 
             // If yew logs are crashing, bots are about to transition
@@ -854,7 +854,7 @@ public class BotEconomyTracker {
 
                 if (profile != null && priceData != null) {
                     long currentPrice = priceData.getCurrentPrice();
-                    // Approximate 7-day average using high/low price range
+                    // estimate avg from price range
                     long sevenDayAvg = (priceData.getHighPrice() + priceData.getLowPrice()) / 2;
                     long targetPrice = (long) (sevenDayAvg * 1.30); // 30% spike expected
 
@@ -885,7 +885,7 @@ public class BotEconomyTracker {
 
                 if (profile != null && priceData != null) {
                     long currentPrice = priceData.getCurrentPrice();
-                    // Approximate 7-day average using high/low price range
+                    // weekly price midpoint
                     long sevenDayAvg = (priceData.getHighPrice() + priceData.getLowPrice()) / 2;
 
                     // Sell when price is 15%+ above average
@@ -1065,7 +1065,7 @@ public class BotEconomyTracker {
             }
 
             long currentPrice = essencePrice.getCurrentPrice();
-            // Approximate 7-day average using high/low price range
+            // avg from hi-lo band
             long sevenDayAvg = (essencePrice.getHighPrice() + essencePrice.getLowPrice()) / 2;
 
             if (currentPrice < sevenDayAvg * 0.85) {

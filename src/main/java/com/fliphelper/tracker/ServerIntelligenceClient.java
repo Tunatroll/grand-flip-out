@@ -344,7 +344,7 @@ public class ServerIntelligenceClient {
         return list;
     }
 
-    // [Inner Classes]
+    // inner classes
 
     private static class CachedResult {
         final Object value;

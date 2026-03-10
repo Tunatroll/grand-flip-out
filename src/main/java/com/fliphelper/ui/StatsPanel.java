@@ -171,10 +171,7 @@ public class StatsPanel extends JPanel
         projDayLabel.setFont(projDayLabel.getFont().deriveFont(Font.BOLD, 11f));
         projRow.add(wrapStat("PROJ/DAY", projDayLabel));
 
-        bar.add(projRow);
-
-        // Separator
-        bar.add(Box.createVerticalStrut(6));
+        bar.add(projRow);        bar.add(Box.createVerticalStrut(6));
         JSeparator sep = new JSeparator();
         sep.setForeground(SEPARATOR);
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));

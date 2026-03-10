@@ -1651,8 +1651,6 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private String formatGp(long amount)
     {
-        // Format with full comma-separated numbers per CLAUDE.md requirement
-        // Never abbreviate GP values in user-facing output
         return String.format("%,d", amount);
     }
 

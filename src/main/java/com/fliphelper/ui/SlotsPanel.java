@@ -121,10 +121,7 @@ public class SlotsPanel extends JPanel
         selectorRow.add(accountSelector, BorderLayout.CENTER);
 
         topBar.add(selectorRow);
-        topBar.add(Box.createVerticalStrut(4));
-
-        // Separator
-        JSeparator sep = new JSeparator();
+        topBar.add(Box.createVerticalStrut(4));        JSeparator sep = new JSeparator();
         sep.setForeground(SEPARATOR);
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         topBar.add(sep);
@@ -310,10 +307,7 @@ public class SlotsPanel extends JPanel
         JPanel bottomBar = new JPanel();
         bottomBar.setLayout(new BoxLayout(bottomBar, BoxLayout.Y_AXIS));
         bottomBar.setBackground(BG_CARD);
-        bottomBar.setBorder(new EmptyBorder(6, 10, 8, 10));
-
-        // Separator
-        JSeparator sep = new JSeparator();
+        bottomBar.setBorder(new EmptyBorder(6, 10, 8, 10));        JSeparator sep = new JSeparator();
         sep.setForeground(SEPARATOR);
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         bottomBar.add(sep);
@@ -794,8 +788,6 @@ public class SlotsPanel extends JPanel
 
     private String formatGp(long amount)
     {
-        // Format with full comma-separated numbers per CLAUDE.md requirement
-        // Never abbreviate GP values in user-facing output
         return String.format("%,d", amount);
     }
 }

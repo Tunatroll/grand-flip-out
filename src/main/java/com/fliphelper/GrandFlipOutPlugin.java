@@ -637,7 +637,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     {
                         long sellTotal = pricePerItem * deltaQuantity;
                         long buyTotal = activeFlip.getBuyPrice() * deltaQuantity;
-                        // GE tax: 2% of sell price per item, capped at 5M per item (not per transaction)
+                        // apply GE tax)
                         long taxPerItem = Math.min((long)(pricePerItem * 0.02), 5_000_000L);
                         long totalTax = taxPerItem * deltaQuantity;
                         long profit = sellTotal - buyTotal - totalTax;

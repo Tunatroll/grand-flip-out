@@ -26,7 +26,7 @@ public class FlipItem
         }
         long revenue = sellPrice * quantity;
         long cost = buyPrice * quantity;
-        // GE tax: 2% of sell price per item, capped at 5M per item (not per transaction)
+        // 2% sell tax, capped at 5M)
         long taxPerItem = Math.min((long)(sellPrice * 0.02), 5_000_000L);
         long totalTax = taxPerItem * quantity;
         return revenue - cost - totalTax;

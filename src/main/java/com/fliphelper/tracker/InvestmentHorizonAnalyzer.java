@@ -412,7 +412,7 @@ public class InvestmentHorizonAnalyzer {
         return sb.toString();
     }
 
-    // [INNER CLASSES]
+    // inner classes
 
     private static class QuickFlipScorer {
         private final PriceService priceService;

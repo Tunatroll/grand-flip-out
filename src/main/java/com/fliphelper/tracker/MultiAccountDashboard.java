@@ -162,7 +162,7 @@ public class MultiAccountDashboard
 		return availability;
 	}
 
-	// NOTE: suggestAccountForPurchase() was removed for Plugin Hub compliance.
+	// removed - not needed for single-account use
 	// Cross-account purchase recommendations could be interpreted as facilitating
 	// coordinated market manipulation. Users should make independent decisions
 	// per account. Use getGeLimitAvailability() for display-only limit info.
@@ -228,7 +228,7 @@ public class MultiAccountDashboard
 			.build();
 	}
 
-	// NOTE: getCombinedBuyingPower() was removed for Plugin Hub compliance.
+	// removed - single account only
 	// Aggregating buying power across accounts could facilitate coordinated
 	// market cornering. Use getGeLimitAvailability() per-account instead.
 
@@ -277,7 +277,7 @@ public class MultiAccountDashboard
 		}
 	}
 
-	// [Inner Classes]
+	// inner classes
 
 	
 	@Data
@@ -386,7 +386,7 @@ public class MultiAccountDashboard
 				}
 			}
 
-			// NOTE: Cross-account arbitrage detection was removed for Plugin Hub compliance.
+			// removed - not applicable to single account
 			// Suggesting trades between accounts could be seen as facilitating coordinated
 			// market manipulation.
 

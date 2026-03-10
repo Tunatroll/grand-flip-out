@@ -56,9 +56,9 @@ public class ProfitChartPanel extends JPanel
         add(buildModeBar(),    BorderLayout.SOUTH);
     }
 
-    // --------------------------------------------------------─
+    
     //  STATS BAR
-    // --------------------------------------------------------─
+    
 
     private JPanel buildStatsBar()
     {
@@ -100,9 +100,9 @@ public class ProfitChartPanel extends JPanel
         return p;
     }
 
-    // --------------------------------------------------------─
+    
     //  CHART CANVAS
-    // --------------------------------------------------------─
+    
 
     private JPanel buildChart()
     {
@@ -117,9 +117,9 @@ public class ProfitChartPanel extends JPanel
         return chartCanvas;
     }
 
-    // --------------------------------------------------------─
+    
     //  MODE SELECTOR BAR
-    // --------------------------------------------------------─
+    
 
     private JPanel buildModeBar()
     {
@@ -159,9 +159,9 @@ public class ProfitChartPanel extends JPanel
         }
     }
 
-    // --------------------------------------------------------─
+    
     //  DATA + UPDATE
-    // --------------------------------------------------------─
+    
 
     public void update()
     {
@@ -254,9 +254,9 @@ public class ProfitChartPanel extends JPanel
         winRateLabel.setForeground(fWinRate >= 50 ? PROFIT_GREEN : LOSS_RED);
     }
 
-    // --------------------------------------------------------─
+    
     //  CHART CANVAS (inner class)
-    // --------------------------------------------------------─
+    
 
     private class ChartCanvas extends JPanel
     {
@@ -458,9 +458,9 @@ public class ProfitChartPanel extends JPanel
         }
     }
 
-    // --------------------------------------------------------─
+    
     //  HELPERS
-    // --------------------------------------------------------─
+    
 
     private static String formatGp(long value)
     {
