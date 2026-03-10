@@ -302,7 +302,7 @@ public class InvestmentHorizonAnalyzer {
         return riskAdjustedRanker.rankByHorizon(HorizonType.VERY_LONG_HOLD, limit);
     }
 
-    // ==================== HELPER METHODS ====================
+    // HELPER METHODS
 
     private static double calculateMargin(PriceAggregate priceData) {
         long margin = priceData.getCurrentSellPrice() - priceData.getCurrentBuyPrice();
@@ -412,7 +412,7 @@ public class InvestmentHorizonAnalyzer {
         return sb.toString();
     }
 
-    // ==================== INNER CLASSES ====================
+    // INNER CLASSES
 
     private static class QuickFlipScorer {
         private final PriceService priceService;
@@ -683,7 +683,7 @@ public class InvestmentHorizonAnalyzer {
     }
 }
 
-// ==================== MODEL CLASSES ====================
+// MODEL CLASSES
 
 @Data
 @Builder

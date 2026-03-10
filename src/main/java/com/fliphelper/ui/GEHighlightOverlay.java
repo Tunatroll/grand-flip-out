@@ -92,7 +92,7 @@ public class GEHighlightOverlay extends Overlay
         }
     }
 
-    // ==================== GUIDANCE API ====================
+    // GUIDANCE API
 
     /** Flip guidance states — Quest Helper-inspired step-by-step flow */
     public enum FlipGuidanceState
@@ -140,7 +140,7 @@ public class GEHighlightOverlay extends Overlay
 
     public FlipGuidanceState getGuidanceState() { return guidanceState; }
 
-    // ==================== RENDER ====================
+    // RENDER
 
     @Override
     public Dimension render(Graphics2D g)
@@ -335,7 +335,7 @@ public class GEHighlightOverlay extends Overlay
         }
     }
 
-    // ==================== HELPERS ====================
+    // HELPERS
 
     private Widget getSlotWidget(int slot)
     {

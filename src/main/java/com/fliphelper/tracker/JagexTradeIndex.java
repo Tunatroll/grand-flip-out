@@ -99,7 +99,7 @@ public class JagexTradeIndex
 
         PriceData wikiData = agg.getFromSource(PriceSource.WIKI);
 
-        // ========== 1. FRESHNESS (0-15) ==========
+        // 1. FRESHNESS (0-15)
         double freshnessScore = 0;
         if (wikiData != null)
         {
@@ -112,14 +112,14 @@ public class JagexTradeIndex
             freshnessScore = Math.max(0, 15 * (1 - avgAgeMinutes / 30.0));
         }
 
-        // ========== 2. LIQUIDITY (0-20) ==========
+        // 2. LIQUIDITY (0-20)
         long vol1h = agg.getTotalVolume1h();
         // Liquidity = volume relative to limit. If vol/h >> limit, very liquid.
         double liquidityRatio = (double) vol1h / Math.max(limit, 1);
         // Full score at ratio >= 2.0 (volume is 2x the limit per hour)
         double liquidityScore = Math.min(20, 20 * Math.min(liquidityRatio / 2.0, 1.0));
 
-        // ========== 3. MARGIN (0-20) ==========
+        // 3. MARGIN (0-20)
         long margin = instaBuy - instaSell;
         long taxPerItem = Math.min((long) (instaBuy * 0.02), 5_000_000L);
         long netMargin = margin - taxPerItem;
@@ -129,7 +129,7 @@ public class JagexTradeIndex
         // Full score at 10% margin, linear below that
         double marginScore = Math.min(20, 20 * Math.min(marginPercent / 10.0, 1.0));
 
-        // ========== 4. MOMENTUM (0-15) ==========
+        // 4. MOMENTUM (0-15)
         double momentumScore = 0;
         double momentum = 0;
         if (wikiData != null && wikiData.getAvgHighPrice5m() > 0 && wikiData.getAvgHighPrice1h() > 0)
@@ -160,7 +160,7 @@ public class JagexTradeIndex
             }
         }
 
-        // ========== 5. STABILITY (0-15) ==========
+        // 5. STABILITY (0-15)
         double spreadPercent = (double) margin / instaSell * 100.0;
         double stabilityScore;
         if (spreadPercent < 2.0)
@@ -184,7 +184,7 @@ public class JagexTradeIndex
             stabilityScore = 0; // Extremely wide = unreliable
         }
 
-        // ========== 6. VELOCITY (0-15) ==========
+        // 6. VELOCITY (0-15)
         // How fast can you fill the limit and sell?
         double halfVol = Math.max(vol1h / 2.0, 1);
         double hoursToFill = (double) limit / halfVol;
@@ -214,11 +214,11 @@ public class JagexTradeIndex
             velocityScore = Math.max(0, 4 * (1 - (fullCycleHours - 2) / 2));
         }
 
-        // ========== COMPOSITE JTI ==========
+        // COMPOSITE JTI
         double jti = freshnessScore + liquidityScore + marginScore +
             momentumScore + stabilityScore + velocityScore;
 
-        // ========== PROFIT PREDICTIONS ==========
+        // PROFIT PREDICTIONS
         long profitPerLimit = netMargin * limit;
         double cyclesPerHour = fullCycleHours > 0 ? 1.0 / fullCycleHours : 0;
         long hourlyProfit = Math.round(profitPerLimit * cyclesPerHour);
@@ -226,14 +226,14 @@ public class JagexTradeIndex
         long dailyProfit = hourlyProfit * 16; // 16h active play
         long capitalRequired = instaSell * (long) limit;
 
-        // ========== CONFIDENCE ==========
+        // CONFIDENCE
         // Based on freshness + liquidity + number of data points
         double confidence = (freshnessScore / 15.0 * 40) +
             (liquidityScore / 20.0 * 40) +
             (stabilityScore / 15.0 * 20);
         confidence = Math.min(100, Math.max(0, confidence));
 
-        // ========== MARKET REGIME ==========
+        // MARKET REGIME
         MarketRegime regime;
         double absMomentum = Math.abs(momentum);
         if (vol1h < 10)
@@ -253,7 +253,7 @@ public class JagexTradeIndex
             regime = MarketRegime.MEAN_REVERTING; // Best for flipping
         }
 
-        // ========== PRICE VELOCITY ==========
+        // PRICE VELOCITY
         double priceVelocity = 0;
         Deque<PricePoint> history = rollingPrices.get(agg.getItemId());
         if (history != null && history.size() >= 3)
@@ -299,7 +299,7 @@ public class JagexTradeIndex
             .build();
     }
 
-    // ==================== DATA CLASSES ====================
+    // DATA CLASSES
 
     @Data
     @Builder

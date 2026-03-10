@@ -38,7 +38,7 @@ public class AccountDataManager
         this.gson = gson;
     }
 
-    // ==================== ACCOUNT LIFECYCLE ====================
+    // ACCOUNT LIFECYCLE
 
     
     public void onAccountLogin(String rsn)
@@ -106,7 +106,7 @@ public class AccountDataManager
         }
     }
 
-    // ==================== TRADE RECORDING ====================
+    // TRADE RECORDING
 
     
     public void recordTrade(TradeRecord trade)
@@ -159,7 +159,7 @@ public class AccountDataManager
         return data != null ? data.marginChecks.get(itemId) : null;
     }
 
-    // ==================== FAVORITES ====================
+    // FAVORITES
 
     public void addFavorite(int itemId)
     {
@@ -185,7 +185,7 @@ public class AccountDataManager
         return data != null ? Collections.unmodifiableList(data.favoriteItems) : Collections.emptyList();
     }
 
-    // ==================== ACCESSORS ====================
+    // ACCESSORS
 
     public AccountData getActiveAccountData()
     {
@@ -218,7 +218,7 @@ public class AccountDataManager
         return data != null ? Collections.unmodifiableList(data.tradeHistory) : Collections.emptyList();
     }
 
-    // ==================== ACCOUNT ANALYTICS ====================
+    // ACCOUNT ANALYTICS
 
     
     public List<Map.Entry<Integer, Integer>> getTopFlippedItems(int limit)
@@ -283,7 +283,7 @@ public class AccountDataManager
         return fresh;
     }
 
-    // ==================== PERSISTENCE ====================
+    // PERSISTENCE
 
     private void saveToDisk(String sanitizedRsn)
     {
@@ -331,7 +331,7 @@ public class AccountDataManager
             .replaceAll("[^a-z0-9_\\-]", "");
     }
 
-    // ==================== DATA MODELS ====================
+    // DATA MODELS
 
     @Data
     @Builder

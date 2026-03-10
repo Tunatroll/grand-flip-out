@@ -13,7 +13,7 @@ import java.awt.event.KeyEvent;
 @ConfigGroup("grandflipout")
 public interface GrandFlipOutConfig extends Config
 {
-    // ==================== SECTIONS ====================
+    // SECTIONS
 
     @ConfigSection(
         name = "Data Sources",
@@ -57,7 +57,7 @@ public interface GrandFlipOutConfig extends Config
     )
     String suggestionsSection = "suggestions";
 
-    // ==================== DATA SOURCES ====================
+    // DATA SOURCES
 
     @ConfigItem(
         keyName = "useWikiPrices",
@@ -120,7 +120,7 @@ public interface GrandFlipOutConfig extends Config
         return "GrandFlipOut RuneLite Plugin - github.com/Tunatroll/grand-flip-out";
     }
 
-    // ==================== FLIP TRACKER ====================
+    // FLIP TRACKER
 
     @ConfigItem(
         keyName = "autoTrackFlips",
@@ -171,7 +171,7 @@ public interface GrandFlipOutConfig extends Config
         return 1000;
     }
 
-    // ==================== ALERTS ====================
+    // ALERTS
 
     @ConfigItem(
         keyName = "enableAlerts",
@@ -210,7 +210,7 @@ public interface GrandFlipOutConfig extends Config
         return 5;
     }
 
-    // ==================== OVERLAY ====================
+    // OVERLAY
 
     @ConfigItem(
         keyName = "showGEOverlay",
@@ -284,7 +284,7 @@ public interface GrandFlipOutConfig extends Config
         return true;
     }
 
-    // ==================== HOTKEYS ====================
+    // HOTKEYS
 
     @ConfigItem(
         keyName = "togglePanelHotkey",
@@ -442,7 +442,7 @@ public interface GrandFlipOutConfig extends Config
         return new Keybind(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK);
     }
 
-    // ==================== DUMP DETECTION ====================
+    // DUMP DETECTION
 
     @ConfigSection(
         name = "Dump Detection",
@@ -525,7 +525,7 @@ public interface GrandFlipOutConfig extends Config
         return false;
     }
 
-    // ==================== MULTI-ACCOUNT ====================
+    // MULTI-ACCOUNT
 
     @ConfigSection(
         name = "Multi-Account",
@@ -583,7 +583,7 @@ public interface GrandFlipOutConfig extends Config
         return true;
     }
 
-    // ==================== SUGGESTIONS ====================
+    // SUGGESTIONS
 
     @ConfigItem(
         keyName = "enableSuggestions",
@@ -686,7 +686,7 @@ public interface GrandFlipOutConfig extends Config
         return 50;
     }
 
-    // ==================== NOTIFICATIONS ====================
+    // NOTIFICATIONS
 
     @ConfigSection(
         name = "Notifications",
@@ -726,7 +726,7 @@ public interface GrandFlipOutConfig extends Config
         return true;
     }
 
-    // ==================== OVERLAY POSITION ====================
+    // OVERLAY POSITION
 
     @ConfigItem(
         keyName = "overlayPosition",
@@ -807,7 +807,7 @@ public interface GrandFlipOutConfig extends Config
         }
     }
 
-    // ==================== DEBUG ====================
+    // DEBUG
 
     @ConfigItem(
         keyName = "enableDebugOverlay",
@@ -845,7 +845,7 @@ public interface GrandFlipOutConfig extends Config
         return DebugLogLevel.INFO;
     }
 
-    // ==================== P2P NETWORK ====================
+    // P2P NETWORK
 
     @ConfigSection(
         name = "P2P Network",
@@ -878,7 +878,7 @@ public interface GrandFlipOutConfig extends Config
         return "";
     }
 
-    // ==================== CROWDSOURCED DATA ====================
+    // CROWDSOURCED DATA
 
     @ConfigSection(
         name = "Crowdsourced Data",

@@ -318,7 +318,7 @@ public class FlipTracker
         pendingBuys.clear();
     }
 
-    // ==================== ADVANCED ANALYTICS ====================
+    // ADVANCED ANALYTICS
 
     
     public double getGpPerHour()
