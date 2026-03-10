@@ -258,7 +258,7 @@ public class DumpDetector
         return movers.stream().limit(limit).collect(Collectors.toList());
     }
 
-    // ==================== DATA CLASSES ====================
+    // ~~~ DATA CLASSES ~~~
 
     @Data
     public static class PriceSnapshot

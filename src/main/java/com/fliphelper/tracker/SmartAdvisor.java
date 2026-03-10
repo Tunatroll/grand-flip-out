@@ -158,7 +158,7 @@ public class SmartAdvisor {
         long currentPrice = agg.getCurrentPrice();
         String itemName = agg.getItemName();
 
-        // === 1. JTI Score (weight: 25%) ===
+        // --- 1. JTI Score (weight: 25%) ---
         int jtiScore = 0;
         try {
             JagexTradeIndex.JTIResult jtiResult = jti.compute(agg);
@@ -177,7 +177,7 @@ public class SmartAdvisor {
             log.debug("JTI calculation failed for {}: {}", itemId, e.getMessage());
         }
 
-        // === 2. Technical Analysis (weight: 20%) ===
+        // -- 2. Technical Analysis (weight: 20%)
         int rsi = 50;
         String regime = "UNKNOWN";
         try {
@@ -254,7 +254,7 @@ public class SmartAdvisor {
             log.debug("Market intelligence failed for {}: {}", itemId, e.getMessage());
         }
 
-        // === 3. Bot Economy (weight: 15%) ===
+        // 3. Bot Economy (weight: 15%)
         String botImpact = "None";
         try {
             if (botEconomy.isBotAffectedItem(itemId)) {
@@ -296,7 +296,7 @@ public class SmartAdvisor {
             log.debug("Bot economy analysis failed for {}: {}", itemId, e.getMessage());
         }
 
-        // === 4. Dump Detection (weight: 15%) ===
+        // ~~~ 4. Dump Detection (weight: 15%) ~~~
         try {
             List<DumpDetector.PriceAlert> alerts = dumpDetector.detectAnomalies();
             for (DumpDetector.PriceAlert alert : alerts) {
@@ -316,7 +316,7 @@ public class SmartAdvisor {
             log.debug("Dump detection failed for {}: {}", itemId, e.getMessage());
         }
 
-        // === 5. Margin Quality (weight: 15%) ===
+        /* 5. Margin Quality (weight: 15%) */
         long margin = agg.getConsensusMargin();
         double marginPct = agg.getConsensusMarginPercent();
         long volume = agg.getTotalVolume1h();
@@ -341,7 +341,7 @@ public class SmartAdvisor {
             warnings.add("Very low volume (" + volume + "/hr) — hard to trade");
         }
 
-        // === 6. Data Quality (weight: 10%) ===
+        // 6. Data Quality (weight: 10%) //
         try {
             DataQualityAnalyzer.DataQualityReport quality = dataQuality.getDataQuality(itemId);
             if (quality != null) {
@@ -359,7 +359,7 @@ public class SmartAdvisor {
             log.debug("Data quality analysis failed for {}: {}", itemId, e.getMessage());
         }
 
-        // === Clamp and determine action ===
+        // - Clamp and determine action -
         int finalScore = (int) Math.max(0, Math.min(100, score));
 
         SmartAction action;
@@ -536,7 +536,7 @@ public class SmartAdvisor {
         }
     }
 
-    // ==================== SERVER-SIDE INTELLIGENCE CONVERSION ====================
+    // [SERVER-SIDE INTELLIGENCE CONVERSION]
     // These methods convert server responses to Java SmartAdvisor data structures
 
     

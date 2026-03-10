@@ -64,7 +64,7 @@ import static net.runelite.client.RuneLite.RUNELITE_DIR;
 @Slf4j
 @PluginDescriptor(
     name = "Grand Flip Out",
-    description = "Comprehensive GE flipping assistant with multi-source pricing, flip tracking, profit analysis, and smart suggestions",
+    description = "GE flipping helper with live prices, flip suggestions, profit tracking, and dump alerts",
     tags = {"grand exchange", "flipping", "merching", "prices", "profit", "ge", "trading"}
 )
 public class GrandFlipOutPlugin extends Plugin implements KeyListener
@@ -456,7 +456,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
-    // ==================== GE EVENT HANDLING ====================
+    // ~~~ GE EVENT HANDLING ~~~
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged event)
@@ -735,7 +735,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
-    // ==================== HOTKEY HANDLING ====================
+    /* HOTKEY HANDLING */
 
     @Override
     public void keyTyped(KeyEvent e)
@@ -861,7 +861,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // Not used
     }
 
-    // ==================== SUGGESTION PREVIEW ====================
+    // SUGGESTION PREVIEW //
 
     
     private void previewSuggestion()
@@ -923,7 +923,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         return String.valueOf(amount);
     }
 
-    // ==================== PRICE REFRESH ====================
+    // - PRICE REFRESH -
 
     private void initialPriceLoad()
     {
@@ -1062,7 +1062,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
-    // ==================== MULTI-ACCOUNT HELPERS ====================
+    // [MULTI-ACCOUNT HELPERS]
 
     private void initializeAccounts()
     {

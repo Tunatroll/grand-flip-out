@@ -738,7 +738,7 @@ public class GrandFlipOutPanel extends PluginPanel
         return Color.YELLOW; // Neutral
     }
 
-    // ==================== UPDATE METHODS ====================
+    // ~~~ UPDATE METHODS ~~~
 
     public void updateAll()
     {
@@ -994,7 +994,7 @@ public class GrandFlipOutPanel extends PluginPanel
         return card;
     }
 
-    // ==================== CARD BUILDERS ====================
+    /* CARD BUILDERS */
 
     private JPanel buildSuggestionCard(FlipSuggestionEngine.FlipSuggestion s, int rank)
     {
@@ -1378,7 +1378,7 @@ public class GrandFlipOutPanel extends PluginPanel
         return label;
     }
 
-    // ==================== CATEGORY FILTERING ====================
+    // CATEGORY FILTERING //
 
     
     private boolean matchesCategory(String itemName, String category)
@@ -1505,7 +1505,7 @@ public class GrandFlipOutPanel extends PluginPanel
         priceResultsPanel.repaint();
     }
 
-    // ==================== SEARCH ====================
+    // - SEARCH -
 
     private void searchItems()
     {
@@ -1640,7 +1640,7 @@ public class GrandFlipOutPanel extends PluginPanel
         return card;
     }
 
-    // ==================== HELPERS ====================
+    // [HELPERS]
 
     private JLabel createInfoLabel(String text)
     {

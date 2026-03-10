@@ -277,7 +277,7 @@ public class MultiAccountDashboard
 		}
 	}
 
-	// ==================== Inner Classes ====================
+	// [Inner Classes]
 
 	
 	@Data

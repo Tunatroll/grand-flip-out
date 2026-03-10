@@ -47,7 +47,7 @@ public class LocalDataCache
         initializeStats();
     }
 
-    // ==================== PRICE CACHE ====================
+    // PRICE CACHE //
 
     public void savePriceCache(String cacheType, JsonObject priceData)
     {
@@ -176,7 +176,7 @@ public class LocalDataCache
         }
     }
 
-    // ==================== INTELLIGENCE CACHE ====================
+    // - INTELLIGENCE CACHE -
 
     public void saveIntelligenceCache(String cacheType, JsonObject data)
     {
@@ -255,7 +255,7 @@ public class LocalDataCache
         }
     }
 
-    // ==================== ITEM MAPPING CACHE ====================
+    // [ITEM MAPPING CACHE]
 
     public void saveItemMappingCache(String json)
     {
@@ -332,7 +332,7 @@ public class LocalDataCache
         }
     }
 
-    // ==================== CACHE STATS ====================
+    // --- CACHE STATS ---
 
     public Map<String, CacheStats> getCacheStats()
     {
@@ -351,7 +351,7 @@ public class LocalDataCache
             .recordMiss();
     }
 
-    // ==================== MAINTENANCE ====================
+    // -- MAINTENANCE
 
     private void cleanupOldCaches()
     {
@@ -413,7 +413,7 @@ public class LocalDataCache
         return 300;
     }
 
-    // ==================== DATA MODELS ====================
+    // DATA MODELS
 
     @Data
     @Builder

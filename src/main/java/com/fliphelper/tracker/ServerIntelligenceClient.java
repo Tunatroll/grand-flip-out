@@ -163,7 +163,7 @@ public class ServerIntelligenceClient {
         }
     }
 
-    // ==================== HTTP Fetch ====================
+    /* HTTP Fetch */
 
     private String fetchJson(String url) throws Exception {
         Request request = new Request.Builder()
@@ -178,7 +178,7 @@ public class ServerIntelligenceClient {
         }
     }
 
-    // ==================== Gson Parsers ====================
+    // Gson Parsers //
 
     private SmartAdvisorResult parseSmartAdvisorResponse(String json) {
         try {
@@ -316,7 +316,7 @@ public class ServerIntelligenceClient {
         }
     }
 
-    // ==================== JSON Helpers ====================
+    // - JSON Helpers -
 
     private static int getInt(JsonObject obj, String key, int defaultVal) {
         return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsInt() : defaultVal;
@@ -344,7 +344,7 @@ public class ServerIntelligenceClient {
         return list;
     }
 
-    // ==================== Inner Classes ====================
+    // [Inner Classes]
 
     private static class CachedResult {
         final Object value;
