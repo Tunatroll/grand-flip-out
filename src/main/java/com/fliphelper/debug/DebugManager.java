@@ -1,7 +1,6 @@
 package com.fliphelper.debug;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -63,7 +62,12 @@ public class DebugManager
     private File dataDir;
     private final Object fileWriteLock = new Object();
     private Instant lastPerfSummaryWrite = Instant.EPOCH;
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private final Gson gson;
+
+    public DebugManager(Gson gson)
+    {
+        this.gson = gson;
+    }
 
     
     public synchronized void log(@Nonnull LogLevel level, @Nonnull String sourceClass, @Nonnull String message)

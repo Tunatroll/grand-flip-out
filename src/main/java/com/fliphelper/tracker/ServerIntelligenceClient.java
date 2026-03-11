@@ -15,7 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 
 @Slf4j
@@ -24,12 +23,9 @@ public class ServerIntelligenceClient {
     private final ServerIntelligenceConfig config;
     private final Map<String, CachedResult> resultCache;
 
-    public ServerIntelligenceClient(ServerIntelligenceConfig config) {
+    public ServerIntelligenceClient(ServerIntelligenceConfig config, OkHttpClient okHttpClient) {
         this.config = config;
-        this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(config.getServerTimeoutMs(), TimeUnit.MILLISECONDS)
-                .readTimeout(config.getServerTimeoutMs(), TimeUnit.MILLISECONDS)
-                .build();
+        this.httpClient = okHttpClient;
         this.resultCache = new HashMap<>();
     }
 

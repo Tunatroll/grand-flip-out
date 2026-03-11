@@ -50,7 +50,7 @@ public class PriceService
     {
         this.config = config;
         File dataDir = new File(RUNELITE_DIR, "grand-flip-out");
-        this.localCache = new LocalDataCache(dataDir);
+        this.localCache = new LocalDataCache(dataDir, gson);
         this.wikiClient = new WikiPriceClient(httpClient, config.userAgent(), gson, localCache);
         this.runeLiteClient = new RuneLitePriceClient(httpClient);
         this.officialGeClient = new OfficialGePriceClient(httpClient);

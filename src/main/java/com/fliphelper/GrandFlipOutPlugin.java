@@ -105,16 +105,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private FlipTracker flipTracker;
     private FlipSuggestionEngine suggestionEngine;
     private QuickFlipAnalyzer quickFlipAnalyzer;
-    private DumpDetector dumpDetector;
-    private DumpKnowledgeEngine dumpKnowledgeEngine;
-    private JagexTradeIndex jagexTradeIndex;
-    private MarketIntelligenceEngine marketIntelligence;
-    private BotEconomyTracker botEconomyTracker;
-    private DataQualityAnalyzer dataQualityAnalyzer;
-    private InvestmentHorizonAnalyzer investmentHorizonAnalyzer;
     private MultiAccountDashboard multiAccountDashboard;
     private SessionManager sessionManager;
-    private RiskManager riskManager;
     private SlotOptimizer slotOptimizer;
     private MarginCheckTracker marginCheckTracker;
     private SmartAdvisor smartAdvisor;
@@ -159,7 +151,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         DATA_DIR.mkdirs();
 
         // Initialize debug manager with local file logging
-        debugManager = new DebugManager();
+        debugManager = new DebugManager(gson);
         debugManager.setDataDir(DATA_DIR);
         debugManager.info(getClass().getSimpleName(), "Plugin startup initiated");
 
@@ -197,15 +189,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         quickFlipAnalyzer = new QuickFlipAnalyzer();
         suggestionEngine = new FlipSuggestionEngine(priceService, config, quickFlipAnalyzer);
 
-        // Initialize dump detection, knowledge engine, and market intelligence
-        dumpDetector = new DumpDetector(priceService);
-        dumpKnowledgeEngine = new DumpKnowledgeEngine();
-        jagexTradeIndex = new JagexTradeIndex(priceService);
-        marketIntelligence = new MarketIntelligenceEngine(priceService);
-        botEconomyTracker = new BotEconomyTracker(priceService);
-        dataQualityAnalyzer = new DataQualityAnalyzer(priceService);
-        investmentHorizonAnalyzer = new InvestmentHorizonAnalyzer(priceService);
-
         // Initialize multi-account dashboard (up to 10 accounts)
         multiAccountDashboard = new MultiAccountDashboard(DATA_DIR.getAbsolutePath(), gson);
         if (config.enableMultiAccount())
@@ -215,7 +198,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Initialize session, risk, slot, and margin systems
         sessionManager = new SessionManager(DATA_DIR.getAbsolutePath(), gson);
-        riskManager = new RiskManager();
         slotOptimizer = new SlotOptimizer();
         marginCheckTracker = new MarginCheckTracker(DATA_DIR.getAbsolutePath(), gson);
 
@@ -224,13 +206,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Initialize flip guidance engine (Quest Helper-style step-by-step coaching)
 
-        // Initialize SmartAdvisor — the unified intelligence brain
-        smartAdvisor = new SmartAdvisor(
-            priceService, marketIntelligence, botEconomyTracker,
-            jagexTradeIndex, dumpDetector, dumpKnowledgeEngine,
-            dataQualityAnalyzer, riskManager, investmentHorizonAnalyzer,
-            priceService.getHistoryCollector()
-        );
+        // Initialize SmartAdvisor — thin client to Railway backend
+        smartAdvisor = new SmartAdvisor(okHttpClient);
 
         // Create UI
         panel = new GrandFlipOutPanel(config, priceService, flipTracker, suggestionEngine, smartAdvisor);
@@ -776,8 +753,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
         else if (config.dumpScanHotkey().matches(e))
         {
-            // Ctrl+Shift+D: Immediately scan for dump opportunities
-            executor.execute(this::runDumpScan);
+            // Dump scanning handled server-side now
+            log.debug("Dump scan triggered — delegated to server intelligence");
             e.consume();
         }
         else if (e.isControlDown() && e.isShiftDown() && e.getKeyCode() == KeyEvent.VK_U)
@@ -803,10 +780,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
         else if (config.quickBuyPlanHotkey().matches(e))
         {
-            // Ctrl+Shift+B: Generate a quick multi-account buy plan
+            // Multi-account buy plan — dump analysis is server-side
             if (config.enableMultiAccount())
             {
-                executor.execute(this::runDumpScan);
+                log.debug("Multi-account buy plan — server intelligence handles dump scoring");
             }
             e.consume();
         }
@@ -970,57 +947,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             priceService.refreshAll();
 
-            // Record JTI tick, dump snapshots, and market intelligence on each refresh
-            jagexTradeIndex.recordTick();
-            dumpDetector.takeSnapshot();
-
-            // Supply chain check — detect supply disruption / volume shock signals
-            var marketHealthScore = botEconomyTracker.getMarketHealth();
-            if (marketHealthScore != null)
-            {
-                log.debug("Supply chain: health={}, pipeline={}",
-                    marketHealthScore,
-                    botEconomyTracker.getPipelineTracker().getPipelineStage());
-            }
-
-            // Generate market briefing on each refresh (lightweight)
-            var briefing = marketIntelligence.getMarketBriefing();
-            if (briefing != null)
-            {
-                log.debug("Market briefing: volatility={}, topMovers={}",
-                    briefing.getVolatilityLevel(),
-                    briefing.getTopMovers() != null ? briefing.getTopMovers().size() : 0);
-            }
-
-            // Run dump detection if enabled
-            if (config.enableDumpDetection())
-            {
-                var alerts = dumpDetector.detectAnomalies();
-                if (!alerts.isEmpty() && config.dumpAutoAnalyze())
-                {
-                    for (var alert : alerts)
-                    {
-                        if (alert.getType() == DumpDetector.AlertType.DUMP)
-                        {
-                            var knowledgeAlert = convertToDumpKnowledgeAlert(alert);
-                            var analysis = dumpKnowledgeEngine.analyzeDump(knowledgeAlert);
-                            log.info("Dump detected: {} — Action: {}, Confidence: {}",
-                                alert.getItemName(),
-                                analysis.getRecommendedAction(),
-                                analysis.getConfidence());
-
-                            // Record dump event in debug manager
-                            if (debugManager != null)
-                            {
-                                debugManager.recordEvent("DUMP_DETECTED",
-                                    String.format("Action: %s, Confidence: %s",
-                                        analysis.getRecommendedAction(), analysis.getConfidence()),
-                                    alert.getItemName());
-                            }
-                        }
-                    }
-                }
-            }
+            // Intelligence runs server-side on Railway — no local tick processing needed
 
             // Update multi-account positions with latest prices
             if (config.enableMultiAccount())
@@ -1108,50 +1035,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
-    
-    private void runDumpScan()
-    {
-        try
-        {
-            var alerts = dumpDetector.detectAnomalies();
-            var dumpAlerts = alerts.stream()
-                .filter(a -> a.getType() == DumpDetector.AlertType.DUMP)
-                .collect(java.util.stream.Collectors.toList());
 
-            if (dumpAlerts.isEmpty())
-            {
-                log.info("Dump scan: No active dumps detected");
-                return;
-            }
-
-            log.info("Dump scan: {} dump(s) detected", dumpAlerts.size());
-
-            for (var alert : dumpAlerts)
-            {
-                var knowledgeAlert = convertToDumpKnowledgeAlert(alert);
-                var analysis = dumpKnowledgeEngine.analyzeDump(knowledgeAlert);
-                log.info("  {} — {} (confidence: {}, target buy: {}, recovery: {})",
-                    alert.getItemName(),
-                    analysis.getRecommendedAction(),
-                    analysis.getConfidence(),
-                    analysis.getTargetBuyPrice(),
-                    analysis.getExpectedRecoveryPrice());
-
-                // Log per-account GE limit availability (informational only)
-                if (config.enableMultiAccount())
-                {
-                    var availability = multiAccountDashboard.getGeLimitAvailability(alert.getItemId());
-                    log.info("  Per-account GE limit availability for {}: {}", alert.getItemName(), availability);
-                }
-            }
-
-            panel.updateAll();
-        }
-        catch (Exception e)
-        {
-            log.warn("Dump scan failed: {}", e.getMessage());
-        }
-    }
 
     private void copyCurrentMarginToClipboard()
     {
@@ -1174,37 +1058,5 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
             }
         }
-    }
-
-        
-    private DumpKnowledgeEngine.PriceAlert convertToDumpKnowledgeAlert(DumpDetector.PriceAlert alert)
-    {
-        var agg = priceService.getPrice(alert.getItemId());
-        long currentPrice = agg != null ? agg.getCurrentPrice() : 0;
-        long hourlyVolume = agg != null ? agg.getTotalVolume1h() : 0;
-
-        // Derive previous price from deviation: current = previous * (1 + dev/100)
-        double deviation = alert.getLowDeviation();
-        long previousPrice;
-        if (Math.abs(deviation) > 0.01 && currentPrice > 0)
-        {
-            previousPrice = (long) (currentPrice / (1.0 + deviation / 100.0));
-        }
-        else
-        {
-            previousPrice = currentPrice;
-        }
-
-        return DumpKnowledgeEngine.PriceAlert.builder()
-            .itemId(alert.getItemId())
-            .itemName(alert.getItemName())
-            .currentPrice(currentPrice)
-            .previousPrice(previousPrice)
-            .volume(hourlyVolume)
-            .averageVolume(hourlyVolume) // FIX: was missing - isHighVolume() always returned true
-            .buyPrice(agg != null ? agg.getBestLowPrice() : currentPrice)
-            .sellPrice(agg != null ? agg.getBestHighPrice() : currentPrice)
-            .priceMovement(deviation)
-            .build();
     }
 }

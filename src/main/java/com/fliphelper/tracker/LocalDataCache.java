@@ -1,7 +1,6 @@
 package com.fliphelper.tracker;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -33,7 +32,7 @@ public class LocalDataCache
     private final Gson gson;
     private final Map<String, CacheStats> stats = new ConcurrentHashMap<>();
 
-    public LocalDataCache(File dataDir)
+    public LocalDataCache(File dataDir, Gson gson)
     {
         this.cacheDir = new File(dataDir, CACHE_DIR);
         this.intelligenceDir = new File(cacheDir, INTELLIGENCE_DIR);
@@ -41,7 +40,7 @@ public class LocalDataCache
         this.cacheDir.mkdirs();
         this.intelligenceDir.mkdirs();
 
-        this.gson = new GsonBuilder().create();
+        this.gson = gson;
 
         cleanupOldCaches();
         initializeStats();

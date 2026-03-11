@@ -12,7 +12,7 @@ import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.VarClientStr;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.callback.ClientThread;
 
 import java.time.Instant;
@@ -242,7 +242,7 @@ public class GEOfferHelper
             client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(price));
 
             // Update the visible chatbox widget text
-            Widget chatboxInput = client.getWidget(WidgetInfo.CHATBOX_FULL_INPUT);
+            Widget chatboxInput = client.getWidget(InterfaceID.Chatbox.MES_TEXT2);
             if (chatboxInput != null)
             {
                 chatboxInput.setText(price + "*");
@@ -261,7 +261,7 @@ public class GEOfferHelper
         {
             client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(quantity));
 
-            Widget chatboxInput = client.getWidget(WidgetInfo.CHATBOX_FULL_INPUT);
+            Widget chatboxInput = client.getWidget(InterfaceID.Chatbox.MES_TEXT2);
             if (chatboxInput != null)
             {
                 chatboxInput.setText(quantity + "*");
@@ -336,7 +336,7 @@ public class GEOfferHelper
     
     public boolean isChatboxInputActive()
     {
-        Widget chatboxInput = client.getWidget(WidgetInfo.CHATBOX_FULL_INPUT);
+        Widget chatboxInput = client.getWidget(InterfaceID.Chatbox.MES_TEXT2);
         return chatboxInput != null && !chatboxInput.isHidden();
     }
 

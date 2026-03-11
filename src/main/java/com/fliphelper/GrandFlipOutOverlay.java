@@ -8,7 +8,6 @@ import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.ComponentID;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -69,7 +68,8 @@ public class GrandFlipOutOverlay extends Overlay
 
         try
         {
-            Widget geWidget = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+            // GE window container: interface 465, child 0
+            Widget geWidget = client.getWidget(465 << 16 | 0);
             boolean geOpen = geWidget != null && !geWidget.isHidden();
 
             panelComponent.getChildren().clear();
