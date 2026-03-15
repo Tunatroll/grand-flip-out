@@ -14,7 +14,7 @@ Static site for landing, docs, auth, dashboard, and pricing. When you run the se
 
 ## Discord invite
 
-Replace `discord.gg/grandflipout` with your server invite in all HTML files (nav and footer). See **docs/DISCORD.md**.
+Replace `discord.gg/3qgx52zfj` with your server invite in all HTML files (nav and footer). See **docs/DISCORD.md**.
 
 ## Deploy
 

@@ -9,7 +9,7 @@ Use your own Discord server for community, support, and announcements. The websi
 Replace the placeholder invite in the website with **your** server’s invite:
 
 1. In Discord: Server → Invite people → Create invite. Copy the link (e.g. `https://discord.gg/YourCode`).
-2. In this repo, search for `discord.gg/grandflipout` and replace it with your invite (e.g. `discord.gg/YourCode`) in:
+2. In this repo, search for `discord.gg/3qgx52zfj` and replace it with your invite (e.g. `discord.gg/YourCode`) in:
    - `website/index.html`
    - `website/pricing.html`
    - `website/support.html`
@@ -61,7 +61,7 @@ For slash commands (e.g. `/status`), register them in the Developer Portal and h
 
 ## Summary
 
-- **Invite link:** Replace `discord.gg/grandflipout` with your server invite everywhere in `website/`.
+- **Invite link:** Replace `discord.gg/3qgx52zfj` with your server invite everywhere in `website/`.
 - **Bot (optional):** Create app in Discord, add bot, run `server/scripts/discord-bot.js` with `DISCORD_BOT_TOKEN`. Add commands as needed.
 
 I can’t join your Discord or create the server for you; you add the invite link and run the bot yourself.

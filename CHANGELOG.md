@@ -32,7 +32,7 @@
 - **Account linking & compliance** — docs/ACCOUNT_LINKING_AND_COMPLIANCE.md: how users link (email + API key only), no game credentials; RuneLite compliant.
 - **Payments** — docs/PAYMENTS.md; Stripe webhook `POST /api/webhooks/stripe` (raw body); optional checkout `POST /api/checkout/session`; plan upgrade on payment.
 - **Pricing page** — website/pricing.html (Free / Premium); upgrade button calls checkout when logged in; dashboard shows plan and limits.
-- **Discord** — docs/DISCORD.md; Discord link in nav/footer (placeholder `discord.gg/grandflipout` — replace with your invite); optional bot scaffold in server/scripts/discord-bot.js (!help, !status).
+- **Discord** — docs/DISCORD.md; Discord link in nav/footer (placeholder `discord.gg/3qgx52zfj` — replace with your invite); optional bot scaffold in server/scripts/discord-bot.js (!help, !status).
 - **UI/UX** — Login and signup show loading state; dashboard shows plan and upgrade link; consistent nav (Pricing, Discord) and footer.
 - **Originality and attribution** — docs/ORIGINALITY_AND_ATTRIBUTION.md states plugin is original work (started from official RuneLite example only; no code from other plugins). Linked from README, COMPLIANCE_CHECKLIST, SUBMISSION_CHECKLIST, HOW_TO_SUBMIT; ROADMAP Phase 5 updated.
 - **Human-friendly copy** — README, plugin description, website (hero, features, docs, support), config tooltips, onboarding steps, and submission docs rewritten to sound natural and approachable. New docs/HOW_TO_SUBMIT.md with plain-language steps for submitting to the Plugin Hub yourself.
