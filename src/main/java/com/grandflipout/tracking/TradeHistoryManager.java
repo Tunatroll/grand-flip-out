@@ -395,18 +395,20 @@ public class TradeHistoryManager
 					{
 						lots.poll();
 					}
-					long buyCost = (long) consume * lotPrice;
-					long sellProceeds = (long) consume * sellPrice;
-					result.add(CompletedFlip.builder()
-						.itemId(itemId)
-						.itemName(itemName)
-						.quantity(consume)
-						.buyCost(buyCost)
-						.sellProceeds(sellProceeds)
-						.profit(sellProceeds - buyCost)
-						.completedTimestampMs(sellTimestamp)
-						.marginPerUnit(sellPrice - lotPrice)
-						.build());
+				long buyCost = (long) consume * lotPrice;
+				long sellProceeds = (long) consume * sellPrice;
+				long tax = CompletedFlip.calculateTax(sellProceeds);
+				result.add(CompletedFlip.builder()
+					.itemId(itemId)
+					.itemName(itemName)
+					.quantity(consume)
+					.buyCost(buyCost)
+					.sellProceeds(sellProceeds)
+					.taxPaid(tax)
+					.profit(sellProceeds - buyCost - tax)
+					.completedTimestampMs(sellTimestamp)
+					.marginPerUnit(sellPrice - lotPrice)
+					.build());
 				}
 			}
 		}

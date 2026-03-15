@@ -12,18 +12,28 @@ import lombok.Data;
 @Builder
 public class CompletedFlip
 {
+	/** GE tax rate (2% since May 2025, capped at 5M per transaction). */
+	public static final double GE_TAX_RATE = 0.02;
+	public static final long GE_TAX_CAP = 5_000_000;
+
 	private int itemId;
 	private String itemName;
-	/** Quantity flipped in this flip. */
 	private int quantity;
-	/** Total gp spent on the matched buy(s). */
 	private long buyCost;
-	/** Total gp received from the matched sell(s). */
+	/** Gross sell proceeds before GE tax. */
 	private long sellProceeds;
-	/** sellProceeds - buyCost. */
+	/** GE tax deducted from the sell. */
+	private long taxPaid;
+	/** sellProceeds - buyCost - taxPaid. */
 	private long profit;
-	/** Timestamp of the sell that completed this flip. */
 	private long completedTimestampMs;
-	/** Optional: margin per unit (sellPrice - buyPrice) for display. */
+	/** Margin per unit before tax (sellPrice - buyPrice). */
 	private long marginPerUnit;
+
+	/** Calculate GE tax on a sell transaction. 2% of sell value, capped at 5M. */
+	public static long calculateTax(long sellProceeds)
+	{
+		long tax = Math.round(sellProceeds * GE_TAX_RATE);
+		return Math.min(tax, GE_TAX_CAP);
+	}
 }

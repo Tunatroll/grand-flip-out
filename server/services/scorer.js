@@ -6,13 +6,21 @@
 
 const MIN_VOLUME = 50;
 const MIN_MARGIN_GP = 5;
+const GE_TAX_RATE = 0.02;
+const GE_TAX_CAP = 5_000_000;
+
+function geTax(sellPrice, qty = 1) {
+  const gross = sellPrice * qty;
+  return Math.min(Math.round(gross * GE_TAX_RATE), GE_TAX_CAP);
+}
 
 function scoreItem(item) {
   const buy = item.buyPrice;
   const sell = item.sellPrice;
   if (!buy || !sell || buy <= 0 || sell <= buy) return null;
 
-  const marginGp = sell - buy;
+  const tax = geTax(sell);
+  const marginGp = sell - buy - tax;
   const marginPercent = (marginGp / buy) * 100;
   const volume = item.volume || 0;
 
@@ -38,6 +46,7 @@ function scoreItem(item) {
     buyPrice: buy,
     sellPrice: sell,
     marginGp,
+    taxPerUnit: tax,
     marginPercent: Math.round(marginPercent * 100) / 100,
     confidence: Math.round(confidence * 100) / 100,
     volume,

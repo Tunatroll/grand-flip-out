@@ -13,6 +13,7 @@ public class MarketOpportunityDto
 	private Long buyPrice;
 	private Long sellPrice;
 	private Long marginGp;
+	private Long taxPerUnit;
 	private Double marginPercent;
 	private Double confidence;
 	private Long volume;

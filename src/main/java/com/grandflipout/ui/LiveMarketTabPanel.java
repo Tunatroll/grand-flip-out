@@ -182,7 +182,8 @@ public class LiveMarketTabPanel extends JPanel
 		Long buy = item.getBuyPrice();
 		Long sell = item.getSellPrice();
 		if (buy == null || sell == null || buy <= 0) return 0;
-		return 100.0 * (sell - buy) / buy;
+		long tax = Math.min(Math.round(sell * 0.02), 5_000_000);
+		return 100.0 * (sell - buy - tax) / buy;
 	}
 
 	private JPanel buildMarketItemRow(MarketItemDto item)
@@ -212,11 +213,13 @@ public class LiveMarketTabPanel extends JPanel
 		}
 		if (buy != null && sell != null && buy > 0)
 		{
-			long margin = sell - buy;
+			long tax = Math.min(Math.round(sell * 0.02), 5_000_000);
+			long margin = sell - buy - tax;
 			double pct = 100.0 * margin / buy;
 			Color marginColor = margin >= 0 ? ColorScheme.PROGRESS_COMPLETE_COLOR : ColorScheme.PROGRESS_ERROR_COLOR;
 			JLabel marginL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatPct(pct) + "%", marginColor);
-			marginL.setToolTipText("Margin: " + GrandFlipOutStyles.formatGp(margin) + " gp (" + GrandFlipOutStyles.formatPct(pct) + "%)");
+			marginL.setToolTipText("<html>Margin: " + GrandFlipOutStyles.formatGp(margin) + " gp/ea (after 2% tax)"
+				+ "<br>Tax: " + GrandFlipOutStyles.formatGp(tax) + " gp/ea</html>");
 			right.add(marginL);
 		}
 		row.add(right, BorderLayout.EAST);
@@ -232,8 +235,16 @@ public class LiveMarketTabPanel extends JPanel
 
 		String name = opp.getItemName() != null ? opp.getItemName() : "Item " + opp.getItemId();
 		JLabel left = GrandFlipOutStyles.createSmallLabel(name, ColorScheme.LIGHT_GRAY_COLOR);
-		String reason = opp.getReason() != null ? opp.getReason() : "No reason provided";
-		left.setToolTipText(reason);
+		StringBuilder tip = new StringBuilder("<html>" + name);
+		if (opp.getBuyPrice() != null) tip.append("<br>Buy: ").append(GrandFlipOutStyles.formatGp(opp.getBuyPrice())).append(" gp");
+		if (opp.getSellPrice() != null) tip.append("<br>Sell: ").append(GrandFlipOutStyles.formatGp(opp.getSellPrice())).append(" gp");
+		if (opp.getTaxPerUnit() != null) tip.append("<br>GE tax: ").append(GrandFlipOutStyles.formatGp(opp.getTaxPerUnit())).append(" gp/ea");
+		if (opp.getMarginGp() != null) tip.append("<br>Margin (after tax): ").append(GrandFlipOutStyles.formatGp(opp.getMarginGp())).append(" gp/ea");
+		if (opp.getVolume() != null) tip.append("<br>Volume: ").append(GrandFlipOutStyles.formatGp(opp.getVolume()));
+		String reason = opp.getReason();
+		if (reason != null && !reason.isBlank()) tip.append("<br>").append(reason);
+		tip.append("</html>");
+		left.setToolTipText(tip.toString());
 		row.add(left, BorderLayout.WEST);
 
 		JPanel right = new JPanel(new GridLayout(1, 0, 6, 0));
