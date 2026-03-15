@@ -1,6 +1,6 @@
 # Payments and receiving money
 
-This doc describes how to let users pay and how you receive payment, using **Stripe** (or a similar provider). The backend is already set up for plans (`free` / `premium`); you add Stripe and connect it.
+This doc describes how to let users pay and how you receive payment, using **Stripe** (primary) and **Venmo Business** as an optional manual fallback. The backend is already set up for plans (`free` / `premium`); you connect checkout and support ops around it.
 
 ## How it works
 
@@ -11,6 +11,23 @@ This doc describes how to let users pay and how you receive payment, using **Str
 5. **User gets premium** — Higher rate limits and limits (see `store.js` plan limits). No change in the plugin; the API enforces limits.
 
 You receive the money in your **Stripe account**. You then pay out from Stripe to your bank (Stripe → Dashboard → Payouts).
+
+---
+
+## Venmo Business fallback (APIndustries)
+
+If Stripe is temporarily offline/not configured, or a user asks for an alternate method, you can accept manual payment through your Venmo Business profile:
+
+- **Venmo tag:** `@APIndustries`
+
+Recommended policy:
+
+1. Keep Stripe as the default automated path.
+2. Use Venmo only as support-assisted/manual billing.
+3. Confirm payment manually, then upgrade the user account in your admin workflow.
+4. Log who was upgraded and why (for refund/support clarity).
+
+Important: Venmo is not currently wired into automated webhooks in this codebase. Treat it as a manual fallback lane, not the default subscription engine.
 
 ## What you need to do
 
@@ -52,11 +69,21 @@ The server already has a webhook handler at `POST /api/webhooks/stripe`. When `S
 
 For “Upgrade” buttons you can add a route that creates a Stripe Checkout Session and returns the session URL. See the server code or add one that uses `stripe.checkout.sessions.create` with `customer_email`, `line_items: [{ price: STRIPE_PRICE_ID }]`, and `success_url` / `cancel_url` pointing back to your site. Redirect the user to `session.url`.
 
+### 7. Operational fallback copy (recommended)
+
+If Stripe is not configured, your website can show:
+
+- "Premium checkout is not live yet."
+- "For manual upgrade support, contact us in Discord and reference Venmo Business `@APIndustries`."
+
+That keeps conversion moving while you finish Stripe setup.
+
 ## Compliance and security
 
 - **You never see card numbers** — Stripe handles all payment data (PCI compliant).
 - **Webhook verification** — The server only upgrades a user when Stripe’s signature is valid.
 - **No game credentials** — Payment is for your service (API/premium); no RuneScape or Jagex involvement. RuneLite compliant.
+- **No automation risk** — Payment methods (Stripe or Venmo support) do not automate gameplay. They only control API/service plan access.
 
 ## Payouts to you
 

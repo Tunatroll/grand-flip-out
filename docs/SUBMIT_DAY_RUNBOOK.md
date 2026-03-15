@@ -75,6 +75,8 @@ Quick check:
 
 - `GET https://grandflipout.com/api/checkout/config` should return `{"configured":true}`
 
+If you need to accept payments before Stripe is fully live, use manual support billing temporarily (Venmo Business `@APIndustries`) and upgrade users via your support workflow.
+
 If `www.grandflipout.com` is not resolving, get the exact Cloudflare DNS target from Railway:
 
 ```powershell
