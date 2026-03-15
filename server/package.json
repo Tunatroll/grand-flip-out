@@ -1,7 +1,7 @@
 {
   "name": "grandflipout-server",
   "version": "1.0.0",
-  "description": "Grand Flip Out API: auth, API keys, market/opportunities stubs for plugin",
+  "description": "Grand Flip Out API: auth, API keys, market/opportunities for plugin",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -15,9 +15,7 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2"
-  },
-  "optionalDependencies": {
+    "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3",
     "stripe": "^14.0.0"
   }
