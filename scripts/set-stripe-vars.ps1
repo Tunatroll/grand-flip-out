@@ -16,12 +16,12 @@ function Pass($msg) { Write-Host "[PASS] $msg" -ForegroundColor Green }
 Info "Setting Stripe variables on Railway service gfo-server (production link assumed)..."
 
 # Set values without echoing secrets to terminal output.
-$StripeSecretKey | railway variable set --service gfo-server --set-from-stdin STRIPE_SECRET_KEY | Out-Null
-$StripePriceId   | railway variable set --service gfo-server --set-from-stdin STRIPE_PRICE_ID   | Out-Null
-$BaseUrl         | railway variable set --service gfo-server --set-from-stdin BASE_URL          | Out-Null
+$StripeSecretKey | railway variable set --service gfo-server --stdin STRIPE_SECRET_KEY | Out-Null
+$StripePriceId   | railway variable set --service gfo-server --stdin STRIPE_PRICE_ID   | Out-Null
+$BaseUrl         | railway variable set --service gfo-server --stdin BASE_URL          | Out-Null
 
 if ($StripeWebhookSecret -and $StripeWebhookSecret.Trim().Length -gt 0) {
-  $StripeWebhookSecret | railway variable set --service gfo-server --set-from-stdin STRIPE_WEBHOOK_SECRET | Out-Null
+  $StripeWebhookSecret | railway variable set --service gfo-server --stdin STRIPE_WEBHOOK_SECRET | Out-Null
   Pass "Set STRIPE_WEBHOOK_SECRET"
 }
 

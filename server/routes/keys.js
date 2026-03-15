@@ -25,6 +25,11 @@ router.post('/', requireWebAuth, async (req, res, next) => {
     if (label.length > 64) {
       return res.status(400).json({ error: 'Label must be 64 characters or fewer' });
     }
+    const existing = await store.getKeysByUserId(req.user.id);
+    const limits = store.getPlanLimits(req.user.plan);
+    if (existing.length >= limits.maxKeys) {
+      return res.status(403).json({ error: `Your plan allows up to ${limits.maxKeys} API keys. Revoke one first or upgrade.` });
+    }
     const { record, rawKey } = await store.createApiKey(req.user.id, label);
     res.status(201).json({
       key: rawKey,

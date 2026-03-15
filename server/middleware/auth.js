@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const store = require('../store');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? (() => { throw new Error('JWT_SECRET must be set in production'); })() : 'dev-only-secret');
 
 function signToken(user) {
   return jwt.sign(

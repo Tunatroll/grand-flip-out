@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- **set-stripe-vars.ps1** — Use correct Railway CLI flag `--stdin` instead of `--set-from-stdin` for variable set.
+
 ### Added
 - **screenshots/** — Placeholder folder for Plugin Hub submission. Add panel screenshot before submitting.
 - **Venmo business fallback** — Documented manual billing fallback via Venmo Business `@APIndustries` in payments docs/runbook and added website pricing/support copy for checkout-unavailable scenarios.

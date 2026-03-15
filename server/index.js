@@ -15,7 +15,14 @@ const market = require('./routes/market');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.disable('x-powered-by');
 app.use(cors({ origin: true, credentials: true }));
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
 
 // Stripe webhook needs raw body for signature verification — mount before express.json()
 const webhooks = require('./routes/webhooks');
