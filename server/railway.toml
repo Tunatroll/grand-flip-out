@@ -1,0 +1,7 @@
+# Railway: set "Root Directory" to server in the dashboard, or deploy from server/ only.
+[build]
+builder = "nixpacks"
+
+[deploy]
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

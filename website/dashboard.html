@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard — Grand Flip Out</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <header class="header">
+    <div class="container">
+      <a href="index.html" class="logo">Grand Flip Out</a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="docs.html">Docs</a>
+        <a href="features.html">Features</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="support.html">Support</a>
+        <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener" class="nav-discord">Discord</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="#" id="logout-link">Log out</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page">
+    <div class="container">
+      <h1>API key dashboard</h1>
+      <p id="dashboard-status" style="color: var(--muted); margin-bottom: 0.5rem;">Loading…</p>
+      <p id="dashboard-plan" style="font-size: 0.875rem; color: var(--muted); margin-bottom: 0.25rem;"></p>
+      <p id="plan-desc" style="font-size: 0.8125rem; color: var(--muted); margin-bottom: 0.75rem;"></p>
+      <a id="upgrade-link" href="pricing.html" class="btn btn-primary" style="display: none; margin-bottom: 1.5rem;">Upgrade plan</a>
+
+      <div class="dashboard-card">
+        <h2>Your API key</h2>
+        <p style="color: var(--muted); font-size: 0.875rem; margin-bottom: 0.5rem;">Paste this into the Grand Flip Out plugin: Configuration → Grand Flip Out API → API Key. Keep it secret.</p>
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <div id="api-key-box" class="api-key-box" style="flex: 1; min-width: 200px;">—</div>
+          <button type="button" id="copy-key-btn" class="btn btn-secondary" title="Copy key to clipboard">Copy key</button>
+        </div>
+        <p style="margin-top: 0.75rem; font-size: 0.875rem; color: var(--muted);">
+          <button type="button" id="create-key-btn" class="btn btn-primary">Create new API key</button>
+          <span id="key-msg" style="margin-left: 0.5rem;"></span>
+        </p>
+        <div id="keys-list" style="margin-top: 1rem;"></div>
+      </div>
+
+      <div class="dashboard-card">
+        <h2>Usage</h2>
+        <p style="color: var(--muted); margin: 0;">In the plugin set Server URL to this site (e.g. <code id="base-url">http://localhost:3000</code>). Market path: <code>/api/market</code>, Opportunities path: <code>/api/opportunities</code>.</p>
+      </div>
+    </div>
+  </main>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var keyBox = document.getElementById('api-key-box');
+      var createBtn = document.getElementById('create-key-btn');
+      var copyBtn = document.getElementById('copy-key-btn');
+      var keyMsg = document.getElementById('key-msg');
+      var keysList = document.getElementById('keys-list');
+      var status = document.getElementById('dashboard-status');
+      document.getElementById('base-url').textContent = window.location.origin;
+
+      copyBtn.addEventListener('click', function () {
+        var key = keyBox.textContent && keyBox.textContent !== '—' ? keyBox.textContent.trim() : '';
+        if (!key) { keyMsg.textContent = 'No key to copy. Create one first.'; keyMsg.style.color = 'var(--error)'; return; }
+        navigator.clipboard.writeText(key).then(function () {
+          keyMsg.textContent = 'Copied to clipboard.';
+          keyMsg.style.color = 'var(--success)';
+        }).catch(function () {
+          keyMsg.textContent = 'Clipboard failed.';
+          keyMsg.style.color = 'var(--error)';
+        });
+      });
+
+      function showKeys(keys) {
+        if (!keys || !keys.length) { keysList.innerHTML = ''; return; }
+        keysList.innerHTML = '<p style="font-size:0.875rem; color: var(--muted);">Existing keys (last 5):</p>' + keys.slice(0, 5).map(function (k) {
+          return '<div style="font-size:0.875rem; margin:0.25rem 0;">' + k.label + ' — created ' + new Date(k.createdAt).toLocaleDateString() + '</div>';
+        }).join('');
+      }
+
+      function load() {
+        status.textContent = 'You must be logged in to manage API keys.';
+        window.gfoAuth.me().then(function (user) {
+          if (!user) { window.location.href = 'login.html'; return; }
+          status.textContent = 'Logged in as ' + user.email;
+          return window.gfoKeys.list();
+        }).then(function (data) {
+          if (!data) return;
+          showKeys(data.keys);
+        }).catch(function () { status.textContent = 'Session expired or error.'; });
+
+        fetch('/api/user/plan', { credentials: 'include' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (planData) {
+          var planDesc = document.getElementById('plan-desc');
+          var upgradeLink = document.getElementById('upgrade-link');
+          var planStatus = document.getElementById('dashboard-plan');
+          if (!planDesc) return;
+          if (planData && planData.plan) {
+            planStatus.textContent = 'Plan: ' + planData.plan;
+            var limits = planData.limits || {};
+            planDesc.textContent = (limits.requestsPerMinute || '—') + ' req/min, ' + (limits.maxKeys || '—') + ' API keys, ' + (limits.opportunities || '—') + ' opportunities per response.';
+            if (planData.plan === 'free' && upgradeLink) upgradeLink.style.display = 'inline-block';
+          }
+        });
+      }
+
+      createBtn.addEventListener('click', function () {
+        keyMsg.textContent = '';
+        window.gfoKeys.create('Default').then(function (data) {
+          if (!data) { window.location.href = 'login.html'; return; }
+          keyBox.textContent = data.key;
+          keyBox.style.color = 'var(--success)';
+          keyMsg.textContent = 'Copy the key above; it won’t be shown again.';
+          keyMsg.style.color = 'var(--success)';
+          load();
+        }).catch(function (err) {
+          keyMsg.textContent = err.message || 'Failed';
+          keyMsg.style.color = 'var(--error)';
+        });
+      });
+
+      document.getElementById('logout-link').addEventListener('click', function (e) {
+        e.preventDefault();
+        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(function () {
+          window.location.href = 'login.html';
+        });
+      });
+
+      load();
+    })();
+  </script>
+
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; Grand Flip Out. Not affiliated with Jagex or RuneLite. <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener">Discord</a></p>
+    </div>
+  </footer>
+</body>
+</html>

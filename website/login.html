@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in — Grand Flip Out</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <header class="header">
+    <div class="container">
+      <a href="index.html" class="logo">Grand Flip Out</a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="docs.html">Docs</a>
+        <a href="features.html">Features</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="support.html">Support</a>
+        <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener" class="nav-discord">Discord</a>
+        <a href="login.html">Log in</a>
+        <a href="signup.html" class="btn btn-primary">Get API key</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page">
+    <div class="container">
+      <h1>Log in</h1>
+      <div class="form-card">
+        <p id="login-error" class="error-msg" style="display:none; color: var(--error); margin-bottom: 0.5rem;"></p>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="you@example.com" required>
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Log in</button>
+        </form>
+        <p>Don't have an account? <a href="signup.html">Sign up</a></p>
+      </div>
+    </div>
+  </main>
+  <script src="js/app.js"></script>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var errEl = document.getElementById('login-error');
+      var btn = e.target.querySelector('button[type="submit"]');
+      errEl.style.display = 'none';
+      var email = document.getElementById('email').value.trim();
+      var password = document.getElementById('password').value;
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = 'Logging in…';
+      try {
+        await window.gfoAuth.login(email, password);
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        errEl.textContent = err.message || 'Login failed';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Log in';
+      }
+    });
+  </script>
+
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; Grand Flip Out. Not affiliated with Jagex or RuneLite. <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener">Discord</a></p>
+    </div>
+  </footer>
+</body>
+</html>

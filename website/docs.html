@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plugin setup — Grand Flip Out</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <header class="header">
+    <div class="container">
+      <a href="index.html" class="logo">Grand Flip Out</a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="docs.html">Docs</a>
+        <a href="features.html">Features</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="support.html">Support</a>
+        <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener" class="nav-discord">Discord</a>
+        <a href="login.html">Log in</a>
+        <a href="signup.html" class="btn btn-primary">Get API key</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page">
+    <div class="container docs-content">
+      <h1>Plugin setup guide</h1>
+      <p>Get the plugin talking to your account and showing live data. Takes a couple of minutes.</p>
+
+      <h2>1. Install and enable the plugin</h2>
+      <p>Build from source or drop the JAR into RuneLite. In the plugin list, turn on <strong>Grand Flip Out</strong>.</p>
+
+      <h2>2. Get your API key</h2>
+      <p><a href="signup.html">Create an account</a>, then open your <a href="dashboard.html">dashboard</a>. Click "Create new API key" and copy it. You only see it once—use the Copy button if you need it again. If you're running your own backend without auth, you can leave the key blank and just set the Server URL.</p>
+
+      <h2>3. Configure the plugin</h2>
+      <p>In RuneLite, open Configuration (wrench icon) → <strong>Grand Flip Out API</strong>:</p>
+      <ul>
+        <li><strong>Server URL</strong> — e.g. <code>https://grandflipout.com</code> (or your own API URL)</li>
+        <li><strong>API Key</strong> — paste the key from your dashboard. It's stored locally and masked in the UI.</li>
+        <li><strong>Market endpoint path</strong> — usually <code>/api/market</code></li>
+        <li><strong>Opportunities endpoint path</strong> — usually <code>/api/opportunities</code> (optional)</li>
+      </ul>
+
+      <h2>4. Turn on polling and tracking</h2>
+      <p>In Configuration → <strong>Grand Flip Out</strong>:</p>
+      <ul>
+        <li>Enable <strong>Market API polling</strong> and pick a poll interval (e.g. 60 seconds).</li>
+        <li>Enable <strong>Local trade tracking</strong> and <strong>Persist trade history</strong> if you want your flips saved across restarts.</li>
+      </ul>
+
+      <h2>5. Open the panel and go</h2>
+      <p>Click the Grand Flip Out icon in the sidebar. <strong>Overview</strong> = session and all-time profit. <strong>Live Market</strong> = prices and opportunities from the API. <strong>Trade History</strong> = your trades, open positions, and flip log. You can export or import from that tab (clipboard or file).</p>
+
+      <h2>More detail</h2>
+      <p>For API request/response shapes see <code>docs/API_CONTRACT.md</code> in the repo. For compliance and how we keep things above board, see <code>docs/COMPLIANCE.md</code> and <code>docs/VALUE_PROTECTION.md</code>.</p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; Grand Flip Out. Not affiliated with Jagex or RuneLite. <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener">Discord</a></p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,69 @@
+# Changelog
+
+## Unreleased
+
+### Added
+- **Author set** — `runelite-plugin.properties` author is now "Awfully Pure". LICENSE and all docs updated.
+- **Railway deployment** — Deployed server + website to existing `gfo-server` on Railway. `grandflipout.com` now serves the full API (health, auth, keys, market, opportunities, strategies) and all website pages.
+- **Postgres persistence** — Added Postgres database on Railway. Schema applied. Users, API keys, and plans persist across deploys. Fixed `store-pg.js` column name mapping (`password_hash` -> `passwordHash`).
+- **Dockerfile.server** — Created `Dockerfile.server` matching Railway's `RAILWAY_DOCKERFILE_PATH` config.
+- **Server hardening** — auth.js: email format validation, type checks, trim on signup/login. keys.js: label length limit (64 chars). market.js: unknown strategy returns 400 with valid options list. checkout.js: errors go through global error handler via `next(err)`.
+- **Dashboard fixes** — Added missing plan-desc and upgrade-link elements. Logout link now actually calls the logout endpoint. Plan details (req/min, max keys, opportunities) shown below plan name.
+- **Website consistency** — Discord link added to docs.html and support.html footers. All pages now have consistent navigation and footer.
+- **Before-release checklist** — docs/BEFORE_RELEASE.md: single list for author, screenshot, deploy, Discord, Stripe. Linked from README and COMPLIANCE_CHECKLIST.
+- **Compliance doc** — COMPLIANCE.md see-also: account linking and payments (compliant). SUBMISSION_CHECKLIST: optional Discord/Stripe step. COMPLIANCE_CHECKLIST points to BEFORE_RELEASE.
+- **API contract** — docs/API_CONTRACT.md documents optional `?strategy=` query param.
+- **Accessibility** — Skip-to-main-content link on all pages; focus-visible style. Main landmark id on every page. Mobile-responsive nav and pricing grid.
+- **Server bug fixes** — telemetry.js: X-Response-Time header set before response ends (was crashing on `ERR_HTTP_HEADERS_SENT`). market.js: `/api/market/strategies` is now public (no API key needed). `/api/opportunities` standalone endpoint now returns `{ opportunities: [...] }` wrapper (consistent with `/api/market`). Plugin `fetchOpportunities` now handles both wrapped and plain-array formats.
+- **Features page** — Richer content: detail lists for Live Market, Trade History, Export/Import, Strategy presets, and Community section. Footer Discord link. Feature-detail card styling.
+- **Config polish** — All config section/item descriptions rewritten to sound human and explain what they do in plain English.
+- **Account linking & compliance** — docs/ACCOUNT_LINKING_AND_COMPLIANCE.md: how users link (email + API key only), no game credentials; RuneLite compliant.
+- **Payments** — docs/PAYMENTS.md; Stripe webhook `POST /api/webhooks/stripe` (raw body); optional checkout `POST /api/checkout/session`; plan upgrade on payment.
+- **Pricing page** — website/pricing.html (Free / Premium); upgrade button calls checkout when logged in; dashboard shows plan and limits.
+- **Discord** — docs/DISCORD.md; Discord link in nav/footer (placeholder `discord.gg/grandflipout` — replace with your invite); optional bot scaffold in server/scripts/discord-bot.js (!help, !status).
+- **UI/UX** — Login and signup show loading state; dashboard shows plan and upgrade link; consistent nav (Pricing, Discord) and footer.
+- **Originality and attribution** — docs/ORIGINALITY_AND_ATTRIBUTION.md states plugin is original work (started from official RuneLite example only; no code from other plugins). Linked from README, COMPLIANCE_CHECKLIST, SUBMISSION_CHECKLIST, HOW_TO_SUBMIT; ROADMAP Phase 5 updated.
+- **Human-friendly copy** — README, plugin description, website (hero, features, docs, support), config tooltips, onboarding steps, and submission docs rewritten to sound natural and approachable. New docs/HOW_TO_SUBMIT.md with plain-language steps for submitting to the Plugin Hub yourself.
+- **Plugin strategy selector** — Config "Opportunity strategy" (default, low_risk, high_volume, high_margin); plugin sends `?strategy=` to API. Live Market header shows active strategy.
+- **Dashboard Copy key button** — Copy API key to clipboard from dashboard.
+- **Compliance checklist** — docs/COMPLIANCE_CHECKLIST.md; runelite-plugin.properties description updated.
+- **Deploy: Railway + Cloudflare** — docs/DEPLOY_RAILWAY_CLOUDFLARE.md (Railway API, custom domain, Cloudflare DNS/Pages options). Root Dockerfile for API+website. server/railway.toml. website/_headers for Cloudflare cache.
+- **Support and features pages** — website/support.html (troubleshooting, 401/429, compliance), website/features.html (screenshot placeholders). Nav updated across site.
+- **Postgres store** — When DATABASE_URL is set, server uses store-pg.js (optional pg). Run server/db/schema.sql once. In-memory remains default.
+- **Response-time and cache headers** — X-Response-Time on all responses; Cache-Control no-store for /api and /v1; static assets get max-age=300.
+- **Alert rules engine** (`server/services/alerts.js`): tracks price/volume history across polling cycles; detects volume drops (>30%), price drift (>5%), margin collapse (>40%), and stale offers (very low variance). Alerts returned in `/api/market` response alongside items and opportunities.
+- **Strategy presets** (`server/services/strategies.js`): `low_risk`, `high_volume`, `high_margin`, and `default`. Plugin or client can pass `?strategy=low_risk` to `/api/market` or `/api/opportunities` to re-rank. `GET /api/market/strategies` lists available presets.
+- **Request telemetry** (`server/middleware/telemetry.js`): logs method, path, status, duration, and user ID for every request.
+- **v1 versioned routes**: all API and auth endpoints aliased under `/v1/...` for future contract stability.
+- **Plugin onboarding panel** (`OnboardingPanel.java`): 4-step setup guide shown in the Overview tab when no API key is configured. Disappears once the user sets a key.
+- **Postgres schema** (`server/db/schema.sql`): `users` and `api_keys` tables ready for production persistence.
+- **Real-time market data**: server fetches live prices from OSRS Wiki Real-Time Prices API (`prices.runescape.wiki`), caches 60s, and returns items + volumes matching the plugin's expected JSON shape.
+- **Server-side opportunity scoring**: `services/scorer.js` ranks items by a blended confidence score (volume, margin %, spread stability) and generates a reason string per opportunity. This is the intelligence that stays in the cloud.
+- **Rate limiting**: per-IP (15 req/min on auth) and per-API-key (60 req/min on market; configurable via `API_RATE_LIMIT` env). Sliding window, in-memory.
+- **Plan limits model**: `store.getPlanLimits()` returns request caps and opportunity limits per plan (free/premium). `GET /api/user/plan` endpoint for dashboard.
+- Removed old `com.example` template files from plugin.
+- **Backend server** in `server/`: Node.js/Express with signup, login (cookie + JWT), API key create/list/revoke, GET /api/market and GET /api/opportunities (Bearer API key). In-memory store (swap for Postgres on production). Serves `website/` static files so one process runs API + site. README and .env.example for Railway deploy.
+- **Website wired to API**: login and signup forms POST to /api/auth; dashboard fetches /api/auth/me and /api/user/keys, creates key via POST /api/user/keys and displays it once.
+- **Website scaffold** in `website/`: landing (index), login, signup, dashboard, and docs pages with shared styles. Placeholder auth; connect to your backend for real signup/login and API key issuance.
+- **Backend auth spec** (`docs/BACKEND_AUTH_SPEC.md`): endpoints for signup/login, API key CRUD, key validation for market/opportunities, and monetization hooks (plan, rate limits).
+- **Sensitive content guide** (`docs/SENSITIVE_CONTENT.md`) and `.gitignore` entries for `.env`, `secrets/`, `*.pem` so secrets are never committed.
+- README section on getting an API key and link to website/backend.
+- Config schema versioning: plugin sets `configSchemaVersion` on first run; future migrations can run in startup (see docs/CONFIG_MIGRATION.md).
+- File-based export/import: "Export trades to file", "Import trades from file", "Export logs to file", "Import logs from file" in Trade History tab (JSON via file chooser; no clipboard needed).
+- Manual QA test matrix: docs/QA_MANUAL_TEST.md for release and Plugin Hub submission.
+- **Value protection (compliant):** `docs/VALUE_PROTECTION.md` and COMPLIANCE note: intelligence lives on grandflipout.com; plugin is a thin client so features cannot be replicated by copying the plugin.
+- "Powered by grandflipout.com" and "Top opportunities (from API)" in Live Market UI; API config section clarifies that ranked opportunities and live data come exclusively from your service.
+- Opportunity list sorted by confidence then margin; confidence label tooltip explains it is from the API.
+- Modular side panel architecture with Overview, Live Market, and Trade History tabs.
+- GE offer ingestion with dedupe into local trade history.
+- Flip log system with persistence and review panel.
+- Hotkeys for tab cycling, new session, and panel refresh.
+- Versioned persistence envelopes with backward-compatible loading.
+- Opportunity board display from API response and optional endpoint fallback.
+- Opportunity alert notifications with threshold and cooldown controls.
+- JSON import/export and CSV export tools for trade history and flip logs.
+- API status messaging for auth/network/server issues.
+
+### Changed
+- Replaced template README with full project docs.
+- Added roadmap, API contract, compliance notes, and submission checklist docs.

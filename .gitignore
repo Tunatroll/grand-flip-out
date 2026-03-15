@@ -1,0 +1,22 @@
+.gradle
+build
+.idea/
+.cursor/
+.vscode/
+.project
+.settings/
+.classpath
+nbactions.xml
+nb-configuration.xml
+nbproject/
+
+# Environment and secrets (never commit)
+.env
+.env.*
+*.env
+!*.env.example
+secrets/
+*.pem
+
+# Server
+server/node_modules/

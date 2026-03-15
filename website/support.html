@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Support & troubleshooting — Grand Flip Out</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <header class="header">
+    <div class="container">
+      <a href="index.html" class="logo">Grand Flip Out</a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="docs.html">Docs</a>
+        <a href="features.html">Features</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="support.html">Support</a>
+        <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener" class="nav-discord">Discord</a>
+        <a href="login.html">Log in</a>
+        <a href="signup.html" class="btn btn-primary">Get API key</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page">
+    <div class="container docs-content">
+      <h1>Support & troubleshooting</h1>
+      <p>Most issues are either "no API key" or "wrong URL." Here's the usual stuff.</p>
+
+      <h2>"API status: disabled" or "Waiting for data"</h2>
+      <ul>
+        <li>Turn on <strong>Market API polling</strong> in Configuration → Grand Flip Out.</li>
+        <li>In <strong>Grand Flip Out API</strong>, set the Server URL (e.g. https://grandflipout.com) and paste your API key. Get a key from the dashboard if you don't have one.</li>
+        <li>If you're behind a strict firewall, allow outbound HTTPS—the plugin only talks to your API over HTTPS.</li>
+      </ul>
+
+      <h2>401 or "Invalid API key"</h2>
+      <ul>
+        <li>Copy the key again from the dashboard—no extra spaces. Keys start with <code>gfo_</code>.</li>
+        <li>If you created a new key, the old one stopped working. Use the new one in the plugin.</li>
+      </ul>
+
+      <h2>Rate limit (429)</h2>
+      <ul>
+        <li>Too many requests in a short time. Bump the poll interval in config (e.g. 60 or 120 seconds) so the plugin doesn't hit the API as often.</li>
+      </ul>
+
+      <h2>Trades not showing in Trade History</h2>
+      <ul>
+        <li>Make sure <strong>Enable local trade tracking</strong> is on in Grand Flip Out config.</li>
+        <li>Trades are recorded when an offer actually completes (buy or sell). Putting in an offer isn't enough—it has to fill.</li>
+      </ul>
+
+      <h2>No opportunities in the Live Market tab</h2>
+      <ul>
+        <li>Opportunities come from the API. If the server is slow or has no data yet, the list can be empty. Check the API status line in the panel.</li>
+        <li>You can try a different strategy in config (e.g. high_volume or high_margin) if your backend supports it.</li>
+      </ul>
+
+      <h2>Is this allowed?</h2>
+      <p>Yes. Grand Flip Out doesn't automate anything—no clicks, no movement, no input simulation. It just shows you data and records your GE activity. Your trade history and flip logs stay on your PC unless you export them. The plugin is built to stay within RuneLite and Jagex policy.</p>
+
+      <h2>Community &amp; help</h2>
+      <p>Join our <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener">Discord</a> for chat, updates, and support. You can also use GitHub issues or the contact info on grandflipout.com.</p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; Grand Flip Out. Not affiliated with Jagex or RuneLite. <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener">Discord</a></p>
+    </div>
+  </footer>
+</body>
+</html>
