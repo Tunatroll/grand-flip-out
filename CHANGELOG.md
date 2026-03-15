@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- **screenshots/** — Placeholder folder for Plugin Hub submission. Add panel screenshot before submitting.
 - **Venmo business fallback** — Documented manual billing fallback via Venmo Business `@APIndustries` in payments docs/runbook and added website pricing/support copy for checkout-unavailable scenarios.
 - **Operator automation scripts** — Added `scripts/smoke-prod.ps1`, `scripts/check-infra.ps1`, `scripts/go-live-status.ps1`, `scripts/set-stripe-vars.ps1`, `scripts/replace-discord-invite.ps1`, `scripts/get-www-dns-target.ps1`, and `scripts/operator-launch.ps1` for repeatable launch operations (preflight, infra validation, smoke tests, Stripe env setup, Discord replacement, and one-command go-live sequencing).
 - **Checkout readiness endpoint** — Added `GET /api/checkout/config` so website UI can detect if Stripe checkout is configured before users click upgrade.
@@ -76,5 +77,6 @@
 - API status messaging for auth/network/server issues.
 
 ### Changed
+- **GUI polish** — Trade History: GP abbreviations (formatGpShort) with tooltips in positions, breakdown, trades, flip logs; action buttons in 2×3 grid for narrow panels; null item names show "Item {id}". Live Market: "Market items" section header; margin % tooltip on opportunities. Logback: com.example → com.grandflipout.
 - Replaced template README with full project docs.
 - Added roadmap, API contract, compliance notes, and submission checklist docs.

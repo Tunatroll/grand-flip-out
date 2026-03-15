@@ -4,6 +4,8 @@ A RuneLite plugin that helps you flip smarter on the Grand Exchange: live market
 
 **What it does:** You connect the plugin to your Grand Flip Out account (one API key). You get live buy/sell prices and a ranked list of flip opportunities—low risk, high volume, or high margin, depending on how you like to trade. Your actual buys and sells are tracked locally: session profit, all-time profit, open positions, and a full flip log. Export or clear your data whenever you want. No automation, no sketchy stuff—just numbers and history so you can see how you’re doing.
 
+**Screenshot:** Add a panel screenshot to `screenshots/` before Plugin Hub submission (see [How to submit](docs/HOW_TO_SUBMIT.md)).
+
 **Compliance:** Built to stay within RuneLite and Jagex rules. Analysis and UI only; your key is stored as a secret in config. This plugin was started from the official RuneLite plugin example; all Grand Flip Out code is original (no code from other plugins). See [Originality and attribution](docs/ORIGINALITY_AND_ATTRIBUTION.md). We do not hide what the plugin does.
 
 ---

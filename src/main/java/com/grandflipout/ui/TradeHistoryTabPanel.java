@@ -225,8 +225,8 @@ public class TradeHistoryTabPanel extends JPanel
 		var nameL = GrandFlipOutStyles.createSmallLabel(name + " x" + pos.getQuantity(), ColorScheme.LIGHT_GRAY_COLOR);
 		nameL.setToolTipText("Held: " + pos.getQuantity() + " @ avg " + GrandFlipOutStyles.formatGp(pos.getAverageCostPerUnit()) + " gp");
 		row.add(nameL, BorderLayout.WEST);
-		var costL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGp(pos.getTotalCost()) + " gp", ColorScheme.MEDIUM_GRAY_COLOR);
-		costL.setToolTipText("Total cost (unrealized)");
+		var costL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGpShort(pos.getTotalCost()) + " gp", ColorScheme.MEDIUM_GRAY_COLOR);
+		costL.setToolTipText("Total cost (unrealized): " + GrandFlipOutStyles.formatGp(pos.getTotalCost()) + " gp");
 		row.add(costL, BorderLayout.EAST);
 		return row;
 	}
@@ -241,7 +241,9 @@ public class TradeHistoryTabPanel extends JPanel
 		nameL.setToolTipText("Flips: " + b.getFlipCount() + " | ROI: " + GrandFlipOutStyles.formatPct(b.getRoiPercent()) + "% | Margin: " + GrandFlipOutStyles.formatPct(b.getMarginPercent()) + "%");
 		row.add(nameL, BorderLayout.WEST);
 		java.awt.Color profitColor = b.getProfitLoss() >= 0 ? ColorScheme.PROGRESS_COMPLETE_COLOR : ColorScheme.PROGRESS_ERROR_COLOR;
-		row.add(GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGp(b.getProfitLoss()) + " gp (" + GrandFlipOutStyles.formatPct(b.getRoiPercent()) + "%)", profitColor), BorderLayout.EAST);
+		var profitL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGpShort(b.getProfitLoss()) + " gp (" + GrandFlipOutStyles.formatPct(b.getRoiPercent()) + "%)", profitColor);
+		profitL.setToolTipText(GrandFlipOutStyles.formatGp(b.getProfitLoss()) + " gp profit");
+		row.add(profitL, BorderLayout.EAST);
 		return row;
 	}
 
@@ -252,11 +254,13 @@ public class TradeHistoryTabPanel extends JPanel
 		row.setBorder(GrandFlipOutStyles.contentBorder());
 		String typeStr = r.getType() == TradeRecord.Type.BUY ? "Buy" : "Sell";
 		java.awt.Color typeColor = r.getType() == TradeRecord.Type.BUY ? ColorScheme.GRAND_EXCHANGE_PRICE : ColorScheme.GRAND_EXCHANGE_ALCH;
-		String name = r.getItemName() != null ? r.getItemName() : "Item";
+		String name = r.getItemName() != null ? r.getItemName() : "Item " + r.getItemId();
 		var left = GrandFlipOutStyles.createSmallLabel(typeStr + " " + name + " x" + r.getQuantity(), typeColor);
 		left.setToolTipText(r.getPricePerUnit() + " gp each");
 		row.add(left, BorderLayout.WEST);
-		row.add(GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGp(r.getTotalValue()) + " gp", ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.EAST);
+		var valueL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGpShort(r.getTotalValue()) + " gp", ColorScheme.LIGHT_GRAY_COLOR);
+		valueL.setToolTipText(GrandFlipOutStyles.formatGp(r.getTotalValue()) + " gp total");
+		row.add(valueL, BorderLayout.EAST);
 		return row;
 	}
 
@@ -293,12 +297,14 @@ public class TradeHistoryTabPanel extends JPanel
 		String ts = TIME_FMT.format(Instant.ofEpochMilli(entry.getTimestampMs()));
 		String side = entry.getType() == TradeRecord.Type.BUY ? "Buy" : "Sell";
 		java.awt.Color sideColor = entry.getType() == TradeRecord.Type.BUY ? ColorScheme.GRAND_EXCHANGE_PRICE : ColorScheme.GRAND_EXCHANGE_ALCH;
-		String name = entry.getItemName() != null ? entry.getItemName() : "Item";
+		String name = entry.getItemName() != null ? entry.getItemName() : "Item " + entry.getItemId();
 		var left = GrandFlipOutStyles.createSmallLabel(ts + "  " + side + " " + name + " x" + entry.getQuantity(), sideColor);
 		left.setToolTipText("Slot " + entry.getOfferSlot() + " @ " + entry.getPricePerUnit() + " gp");
 		row.add(left, BorderLayout.WEST);
 
-		row.add(GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGp(entry.getTotalValue()) + " gp", ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.EAST);
+		var valueL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGpShort(entry.getTotalValue()) + " gp", ColorScheme.LIGHT_GRAY_COLOR);
+		valueL.setToolTipText(GrandFlipOutStyles.formatGp(entry.getTotalValue()) + " gp total");
+		row.add(valueL, BorderLayout.EAST);
 		return row;
 	}
 
@@ -312,7 +318,7 @@ public class TradeHistoryTabPanel extends JPanel
 		heading.setBorder(new EmptyBorder(0, 0, 4, 0));
 		group.add(heading);
 
-		JPanel row = new JPanel(new java.awt.GridLayout(1, 0, 4, 0));
+		JPanel row = new JPanel(new java.awt.GridLayout(2, 3, 4, 4));
 		row.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		for (int i = 0; i < names.length; i++)
 		{

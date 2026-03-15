@@ -80,12 +80,13 @@ public class LiveMarketTabPanel extends JPanel
 
 		add(Box.createVerticalStrut(GrandFlipOutStyles.PADDING));
 
+		JPanel itemsSection = GrandFlipOutStyles.createSection("Market items");
+		itemsSection.setToolTipText("All items with buy/sell prices from the API, sorted by margin.");
 		itemsContainer = new JPanel();
 		itemsContainer.setLayout(new BoxLayout(itemsContainer, BoxLayout.Y_AXIS));
 		itemsContainer.setBackground(ColorScheme.DARK_GRAY_COLOR);
-
-		JScrollPane scrollPane = GrandFlipOutStyles.wrapScroll(itemsContainer);
-		add(scrollPane);
+		itemsSection.add(GrandFlipOutStyles.wrapScroll(itemsContainer));
+		add(itemsSection);
 	}
 
 	public void refresh()
@@ -245,7 +246,9 @@ public class LiveMarketTabPanel extends JPanel
 		}
 		if (opp.getMarginPercent() != null)
 		{
-			right.add(GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatPct(opp.getMarginPercent()) + "%", ColorScheme.PROGRESS_COMPLETE_COLOR));
+			JLabel pctL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatPct(opp.getMarginPercent()) + "%", ColorScheme.PROGRESS_COMPLETE_COLOR);
+			pctL.setToolTipText("Margin: " + GrandFlipOutStyles.formatPct(opp.getMarginPercent()) + "%");
+			right.add(pctL);
 		}
 		if (opp.getConfidence() != null)
 		{
