@@ -41,6 +41,25 @@ public final class GrandFlipOutStyles
 		return GP_FORMAT.format(gp);
 	}
 
+	public static String formatGpShort(long gp)
+	{
+		long abs = Math.abs(gp);
+		String sign = gp < 0 ? "-" : "";
+		if (abs >= 1_000_000_000)
+		{
+			return sign + PCT_FORMAT.format(abs / 1_000_000_000.0) + "B";
+		}
+		if (abs >= 1_000_000)
+		{
+			return sign + PCT_FORMAT.format(abs / 1_000_000.0) + "M";
+		}
+		if (abs >= 10_000)
+		{
+			return sign + PCT_FORMAT.format(abs / 1_000.0) + "K";
+		}
+		return GP_FORMAT.format(gp);
+	}
+
 	public static String formatPct(double pct)
 	{
 		return PCT_FORMAT.format(pct);

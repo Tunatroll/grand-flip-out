@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Added
+- **Website visual polish** — Hero section with radial gradient glow, card hover effects (border highlight + shadow), button micro-animations, smooth transitions on nav links and CTAs. Added `--glow` CSS variable, `:focus-visible` outline for accessibility.
+- **Landing page overhaul** — Expanded from 3 to 6 feature cards (ranked opportunities, full trade history, strategy presets, export everything, desktop alerts, compliance). Added trust bar with key value props (Free, Compliant, Local, Open). Better copy on hero and CTA.
+- **Pricing page competitive positioning** — Free tier now lists all 9 included features (not just 5). Added explicit comparison note vs $3-5/month competitors. "No credit card needed" emphasis.
+- **SEO meta tags** — Added `meta description` and `theme-color` to index, pricing, features, signup, and login pages.
+- **Plugin UI: GP abbreviation** — Large GP values now display as human-readable abbreviations (1.2M, 45.3K, 2.1B) in the Overview, Live Market, and Trade History panels. Full values shown on hover (tooltip).
+- **Plugin UI: button cleanup** — Trade History data actions reorganized from 12 scattered buttons into 2 labeled groups (Trades / Logs) with compact grid rows. Clear actions now show a confirmation dialog before deleting.
 - **Author set** — `runelite-plugin.properties` author is now "Awfully Pure". LICENSE and all docs updated.
 - **Railway deployment** — Deployed server + website to existing `gfo-server` on Railway. `grandflipout.com` now serves the full API (health, auth, keys, market, opportunities, strategies) and all website pages.
 - **Postgres persistence** — Added Postgres database on Railway. Schema applied. Users, API keys, and plans persist across deploys. Fixed `store-pg.js` column name mapping (`password_hash` -> `passwordHash`).

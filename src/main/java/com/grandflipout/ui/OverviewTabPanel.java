@@ -110,9 +110,11 @@ public class OverviewTabPanel extends JPanel
 		long sessionProfit = stats.getProfitLoss();
 		long totalProfit = tradeHistoryManager.getTotalProfitLoss();
 
-		sessionProfitLabel.setText(GrandFlipOutStyles.formatGp(sessionProfit) + " gp");
+		sessionProfitLabel.setText(GrandFlipOutStyles.formatGpShort(sessionProfit) + " gp");
+		sessionProfitLabel.setToolTipText(GrandFlipOutStyles.formatGp(sessionProfit) + " gp");
 		sessionProfitLabel.setForeground(sessionProfit >= 0 ? ColorScheme.PROGRESS_COMPLETE_COLOR : ColorScheme.PROGRESS_ERROR_COLOR);
-		totalProfitLabel.setText(GrandFlipOutStyles.formatGp(totalProfit) + " gp");
+		totalProfitLabel.setText(GrandFlipOutStyles.formatGpShort(totalProfit) + " gp");
+		totalProfitLabel.setToolTipText(GrandFlipOutStyles.formatGp(totalProfit) + " gp");
 		totalProfitLabel.setForeground(totalProfit >= 0 ? ColorScheme.BRAND_ORANGE : ColorScheme.PROGRESS_ERROR_COLOR);
 
 		long lastFetch = networkManager.getLastFetchTimeMs();

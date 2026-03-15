@@ -91,72 +91,32 @@ public class TradeHistoryTabPanel extends JPanel
 
 		add(Box.createVerticalStrut(GrandFlipOutStyles.PADDING));
 
-		JPanel logsSection = GrandFlipOutStyles.createSection("Flip logs");
-		JPanel actionRow = new JPanel(new java.awt.GridLayout(2, 0, 6, 6));
-		actionRow.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		JButton copyLogsButton = new JButton("Copy Logs JSON");
-		copyLogsButton.addActionListener(e -> copyToClipboard(flipLogManager.exportJson()));
-		JButton pasteLogsButton = new JButton("Paste Logs JSON");
-		pasteLogsButton.addActionListener(e -> {
-			String text = readFromClipboard();
-			if (text != null && flipLogManager.importJson(text))
-			{
-				refreshFlipLogs();
-			}
-		});
-		JButton copyTradesButton = new JButton("Copy Trades JSON");
-		copyTradesButton.addActionListener(e -> copyToClipboard(tradeHistoryManager.exportJson()));
-		JButton pasteTradesButton = new JButton("Paste Trades JSON");
-		pasteTradesButton.addActionListener(e -> {
-			String text = readFromClipboard();
-			if (text != null && tradeHistoryManager.importJson(text))
-			{
-				refresh();
-			}
-		});
-		JButton copyLogsCsvButton = new JButton("Copy Logs CSV");
-		copyLogsCsvButton.addActionListener(e -> copyToClipboard(flipLogManager.exportCsv()));
-		JButton copyTradesCsvButton = new JButton("Copy Trades CSV");
-		copyTradesCsvButton.addActionListener(e -> copyToClipboard(tradeHistoryManager.exportCsv()));
-		JButton clearLogsButton = new JButton("Clear Logs");
-		clearLogsButton.addActionListener(e -> {
-			flipLogManager.clear();
-			refreshFlipLogs();
-		});
-		JButton clearTradesButton = new JButton("Clear Trades");
-		clearTradesButton.addActionListener(e -> {
-			tradeHistoryManager.clearHistory();
-			refresh();
-		});
-		actionRow.add(copyLogsButton);
-		actionRow.add(pasteLogsButton);
-		actionRow.add(copyTradesButton);
-		actionRow.add(pasteTradesButton);
-		actionRow.add(copyLogsCsvButton);
-		actionRow.add(copyTradesCsvButton);
-		actionRow.add(clearLogsButton);
-		actionRow.add(clearTradesButton);
-		logsSection.add(actionRow);
+		JPanel logsSection = GrandFlipOutStyles.createSection("Flip logs & data");
 
-		JPanel fileRow = new JPanel(new java.awt.GridLayout(1, 0, 6, 0));
-		fileRow.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		JButton exportTradesFileButton = new JButton("Export trades to file");
-		exportTradesFileButton.setToolTipText("Save trade history as a JSON file (no clipboard).");
-		exportTradesFileButton.addActionListener(e -> exportTradesToFile());
-		JButton importTradesFileButton = new JButton("Import trades from file");
-		importTradesFileButton.setToolTipText("Load trade history from a JSON file.");
-		importTradesFileButton.addActionListener(e -> importTradesFromFile());
-		JButton exportLogsFileButton = new JButton("Export logs to file");
-		exportLogsFileButton.setToolTipText("Save flip logs as a JSON file (no clipboard).");
-		exportLogsFileButton.addActionListener(e -> exportLogsToFile());
-		JButton importLogsFileButton = new JButton("Import logs from file");
-		importLogsFileButton.setToolTipText("Load flip logs from a JSON file.");
-		importLogsFileButton.addActionListener(e -> importLogsFromFile());
-		fileRow.add(exportTradesFileButton);
-		fileRow.add(importTradesFileButton);
-		fileRow.add(exportLogsFileButton);
-		fileRow.add(importLogsFileButton);
-		logsSection.add(fileRow);
+		JPanel tradeActions = buildActionGroup("Trades",
+			new String[]{"Copy JSON", "Paste JSON", "Copy CSV", "Save file", "Load file", "Clear all"},
+			new Runnable[]{
+				() -> copyToClipboard(tradeHistoryManager.exportJson()),
+				() -> { String t = readFromClipboard(); if (t != null && tradeHistoryManager.importJson(t)) refresh(); },
+				() -> copyToClipboard(tradeHistoryManager.exportCsv()),
+				this::exportTradesToFile,
+				this::importTradesFromFile,
+				() -> confirmClear("trades", () -> { tradeHistoryManager.clearHistory(); refresh(); })
+			});
+		logsSection.add(tradeActions);
+		logsSection.add(Box.createVerticalStrut(6));
+
+		JPanel logActions = buildActionGroup("Logs",
+			new String[]{"Copy JSON", "Paste JSON", "Copy CSV", "Save file", "Load file", "Clear all"},
+			new Runnable[]{
+				() -> copyToClipboard(flipLogManager.exportJson()),
+				() -> { String t = readFromClipboard(); if (t != null && flipLogManager.importJson(t)) refreshFlipLogs(); },
+				() -> copyToClipboard(flipLogManager.exportCsv()),
+				this::exportLogsToFile,
+				this::importLogsFromFile,
+				() -> confirmClear("flip logs", () -> { flipLogManager.clear(); refreshFlipLogs(); })
+			});
+		logsSection.add(logActions);
 		logsSection.add(Box.createVerticalStrut(6));
 
 		flipLogsContainer = new JPanel();
@@ -179,11 +139,11 @@ public class TradeHistoryTabPanel extends JPanel
 	{
 		statsContainer.removeAll();
 		SessionStats stats = tradeHistoryManager.getSessionStats();
-		statsContainer.add(GrandFlipOutStyles.createStatRow("Session profit", GrandFlipOutStyles.formatGp(stats.getProfitLoss()) + " gp",
+		statsContainer.add(GrandFlipOutStyles.createStatRow("Session profit", GrandFlipOutStyles.formatGpShort(stats.getProfitLoss()) + " gp",
 			stats.getProfitLoss() >= 0 ? ColorScheme.PROGRESS_COMPLETE_COLOR : ColorScheme.PROGRESS_ERROR_COLOR));
 		statsContainer.add(GrandFlipOutStyles.createStatRow("Buys / Sells", stats.getBuyCount() + " / " + stats.getSellCount(), ColorScheme.LIGHT_GRAY_COLOR));
 		statsContainer.add(GrandFlipOutStyles.createStatRow("Items traded", String.valueOf(stats.getItemsTraded()), ColorScheme.LIGHT_GRAY_COLOR));
-		statsContainer.add(GrandFlipOutStyles.createStatRow("All-time profit", GrandFlipOutStyles.formatGp(tradeHistoryManager.getTotalProfitLoss()) + " gp", ColorScheme.BRAND_ORANGE));
+		statsContainer.add(GrandFlipOutStyles.createStatRow("All-time profit", GrandFlipOutStyles.formatGpShort(tradeHistoryManager.getTotalProfitLoss()) + " gp", ColorScheme.BRAND_ORANGE));
 		statsContainer.revalidate();
 		statsContainer.repaint();
 	}
@@ -340,6 +300,44 @@ public class TradeHistoryTabPanel extends JPanel
 
 		row.add(GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGp(entry.getTotalValue()) + " gp", ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.EAST);
 		return row;
+	}
+
+	private JPanel buildActionGroup(String label, String[] names, Runnable[] actions)
+	{
+		JPanel group = new JPanel();
+		group.setLayout(new BoxLayout(group, BoxLayout.Y_AXIS));
+		group.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+		var heading = GrandFlipOutStyles.createSmallLabel(label, ColorScheme.MEDIUM_GRAY_COLOR);
+		heading.setBorder(new EmptyBorder(0, 0, 4, 0));
+		group.add(heading);
+
+		JPanel row = new JPanel(new java.awt.GridLayout(1, 0, 4, 0));
+		row.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		for (int i = 0; i < names.length; i++)
+		{
+			JButton btn = new JButton(names[i]);
+			btn.setToolTipText(label + ": " + names[i]);
+			final int idx = i;
+			btn.addActionListener(e -> actions[idx].run());
+			row.add(btn);
+		}
+		group.add(row);
+		return group;
+	}
+
+	private void confirmClear(String what, Runnable onConfirm)
+	{
+		int result = JOptionPane.showConfirmDialog(
+			this,
+			"This will permanently delete all " + what + ". Continue?",
+			"Clear " + what,
+			JOptionPane.OK_CANCEL_OPTION,
+			JOptionPane.WARNING_MESSAGE);
+		if (result == JOptionPane.OK_OPTION)
+		{
+			onConfirm.run();
+		}
 	}
 
 	private void exportTradesToFile()
