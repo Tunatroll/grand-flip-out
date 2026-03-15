@@ -1,13 +1,13 @@
 /**
- * Stripe webhook handler. Run before express.json() so req.body stays raw for signature verification.
- * Set STRIPE_WEBHOOK_SECRET and install optional dependency "stripe" to enable.
+ * Stripe webhook handler. Mounted before express.json() so req.body stays raw.
+ * Env: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET.
  */
 const store = require('../store');
 
 function stripeHandler(req, res) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   const sig = req.headers['stripe-signature'];
-  const body = req.body; // Buffer when using express.raw({ type: 'application/json' })
+  const body = req.body;
 
   if (!secret || !sig || !body) {
     res.status(200).send();
@@ -27,30 +27,56 @@ function stripeHandler(req, res) {
   try {
     event = stripe.webhooks.constructEvent(body, sig, secret);
   } catch (err) {
-    console.warn('Stripe webhook signature verification failed:', err.message);
+    console.warn('Stripe webhook sig verify failed:', err.message);
     res.status(400).send('Webhook signature verification failed');
     return;
   }
 
+  handleEvent(event, stripe).catch((err) => {
+    console.error('Webhook event handling error:', err.message);
+  });
+
+  res.status(200).send();
+}
+
+async function handleEvent(event, stripe) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const email = session.customer_email || session.customer_details?.email;
     if (email) {
-      store.findUserByEmail(email).then((user) => {
-        if (user) store.updateUserPlan(user.id, 'premium');
-      }).catch(() => {});
+      const user = await store.findUserByEmail(email);
+      if (user) {
+        await store.updateUserPlan(user.id, 'premium');
+        console.log(`Upgraded ${email} to premium`);
+      }
     }
-  } else if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
-    // Optional: resolve customer to email and update plan (e.g. downgrade on delete)
+  } else if (event.type === 'customer.subscription.deleted') {
     const sub = event.data.object;
-    if (sub.status === 'active' && event.type === 'customer.subscription.updated') {
-      // Could fetch customer email via stripe.customers.retrieve(sub.customer) then updateUserPlan
-    } else if (event.type === 'customer.subscription.deleted') {
-      // Could look up user by stripe_customer_id and set plan to 'free'
+    const email = await resolveCustomerEmail(stripe, sub.customer);
+    if (email) {
+      const user = await store.findUserByEmail(email);
+      if (user) {
+        await store.updateUserPlan(user.id, 'free');
+        console.log(`Downgraded ${email} to free (subscription ended)`);
+      }
+    }
+  } else if (event.type === 'invoice.payment_failed') {
+    const invoice = event.data.object;
+    const email = invoice.customer_email;
+    if (email) {
+      console.warn(`Payment failed for ${email}`);
     }
   }
+}
 
-  res.status(200).send();
+async function resolveCustomerEmail(stripe, customerId) {
+  if (!customerId) return null;
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    return customer.email || null;
+  } catch {
+    return null;
+  }
 }
 
 module.exports = { stripe: stripeHandler };

@@ -1,39 +1,44 @@
 /**
- * Create a Stripe Checkout Session so the frontend can redirect to Stripe.
- * Set STRIPE_SECRET_KEY and STRIPE_PRICE_ID. Success/cancel URLs can be overridden via body or env.
+ * Stripe Checkout integration.
+ * Env: STRIPE_SECRET_KEY, STRIPE_PRICE_ID, BASE_URL (optional).
  */
 const express = require('express');
 const { requireWebAuth } = require('../middleware/auth');
 
 const router = express.Router();
-const priceId = process.env.STRIPE_PRICE_ID;
-const baseUrl = process.env.BASE_URL || '';
+
+function getStripeConfig() {
+  return {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    priceId: process.env.STRIPE_PRICE_ID || '',
+    baseUrl: process.env.BASE_URL || 'https://grandflipout.com',
+  };
+}
 
 router.get('/config', (_req, res) => {
-  const configured = Boolean(priceId && process.env.STRIPE_SECRET_KEY);
-  res.json({ configured });
+  const cfg = getStripeConfig();
+  res.json({ configured: Boolean(cfg.priceId && cfg.secretKey) });
 });
 
 router.post('/session', requireWebAuth, async (req, res, next) => {
-  if (!priceId || !process.env.STRIPE_SECRET_KEY) {
-    return res.status(503).json({ error: 'Checkout not configured. Set STRIPE_SECRET_KEY and STRIPE_PRICE_ID.' });
+  const cfg = getStripeConfig();
+  if (!cfg.priceId || !cfg.secretKey) {
+    return res.status(503).json({ error: 'Checkout not configured.' });
   }
   let Stripe;
   try {
     Stripe = require('stripe');
   } catch {
-    return res.status(503).json({ error: 'Stripe package not installed. Run: npm install stripe' });
+    return res.status(503).json({ error: 'Stripe package not available.' });
   }
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const successUrl = req.body?.success_url || (baseUrl + '/dashboard.html?upgraded=1');
-  const cancelUrl = req.body?.cancel_url || (baseUrl + '/pricing.html');
+  const stripe = new Stripe(cfg.secretKey);
   try {
     const session = await stripe.checkout.sessions.create({
       customer_email: req.user.email,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: cfg.priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      success_url: req.body?.success_url || (cfg.baseUrl + '/dashboard.html?upgraded=1'),
+      cancel_url: req.body?.cancel_url || (cfg.baseUrl + '/pricing.html'),
       metadata: { user_id: req.user.id },
     });
     res.json({ url: session.url });
