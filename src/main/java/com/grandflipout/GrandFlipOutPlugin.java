@@ -199,10 +199,20 @@ public class GrandFlipOutPlugin extends Plugin
 		}
 		catch (Exception e)
 		{
+			// Deterministic fallback so the plugin always has a clear sidebar icon,
+			// even when a packaged icon file is missing in local dev builds.
 			BufferedImage img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
 			java.awt.Graphics2D g = img.createGraphics();
+			g.setRenderingHint(
+				java.awt.RenderingHints.KEY_ANTIALIASING,
+				java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+			g.setColor(new java.awt.Color(28, 28, 31));
+			g.fillRoundRect(0, 0, 16, 16, 4, 4);
 			g.setColor(ColorScheme.BRAND_ORANGE);
-			g.fillRect(0, 0, 16, 16);
+			g.fillRoundRect(1, 1, 14, 14, 4, 4);
+			g.setColor(new java.awt.Color(32, 32, 36));
+			g.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 9));
+			g.drawString("G", 4, 12);
 			g.dispose();
 			return img;
 		}

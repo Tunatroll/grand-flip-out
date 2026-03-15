@@ -3,6 +3,16 @@
 ## Unreleased
 
 ### Added
+- **Operator automation scripts** — Added `scripts/smoke-prod.ps1`, `scripts/check-infra.ps1`, `scripts/go-live-status.ps1`, `scripts/set-stripe-vars.ps1`, `scripts/replace-discord-invite.ps1`, `scripts/get-www-dns-target.ps1`, and `scripts/operator-launch.ps1` for repeatable launch operations (preflight, infra validation, smoke tests, Stripe env setup, Discord replacement, and one-command go-live sequencing).
+- **Checkout readiness endpoint** — Added `GET /api/checkout/config` so website UI can detect if Stripe checkout is configured before users click upgrade.
+- **Health endpoint aliases** — Added `GET /api/health` and `GET /v1/health` for cleaner tooling and API monitoring consistency.
+- **Subscription UX hardening** — Updated pricing and dashboard pages to show accurate premium state when checkout is not configured, avoiding dead-click confusion.
+- **Website visual polish** — Hero section with radial gradient glow, card hover effects (border highlight + shadow), button micro-animations, smooth transitions on nav links and CTAs. Added `--glow` CSS variable, `:focus-visible` outline for accessibility.
+- **Landing page overhaul** — Expanded from 3 to 6 feature cards (ranked opportunities, full trade history, strategy presets, export everything, desktop alerts, compliance). Added trust bar with key value props (Free, Compliant, Local, Open). Better copy on hero and CTA.
+- **Pricing page competitive positioning** — Free tier now lists all 9 included features (not just 5). Added explicit comparison note vs $3-5/month competitors. "No credit card needed" emphasis.
+- **SEO meta tags** — Added `meta description` and `theme-color` to index, pricing, features, signup, and login pages.
+- **Plugin UI: GP abbreviation** — Large GP values now display as human-readable abbreviations (1.2M, 45.3K, 2.1B) in the Overview, Live Market, and Trade History panels. Full values shown on hover (tooltip).
+- **Plugin UI: button cleanup** — Trade History data actions reorganized from 12 scattered buttons into 2 labeled groups (Trades / Logs) with compact grid rows. Clear actions now show a confirmation dialog before deleting.
 - **Author set** — `runelite-plugin.properties` author is now "Awfully Pure". LICENSE and all docs updated.
 - **Railway deployment** — Deployed server + website to existing `gfo-server` on Railway. `grandflipout.com` now serves the full API (health, auth, keys, market, opportunities, strategies) and all website pages.
 - **Postgres persistence** — Added Postgres database on Railway. Schema applied. Users, API keys, and plans persist across deploys. Fixed `store-pg.js` column name mapping (`password_hash` -> `passwordHash`).

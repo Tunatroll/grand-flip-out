@@ -199,14 +199,14 @@ public class LiveMarketTabPanel extends JPanel
 		Long sell = item.getSellPrice();
 		if (buy != null)
 		{
-			JLabel buyL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGp(buy), ColorScheme.GRAND_EXCHANGE_PRICE);
-			buyL.setToolTipText("Buy price");
+			JLabel buyL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGpShort(buy), ColorScheme.GRAND_EXCHANGE_PRICE);
+			buyL.setToolTipText("Buy: " + GrandFlipOutStyles.formatGp(buy) + " gp");
 			right.add(buyL);
 		}
 		if (sell != null)
 		{
-			JLabel sellL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGp(sell), ColorScheme.GRAND_EXCHANGE_ALCH);
-			sellL.setToolTipText("Sell price");
+			JLabel sellL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGpShort(sell), ColorScheme.GRAND_EXCHANGE_ALCH);
+			sellL.setToolTipText("Sell: " + GrandFlipOutStyles.formatGp(sell) + " gp");
 			right.add(sellL);
 		}
 		if (buy != null && sell != null && buy > 0)
@@ -239,7 +239,9 @@ public class LiveMarketTabPanel extends JPanel
 		right.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		if (opp.getMarginGp() != null)
 		{
-			right.add(GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGp(opp.getMarginGp()) + " gp", ColorScheme.GRAND_EXCHANGE_ALCH));
+			JLabel gpL = GrandFlipOutStyles.createSmallLabel(GrandFlipOutStyles.formatGpShort(opp.getMarginGp()) + " gp", ColorScheme.GRAND_EXCHANGE_ALCH);
+			gpL.setToolTipText(GrandFlipOutStyles.formatGp(opp.getMarginGp()) + " gp margin");
+			right.add(gpL);
 		}
 		if (opp.getMarginPercent() != null)
 		{

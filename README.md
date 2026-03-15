@@ -43,6 +43,7 @@ That’s it. Your trade data stays on your machine unless you export it.
 | [Payments](docs/PAYMENTS.md) | How to accept payment (Stripe) and receive payouts. |
 | [Discord](docs/DISCORD.md) | Set your Discord invite link; optional bot for community. |
 | [Before you release](docs/BEFORE_RELEASE.md) | Single checklist for author, screenshot, deploy, Discord, Stripe. |
+| [Submit day runbook](docs/SUBMIT_DAY_RUNBOOK.md) | Exact launch/submission order so nothing is missed. |
 
 ---
 
@@ -54,6 +55,17 @@ That’s it. Your trade data stays on your machine unless you export it.
 ```
 
 The **server** (Node.js) and **website** live in `server/` and `website/`. Run the server with `cd server && npm install && npm run dev` to test signup, login, and API keys locally. Deploy to Railway (and optionally Cloudflare) when you’re ready—see the deploy doc.
+
+Before release, run:
+- `scripts/check-local-build-alignment.ps1` to verify your pinned `runeLiteVersion` matches your local RuneLite client build.
+- `scripts/publish-preflight.ps1` for an all-in-one release check (build/tests, metadata sanity, screenshot check, placeholder scan, and Railway env presence checks).
+- `scripts/replace-discord-invite.ps1 -InviteUrl "https://discord.gg/yourInviteCode"` to replace website Discord placeholders in one command.
+- `scripts/check-infra.ps1` to validate Railway deployment status, Cloudflare edge response, and DNS for apex + `www`.
+- `scripts/smoke-prod.ps1` to run a full live smoke test (signup/login/keys/market/opportunities/checkout-config).
+- `scripts/set-stripe-vars.ps1` to safely set Stripe vars on Railway from CLI without printing secrets.
+- `scripts/get-www-dns-target.ps1` to print the exact CNAME value Railway expects for `www.grandflipout.com`.
+- `scripts/go-live-status.ps1` to run preflight + infra + smoke in one command and print remaining launch tasks.
+- `scripts/operator-launch.ps1` to apply Discord/Stripe settings (if provided) and then run full go-live checks.
 
 ---
 

@@ -13,7 +13,9 @@ repositories {
 	mavenCentral()
 }
 
-def runeLiteVersion = 'latest.release'
+// Keep this pinned to a tested RuneLite version for reproducible builds.
+// Local machine currently runs RuneLite 1.12.20 (launcher 2.7.6).
+def runeLiteVersion = '1.12.20'
 def pluginMainClass = 'com.grandflipout.GrandFlipOutPluginTest'
 
 dependencies {
@@ -21,7 +23,6 @@ dependencies {
 
 	compileOnly 'org.projectlombok:lombok:1.18.30'
 	annotationProcessor 'org.projectlombok:lombok:1.18.30'
-	compileOnly 'com.google.code.gson:gson:2.10.1'
 
 	testImplementation 'junit:junit:4.12'
 	testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion

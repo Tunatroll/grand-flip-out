@@ -8,6 +8,7 @@
   --accent-hover: #f0a040;
   --success: #4ade80;
   --error: #f87171;
+  --glow: rgba(232, 146, 46, 0.12);
 }
 
 * {
@@ -74,6 +75,7 @@ nav {
 nav a {
   color: var(--muted);
   text-decoration: none;
+  transition: color 0.15s ease;
 }
 
 nav a:hover {
@@ -94,20 +96,32 @@ nav a:hover {
 .btn-primary {
   background: var(--accent);
   color: #1a1a1e;
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
 .btn-primary:hover {
   background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 .btn-secondary {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
+  transition: border-color 0.15s ease, transform 0.1s ease;
 }
 
 .btn-secondary:hover {
   border-color: var(--muted);
+  transform: translateY(-1px);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
 }
 
 .btn-lg {
@@ -115,8 +129,9 @@ nav a:hover {
 }
 
 .hero {
-  padding: 4rem 0;
+  padding: 5rem 0 4rem;
   text-align: center;
+  background: radial-gradient(ellipse at 50% 0%, var(--glow) 0%, transparent 60%);
 }
 
 .hero h1 {
@@ -161,6 +176,12 @@ nav a:hover {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1.5rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 .card h3 {
@@ -205,6 +226,46 @@ nav a:hover {
 
 .footer a:hover {
   text-decoration: underline;
+}
+
+/* Trust / social proof bar */
+.trust-bar {
+  padding: 2rem 0;
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+
+.trust-bar p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.trust-items {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.trust-item {
+  font-size: 0.875rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.trust-item .num {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Pricing */

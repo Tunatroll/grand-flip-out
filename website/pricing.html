@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Grand Flip Out pricing: free tier with live market data, ranked opportunities, and full trade tracking. Premium coming soon.">
   <title>Pricing — Grand Flip Out</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -27,31 +28,35 @@
   <main id="main" class="page">
     <div class="container">
       <h1>Pricing</h1>
-      <p class="lead" style="max-width: 560px; margin-bottom: 2rem;">Start free. Upgrade when you want higher limits and priority support.</p>
+      <p class="lead" style="max-width: 560px; margin-bottom: 2rem;">Start free — no card, no trial timer. Upgrade later if you want higher limits.</p>
 
       <div class="pricing-grid">
         <div class="pricing-card">
           <h2>Free</h2>
           <p class="price">$0</p>
-          <p class="muted">Forever</p>
+          <p class="muted">Forever — no credit card needed</p>
           <ul class="pricing-features">
-            <li>Live market data & opportunities</li>
-            <li>Local trade history & profit tracking</li>
+            <li>Ranked flip opportunities with confidence scores</li>
+            <li>Live GE prices updated every minute</li>
+            <li>4 strategy presets (low risk, high vol, high margin, default)</li>
+            <li>Full local trade history and profit tracking</li>
+            <li>Export to JSON, CSV, or clipboard</li>
+            <li>Desktop alerts for high-margin opportunities</li>
             <li>Up to 2 API keys</li>
             <li>30 requests/minute</li>
             <li>Community support (Discord)</li>
           </ul>
-          <a href="signup.html" class="btn btn-secondary" style="width: 100%;">Get started</a>
+          <a href="signup.html" class="btn btn-primary" style="width: 100%;">Get started free</a>
         </div>
         <div class="pricing-card pricing-card-featured">
-          <span class="badge">Popular</span>
+          <span class="badge">Coming soon</span>
           <h2>Premium</h2>
-          <p class="price">Coming soon</p>
+          <p class="price">TBD</p>
           <p class="muted">Monthly or yearly</p>
           <ul class="pricing-features">
             <li>Everything in Free</li>
-            <li>Higher rate limits (120 req/min)</li>
-            <li>More API keys</li>
+            <li>120 requests/minute (4x free)</li>
+            <li>Up to 10 API keys</li>
             <li>More opportunities per response</li>
             <li>Priority support</li>
           </ul>
@@ -60,7 +65,7 @@
         </div>
       </div>
 
-      <p class="muted" style="margin-top: 2rem; font-size: 0.875rem;">Premium will be available soon. Join our <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener">Discord</a> for updates, or <a href="support.html">contact us</a>.</p>
+      <p class="muted" style="margin-top: 2rem; font-size: 0.875rem; max-width: 560px;">Other GE tools charge $3–5/month for basic features. Our free tier includes ranked opportunities, strategy presets, and full trade tracking — the same stuff others lock behind a paywall. Join our <a href="https://discord.gg/grandflipout" target="_blank" rel="noopener">Discord</a> for premium updates.</p>
     </div>
   </main>
 
@@ -75,7 +80,36 @@
       var btn = document.getElementById('upgrade-btn');
       var msg = document.getElementById('upgrade-msg');
       if (!btn) return;
+      var isLoggedIn = false;
+      var checkoutConfigured = false;
+
+      function updateButtonState() {
+        if (!checkoutConfigured) {
+          btn.disabled = true;
+          btn.textContent = 'Upgrade (not live yet)';
+          msg.textContent = 'Premium checkout is not live yet. Join Discord for launch timing.';
+          return;
+        }
+        if (!isLoggedIn) {
+          btn.disabled = false;
+          btn.textContent = 'Log in to upgrade';
+          msg.textContent = '';
+          return;
+        }
+        btn.disabled = false;
+        btn.textContent = 'Upgrade to Premium';
+        msg.textContent = '';
+      }
+
       btn.addEventListener('click', function () {
+        if (!checkoutConfigured) {
+          msg.textContent = 'Premium checkout is not live yet. Join Discord for updates.';
+          return;
+        }
+        if (!isLoggedIn) {
+          window.location.href = 'login.html';
+          return;
+        }
         msg.textContent = 'Redirecting to checkout…';
         fetch('/api/checkout/session', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
@@ -85,9 +119,19 @@
           })
           .catch(function () { msg.textContent = 'Something went wrong.'; });
       });
-      window.gfoAuth.me().then(function (user) {
-        if (user) { btn.disabled = false; btn.textContent = 'Upgrade to Premium'; }
-      });
+      fetch('/api/checkout/config', { credentials: 'include' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (cfg) {
+          checkoutConfigured = !!(cfg && cfg.configured);
+          return window.gfoAuth.me();
+        })
+        .then(function (user) {
+          isLoggedIn = !!user;
+          updateButtonState();
+        })
+        .catch(function () {
+          updateButtonState();
+        });
     })();
   </script>
 </body>

@@ -52,6 +52,16 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'grandflipout-api' });
 });
 
+app.get('/api/health', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ status: 'ok', service: 'grandflipout-api' });
+});
+
+app.get('/v1/health', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ status: 'ok', service: 'grandflipout-api' });
+});
+
 const websiteDir = process.env.WEBSITE_DIR || path.join(__dirname, '..', 'website');
 app.use(express.static(websiteDir));
 

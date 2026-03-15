@@ -93,7 +93,12 @@
           showKeys(data.keys);
         }).catch(function () { status.textContent = 'Session expired or error.'; });
 
-        fetch('/api/user/plan', { credentials: 'include' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (planData) {
+        Promise.all([
+          fetch('/api/user/plan', { credentials: 'include' }).then(function (r) { return r.ok ? r.json() : null; }),
+          fetch('/api/checkout/config', { credentials: 'include' }).then(function (r) { return r.ok ? r.json() : null; })
+        ]).then(function (all) {
+          var planData = all[0];
+          var checkoutConfig = all[1];
           var planDesc = document.getElementById('plan-desc');
           var upgradeLink = document.getElementById('upgrade-link');
           var planStatus = document.getElementById('dashboard-plan');
@@ -102,7 +107,17 @@
             planStatus.textContent = 'Plan: ' + planData.plan;
             var limits = planData.limits || {};
             planDesc.textContent = (limits.requestsPerMinute || '—') + ' req/min, ' + (limits.maxKeys || '—') + ' API keys, ' + (limits.opportunities || '—') + ' opportunities per response.';
-            if (planData.plan === 'free' && upgradeLink) upgradeLink.style.display = 'inline-block';
+            if (planData.plan === 'free' && upgradeLink) {
+              if (checkoutConfig && checkoutConfig.configured) {
+                upgradeLink.style.display = 'inline-block';
+                upgradeLink.textContent = 'Upgrade plan';
+                upgradeLink.title = '';
+              } else {
+                upgradeLink.style.display = 'inline-block';
+                upgradeLink.textContent = 'Premium not live yet';
+                upgradeLink.title = 'Set STRIPE_SECRET_KEY and STRIPE_PRICE_ID in production to enable upgrades.';
+              }
+            }
           }
         });
       }

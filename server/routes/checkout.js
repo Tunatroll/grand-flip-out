@@ -9,6 +9,11 @@ const router = express.Router();
 const priceId = process.env.STRIPE_PRICE_ID;
 const baseUrl = process.env.BASE_URL || '';
 
+router.get('/config', (_req, res) => {
+  const configured = Boolean(priceId && process.env.STRIPE_SECRET_KEY);
+  res.json({ configured });
+});
+
 router.post('/session', requireWebAuth, async (req, res, next) => {
   if (!priceId || !process.env.STRIPE_SECRET_KEY) {
     return res.status(503).json({ error: 'Checkout not configured. Set STRIPE_SECRET_KEY and STRIPE_PRICE_ID.' });

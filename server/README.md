@@ -14,9 +14,11 @@ Node.js/Express backend for auth, API keys, and market/opportunities endpoints. 
 - **GET /api/market** — Real-time market data + ranked opportunities from OSRS Wiki prices (requires `Authorization: Bearer <api_key>`). Plugin calls this.
 - **GET /api/opportunities** — Ranked opportunities only (requires API key). Plugin fallback.
 - **GET /api/user/plan** — Current user plan and limits (requires web auth).
+- **GET /api/checkout/config** — Returns `{ configured: boolean }` to indicate whether premium checkout is live.
 - **POST /api/checkout/session** — Create Stripe Checkout Session (requires web auth; set STRIPE_SECRET_KEY, STRIPE_PRICE_ID). Returns `{ url }`.
 - **POST /api/webhooks/stripe** — Stripe webhook for payment events (set STRIPE_WEBHOOK_SECRET; install optional `stripe`). Upgrades user to `premium` on success.
 - **GET /health** — Health check.
+- **GET /api/health** — API health check alias.
 
 Market data is fetched live from the OSRS Wiki Real-Time Prices API (`prices.runescape.wiki`), cached for 60 seconds, and scored by the server-side ranking algorithm. Opportunities are sorted by a blend of confidence (volume + margin stability) and margin percentage.
 
