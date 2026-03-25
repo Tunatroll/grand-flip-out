@@ -346,7 +346,7 @@ public class PortfolioPanel extends JPanel
         return Collections.unmodifiableList(currentPortfolio);
     }
 
-    // --- Inner classes ---
+    // ============ Inner classes ============
 
     private static class ScoredItem
     {

@@ -8,6 +8,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.ComponentID;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -68,8 +69,7 @@ public class GrandFlipOutOverlay extends Overlay
 
         try
         {
-            // GE window container: interface 465, child 0
-            Widget geWidget = client.getWidget(465 << 16 | 0);
+            Widget geWidget = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
             boolean geOpen = geWidget != null && !geWidget.isHidden();
 
             panelComponent.getChildren().clear();
@@ -259,7 +259,7 @@ public class GrandFlipOutOverlay extends Overlay
 
                 // Expected profit for this flip with color coding
                 long expectedSell = agg.getBestHighPrice();
-                // tax calc: min(price*0.02, 5M))
+                // GE tax: 2% of sell price per item, capped at 5M per item (not per transaction)
                 long taxPerItem = Math.min((long) (expectedSell * 0.02), 5_000_000L);
                 long totalTax = taxPerItem * flip.getQuantity();
                 long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity() - totalTax;
@@ -370,6 +370,8 @@ public class GrandFlipOutOverlay extends Overlay
 
     private String formatGp(long amount)
     {
+        // Format with full comma-separated numbers per CLAUDE.md requirement
+        // Never abbreviate GP values in user-facing output
         return String.format("%,d", amount);
     }
 }

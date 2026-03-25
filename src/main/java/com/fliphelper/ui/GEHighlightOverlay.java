@@ -8,8 +8,9 @@ import com.fliphelper.tracker.GEOfferHelper;
 import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
+import net.runelite.api.widgets.InterfaceID;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.widgets.ComponentID;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -81,7 +82,7 @@ public class GEHighlightOverlay extends Overlay
         // CRITICAL: Use MANUAL layer + drawAfterInterface for pixel-perfect GE overlay
         setPosition(OverlayPosition.DYNAMIC);
         setLayer(OverlayLayer.MANUAL);
-        drawAfterInterface(InterfaceID.GE_OFFERS);
+        drawAfterInterface(InterfaceID.GRAND_EXCHANGE);
         setPriority(OverlayPriority.HIGH);
 
         for (int i = 0; i < MAX_SLOTS; i++)
@@ -91,7 +92,7 @@ public class GEHighlightOverlay extends Overlay
         }
     }
 
-    // --- GUIDANCE API ---
+    // ==================== GUIDANCE API ====================
 
     /** Flip guidance states — Quest Helper-inspired step-by-step flow */
     public enum FlipGuidanceState
@@ -139,7 +140,7 @@ public class GEHighlightOverlay extends Overlay
 
     public FlipGuidanceState getGuidanceState() { return guidanceState; }
 
-    // -- RENDER
+    // ==================== RENDER ====================
 
     @Override
     public Dimension render(Graphics2D g)
@@ -278,8 +279,7 @@ public class GEHighlightOverlay extends Overlay
     private void renderGuidancePanel(Graphics2D g)
     {
         // Position: top-right area near GE
-        // GE offer container: interface 465, child 26
-        Widget geWidget = client.getWidget(465 << 16 | 26);
+        Widget geWidget = client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER);
         if (geWidget == null || geWidget.isHidden()) return;
 
         Rectangle geBounds = geWidget.getBounds();
@@ -335,7 +335,7 @@ public class GEHighlightOverlay extends Overlay
         }
     }
 
-    // HELPERS
+    // ==================== HELPERS ====================
 
     private Widget getSlotWidget(int slot)
     {

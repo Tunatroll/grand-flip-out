@@ -1,6 +1,7 @@
 package com.fliphelper.debug;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -62,12 +63,7 @@ public class DebugManager
     private File dataDir;
     private final Object fileWriteLock = new Object();
     private Instant lastPerfSummaryWrite = Instant.EPOCH;
-    private final Gson gson;
-
-    public DebugManager(Gson gson)
-    {
-        this.gson = gson;
-    }
+    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     
     public synchronized void log(@Nonnull LogLevel level, @Nonnull String sourceClass, @Nonnull String message)
@@ -442,7 +438,7 @@ public class DebugManager
         sb.append("=== GRAND FLIP OUT DEBUG REPORT ===\n");
         sb.append("Generated: ").append(TIME_FORMATTER.format(Instant.now())).append("\n\n");
 
-        // --- LOG BUFFER ---
+        // ===== LOG BUFFER =====
         sb.append("=== RECENT LOGS (Last ").append(logBuffer.size()).append(" entries) ===\n");
         for (LogEntry entry : logBuffer)
         {
@@ -455,7 +451,7 @@ public class DebugManager
         }
         sb.append("\n");
 
-        // -- PERFORMANCE METRICS
+        // ===== PERFORMANCE METRICS =====
         sb.append("=== PERFORMANCE METRICS ===\n");
         if (performanceMetrics.isEmpty())
         {
@@ -477,7 +473,7 @@ public class DebugManager
         }
         sb.append("\n");
 
-        // API CALL STATISTICS
+        // ===== API CALL STATISTICS =====
         sb.append("=== API CALL STATISTICS ===\n");
         if (apiCallStats.isEmpty())
         {
@@ -496,7 +492,7 @@ public class DebugManager
         }
         sb.append("\n");
 
-        // ~~~ MEMORY INFORMATION ~~~
+        // ===== MEMORY INFORMATION =====
         sb.append("=== MEMORY INFORMATION ===\n");
         if (memorySnapshots.isEmpty())
         {
@@ -512,7 +508,7 @@ public class DebugManager
         }
         sb.append("\n");
 
-        /* EVENT LOG */
+        // ===== EVENT LOG =====
         sb.append("=== EVENT LOG (Last 50 events) ===\n");
         List<EventLogEntry> recentEvents = eventLog.stream()
             .skip(Math.max(0, eventLog.size() - 50))
@@ -533,7 +529,7 @@ public class DebugManager
         }
         sb.append("\n");
 
-        // CRASH BREADCRUMB //
+        // ===== CRASH BREADCRUMB =====
         if (dataDir != null)
         {
             File crashFile = new File(new File(dataDir, "debug"), "last-crash.txt");
@@ -552,7 +548,7 @@ public class DebugManager
                 sb.append("\n");
             }
 
-            // - PERF SUMMARY -
+            // ===== PERF SUMMARY =====
             File perfFile = new File(new File(dataDir, "debug"), "perf-summary.json");
             if (perfFile.exists())
             {
@@ -585,7 +581,7 @@ public class DebugManager
         log.info("Debug manager cleared");
     }
 
-    // [DATA CLASSES]
+    // ===== DATA CLASSES =====
 
     public enum LogLevel
     {

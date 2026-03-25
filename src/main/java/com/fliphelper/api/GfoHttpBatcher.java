@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 
 @Slf4j
-public class ApHttpBatcher
+public class GfoHttpBatcher
 {
     private static final String BATCH_ENDPOINT  = "/api/plugin/batch";
     private static final MediaType JSON_TYPE    = MediaType.parse("application/json; charset=utf-8");
@@ -33,7 +33,7 @@ public class ApHttpBatcher
     private String backendBaseUrl = "";
     private boolean enabled = true;
 
-    public ApHttpBatcher(OkHttpClient httpClient, Gson gson)
+    public GfoHttpBatcher(OkHttpClient httpClient, Gson gson)
     {
         this.httpClient = httpClient;
         this.gson       = gson;
@@ -47,14 +47,14 @@ public class ApHttpBatcher
         if (flushExecutor != null) return;
 
         flushExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "ap-batcher");
+            Thread t = new Thread(r, "gfo-batcher");
             t.setDaemon(true);
             return t;
         });
         flushExecutor.scheduleAtFixedRate(
             this::flush, FLUSH_INTERVAL_S, FLUSH_INTERVAL_S, TimeUnit.SECONDS
         );
-        log.info("ApHttpBatcher started — flushing to {} every {}s", backendBaseUrl, FLUSH_INTERVAL_S);
+        log.info("GfoHttpBatcher started — flushing to {} every {}s", backendBaseUrl, FLUSH_INTERVAL_S);
     }
 
     public void stop()
@@ -71,9 +71,9 @@ public class ApHttpBatcher
 
         int dropped = droppedCount.get();
         if (dropped > 0)
-            log.info("ApHttpBatcher stopped ({} events dropped due to full queue)", dropped);
+            log.info("GfoHttpBatcher stopped ({} events dropped due to full queue)", dropped);
         else
-            log.info("ApHttpBatcher stopped cleanly");
+            log.info("GfoHttpBatcher stopped cleanly");
     }
 
     // --- Public API ---
@@ -158,7 +158,7 @@ public class ApHttpBatcher
             public void onFailure(Call call, IOException e)
             {
                 // Backend offline — graceful degradation, don't re-queue
-                log.debug("ApHttpBatcher: backend unreachable, dropped {} event(s): {}",
+                log.debug("GfoHttpBatcher: backend unreachable, dropped {} event(s): {}",
                     batch.size(), e.getMessage());
             }
 
@@ -168,9 +168,9 @@ public class ApHttpBatcher
                 try
                 {
                     if (response.isSuccessful())
-                        log.debug("ApHttpBatcher: {} event(s) accepted", batch.size());
+                        log.debug("GfoHttpBatcher: {} event(s) accepted", batch.size());
                     else
-                        log.debug("ApHttpBatcher: server rejected batch — HTTP {}", response.code());
+                        log.debug("GfoHttpBatcher: server rejected batch — HTTP {}", response.code());
                 }
                 finally
                 {

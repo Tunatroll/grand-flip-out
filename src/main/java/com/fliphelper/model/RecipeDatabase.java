@@ -15,7 +15,7 @@ public class RecipeDatabase {
     private static List<Recipe> initializeRecipes() {
         List<Recipe> recipes = new ArrayList<>();
 
-        // -- HERB CLEANING
+        // ==================== HERB CLEANING ====================
         // Grimy guam (199) → Guam leaf (249)
         recipes.add(Recipe.builder()
                 .name("Guam leaf")
@@ -156,7 +156,7 @@ public class RecipeDatabase {
                 .category(RecipeCategory.HERB_CLEANING)
                 .build());
 
-        // UNFINISHED POTIONS
+        // ==================== UNFINISHED POTIONS ====================
         // Guam leaf (249) + Vial of water (227) → Guam potion (unf) (91)
         recipes.add(Recipe.builder()
                 .name("Guam potion (unf)")
@@ -300,7 +300,7 @@ public class RecipeDatabase {
                 .category(RecipeCategory.HERBLORE_UNFINISHED)
                 .build());
 
-        // ~~~ GEM CUTTING ~~~
+        // ==================== GEM CUTTING ====================
         // Uncut sapphire (1623) → Sapphire (1607)
         recipes.add(Recipe.builder()
                 .name("Sapphire")
@@ -371,7 +371,7 @@ public class RecipeDatabase {
                 .category(RecipeCategory.GEM_CUTTING)
                 .build());
 
-        /* ENCHANTING JEWELRY */
+        // ==================== ENCHANTING JEWELRY ====================
         // Sapphire ring (1637) → Ring of recoil (2550)
         recipes.add(Recipe.builder()
                 .name("Ring of recoil")
@@ -572,7 +572,7 @@ public class RecipeDatabase {
                 .collect(Collectors.toSet());
     }
 
-    // DATA CLASSES //
+    // ==================== DATA CLASSES ====================
 
     
     @Data

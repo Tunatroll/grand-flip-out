@@ -70,7 +70,7 @@ public class PeerNetwork
         }
 
         scheduler = Executors.newScheduledThreadPool(2, r -> {
-            Thread t = new Thread(r, "AP-PeerNetwork");
+            Thread t = new Thread(r, "GFO-PeerNetwork");
             t.setDaemon(true);
             return t;
         });

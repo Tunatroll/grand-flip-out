@@ -61,7 +61,7 @@ public class StatsPanel extends JPanel
         add(buildMainContent(), BorderLayout.CENTER);
     }
 
-    // [CONTROL BAR]
+    // ==================== CONTROL BAR ====================
 
     private JPanel buildControlBar()
     {
@@ -171,7 +171,10 @@ public class StatsPanel extends JPanel
         projDayLabel.setFont(projDayLabel.getFont().deriveFont(Font.BOLD, 11f));
         projRow.add(wrapStat("PROJ/DAY", projDayLabel));
 
-        bar.add(projRow);        bar.add(Box.createVerticalStrut(6));
+        bar.add(projRow);
+
+        // Separator
+        bar.add(Box.createVerticalStrut(6));
         JSeparator sep = new JSeparator();
         sep.setForeground(SEPARATOR);
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
@@ -180,7 +183,7 @@ public class StatsPanel extends JPanel
         return bar;
     }
 
-    // --- MAIN CONTENT ---
+    // ==================== MAIN CONTENT ====================
 
     private JScrollPane buildMainContent()
     {
@@ -195,7 +198,7 @@ public class StatsPanel extends JPanel
         return scroll;
     }
 
-    // -- REFRESH / DATA
+    // ==================== REFRESH / DATA ====================
 
     public void refresh()
     {
@@ -362,7 +365,7 @@ public class StatsPanel extends JPanel
         itemsContainer.repaint();
     }
 
-    // PER-ITEM STATS CARD
+    // ==================== PER-ITEM STATS CARD ====================
 
     private JPanel buildItemStatsCard(ItemAgg agg, int rank)
     {
@@ -502,7 +505,7 @@ public class StatsPanel extends JPanel
         return card;
     }
 
-    // ~~~ ITEM AGGREGATION MODEL ~~~
+    // ==================== ITEM AGGREGATION MODEL ====================
 
     private static class ItemAgg
     {
@@ -590,7 +593,7 @@ public class StatsPanel extends JPanel
         }
     }
 
-    /* HELPERS */
+    // ==================== HELPERS ====================
 
     private void updateProjectionLabel(String name, String text)
     {

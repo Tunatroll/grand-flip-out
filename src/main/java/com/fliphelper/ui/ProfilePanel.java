@@ -72,7 +72,9 @@ public class ProfilePanel extends JPanel
         }
     }
 
-    // login view
+    // ═══════════════════════════════════════════════════════
+    //  LOGIN VIEW
+    // ═══════════════════════════════════════════════════════
 
     private JPanel buildLoginView()
     {
@@ -300,7 +302,9 @@ public class ProfilePanel extends JPanel
         }.execute();
     }
 
-    // dashboard view
+    // ═══════════════════════════════════════════════════════
+    //  DASHBOARD VIEW
+    // ═══════════════════════════════════════════════════════
 
     private JPanel buildDashboardView()
     {
@@ -584,7 +588,9 @@ public class ProfilePanel extends JPanel
         }
     }
 
-    // helpers
+    // ═══════════════════════════════════════════════════════
+    //  HELPERS
+    // ═══════════════════════════════════════════════════════
 
     private JLabel createStatLabel(String title, String value)
     {

@@ -80,7 +80,7 @@ public class SlotsPanel extends JPanel
         }
     }
 
-    // -- TOP BAR (Account Switcher)
+    // ==================== TOP BAR (Account Switcher) ====================
 
     private JPanel buildTopBar()
     {
@@ -121,7 +121,10 @@ public class SlotsPanel extends JPanel
         selectorRow.add(accountSelector, BorderLayout.CENTER);
 
         topBar.add(selectorRow);
-        topBar.add(Box.createVerticalStrut(4));        JSeparator sep = new JSeparator();
+        topBar.add(Box.createVerticalStrut(4));
+
+        // Separator
+        JSeparator sep = new JSeparator();
         sep.setForeground(SEPARATOR);
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         topBar.add(sep);
@@ -144,7 +147,7 @@ public class SlotsPanel extends JPanel
         }
     }
 
-    // SLOTS AREA
+    // ==================== SLOTS AREA ====================
 
     private JScrollPane buildSlotsArea()
     {
@@ -300,14 +303,17 @@ public class SlotsPanel extends JPanel
         return p;
     }
 
-    // ~~~ BOTTOM BAR ~~~
+    // ==================== BOTTOM BAR ====================
 
     private JPanel buildBottomBar()
     {
         JPanel bottomBar = new JPanel();
         bottomBar.setLayout(new BoxLayout(bottomBar, BoxLayout.Y_AXIS));
         bottomBar.setBackground(BG_CARD);
-        bottomBar.setBorder(new EmptyBorder(6, 10, 8, 10));        JSeparator sep = new JSeparator();
+        bottomBar.setBorder(new EmptyBorder(6, 10, 8, 10));
+
+        // Separator
+        JSeparator sep = new JSeparator();
         sep.setForeground(SEPARATOR);
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         bottomBar.add(sep);
@@ -366,7 +372,7 @@ public class SlotsPanel extends JPanel
             "</html>";
     }
 
-    /* REFRESH LOGIC */
+    // ==================== REFRESH LOGIC ====================
 
     
     private void refreshSlotTimers()
@@ -676,7 +682,7 @@ public class SlotsPanel extends JPanel
         }
     }
 
-    // PUBLIC METHODS //
+    // ==================== PUBLIC METHODS ====================
 
     
     public void refreshAccountList()
@@ -718,7 +724,7 @@ public class SlotsPanel extends JPanel
         refreshSlotTimers();
     }
 
-    // - HELPERS -
+    // ==================== HELPERS ====================
 
     private String getStateText(GrandExchangeOfferState state)
     {
@@ -788,6 +794,8 @@ public class SlotsPanel extends JPanel
 
     private String formatGp(long amount)
     {
+        // Format with full comma-separated numbers per CLAUDE.md requirement
+        // Never abbreviate GP values in user-facing output
         return String.format("%,d", amount);
     }
 }

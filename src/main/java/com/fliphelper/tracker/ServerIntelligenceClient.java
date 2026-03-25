@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 
 @Slf4j
@@ -23,9 +24,12 @@ public class ServerIntelligenceClient {
     private final ServerIntelligenceConfig config;
     private final Map<String, CachedResult> resultCache;
 
-    public ServerIntelligenceClient(ServerIntelligenceConfig config, OkHttpClient okHttpClient) {
+    public ServerIntelligenceClient(ServerIntelligenceConfig config) {
         this.config = config;
-        this.httpClient = okHttpClient;
+        this.httpClient = new OkHttpClient.Builder()
+                .connectTimeout(config.getServerTimeoutMs(), TimeUnit.MILLISECONDS)
+                .readTimeout(config.getServerTimeoutMs(), TimeUnit.MILLISECONDS)
+                .build();
         this.resultCache = new HashMap<>();
     }
 
@@ -159,12 +163,12 @@ public class ServerIntelligenceClient {
         }
     }
 
-    /* HTTP Fetch */
+    // ==================== HTTP Fetch ====================
 
     private String fetchJson(String url) throws Exception {
         Request request = new Request.Builder()
                 .url(url)
-                .header("User-Agent", "GrandFlipOut RuneLite Plugin")
+                .header("User-Agent", "Grand Flip Out RuneLite Plugin")
                 .build();
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful() || response.body() == null) {
@@ -174,7 +178,7 @@ public class ServerIntelligenceClient {
         }
     }
 
-    // Gson Parsers //
+    // ==================== Gson Parsers ====================
 
     private SmartAdvisorResult parseSmartAdvisorResponse(String json) {
         try {
@@ -312,7 +316,7 @@ public class ServerIntelligenceClient {
         }
     }
 
-    // - JSON Helpers -
+    // ==================== JSON Helpers ====================
 
     private static int getInt(JsonObject obj, String key, int defaultVal) {
         return obj.has(key) && !obj.get(key).isJsonNull() ? obj.get(key).getAsInt() : defaultVal;
@@ -340,7 +344,7 @@ public class ServerIntelligenceClient {
         return list;
     }
 
-    // inner classes
+    // ==================== Inner Classes ====================
 
     private static class CachedResult {
         final Object value;

@@ -12,7 +12,7 @@ import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.VarClientStr;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.callback.ClientThread;
 
 import java.time.Instant;
@@ -61,7 +61,7 @@ public class GEOfferHelper
         this.accountDataManager = accountDataManager;
     }
 
-    // --- PRICE SET HOTKEYS ---
+    // ==================== PRICE SET HOTKEYS ====================
 
     
     public void setBuyPrice()
@@ -128,7 +128,7 @@ public class GEOfferHelper
         });
     }
 
-    // -- PRICE RESOLUTION
+    // ==================== PRICE RESOLUTION ====================
 
     
     private long resolveBuyPrice(int itemId)
@@ -191,7 +191,7 @@ public class GEOfferHelper
         return 0;
     }
 
-    // GE WIDGET MANIPULATION
+    // ==================== GE WIDGET MANIPULATION ====================
 
     
     private int getCurrentOfferItemId()
@@ -242,7 +242,7 @@ public class GEOfferHelper
             client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(price));
 
             // Update the visible chatbox widget text
-            Widget chatboxInput = client.getWidget(InterfaceID.Chatbox.MES_TEXT2);
+            Widget chatboxInput = client.getWidget(WidgetInfo.CHATBOX_FULL_INPUT);
             if (chatboxInput != null)
             {
                 chatboxInput.setText(price + "*");
@@ -261,7 +261,7 @@ public class GEOfferHelper
         {
             client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(quantity));
 
-            Widget chatboxInput = client.getWidget(InterfaceID.Chatbox.MES_TEXT2);
+            Widget chatboxInput = client.getWidget(WidgetInfo.CHATBOX_FULL_INPUT);
             if (chatboxInput != null)
             {
                 chatboxInput.setText(quantity + "*");
@@ -273,7 +273,7 @@ public class GEOfferHelper
         }
     }
 
-    // ~~~ SLOT TIMERS ~~~
+    // ==================== SLOT TIMERS ====================
 
     
     public void onOfferChanged(int slot, int itemId)
@@ -336,11 +336,11 @@ public class GEOfferHelper
     
     public boolean isChatboxInputActive()
     {
-        Widget chatboxInput = client.getWidget(InterfaceID.Chatbox.MES_TEXT2);
+        Widget chatboxInput = client.getWidget(WidgetInfo.CHATBOX_FULL_INPUT);
         return chatboxInput != null && !chatboxInput.isHidden();
     }
 
-    /* MARGIN FRESHNESS */
+    // ==================== MARGIN FRESHNESS ====================
 
     
     public int getMarginFreshness(int itemId)
@@ -389,7 +389,7 @@ public class GEOfferHelper
         }
     }
 
-    // BUY LIMIT TRACKER //
+    // ==================== BUY LIMIT TRACKER ====================
     // Tracks the 4-hour GE buy limit cycle per item.
     // When a player first buys an item, the 4-hour window starts.
     // Buy limit countdown with progress tracking

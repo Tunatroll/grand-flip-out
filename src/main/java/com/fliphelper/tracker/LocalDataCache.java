@@ -1,6 +1,7 @@
 package com.fliphelper.tracker;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -32,7 +33,7 @@ public class LocalDataCache
     private final Gson gson;
     private final Map<String, CacheStats> stats = new ConcurrentHashMap<>();
 
-    public LocalDataCache(File dataDir, Gson gson)
+    public LocalDataCache(File dataDir)
     {
         this.cacheDir = new File(dataDir, CACHE_DIR);
         this.intelligenceDir = new File(cacheDir, INTELLIGENCE_DIR);
@@ -40,13 +41,13 @@ public class LocalDataCache
         this.cacheDir.mkdirs();
         this.intelligenceDir.mkdirs();
 
-        this.gson = gson;
+        this.gson = new GsonBuilder().create();
 
         cleanupOldCaches();
         initializeStats();
     }
 
-    // PRICE CACHE //
+    // ==================== PRICE CACHE ====================
 
     public void savePriceCache(String cacheType, JsonObject priceData)
     {
@@ -175,7 +176,7 @@ public class LocalDataCache
         }
     }
 
-    // - INTELLIGENCE CACHE -
+    // ==================== INTELLIGENCE CACHE ====================
 
     public void saveIntelligenceCache(String cacheType, JsonObject data)
     {
@@ -254,7 +255,7 @@ public class LocalDataCache
         }
     }
 
-    // [ITEM MAPPING CACHE]
+    // ==================== ITEM MAPPING CACHE ====================
 
     public void saveItemMappingCache(String json)
     {
@@ -331,7 +332,7 @@ public class LocalDataCache
         }
     }
 
-    // --- CACHE STATS ---
+    // ==================== CACHE STATS ====================
 
     public Map<String, CacheStats> getCacheStats()
     {
@@ -350,7 +351,7 @@ public class LocalDataCache
             .recordMiss();
     }
 
-    // -- MAINTENANCE
+    // ==================== MAINTENANCE ====================
 
     private void cleanupOldCaches()
     {
@@ -412,7 +413,7 @@ public class LocalDataCache
         return 300;
     }
 
-    // DATA MODELS
+    // ==================== DATA MODELS ====================
 
     @Data
     @Builder

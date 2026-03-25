@@ -120,7 +120,7 @@ public class BackendClient
             return;
         }
         String trimmed = url.trim().toLowerCase();
-        // only allow HTTPS in production
+        // Enforce HTTPS and reject localhost for Plugin Hub compliance
         if (!trimmed.startsWith("https://"))
         {
             log.warn("BackendClient: Rejecting non-HTTPS backend URL '{}', using default", url);

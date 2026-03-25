@@ -37,7 +37,7 @@ jar {
             'Plugin-Id': 'grand-flip-out',
             'Plugin-Provider': 'Tunatroll',
             'Plugin-Version': version,
-            'Plugin-Description': 'GE flipping helper with live prices, flip suggestions, and profit tracking'
+            'Plugin-Description': 'GE flipping helper with live prices, flip suggestions, profit tracking, and dump alerts'
         )
     }
 }

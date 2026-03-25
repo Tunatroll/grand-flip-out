@@ -78,7 +78,7 @@ public class QuickFlipAnalyzer
 
         long volume1h = agg.getTotalVolume1h();
 
-        // --- COMPONENT 1: Volume (35% weight) ---
+        // === COMPONENT 1: Volume (35% weight) ===
         double volScore;
         if (volume1h >= 50000) { volScore = 100; reasons.add("Ultra-high volume (" + volume1h + "/hr) — fills instantly"); }
         else if (volume1h >= 10000) { volScore = 90; reasons.add("Very high volume (" + volume1h + "/hr)"); }
@@ -89,7 +89,7 @@ public class QuickFlipAnalyzer
         else { volScore = 0; warnings.add("No volume data"); }
         score += volScore * 0.35;
 
-        // -- COMPONENT 2: Price Freshness (25% weight)
+        // === COMPONENT 2: Price Freshness (25% weight) ===
         double freshScore = 0;
         long highTime = agg.getLatestHighTime();
         long lowTime = agg.getLatestLowTime();
@@ -111,7 +111,7 @@ public class QuickFlipAnalyzer
         }
         score += freshScore * 0.25;
 
-        // COMPONENT 3: Margin Sweet Spot (25% weight)
+        // === COMPONENT 3: Margin Sweet Spot (25% weight) ===
         double marginScore;
         if (marginPct >= 3.0 && marginPct <= 8.0) { marginScore = 100; reasons.add(String.format("Sweet-spot margin %.1f%% (3-8%% ideal)", marginPct)); }
         else if (marginPct > 8.0 && marginPct <= 12.0) { marginScore = 80; reasons.add(String.format("Good margin %.1f%%", marginPct)); }
@@ -123,7 +123,7 @@ public class QuickFlipAnalyzer
         else { marginScore = 0; warnings.add("No margin — not profitable"); }
         score += marginScore * 0.25;
 
-        // ~~~ COMPONENT 4: Capital Efficiency (15% weight) ~~~
+        // === COMPONENT 4: Capital Efficiency (15% weight) ===
         long avgPrice = (buyPrice + sellPrice) / 2;
         double capScore;
         if (avgPrice >= 10000 && avgPrice <= 500000) { capScore = 100; }
