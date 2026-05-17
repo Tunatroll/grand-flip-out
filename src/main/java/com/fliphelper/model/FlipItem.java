@@ -24,40 +24,11 @@ public class FlipItem
         {
             return 0;
         }
+        // GE tax is 2% capped at 5m per transaction total (not per unit)
         long revenue = sellPrice * quantity;
         long cost = buyPrice * quantity;
-        // GE tax: 2% of sell price per item, capped at 5M per item (not per transaction)
-        long taxPerItem = Math.min((long)(sellPrice * 0.02), 5_000_000L);
-        long totalTax = taxPerItem * quantity;
-        return revenue - cost - totalTax;
-    }
-
-    
-    public long getTax()
-    {
-        if (sellPrice <= 0)
-        {
-            return 0;
-        }
-        long taxPerItem = Math.min((long)(sellPrice * 0.02), 5_000_000L);
-        return taxPerItem * quantity;
-    }
-
-    
-    public long getProfitPerItem()
-    {
-        return quantity > 0 ? getProfit() / quantity : 0;
-    }
-
-    
-    public double getRoi()
-    {
-        if (buyPrice <= 0 || quantity <= 0)
-        {
-            return 0;
-        }
-        long investment = buyPrice * quantity;
-        return (double) getProfit() / investment * 100.0;
+        long tax = Math.min((long)(revenue * 0.02), 5_000_000L);
+        return revenue - cost - tax;
     }
 
     public double getProfitPercent()
@@ -81,5 +52,31 @@ public class FlipItem
     public boolean isComplete()
     {
         return state == FlipState.COMPLETE;
+    }
+
+    /**
+     * Get the GE tax paid on this flip.
+     */
+    public long getTax()
+    {
+        if (sellPrice <= 0 || quantity <= 0)
+        {
+            return 0;
+        }
+        long revenue = sellPrice * quantity;
+        return Math.min((long)(revenue * 0.02), 5_000_000L);
+    }
+
+    /**
+     * Get GP/hr for this flip based on its duration.
+     */
+    public long getGpPerHour()
+    {
+        long duration = getFlipDurationSeconds();
+        if (duration <= 0)
+        {
+            return 0;
+        }
+        return (long) ((double) getProfit() / duration * 3600);
     }
 }

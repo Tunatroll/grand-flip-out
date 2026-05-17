@@ -3,7 +3,6 @@ package com.fliphelper.api;
 import com.fliphelper.model.ItemMapping;
 import com.fliphelper.model.PriceData;
 import com.fliphelper.model.PriceSource;
-import com.fliphelper.tracker.LocalDataCache;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -21,7 +20,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-
+/**
+ * Client for the OSRS Wiki real-time prices API.
+ * https://oldschool.runescape.wiki/w/RuneScape:Real-time_Prices
+ */
 @Slf4j
 public class WikiPriceClient
 {
@@ -30,7 +32,6 @@ public class WikiPriceClient
     private final OkHttpClient httpClient;
     private final String userAgent;
     private final Gson gson;
-    private final LocalDataCache localCache;
 
     // Cached data
     private Map<Integer, PriceData> latestPrices = new HashMap<>();
@@ -39,41 +40,18 @@ public class WikiPriceClient
     private List<ItemMapping> itemMappings = new ArrayList<>();
     private Map<Integer, ItemMapping> mappingById = new HashMap<>();
 
-    public WikiPriceClient(OkHttpClient httpClient, String userAgent, Gson gson, LocalDataCache localCache)
+    public WikiPriceClient(OkHttpClient httpClient, String userAgent, Gson gson)
     {
         this.httpClient = httpClient;
         this.userAgent = userAgent;
         this.gson = gson;
-        this.localCache = localCache;
     }
 
-
+    /**
+     * Fetch item mapping data (names, limits, alch values, etc.)
+     */
     public List<ItemMapping> fetchMapping() throws IOException
     {
-        if (localCache != null)
-        {
-            String cached = localCache.loadItemMappingCache();
-            if (cached != null)
-            {
-                try
-                {
-                    Type listType = new TypeToken<List<ItemMapping>>() {}.getType();
-                    itemMappings = gson.fromJson(cached, listType);
-                    mappingById.clear();
-                    for (ItemMapping mapping : itemMappings)
-                    {
-                        mappingById.put(mapping.getId(), mapping);
-                    }
-                    log.debug("Loaded {} item mappings from cache", itemMappings.size());
-                    return itemMappings;
-                }
-                catch (Exception e)
-                {
-                    log.warn("Failed to parse cached item mapping, will fetch fresh: {}", e.getMessage());
-                }
-            }
-        }
-
         Request request = new Request.Builder()
             .url(BASE_URL + "/mapping")
             .header("User-Agent", userAgent)
@@ -102,57 +80,16 @@ public class WikiPriceClient
                 mappingById.put(mapping.getId(), mapping);
             }
 
-            if (localCache != null)
-            {
-                localCache.saveItemMappingCache(bodyString);
-            }
-
             log.debug("Loaded {} item mappings from Wiki", itemMappings.size());
             return itemMappings;
         }
     }
 
-
+    /**
+     * Fetch latest instant buy/sell prices for all items.
+     */
     public Map<Integer, PriceData> fetchLatestPrices() throws IOException
     {
-        if (localCache != null)
-        {
-            Map<Integer, JsonObject> cached = localCache.loadPriceCache("latest");
-            if (cached != null)
-            {
-                try
-                {
-                    latestPrices.clear();
-                    for (Map.Entry<Integer, JsonObject> entry : cached.entrySet())
-                    {
-                        int itemId = entry.getKey();
-                        JsonObject item = entry.getValue();
-
-                        ItemMapping mapping = mappingById.get(itemId);
-                        String name = mapping != null ? mapping.getName() : "Item " + itemId;
-
-                        PriceData priceData = PriceData.builder()
-                            .itemId(itemId)
-                            .itemName(name)
-                            .highPrice(getJsonLong(item, "high"))
-                            .highTime(getJsonLong(item, "highTime"))
-                            .lowPrice(getJsonLong(item, "low"))
-                            .lowTime(getJsonLong(item, "lowTime"))
-                            .source(PriceSource.WIKI)
-                            .build();
-
-                        latestPrices.put(itemId, priceData);
-                    }
-                    log.debug("Loaded latest prices for {} items from cache", latestPrices.size());
-                    return latestPrices;
-                }
-                catch (Exception e)
-                {
-                    log.warn("Failed to parse cached latest prices, will fetch fresh: {}", e.getMessage());
-                }
-            }
-        }
-
         Request request = new Request.Builder()
             .url(BASE_URL + "/latest")
             .header("User-Agent", userAgent)
@@ -173,11 +110,17 @@ public class WikiPriceClient
 
             String bodyString = body.string();
             JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
-            JsonObject data = json.getAsJsonObject("data");
+            JsonObject data = getJsonObjectSafe(json, "data");
+            if (data == null)
+            {
+                log.warn("Wiki latest prices response missing 'data' field");
+                return latestPrices;
+            }
 
             latestPrices.clear();
             for (Map.Entry<String, JsonElement> entry : data.entrySet())
             {
+                if (!entry.getValue().isJsonObject()) continue;
                 int itemId = Integer.parseInt(entry.getKey());
                 JsonObject item = entry.getValue().getAsJsonObject();
 
@@ -197,57 +140,16 @@ public class WikiPriceClient
                 latestPrices.put(itemId, priceData);
             }
 
-            if (localCache != null)
-            {
-                localCache.savePriceCache("latest", data);
-            }
-
             log.debug("Fetched latest prices for {} items from Wiki", latestPrices.size());
             return latestPrices;
         }
     }
 
-
+    /**
+     * Fetch 5-minute averaged prices and volumes.
+     */
     public Map<Integer, PriceData> fetch5mPrices() throws IOException
     {
-        if (localCache != null)
-        {
-            Map<Integer, JsonObject> cached = localCache.loadPriceCache("5m");
-            if (cached != null)
-            {
-                try
-                {
-                    prices5m.clear();
-                    for (Map.Entry<Integer, JsonObject> entry : cached.entrySet())
-                    {
-                        int itemId = entry.getKey();
-                        JsonObject item = entry.getValue();
-
-                        ItemMapping mapping = mappingById.get(itemId);
-                        String name = mapping != null ? mapping.getName() : "Item " + itemId;
-
-                        PriceData priceData = PriceData.builder()
-                            .itemId(itemId)
-                            .itemName(name)
-                            .avgHighPrice5m(getJsonLong(item, "avgHighPrice"))
-                            .avgLowPrice5m(getJsonLong(item, "avgLowPrice"))
-                            .highVolume5m(getJsonLong(item, "highPriceVolume"))
-                            .lowVolume5m(getJsonLong(item, "lowPriceVolume"))
-                            .source(PriceSource.WIKI)
-                            .build();
-
-                        prices5m.put(itemId, priceData);
-                    }
-                    log.debug("Loaded 5m prices for {} items from cache", prices5m.size());
-                    return prices5m;
-                }
-                catch (Exception e)
-                {
-                    log.warn("Failed to parse cached 5m prices, will fetch fresh: {}", e.getMessage());
-                }
-            }
-        }
-
         Request request = new Request.Builder()
             .url(BASE_URL + "/5m")
             .header("User-Agent", userAgent)
@@ -268,11 +170,17 @@ public class WikiPriceClient
 
             String bodyString = body.string();
             JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
-            JsonObject data = json.getAsJsonObject("data");
+            JsonObject data = getJsonObjectSafe(json, "data");
+            if (data == null)
+            {
+                log.warn("Wiki 5m prices response missing 'data' field");
+                return prices5m;
+            }
 
             prices5m.clear();
             for (Map.Entry<String, JsonElement> entry : data.entrySet())
             {
+                if (!entry.getValue().isJsonObject()) continue;
                 int itemId = Integer.parseInt(entry.getKey());
                 JsonObject item = entry.getValue().getAsJsonObject();
 
@@ -292,57 +200,16 @@ public class WikiPriceClient
                 prices5m.put(itemId, priceData);
             }
 
-            if (localCache != null)
-            {
-                localCache.savePriceCache("5m", data);
-            }
-
             log.debug("Fetched 5m prices for {} items from Wiki", prices5m.size());
             return prices5m;
         }
     }
 
-
+    /**
+     * Fetch 1-hour averaged prices and volumes.
+     */
     public Map<Integer, PriceData> fetch1hPrices() throws IOException
     {
-        if (localCache != null)
-        {
-            Map<Integer, JsonObject> cached = localCache.loadPriceCache("1h");
-            if (cached != null)
-            {
-                try
-                {
-                    prices1h.clear();
-                    for (Map.Entry<Integer, JsonObject> entry : cached.entrySet())
-                    {
-                        int itemId = entry.getKey();
-                        JsonObject item = entry.getValue();
-
-                        ItemMapping mapping = mappingById.get(itemId);
-                        String name = mapping != null ? mapping.getName() : "Item " + itemId;
-
-                        PriceData priceData = PriceData.builder()
-                            .itemId(itemId)
-                            .itemName(name)
-                            .avgHighPrice1h(getJsonLong(item, "avgHighPrice"))
-                            .avgLowPrice1h(getJsonLong(item, "avgLowPrice"))
-                            .highVolume1h(getJsonLong(item, "highPriceVolume"))
-                            .lowVolume1h(getJsonLong(item, "lowPriceVolume"))
-                            .source(PriceSource.WIKI)
-                            .build();
-
-                        prices1h.put(itemId, priceData);
-                    }
-                    log.debug("Loaded 1h prices for {} items from cache", prices1h.size());
-                    return prices1h;
-                }
-                catch (Exception e)
-                {
-                    log.warn("Failed to parse cached 1h prices, will fetch fresh: {}", e.getMessage());
-                }
-            }
-        }
-
         Request request = new Request.Builder()
             .url(BASE_URL + "/1h")
             .header("User-Agent", userAgent)
@@ -363,11 +230,17 @@ public class WikiPriceClient
 
             String bodyString = body.string();
             JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
-            JsonObject data = json.getAsJsonObject("data");
+            JsonObject data = getJsonObjectSafe(json, "data");
+            if (data == null)
+            {
+                log.warn("Wiki 1h prices response missing 'data' field");
+                return prices1h;
+            }
 
             prices1h.clear();
             for (Map.Entry<String, JsonElement> entry : data.entrySet())
             {
+                if (!entry.getValue().isJsonObject()) continue;
                 int itemId = Integer.parseInt(entry.getKey());
                 JsonObject item = entry.getValue().getAsJsonObject();
 
@@ -387,17 +260,14 @@ public class WikiPriceClient
                 prices1h.put(itemId, priceData);
             }
 
-            if (localCache != null)
-            {
-                localCache.savePriceCache("1h", data);
-            }
-
             log.debug("Fetched 1h prices for {} items from Wiki", prices1h.size());
             return prices1h;
         }
     }
 
-    
+    /**
+     * Fetch time-series data for a specific item.
+     */
     public List<PriceData> fetchTimeSeries(int itemId, String timestep) throws IOException
     {
         Request request = new Request.Builder()
@@ -446,7 +316,9 @@ public class WikiPriceClient
         }
     }
 
-    
+    /**
+     * Get a combined PriceData with latest + volume data for a single item.
+     */
     public PriceData getCombinedData(int itemId)
     {
         PriceData latest = latestPrices.get(itemId);
@@ -503,5 +375,16 @@ public class WikiPriceClient
             return 0;
         }
         return element.getAsLong();
+    }
+
+    /** Safely get a nested JsonObject, returning null if missing or wrong type */
+    private JsonObject getJsonObjectSafe(JsonObject parent, String key)
+    {
+        JsonElement element = parent.get(key);
+        if (element == null || !element.isJsonObject())
+        {
+            return null;
+        }
+        return element.getAsJsonObject();
     }
 }

@@ -9,14 +9,23 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.geom.Path2D;
-import java.awt.geom.RoundRectangle2D;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
 
-
+/**
+ * Profit Chart Panel — visual GP/hour and cumulative profit over time.
+ *
+ * Renders a custom Java2D chart showing:
+ *   - Cumulative session profit line (green/red)
+ *   - Individual flip dots with tooltips
+ *   - GP/hour trend line
+ *   - Session summary stats at top
+ *
+ * No external dependencies — pure Java2D rendering.
+ */
 public class ProfitChartPanel extends JPanel
 {
     private final FlipTracker flipTracker;
@@ -27,13 +36,16 @@ public class ProfitChartPanel extends JPanel
     private ChartMode currentMode = ChartMode.SESSION;
 
     // Colors
-    private static final Color PROFIT_GREEN   = new Color(0x00, 0xD2, 0x6A);
-    private static final Color LOSS_RED       = new Color(0xFF, 0x47, 0x57);
-    private static final Color GOLD           = new Color(0xFF, 0xB8, 0x00);
-    private static final Color CHART_BG       = new Color(0x0F, 0x0F, 0x17);
-    private static final Color GRID_COLOR     = new Color(0x1E, 0x1E, 0x30);
-    private static final Color AXIS_COLOR     = new Color(0x35, 0x35, 0x55);
-    private static final Color TEXT_DIM       = new Color(0x60, 0x60, 0x80);
+    private static final Color PROFIT_GREEN   = new Color(0x22, 0xC5, 0x5E);
+    private static final Color LOSS_RED       = new Color(0xEF, 0x44, 0x44);
+    private static final Color GOLD           = new Color(0xFF, 0xA3, 0x1A); // PH Orange
+    private static final Color CHART_BG       = new Color(0x00, 0x00, 0x00);
+    private static final Color GRID_COLOR     = new Color(0x11, 0x11, 0x11);
+    private static final Color AXIS_COLOR     = new Color(0x33, 0x33, 0x33);
+    private static final Color TEXT_DIM       = new Color(0x88, 0x88, 0x88);
+    private static final Color BTN_BG_IDLE    = new Color(0x1A, 0x1A, 0x1A);
+    private static final Color BTN_BG_ACTIVE  = new Color(0x26, 0x26, 0x26);
+    private static final Color PANEL_BORDER   = new Color(0x33, 0x33, 0x33);
 
     private JPanel statsBar;
     private JLabel totalProfitLabel;
@@ -56,15 +68,18 @@ public class ProfitChartPanel extends JPanel
         add(buildModeBar(),    BorderLayout.SOUTH);
     }
 
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
     //  STATS BAR
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
 
     private JPanel buildStatsBar()
     {
         statsBar = new JPanel(new GridLayout(2, 2, 4, 4));
         statsBar.setBackground(new Color(0x12, 0x12, 0x1E));
-        statsBar.setBorder(new EmptyBorder(8, 10, 8, 10));
+        statsBar.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            new EmptyBorder(8, 10, 8, 10)
+        ));
 
         totalProfitLabel = makeStat("0 gp",      "TOTAL PROFIT", PROFIT_GREEN);
         gpHourLabel      = makeStat("0 gp/hr",   "GP / HOUR",    GOLD);
@@ -91,7 +106,10 @@ public class ProfitChartPanel extends JPanel
     {
         JPanel p = new JPanel(new BorderLayout(0, 2));
         p.setBackground(new Color(0x1A, 0x1A, 0x2E));
-        p.setBorder(new EmptyBorder(5, 8, 5, 8));
+        p.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            new EmptyBorder(5, 8, 5, 8)
+        ));
         JLabel titleLbl = new JLabel(title);
         titleLbl.setForeground(TEXT_DIM);
         titleLbl.setFont(titleLbl.getFont().deriveFont(Font.BOLD, 8f));
@@ -100,32 +118,33 @@ public class ProfitChartPanel extends JPanel
         return p;
     }
 
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
     //  CHART CANVAS
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
 
     private JPanel buildChart()
     {
         chartCanvas = new ChartCanvas();
         chartCanvas.setPreferredSize(new Dimension(200, 180));
-
-        JScrollPane scroll = new JScrollPane(chartCanvas);
-        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        scroll.setBorder(null);
-        scroll.getViewport().setBackground(CHART_BG);
+        chartCanvas.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            new EmptyBorder(2, 0, 2, 0)
+        ));
         return chartCanvas;
     }
 
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
     //  MODE SELECTOR BAR
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
 
     private JPanel buildModeBar()
     {
         modeButtons = new JPanel(new GridLayout(1, 4, 2, 0));
         modeButtons.setBackground(new Color(0x12, 0x12, 0x1E));
-        modeButtons.setBorder(new EmptyBorder(4, 6, 6, 6));
+        modeButtons.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            new EmptyBorder(4, 6, 6, 6)
+        ));
 
         String[] labels = {"Session", "Today", "Week", "All Time"};
         ChartMode[] modes = ChartMode.values();
@@ -136,6 +155,9 @@ public class ProfitChartPanel extends JPanel
             JButton btn = new JButton(labels[i]);
             btn.setFont(btn.getFont().deriveFont(9f));
             btn.setFocusPainted(false);
+            btn.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+            btn.setOpaque(true);
+            btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             btn.addActionListener(e -> {
                 currentMode = mode;
                 refreshModeButtons();
@@ -154,15 +176,16 @@ public class ProfitChartPanel extends JPanel
         {
             JButton btn = (JButton) modeButtons.getComponent(i);
             boolean active = modes[i] == currentMode;
-            btn.setBackground(active ? new Color(0x2A, 0x2A, 0x55) : new Color(0x1A, 0x1A, 0x2E));
+            btn.setBackground(active ? BTN_BG_ACTIVE : BTN_BG_IDLE);
             btn.setForeground(active ? GOLD : TEXT_DIM);
         }
     }
 
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
     //  DATA + UPDATE
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
 
+    /** Call this whenever flip data changes. Thread-safe. */
     public void update()
     {
         SwingUtilities.invokeLater(() -> {
@@ -254,9 +277,9 @@ public class ProfitChartPanel extends JPanel
         winRateLabel.setForeground(fWinRate >= 50 ? PROFIT_GREEN : LOSS_RED);
     }
 
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
     //  CHART CANVAS (inner class)
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
 
     private class ChartCanvas extends JPanel
     {
@@ -315,7 +338,9 @@ public class ProfitChartPanel extends JPanel
             {
                 int zy = PAD_T + (int)((maxP * ch) / rangeP);
                 g2.setColor(AXIS_COLOR);
-                g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1f, new float[]{4,3}, 0));
+                g2.setStroke(new BasicStroke(
+                    1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
+                    1f, new float[]{4, 3}, 0));
                 g2.drawLine(PAD_L, zy, PAD_L + cw, zy);
                 g2.setStroke(new BasicStroke(1f));
             }
@@ -340,7 +365,9 @@ public class ProfitChartPanel extends JPanel
             long finalProfit = points.get(points.size()-1)[1];
             Color lineCol = finalProfit >= 0 ? PROFIT_GREEN : LOSS_RED;
 
-            GradientPaint grad = new GradientPaint(0, PAD_T, withAlpha(lineCol, 60), 0, PAD_T + ch, withAlpha(lineCol, 5));
+            GradientPaint grad = new GradientPaint(
+                0, PAD_T, withAlpha(lineCol, 60),
+                0, PAD_T + ch, withAlpha(lineCol, 5));
             g2.setPaint(grad);
             g2.fill(fill);
 
@@ -458,13 +485,19 @@ public class ProfitChartPanel extends JPanel
         }
     }
 
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
     //  HELPERS
-    // --------------------------------------------------------─
+    // ─────────────────────────────────────────────────────────
 
     private static String formatGp(long value)
     {
-        return String.format("%,d", value);
+        if (Math.abs(value) >= 1_000_000_000L)
+            return String.format("%.1fB", value / 1_000_000_000.0);
+        if (Math.abs(value) >= 1_000_000L)
+            return String.format("%.1fM", value / 1_000_000.0);
+        if (Math.abs(value) >= 1_000L)
+            return String.format("%.1fK", value / 1_000.0);
+        return value + "gp";
     }
 
     private static String formatGpShort(long value)

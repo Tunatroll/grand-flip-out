@@ -60,7 +60,9 @@ public class PriceData
         return getMargin() * quantity;
     }
 
-    
+    /**
+     * Get the last updated timestamp as LocalDateTime (derived from highTime/lowTime).
+     */
     public LocalDateTime getLastUpdated()
     {
         long latestEpoch = Math.max(highTime, lowTime);

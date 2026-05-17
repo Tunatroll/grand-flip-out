@@ -34,7 +34,9 @@ public class SessionManager {
         loadSessionHistory();
     }
 
-    
+    /**
+     * Start a new flipping session with a goal
+     */
     public FlipSession startSession(String name, long goalAmount) {
         if (activeSession != null && activeSession.isActive) {
             log.warn("Active session already exists, ending it first");
@@ -56,7 +58,9 @@ public class SessionManager {
         return activeSession;
     }
 
-    
+    /**
+     * End the active session
+     */
     public FlipSession endSession() {
         if (activeSession != null) {
             activeSession.endTime = Instant.now();
@@ -71,7 +75,9 @@ public class SessionManager {
         return null;
     }
 
-    
+    /**
+     * Record a completed flip to the active session
+     */
     public void recordFlipToSession(FlipItem flip) {
         if (activeSession == null) {
             log.warn("No active session to record flip");
@@ -81,24 +87,31 @@ public class SessionManager {
         if (flip != null) {
             activeSession.itemsTracked.put(flip.getItemId(), flip);
             activeSession.flipCount++;
-            // Use FlipItem.getProfit() which includes GE tax calculation (2% capped at 5M per item)
-            long profit = flip.getProfit();
+            long revenue = flip.getSellPrice() * (long) flip.getQuantity();
+            long tax = Math.min((long)(revenue * 0.02), 5_000_000L);
+            long profit = (flip.getSellPrice() - flip.getBuyPrice()) * (long) flip.getQuantity() - tax;
             activeSession.actualProfit += profit;
             log.debug("Recorded flip in session - profit: {}, total: {}", profit, activeSession.actualProfit);
         }
     }
 
-    
+    /**
+     * Get the currently active session
+     */
     public FlipSession getActiveSession() {
         return activeSession;
     }
 
-    
+    /**
+     * Get all past sessions
+     */
     public List<FlipSession> getSessionHistory() {
         return new ArrayList<>(sessionHistory);
     }
 
-    
+    /**
+     * Get the completion percentage of the active session goal
+     */
     public double getProgressPercent() {
         if (activeSession == null) {
             return 0;
@@ -109,7 +122,9 @@ public class SessionManager {
         return (double) activeSession.actualProfit / activeSession.goalAmount * 100.0;
     }
 
-    
+    /**
+     * Estimate time remaining to reach the goal based on current GP/hr
+     */
     public long getTimeToGoalMillis() {
         if (activeSession == null || activeSession.goalAmount <= 0) {
             return -1;
@@ -133,7 +148,9 @@ public class SessionManager {
         return (long) ((remainingProfit / gpPerHour) * 3600000.0);
     }
 
-    
+    /**
+     * Get current GP/hr rate for active session
+     */
     public double getCurrentGpHourRate() {
         if (activeSession == null) {
             return 0;
@@ -147,7 +164,9 @@ public class SessionManager {
         return activeSession.actualProfit / (elapsedMillis / 3600000.0);
     }
 
-    
+    /**
+     * Get session statistics summary
+     */
     public SessionStats getSessionStats() {
         if (activeSession == null) {
             return null;
@@ -197,7 +216,9 @@ public class SessionManager {
         }
     }
 
-    
+    /**
+     * Inner class representing a flipping session
+     */
     @Data
     @Builder
     @AllArgsConstructor
@@ -218,7 +239,9 @@ public class SessionManager {
         }
     }
 
-    
+    /**
+     * Session statistics summary
+     */
     @Data
     @Builder
     @AllArgsConstructor

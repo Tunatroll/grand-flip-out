@@ -12,7 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-
+/**
+ * Aggregated price data from multiple sources for a single item.
+ */
 @Data
 @Builder
 public class PriceAggregate
@@ -22,12 +24,17 @@ public class PriceAggregate
     private final Map<PriceSource, PriceData> sourceData;
     private final ItemMapping mapping;
 
-    
+    /**
+     * External price history provider — set by PriceService to connect to PriceHistoryCollector.
+     * This allows getPriceHistory() to return actual data instead of empty lists.
+     */
     @Setter
     @Builder.Default
     private transient Function<Integer, List<Long>> priceHistoryProvider = null;
 
-    
+    /**
+     * Get the best (most recent) high price across all sources.
+     */
     public long getBestHighPrice()
     {
         long bestTime = 0;
@@ -43,7 +50,9 @@ public class PriceAggregate
         return bestPrice;
     }
 
-    
+    /**
+     * Get the best (most recent) low price across all sources.
+     */
     public long getBestLowPrice()
     {
         long bestTime = 0;
@@ -59,7 +68,9 @@ public class PriceAggregate
         return bestPrice;
     }
 
-    
+    /**
+     * Get the consensus margin using best available prices.
+     */
     public long getConsensusMargin()
     {
         long high = getBestHighPrice();
@@ -71,7 +82,9 @@ public class PriceAggregate
         return high - low;
     }
 
-    
+    /**
+     * Get consensus margin as a percentage.
+     */
     public double getConsensusMarginPercent()
     {
         long low = getBestLowPrice();
@@ -82,13 +95,17 @@ public class PriceAggregate
         return (double) getConsensusMargin() / low * 100.0;
     }
 
-    
+    /**
+     * Get GE buy limit from mapping data.
+     */
     public int getBuyLimit()
     {
         return mapping != null ? mapping.getLimit() : 0;
     }
 
-    
+    /**
+     * Calculate potential profit per GE limit cycle (4 hours).
+     */
     public long getProfitPerLimit()
     {
         int limit = getBuyLimit();
@@ -103,7 +120,9 @@ public class PriceAggregate
         return (margin - taxPerItem) * limit;
     }
 
-    
+    /**
+     * Get total trade volume across sources (1h).
+     */
     public long getTotalVolume1h()
     {
         long total = 0;
@@ -114,7 +133,9 @@ public class PriceAggregate
         return total;
     }
 
-    
+    /**
+     * Get the timestamp of the most recent high price.
+     */
     public long getLatestHighTime()
     {
         long latestTime = 0;
@@ -128,7 +149,9 @@ public class PriceAggregate
         return latestTime;
     }
 
-    
+    /**
+     * Get the timestamp of the most recent low price.
+     */
     public long getLatestLowTime()
     {
         long latestTime = 0;
@@ -142,13 +165,17 @@ public class PriceAggregate
         return latestTime;
     }
 
-    
+    /**
+     * Get price data from a specific source.
+     */
     public PriceData getFromSource(PriceSource source)
     {
         return sourceData.get(source);
     }
 
-    
+    /**
+     * Check if high alch is profitable compared to buy price.
+     */
     public boolean isAlchProfitable()
     {
         if (mapping == null || mapping.getHighalch() <= 0)
@@ -162,22 +189,31 @@ public class PriceAggregate
 
     // ==================== Convenience aliases for dependent classes ====================
 
+    /** Alias for getBestHighPrice() - used by RiskManager and other trackers. */
     public long getHighPrice() { return getBestHighPrice(); }
 
+    /** Alias for getBestLowPrice() - used by RiskManager and other trackers. */
     public long getLowPrice() { return getBestLowPrice(); }
 
+    /** Alias for getTotalVolume1h() - used by RiskManager. */
     public long getVolume() { return getTotalVolume1h(); }
 
+    /** Alias for getBestLowPrice() - represents insta-buy price (lowest ask). */
     public long getBuyPrice() { return getBestLowPrice(); }
 
+    /** Alias for getBestHighPrice() - represents insta-sell price (highest bid). */
     public long getSellPrice() { return getBestHighPrice(); }
 
+    /** Alias for getBestLowPrice() - current buy price for investment analysis. */
     public long getCurrentBuyPrice() { return getBestLowPrice(); }
 
+    /** Alias for getBestHighPrice() - current sell price for investment analysis. */
     public long getCurrentSellPrice() { return getBestHighPrice(); }
 
+    /** Alias for getTotalVolume1h() - hourly volume for scoring. */
     public long getHourlyVolume() { return getTotalVolume1h(); }
 
+    /** Alias for the average of high/low as "current price". */
     public long getCurrentPrice()
     {
         long high = getBestHighPrice();
@@ -188,11 +224,13 @@ public class PriceAggregate
         return (high + low) / 2;
     }
 
+    /** Estimated daily volume based on 1h volume × 24. */
     public long getEstimatedDailyVolume()
     {
         return getTotalVolume1h() * 24;
     }
 
+    /** Get price history from the PriceHistoryCollector if wired up. */
     public List<Long> getPriceHistory()
     {
         if (priceHistoryProvider != null)
@@ -206,16 +244,19 @@ public class PriceAggregate
         return new ArrayList<>();
     }
 
+    /** Check if both buy and sell activity exists. */
     public boolean hasBuyAndSellActivity()
     {
         return getBestHighPrice() > 0 && getBestLowPrice() > 0;
     }
 
+    /** Stub - whether item is primarily sold by resource farmers/bots. */
     public boolean isPrimarilySoldByFarmers()
     {
         return false;
     }
 
+    /** Get last updated timestamp as Date (from the most recent source data). */
     public Date getLastUpdated()
     {
         long latestTime = 0;

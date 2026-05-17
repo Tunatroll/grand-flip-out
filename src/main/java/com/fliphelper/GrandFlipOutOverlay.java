@@ -20,15 +20,31 @@ import net.runelite.client.util.QuantityFormatter;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.time.Duration;
+import java.time.Instant;
 
-
+/**
+ * In-game overlay displayed when the Grand Exchange interface is open.
+ * Shows current item margins, flip status, and session profit.
+ */
 public class GrandFlipOutOverlay extends Overlay
 {
+    private static final Color ACCENT_GOLD = new Color(0xFF, 0xB8, 0x00);
+    private static final Color PROFIT_GREEN = new Color(0x00, 0xD2, 0x6A);
+    private static final Color LOSS_RED = new Color(0xFF, 0x47, 0x57);
+    private static final Color WARNING_AMBER = new Color(0xFF, 0xA5, 0x00);
+    private static final Color META_NEUTRAL = new Color(0xD4, 0xAF, 0x37);
+    private static final Color SLOT_PROFIT = new Color(0x00, 0xB0, 0x5A, 180);
+    private static final Color SLOT_LOSS = new Color(0xCC, 0x40, 0x40, 180);
+    private static final Color SLOT_FLAT = new Color(0xC8, 0x96, 0x00, 180);
     private final Client client;
     private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final FlipTracker flipTracker;
     private final PanelComponent panelComponent = new PanelComponent();
+
+    /** Slot activity timestamps for slot timer display (like Flipping Utilities). */
+    private final Instant[] slotLastActive = new Instant[8];
 
     private boolean visible = true;
 
@@ -49,6 +65,17 @@ public class GrandFlipOutOverlay extends Overlay
     public void toggleVisibility()
     {
         visible = !visible;
+    }
+
+    /**
+     * Update slot activity timestamp (called from plugin on GE offer changes).
+     */
+    public void updateSlotActivity(int slot)
+    {
+        if (slot >= 0 && slot < 8)
+        {
+            slotLastActive[slot] = Instant.now();
+        }
     }
 
     @Override
@@ -107,22 +134,23 @@ public class GrandFlipOutOverlay extends Overlay
     {
         panelComponent.getChildren().add(TitleComponent.builder()
             .text("Grand Flip Out")
-            .color(Color.CYAN)
+            .color(ACCENT_GOLD)
             .build());
 
         long profit = flipTracker.getSessionProfit().get();
+        // Color coding: green for profit, orange for break-even, red for loss
         Color profitColor;
         if (profit > 0)
         {
-            profitColor = new Color(0x00, 0xE6, 0x76);
+            profitColor = PROFIT_GREEN;
         }
         else if (profit == 0)
         {
-            profitColor = new Color(0xFF, 0xB8, 0x00);
+            profitColor = WARNING_AMBER;
         }
         else
         {
-            profitColor = new Color(0xFF, 0x66, 0x66);
+            profitColor = LOSS_RED;
         }
 
         String profitPrefix = profit > 0 ? "\u25B2 " : profit < 0 ? "\u25BC " : "";
@@ -132,61 +160,52 @@ public class GrandFlipOutOverlay extends Overlay
             .rightColor(profitColor)
             .build());
 
-        long flipCount = flipTracker.getSessionFlipCount().get();
         panelComponent.getChildren().add(LineComponent.builder()
             .left("Flips:")
-            .right(String.valueOf(flipCount))
-            .build());
-
-        double gpPerHour = flipTracker.getGpPerHour();
-        Color gphColor;
-        if (gpPerHour > 0)
-        {
-            gphColor = new Color(0xFF, 0xB8, 0x00);
-        }
-        else if (gpPerHour == 0)
-        {
-            gphColor = Color.GRAY;
-        }
-        else
-        {
-            gphColor = new Color(0xFF, 0x66, 0x66);
-        }
-        panelComponent.getChildren().add(LineComponent.builder()
-            .left("GP/Hour:")
-            .right(formatGp((long) gpPerHour) + "/hr")
-            .rightColor(gphColor)
+            .right(String.valueOf(flipTracker.getSessionFlipCount().get()))
             .build());
 
         double avg = flipTracker.getAverageProfitPerFlip();
         Color avgColor;
         if (avg > 0)
         {
-            avgColor = new Color(0x00, 0xE6, 0x76);
+            avgColor = PROFIT_GREEN;
         }
         else if (avg == 0)
         {
-            avgColor = new Color(0xFF, 0xB8, 0x00);
+            avgColor = WARNING_AMBER;
         }
         else
         {
-            avgColor = new Color(0xFF, 0x66, 0x66);
+            avgColor = LOSS_RED;
         }
 
         String avgPrefix = avg > 0 ? "\u25B2 " : avg < 0 ? "\u25BC " : "";
         panelComponent.getChildren().add(LineComponent.builder()
-            .left("Avg/Flip:")
+            .left("Avg Profit/Flip:")
             .right(avgPrefix + formatGp((long) avg))
             .rightColor(avgColor)
             .build());
 
+        // GP/hr — the key metric flippers care about
+        long gpPerHour = flipTracker.getGpPerHour();
+        if (gpPerHour > 0)
+        {
+            panelComponent.getChildren().add(LineComponent.builder()
+                .left("GP/hr:")
+                .right(formatGp(gpPerHour))
+                .rightColor(ACCENT_GOLD)
+                .build());
+        }
+
+        // Show active flips count
         int activeCount = flipTracker.getActiveFlips().size();
         if (activeCount > 0)
         {
             panelComponent.getChildren().add(LineComponent.builder()
-                .left("Active:")
+                .left("Active Flips:")
                 .right(String.valueOf(activeCount))
-                .rightColor(Color.YELLOW)
+                .rightColor(META_NEUTRAL)
                 .build());
         }
     }
@@ -195,7 +214,7 @@ public class GrandFlipOutOverlay extends Overlay
     {
         panelComponent.getChildren().add(TitleComponent.builder()
             .text("GE Slots")
-            .color(Color.ORANGE)
+            .color(ACCENT_GOLD)
             .build());
 
         // Show slot profit colorizer if enabled
@@ -225,22 +244,22 @@ public class GrandFlipOutOverlay extends Overlay
                 panelComponent.getChildren().add(LineComponent.builder()
                     .left(itemName)
                     .right(stateName)
-                    .rightColor(Color.YELLOW)
+                    .rightColor(META_NEUTRAL)
                     .build());
 
                 long margin = agg.getConsensusMargin();
                 Color marginColor;
                 if (margin > 0)
                 {
-                    marginColor = Color.GREEN;
+                    marginColor = PROFIT_GREEN;
                 }
                 else if (margin == 0)
                 {
-                    marginColor = new Color(0xFF, 0xA5, 0x00); // Orange for break-even
+                    marginColor = WARNING_AMBER;
                 }
                 else
                 {
-                    marginColor = Color.RED;
+                    marginColor = LOSS_RED;
                 }
 
                 panelComponent.getChildren().add(LineComponent.builder()
@@ -259,23 +278,22 @@ public class GrandFlipOutOverlay extends Overlay
 
                 // Expected profit for this flip with color coding
                 long expectedSell = agg.getBestHighPrice();
-                // GE tax: 2% of sell price per item, capped at 5M per item (not per transaction)
-                long taxPerItem = Math.min((long) (expectedSell * 0.02), 5_000_000L);
-                long totalTax = taxPerItem * flip.getQuantity();
-                long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity() - totalTax;
+                long totalRevenue = expectedSell * flip.getQuantity();
+                long tax = Math.min((long) (totalRevenue * 0.02), 5_000_000L);
+                long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity() - tax;
 
                 Color profitColor;
                 if (expectedProfit > 0)
                 {
-                    profitColor = Color.GREEN;
+                    profitColor = PROFIT_GREEN;
                 }
                 else if (expectedProfit == 0)
                 {
-                    profitColor = new Color(0xFF, 0xA5, 0x00); // Orange
+                    profitColor = WARNING_AMBER;
                 }
                 else
                 {
-                    profitColor = Color.RED;
+                    profitColor = LOSS_RED;
                 }
 
                 String expPrefix = expectedProfit > 0 ? "\u25B2 " : expectedProfit < 0 ? "\u25BC " : "";
@@ -315,7 +333,7 @@ public class GrandFlipOutOverlay extends Overlay
                             || offer.getState() == GrandExchangeOfferState.BOUGHT);
 
             long currentPrice = isBuying ? agg.getBestHighPrice() : agg.getBestLowPrice();
-            long paidPerItem = quantitySold > 0 ? spent / quantitySold : price;
+            long paidPerItem = quantitySold > 0 ? Math.round((double) spent / quantitySold) : price;
 
             long estimatedProfit;
             Color slotColor;
@@ -324,28 +342,29 @@ public class GrandFlipOutOverlay extends Overlay
             if (isBuying)
             {
                 // For buys: estimate profit if we sold at current sell price
-                long tax = Math.min((long)(currentPrice * 0.02), 5_000_000L);
-                estimatedProfit = (currentPrice - paidPerItem - tax) * quantitySold;
+                long totalRevenue = currentPrice * quantitySold;
+                long tax = Math.min((long)(totalRevenue * 0.02), 5_000_000L);
+                estimatedProfit = (currentPrice - paidPerItem) * quantitySold - tax;
             }
             else
             {
                 // For sells: calculate actual revenue vs what we'd pay now
-                estimatedProfit = (paidPerItem - currentPrice) * quantitySold;
+                estimatedProfit = (currentPrice - paidPerItem) * quantitySold;
             }
 
             if (estimatedProfit > 0)
             {
-                slotColor = new Color(0, 200, 0, 180);
+                slotColor = SLOT_PROFIT;
                 profitText = "+" + formatGp(estimatedProfit);
             }
             else if (estimatedProfit < 0)
             {
-                slotColor = new Color(200, 0, 0, 180);
+                slotColor = SLOT_LOSS;
                 profitText = formatGp(estimatedProfit);
             }
             else
             {
-                slotColor = new Color(200, 150, 0, 180);
+                slotColor = SLOT_FLAT;
                 profitText = "0 gp";
             }
 
@@ -353,10 +372,18 @@ public class GrandFlipOutOverlay extends Overlay
             String stateStr = isBuying ? "BUY" : "SELL";
             int pctFilled = totalQuantity > 0 ? (quantitySold * 100 / totalQuantity) : 0;
 
+            // Slot timer: time since last activity (like Flipping Utilities)
+            String timerStr = "";
+            if (slotLastActive[slot] != null)
+            {
+                long elapsed = Duration.between(slotLastActive[slot], Instant.now()).getSeconds();
+                timerStr = formatSlotTimer(elapsed) + " ";
+            }
+
             panelComponent.getChildren().add(LineComponent.builder()
                 .left(String.format("[%d] %s", slot + 1, truncate(itemName, 12)))
                 .leftColor(slotColor)
-                .right(String.format("%s %d%% %s", stateStr, pctFilled, profitText))
+                .right(String.format("%s%s %d%% %s", timerStr, stateStr, pctFilled, profitText))
                 .rightColor(slotColor)
                 .build());
         }
@@ -368,10 +395,32 @@ public class GrandFlipOutOverlay extends Overlay
         return s.length() > maxLen ? s.substring(0, maxLen) + ".." : s;
     }
 
+    /**
+     * Format slot timer elapsed seconds into compact display (Nm, Nh format).
+     */
+    private String formatSlotTimer(long seconds)
+    {
+        if (seconds < 60)
+        {
+            return seconds + "s";
+        }
+        if (seconds < 3600)
+        {
+            return (seconds / 60) + "m";
+        }
+        return (seconds / 3600) + "h" + ((seconds % 3600) / 60) + "m";
+    }
+
     private String formatGp(long amount)
     {
-        // Format with full comma-separated numbers per CLAUDE.md requirement
-        // Never abbreviate GP values in user-facing output
-        return String.format("%,d", amount);
+        if (Math.abs(amount) >= 1_000_000)
+        {
+            return String.format("%.1fm", amount / 1_000_000.0);
+        }
+        if (Math.abs(amount) >= 1_000)
+        {
+            return String.format("%.1fk", amount / 1_000.0);
+        }
+        return amount + " gp";
     }
 }
