@@ -1,12 +1,10 @@
 package com.fliphelper;
 
 import com.fliphelper.api.PriceService;
-import com.fliphelper.ui.GePriceHelper;
 import com.fliphelper.ui.GpDropOverlay;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.TradeRecord;
 import com.fliphelper.tracker.FlipTracker;
-import com.fliphelper.tracker.MarginCheckTracker;
 import com.fliphelper.tracker.SessionManager;
 import com.fliphelper.ui.GrandFlipOutPanel;
 import com.google.gson.Gson;
@@ -36,8 +34,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import static net.runelite.client.RuneLite.RUNELITE_DIR;
@@ -91,16 +89,17 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     @Inject
     private Gson gson;
 
+    @Inject
+    private ScheduledExecutorService executor;
+
     private PriceService priceService;
     private FlipTracker flipTracker;
     private SessionManager sessionManager;
-    private MarginCheckTracker marginCheckTracker;
-    private GePriceHelper gePriceHelper;
     private GrandFlipOutPanel panel;
     private GrandFlipOutOverlay overlay;
     private GpDropOverlay gpDropOverlay;
     private NavigationButton navButton;
-    private ScheduledExecutorService executor;
+    private ScheduledFuture<?> refreshFuture;
     // Track GE offer states to detect completions
     private final int[] lastOfferQuantity = new int[8];
     private final GrandExchangeOfferState[] lastOfferState = new GrandExchangeOfferState[8];
@@ -124,12 +123,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         priceService = new PriceService(okHttpClient, config, gson);
         flipTracker = new FlipTracker(config, DATA_DIR, gson);
 
-        // Initialize session and margin systems
+        // Initialize session tracking
         sessionManager = new SessionManager(DATA_DIR.getAbsolutePath(), gson);
-        marginCheckTracker = new MarginCheckTracker(DATA_DIR.getAbsolutePath(), gson);
-
-        // Initialize GE price helper for offer auto-fill
-        gePriceHelper = new GePriceHelper(client, clientThread, priceService);
 
         // Create UI — pass sessionManager so ProfitChartPanel has GP/hr data
         panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager);
@@ -150,10 +145,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         overlayManager.add(gpDropOverlay);
         keyManager.registerKeyListener(this);
 
-        // Start background price refresh
-        executor = Executors.newSingleThreadScheduledExecutor();
+        // Start background price refresh using RuneLite's shared scheduler
         executor.execute(this::initialPriceLoad);
-        executor.scheduleAtFixedRate(
+        refreshFuture = executor.scheduleAtFixedRate(
             this::refreshPrices,
             config.priceRefreshInterval(),
             config.priceRefreshInterval(),
@@ -168,22 +162,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     {
         log.info("Grand Flip Out shutting down");
 
-        if (executor != null)
+        if (refreshFuture != null)
         {
-            executor.shutdown();
-            try
-            {
-                if (!executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS))
-                {
-                    executor.shutdownNow();
-                }
-            }
-            catch (InterruptedException e)
-            {
-                executor.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-            executor = null;
+            refreshFuture.cancel(false);
+            refreshFuture = null;
         }
 
         if (priceService != null)
@@ -297,12 +279,14 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             return;
         }
 
-        // If refresh interval changed, restart the scheduler
-        if ("priceRefreshInterval".equals(event.getKey()) && executor != null)
+        // If refresh interval changed, reschedule on the shared executor
+        if ("priceRefreshInterval".equals(event.getKey()))
         {
-            executor.shutdownNow();
-            executor = Executors.newSingleThreadScheduledExecutor();
-            executor.scheduleAtFixedRate(
+            if (refreshFuture != null)
+            {
+                refreshFuture.cancel(false);
+            }
+            refreshFuture = executor.scheduleAtFixedRate(
                 this::refreshPrices,
                 config.priceRefreshInterval(),
                 config.priceRefreshInterval(),
