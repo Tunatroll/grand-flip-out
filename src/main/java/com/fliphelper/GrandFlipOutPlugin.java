@@ -103,8 +103,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     // Track GE offer states to detect completions
     private final int[] lastOfferQuantity = new int[8];
     private final GrandExchangeOfferState[] lastOfferState = new GrandExchangeOfferState[8];
-    // Track when each slot last had activity (for slot timer display like Flipping Utilities)
-    private final Instant[] slotLastActive = new Instant[8];
 
     @Provides
     GrandFlipOutConfig provideConfig(ConfigManager configManager)
@@ -263,8 +261,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         lastOfferQuantity[slot] = currentQuantity;
         lastOfferState[slot] = state;
 
-        // Track slot activity time for slot timer display
-        slotLastActive[slot] = Instant.now();
+        // Notify overlay so it can update its own slot-activity timestamps
         if (overlay != null)
         {
             overlay.updateSlotActivity(slot);
