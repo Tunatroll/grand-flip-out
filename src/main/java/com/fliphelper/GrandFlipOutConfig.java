@@ -233,4 +233,53 @@ public interface GrandFlipOutConfig extends Config
     {
         return new Keybind(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
     }
+
+    @ConfigItem(
+        keyName = "marginAssistPercent",
+        name = "Margin Assist Percent",
+        description = "Percent range used for buy/sell clipboard assist blocks.",
+        section = hotkeysSection,
+        position = 5
+    )
+    @Range(min = 1, max = 20)
+    default int marginAssistPercent()
+    {
+        return 3;
+    }
+
+    @ConfigItem(
+        keyName = "copyBuyPriceHotkey",
+        name = "Copy Buy Assist",
+        description = "Copy buy-side +/- margin assist values for the active item.",
+        section = hotkeysSection,
+        position = 6
+    )
+    default Keybind copyBuyPriceHotkey()
+    {
+        return new Keybind(KeyEvent.VK_B, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+    }
+
+    @ConfigItem(
+        keyName = "copySellPriceHotkey",
+        name = "Copy Sell Assist",
+        description = "Copy sell-side +/- margin assist values for the active item.",
+        section = hotkeysSection,
+        position = 7
+    )
+    default Keybind copySellPriceHotkey()
+    {
+        return new Keybind(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+    }
+
+    @ConfigItem(
+        keyName = "copySlotAssistHotkey",
+        name = "Copy Slot Assist Block",
+        description = "Copy combined buy/sell assist block with tax and net-per-item hints.",
+        section = hotkeysSection,
+        position = 8
+    )
+    default Keybind copySlotAssistHotkey()
+    {
+        return new Keybind(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+    }
 }
