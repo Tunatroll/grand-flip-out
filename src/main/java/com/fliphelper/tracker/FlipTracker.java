@@ -1,7 +1,6 @@
 package com.fliphelper.tracker;
 
 import com.fliphelper.GrandFlipOutConfig;
-import com.fliphelper.debug.DebugManager;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.FlipState;
 import com.fliphelper.model.TradeRecord;
@@ -37,10 +36,6 @@ public class FlipTracker
     }
 
     private FlipCompleteListener flipCompleteListener;
-
-    /** Optional debug manager for event instrumentation. */
-    @Setter
-    private DebugManager debugManager;
 
     public void setFlipCompleteListener(FlipCompleteListener listener)
     {
@@ -108,7 +103,9 @@ public class FlipTracker
 
                 // Key by GE slot (not itemId) to track multiple flips of same item in different slots
                 activeFlips.put(trade.getGeSlot(), flip);
-                log.info("Recorded buy: {}x {} @ {}gp (slot {})", trade.getQuantity(), trade.getItemName(), trade.getPrice(), trade.getGeSlot());
+                log.info("Recorded buy: {}x {} @ {}gp (slot {})",
+                    trade.getQuantity(), trade.getItemName(),
+                    trade.getPrice(), trade.getGeSlot());
             }
             else
             {
@@ -142,15 +139,6 @@ public class FlipTracker
                         completedFlip.getBuyPrice(), completedFlip.getSellPrice(), profit);
 
                     // Record flip completion in debug manager
-                    if (debugManager != null)
-                    {
-                        debugManager.recordEvent("FLIP_COMPLETED",
-                            String.format("%dx | Buy: %dgp Sell: %dgp | Profit: %dgp",
-                                completedFlip.getQuantity(),
-                                completedFlip.getBuyPrice(), completedFlip.getSellPrice(), profit),
-                            completedFlip.getItemName());
-                    }
-
                     // Notify listener outside the critical section to avoid deadlocks
                     FlipItem flipToNotify = completedFlip;
 
@@ -416,7 +404,8 @@ public class FlipTracker
 
         try (Writer writer = new BufferedWriter(new FileWriter(csvFile)))
         {
-            writer.write("item_id,item_name,quantity,buy_price,sell_price,tax,profit,roi_percent,gp_per_hour,buy_time,sell_time,duration_seconds\n");
+            writer.write("item_id,item_name,quantity,buy_price,sell_price,tax,profit,"
+                + "roi_percent,gp_per_hour,buy_time,sell_time,duration_seconds\n");
             synchronized (completedFlips)
             {
                 for (FlipItem flip : completedFlips)

@@ -23,7 +23,7 @@ dependencies {
 }
 
 group = 'com.fliphelper'
-version = '2.0.0'
+version = '1.0.0'
 sourceCompatibility = '11'
 targetCompatibility = '11'
 
@@ -32,12 +32,15 @@ tasks.withType(JavaCompile) {
 }
 
 jar {
+    from('.') {
+        include 'runelite-plugin.properties'
+    }
     manifest {
         attributes(
             'Plugin-Id': 'grand-flip-out',
             'Plugin-Provider': 'Tunatroll',
             'Plugin-Version': version,
-            'Plugin-Description': 'GE flipping helper with live prices, flip suggestions, profit tracking, and dump alerts'
+            'Plugin-Description': 'GE flipping assistant with OSRS Wiki pricing, top-flip suggestions ranked by realistic 4h profit, GE tax math, and local flip P&L tracking. Information-only.'
         )
     }
 }
