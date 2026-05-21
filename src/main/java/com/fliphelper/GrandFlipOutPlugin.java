@@ -10,6 +10,7 @@ import com.fliphelper.ui.GrandFlipOutPanel;
 import com.google.gson.Gson;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
@@ -338,6 +339,21 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             copyCurrentMarginToClipboard();
             e.consume();
         }
+        else if (config.copyBuyPriceHotkey().matches(e))
+        {
+            executor.execute(() -> copyPriceAssist(true));
+            e.consume();
+        }
+        else if (config.copySellPriceHotkey().matches(e))
+        {
+            executor.execute(() -> copyPriceAssist(false));
+            e.consume();
+        }
+        else if (config.copySlotAssistHotkey().matches(e))
+        {
+            executor.execute(this::copySlotAssistBlock);
+            e.consume();
+        }
     }
 
     @Override
@@ -430,6 +446,117 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         final String query = prefill;
         javax.swing.SwingUtilities.invokeLater(() -> panel.openQuickLookup(query));
+    }
+
+    private void copyPriceAssist(boolean buySide)
+    {
+        PriceContext ctx = resolvePriceContext();
+        if (ctx == null)
+        {
+            return;
+        }
+
+        int pct = Math.max(1, config.marginAssistPercent());
+        long base = buySide ? ctx.buyPrice : ctx.sellPrice;
+        long lower = Math.max(1, Math.round(base * (100 - pct) / 100.0));
+        long upper = Math.max(1, Math.round(base * (100 + pct) / 100.0));
+        String side = buySide ? "BUY" : "SELL";
+
+        String payload = String.format(
+            "ITEM: %s%n%s_BASE: %d%n%s_MINUS_%d%%: %d%n%s_PLUS_%d%%: %d%nNOTE: Clipboard assist only. Paste and confirm manually in GE.",
+            ctx.itemName, side, base, side, pct, lower, side, pct, upper
+        );
+        copyToClipboard(payload);
+
+        client.addChatMessage(
+            ChatMessageType.GAMEMESSAGE,
+            "",
+            String.format("Grand Flip Out: copied %s assist for %s.", side.toLowerCase(), ctx.itemName),
+            null
+        );
+    }
+
+    private void copySlotAssistBlock()
+    {
+        PriceContext ctx = resolvePriceContext();
+        if (ctx == null)
+        {
+            return;
+        }
+
+        int pct = Math.max(1, config.marginAssistPercent());
+        long buyLower = Math.max(1, Math.round(ctx.buyPrice * (100 - pct) / 100.0));
+        long buyUpper = Math.max(1, Math.round(ctx.buyPrice * (100 + pct) / 100.0));
+        long sellLower = Math.max(1, Math.round(ctx.sellPrice * (100 - pct) / 100.0));
+        long sellUpper = Math.max(1, Math.round(ctx.sellPrice * (100 + pct) / 100.0));
+        long taxPerItem = Math.min((long) (ctx.sellPrice * 0.02), 5_000_000L);
+        long netPerItem = ctx.sellPrice - ctx.buyPrice - taxPerItem;
+        int qtyHint = ctx.buyLimit > 0 ? Math.min(ctx.buyLimit, 1000) : 1;
+
+        String payload = String.format(
+            "ITEM: %s%nBUY: %d (-%d%% %d | +%d%% %d)%nSELL: %d (-%d%% %d | +%d%% %d)%nQTY_HINT: %d%nTAX_PER_ITEM: %d%nNET_PER_ITEM: %d%nNOTE: Manual assist only.",
+            ctx.itemName,
+            ctx.buyPrice, pct, buyLower, pct, buyUpper,
+            ctx.sellPrice, pct, sellLower, pct, sellUpper,
+            qtyHint, taxPerItem, netPerItem
+        );
+        copyToClipboard(payload);
+
+        client.addChatMessage(
+            ChatMessageType.GAMEMESSAGE,
+            "",
+            String.format("Grand Flip Out: copied slot assist block for %s.", ctx.itemName),
+            null
+        );
+    }
+
+    private PriceContext resolvePriceContext()
+    {
+        if (!flipTracker.getActiveFlips().isEmpty())
+        {
+            FlipItem firstFlip = flipTracker.getActiveFlips().values().iterator().next();
+            var agg = priceService.getPrice(firstFlip.getItemId());
+            if (agg != null)
+            {
+                return new PriceContext(
+                    agg.getItemName(),
+                    agg.getBestLowPrice(),
+                    agg.getBestHighPrice(),
+                    agg.getBuyLimit()
+                );
+            }
+        }
+
+        client.addChatMessage(
+            ChatMessageType.GAMEMESSAGE,
+            "",
+            "Grand Flip Out: no active item found for clipboard assist.",
+            null
+        );
+        return null;
+    }
+
+    private void copyToClipboard(String payload)
+    {
+        java.awt.datatransfer.StringSelection selection =
+            new java.awt.datatransfer.StringSelection(payload);
+        java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+    }
+
+    private static final class PriceContext
+    {
+        private final String itemName;
+        private final long buyPrice;
+        private final long sellPrice;
+        private final int buyLimit;
+
+        private PriceContext(String itemName, long buyPrice, long sellPrice, int buyLimit)
+        {
+            this.itemName = itemName;
+            this.buyPrice = buyPrice;
+            this.sellPrice = sellPrice;
+            this.buyLimit = buyLimit;
+        }
     }
 
 }

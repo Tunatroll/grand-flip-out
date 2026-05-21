@@ -331,6 +331,36 @@ public class GrandFlipOutPanel extends PluginPanel
 
         return panel;
     }
+
+    private JPanel buildHotkeyAssistCard()
+    {
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBackground(new Color(0x15, 0x15, 0x1F));
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            new EmptyBorder(8, 10, 8, 10)
+        ));
+        card.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
+
+        JLabel title = new JLabel("Hotkey Assist (manual entry)");
+        title.setForeground(BRAND_GOLD);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 11f));
+        card.add(title);
+        card.add(Box.createVerticalStrut(4));
+
+        card.add(createCompactLabel("Ctrl+Shift+B  Copy buy +/- margin assist"));
+        card.add(createCompactLabel("Ctrl+Shift+S  Copy sell +/- margin assist"));
+        card.add(createCompactLabel("Ctrl+Shift+G  Copy full slot assist block"));
+
+        JLabel note = createCompactLabel("No auto-submit; you still confirm everything manually.");
+        note.setForeground(TEXT_DIM);
+        note.setBorder(new EmptyBorder(4, 0, 0, 0));
+        card.add(note);
+        return card;
+    }
+
     private JPanel buildHistoryTab()
     {
         JPanel panel = new JPanel(new BorderLayout());
@@ -416,6 +446,8 @@ public class GrandFlipOutPanel extends PluginPanel
     public void updateFlipsTab()
     {
         activeFlipsPanel.removeAll();
+        activeFlipsPanel.add(buildHotkeyAssistCard());
+        activeFlipsPanel.add(Box.createVerticalStrut(8));
 
         if (flipTracker.getActiveFlips().isEmpty())
         {
