@@ -1,66 +1,26 @@
-# Build artifacts
+# Gradle
 build/
 .gradle/
-*.class
 *.jar
-dist/
+*.class
+*.log
 
 # IDE
 .idea/
 *.iml
 .vscode/
-.cursor/
 *.swp
+*.swo
+*~
 
-# Node
-node_modules/
+# OS
+.DS_Store
+.project
+.classpath
+.settings/
 
-# Python
-__pycache__/
-*.pyc
-.venv/
-
-# Environment / Secrets
-.env
-discord-bot/.env
-
-# Logs
-*.log
-server/logs/
-
-# Runtime data (generated, not source)
-server/data/*.bak
-server/data/lifetime-prices.json
-server/data/historical-prices.json
-server/data/historical-fetch-log.json
-server/data/hot-items.json
-discord-bot/gfo_tokens.json
-discord-bot/flip_sessions.db
-discord-bot/user_alerts.json
-discord-bot/user_portfolios.json
-
-# Generated docs / archives (keep source, not compiled)
-Grand-Flip-Out-Full-Package.zip
-Grand_Flip_Out_Full_Codebase.txt
-*.docx
-*.pdf
-
-# Backups (local only)
-backups/
-
-# Devtools secrets
-devtools/.env
-
-# Claude config
-.claude/
-
-# Temp / junk files
-ziihXcBp
-ziNSoUYd
-temp-ecosystem/
-temp-recovery/
-DELIVERABLES.txt
-QUICK_START.md
-README_UPGRADE.md
-UPGRADE_SUMMARY.md
-IMPLEMENTATION_GUIDE.md
+# Runtime
+*.db
+*.json
+logs/
+data/

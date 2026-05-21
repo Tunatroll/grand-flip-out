@@ -338,9 +338,7 @@ public class ProfitChartPanel extends JPanel
             {
                 int zy = PAD_T + (int)((maxP * ch) / rangeP);
                 g2.setColor(AXIS_COLOR);
-                g2.setStroke(new BasicStroke(
-                    1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
-                    1f, new float[]{4, 3}, 0));
+                g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 1f, new float[]{4,3}, 0));
                 g2.drawLine(PAD_L, zy, PAD_L + cw, zy);
                 g2.setStroke(new BasicStroke(1f));
             }
@@ -365,9 +363,7 @@ public class ProfitChartPanel extends JPanel
             long finalProfit = points.get(points.size()-1)[1];
             Color lineCol = finalProfit >= 0 ? PROFIT_GREEN : LOSS_RED;
 
-            GradientPaint grad = new GradientPaint(
-                0, PAD_T, withAlpha(lineCol, 60),
-                0, PAD_T + ch, withAlpha(lineCol, 5));
+            GradientPaint grad = new GradientPaint(0, PAD_T, withAlpha(lineCol, 60), 0, PAD_T + ch, withAlpha(lineCol, 5));
             g2.setPaint(grad);
             g2.fill(fill);
 

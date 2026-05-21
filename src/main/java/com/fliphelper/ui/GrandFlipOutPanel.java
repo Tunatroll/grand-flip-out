@@ -1,18 +1,26 @@
 package com.fliphelper.ui;
 
 import com.fliphelper.GrandFlipOutConfig;
+import com.fliphelper.api.MarketSignalClient;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
+import com.fliphelper.tracker.FlipSuggestionEngine;
 import com.fliphelper.tracker.FlipTracker;
 import com.fliphelper.tracker.SessionManager;
+import com.fliphelper.tracker.SmartAdvisor;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.QuantityFormatter;
+
+import com.google.gson.JsonObject;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import java.awt.*;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -22,7 +30,7 @@ import java.util.Map;
 
 /**
  * Main side panel for the Grand Flip Out plugin.
- * Contains tabs for Prices, Flips, History, and Profit Chart.
+ * Contains tabs for Prices, Flips, Suggestions, History, and Settings.
  */
 public class GrandFlipOutPanel extends PluginPanel
 {
@@ -39,16 +47,23 @@ public class GrandFlipOutPanel extends PluginPanel
     private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final FlipTracker flipTracker;
+    private final FlipSuggestionEngine suggestionEngine;
+    private final SmartAdvisor smartAdvisor;
+    private final MarketSignalClient marketSignalClient;
     private ProfitChartPanel profitChartPanel;
 
     private JTabbedPane tabbedPane;
     private JPanel pricesTab;
     private JPanel flipsTab;
+    private JPanel suggestionsTab;
     private JPanel historyTab;
+    private JPanel smartTab;
     private JTextField searchField;
     private JPanel priceResultsPanel;
     private JPanel activeFlipsPanel;
+    private JPanel suggestionsPanel;
     private JPanel historyPanel;
+    private JPanel smartPanel;
 
     // Session stats labels
     private JLabel sessionProfitLabel;
@@ -63,18 +78,37 @@ public class GrandFlipOutPanel extends PluginPanel
     private boolean tabChangeListenerAttached;
 
     public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
-                           FlipTracker flipTracker)
+                           FlipTracker flipTracker, FlipSuggestionEngine suggestionEngine)
     {
-        this(config, priceService, flipTracker, null);
+        this(config, priceService, flipTracker, suggestionEngine, null, null, null);
     }
 
     public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
-                           FlipTracker flipTracker, SessionManager sessionManager)
+                           FlipTracker flipTracker, FlipSuggestionEngine suggestionEngine,
+                           SmartAdvisor smartAdvisor)
+    {
+        this(config, priceService, flipTracker, suggestionEngine, smartAdvisor, null, null);
+    }
+
+    public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
+                           FlipTracker flipTracker, FlipSuggestionEngine suggestionEngine,
+                           SmartAdvisor smartAdvisor, SessionManager sessionManager)
+    {
+        this(config, priceService, flipTracker, suggestionEngine, smartAdvisor, sessionManager, null);
+    }
+
+    public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
+                           FlipTracker flipTracker, FlipSuggestionEngine suggestionEngine,
+                           SmartAdvisor smartAdvisor, SessionManager sessionManager,
+                           MarketSignalClient marketSignalClient)
     {
         super(false);
         this.config = config;
         this.priceService = priceService;
         this.flipTracker = flipTracker;
+        this.suggestionEngine = suggestionEngine;
+        this.smartAdvisor = smartAdvisor;
+        this.marketSignalClient = marketSignalClient;
         this.profitChartPanel = new ProfitChartPanel(flipTracker, sessionManager);
 
         buildPanel();
@@ -97,10 +131,14 @@ public class GrandFlipOutPanel extends PluginPanel
 
         pricesTab = buildPricesTab();
         flipsTab = buildFlipsTab();
+        suggestionsTab = buildSuggestionsTab();
         historyTab = buildHistoryTab();
+        smartTab = buildSmartTab();
 
+        tabbedPane.addTab("Smart", smartTab);
         tabbedPane.addTab("Prices", pricesTab);
         tabbedPane.addTab("Flips", flipsTab);
+        tabbedPane.addTab("Suggest", suggestionsTab);
         tabbedPane.addTab("History", historyTab);
         tabbedPane.addTab("Chart", profitChartPanel);
         styleTabbedPane();
@@ -241,6 +279,12 @@ public class GrandFlipOutPanel extends PluginPanel
         searchBtn.addActionListener(e -> searchItems());
         searchPanel.add(searchBtn, BorderLayout.EAST);
 
+        JButton webChartBtn = new JButton("Web Chart");
+        styleSecondaryButton(webChartBtn);
+        webChartBtn.setToolTipText("Open live web dashboard chart for current search");
+        webChartBtn.addActionListener(e -> openWebChartForSearch());
+        searchPanel.add(webChartBtn, BorderLayout.WEST);
+
         topPanel.add(searchPanel, BorderLayout.CENTER);
 
         // Category filter buttons
@@ -286,6 +330,40 @@ public class GrandFlipOutPanel extends PluginPanel
         return panel;
     }
 
+    private void openWebChartForSearch()
+    {
+        try
+        {
+            String query = searchField != null ? searchField.getText().trim() : "";
+            String base = "https://grandflipout.com/";
+            String url = query.isEmpty()
+                ? base
+                : base + "?q=" + URLEncoder.encode(query, StandardCharsets.UTF_8);
+
+            if (!Desktop.isDesktopSupported())
+            {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "Desktop browser is not supported in this environment.",
+                    "Open Web Chart",
+                    JOptionPane.INFORMATION_MESSAGE
+                );
+                return;
+            }
+
+            Desktop.getDesktop().browse(new URI(url));
+        }
+        catch (Exception ex)
+        {
+            JOptionPane.showMessageDialog(
+                this,
+                "Failed to open web chart: " + ex.getMessage(),
+                "Open Web Chart",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
     private JPanel buildFlipsTab()
     {
         JPanel panel = new JPanel(new BorderLayout());
@@ -297,6 +375,8 @@ public class GrandFlipOutPanel extends PluginPanel
         activeFlipsPanel = new JPanel();
         activeFlipsPanel.setLayout(new BoxLayout(activeFlipsPanel, BoxLayout.Y_AXIS));
         activeFlipsPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        activeFlipsPanel.add(buildHotkeyAssistCard());
+        activeFlipsPanel.add(Box.createVerticalStrut(6));
 
         JScrollPane scrollPane = new JScrollPane(activeFlipsPanel);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
@@ -312,9 +392,7 @@ public class GrandFlipOutPanel extends PluginPanel
         resetBtn.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(
                 GrandFlipOutPanel.this,
-                "Reset session data?\n\n"
-                    + "This will clear all profit/loss tracking for this session.\n"
-                    + "Your flip history will NOT be deleted.",
+                "Reset session data?\n\nThis will clear all profit/loss tracking for this session.\nYour flip history will NOT be deleted.",
                 "Confirm Reset",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE
@@ -330,6 +408,62 @@ public class GrandFlipOutPanel extends PluginPanel
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
+    }
+
+    private JPanel buildSuggestionsTab()
+    {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        JPanel headerPanel = buildSectionHeader("Flip Suggestions");
+
+        JButton refreshBtn = new JButton("Refresh");
+        stylePrimaryButton(refreshBtn);
+        refreshBtn.addActionListener(e -> updateSuggestionsTab());
+        headerPanel.add(refreshBtn, BorderLayout.EAST);
+
+        panel.add(headerPanel, BorderLayout.NORTH);
+
+        suggestionsPanel = new JPanel();
+        suggestionsPanel.setLayout(new BoxLayout(suggestionsPanel, BoxLayout.Y_AXIS));
+        suggestionsPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        JScrollPane scrollPane = new JScrollPane(suggestionsPanel);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        styleScrollPane(scrollPane);
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        return panel;
+    }
+    private JPanel buildHotkeyAssistCard()
+    {
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBackground(new Color(0x15, 0x15, 0x1F));
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            new EmptyBorder(8, 10, 8, 10)
+        ));
+        card.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
+
+        JLabel title = new JLabel("Hotkey Assist (manual entry)");
+        title.setForeground(BRAND_GOLD);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 11f));
+        card.add(title);
+        card.add(Box.createVerticalStrut(4));
+
+        card.add(createCompactLabel("Ctrl+Shift+P  Fill GE chatbox price"));
+        card.add(createCompactLabel("Ctrl+Shift+B  Copy buy +/- margin assist"));
+        card.add(createCompactLabel("Ctrl+Shift+S  Copy sell +/- margin assist"));
+        card.add(createCompactLabel("Ctrl+Shift+G  Copy full slot assist block"));
+
+        JLabel note = createCompactLabel("No auto-submit; you still confirm everything manually.");
+        note.setForeground(TEXT_DIM);
+        note.setBorder(new EmptyBorder(4, 0, 0, 0));
+        card.add(note);
+        return card;
     }
     private JPanel buildHistoryTab()
     {
@@ -371,10 +505,346 @@ public class GrandFlipOutPanel extends PluginPanel
         return panel;
     }
 
+    private JPanel buildSmartTab()
+    {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        JPanel headerPanel = buildSectionHeader("Smart Advisor");
+
+        JButton refreshBtn = new JButton("Analyze");
+        stylePrimaryButton(refreshBtn);
+        refreshBtn.addActionListener(e -> updateSmartTab());
+        headerPanel.add(refreshBtn, BorderLayout.EAST);
+
+        panel.add(headerPanel, BorderLayout.NORTH);
+
+        smartPanel = new JPanel();
+        smartPanel.setLayout(new BoxLayout(smartPanel, BoxLayout.Y_AXIS));
+        smartPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        JScrollPane scrollPane = new JScrollPane(smartPanel);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        styleScrollPane(scrollPane);
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    public void updateSmartTab()
+    {
+        smartPanel.removeAll();
+
+        if (smartAdvisor == null)
+        {
+            JLabel noAdvisor = new JLabel("SmartAdvisor not available.");
+            noAdvisor.setForeground(Color.GRAY);
+            noAdvisor.setBorder(new EmptyBorder(20, 8, 20, 8));
+            smartPanel.add(noAdvisor);
+            smartPanel.revalidate();
+            smartPanel.repaint();
+            return;
+        }
+
+        if (!priceService.isReady())
+        {
+            JLabel loading = new JLabel("Loading price data...");
+            loading.setForeground(Color.GRAY);
+            loading.setBorder(new EmptyBorder(20, 8, 20, 8));
+            smartPanel.add(loading);
+            smartPanel.revalidate();
+            smartPanel.repaint();
+            return;
+        }
+
+        // Get market overview
+        SmartAdvisor.MarketOverview overview = smartAdvisor.getMarketOverview();
+        if (overview != null)
+        {
+            // Market mood banner
+            JPanel moodPanel = new JPanel(new GridLayout(2, 2, 4, 2));
+            moodPanel.setBackground(new Color(0x1A, 0x14, 0x10)); // Dark OSRS
+            moodPanel.setBorder(new EmptyBorder(8, 8, 8, 8));
+            moodPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
+
+            JLabel moodLabel = new JLabel("Market: " + overview.getMarketMood());
+            moodLabel.setForeground(getMoodColor(overview.getMarketMood()));
+            moodLabel.setFont(moodLabel.getFont().deriveFont(Font.BOLD));
+            moodPanel.add(moodLabel);
+
+            JLabel healthLabel = new JLabel("Health: " + overview.getMarketHealthScore() + "/100");
+            healthLabel.setForeground(overview.getMarketHealthScore() >= 50 ? Color.GREEN : Color.RED);
+            moodPanel.add(healthLabel);
+
+            JLabel botLabel = new JLabel("Bots: " + overview.getBotActivity());
+            botLabel.setForeground(Color.ORANGE);
+            moodPanel.add(botLabel);
+
+            JLabel countLabel = new JLabel("Analyzed: " + overview.getTotalItemsAnalyzed());
+            countLabel.setForeground(Color.LIGHT_GRAY);
+            moodPanel.add(countLabel);
+
+            smartPanel.add(moodPanel);
+            smartPanel.add(Box.createVerticalStrut(6));
+
+            // ── Market Analysis status (if enabled & alive) ──
+            if (marketSignalClient != null && marketSignalClient.isAlive())
+            {
+                JPanel nnPanel = new JPanel();
+                nnPanel.setLayout(new BoxLayout(nnPanel, BoxLayout.Y_AXIS));
+                nnPanel.setBackground(new Color(0x0D, 0x17, 0x22));
+                nnPanel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(0x58, 0xA6, 0xFF), 1),
+                    new EmptyBorder(8, 10, 8, 10)
+                ));
+                nnPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
+
+                // Header row
+                JPanel nnHeaderRow = new JPanel(new BorderLayout());
+                nnHeaderRow.setOpaque(false);
+                JLabel nnTitle = new JLabel("Market Analysis");
+                nnTitle.setForeground(new Color(0x58, 0xA6, 0xFF));
+                nnTitle.setFont(nnTitle.getFont().deriveFont(Font.BOLD, 11f));
+                nnHeaderRow.add(nnTitle, BorderLayout.WEST);
+
+                JLabel nnAlive = new JLabel("ONLINE");
+                nnAlive.setForeground(new Color(0x3F, 0xB9, 0x50));
+                nnAlive.setFont(nnAlive.getFont().deriveFont(Font.BOLD, 9f));
+                nnHeaderRow.add(nnAlive, BorderLayout.EAST);
+                nnPanel.add(nnHeaderRow);
+
+                // Status details
+                JsonObject nnStatus = marketSignalClient.getStatus();
+                if (nnStatus != null)
+                {
+                    JPanel nnStats = new JPanel(new GridLayout(1, 3, 4, 0));
+                    nnStats.setOpaque(false);
+
+                    String step = nnStatus.has("step") ? nnStatus.get("step").getAsString() : "?";
+                    JLabel stepLabel = new JLabel("Step: " + step);
+                    stepLabel.setForeground(Color.LIGHT_GRAY);
+                    stepLabel.setFont(stepLabel.getFont().deriveFont(10f));
+                    nnStats.add(stepLabel);
+
+                    String loss = nnStatus.has("loss_ema") ? String.format("%.6f", nnStatus.get("loss_ema").getAsDouble()) : "?";
+                    JLabel lossLabel = new JLabel("Loss: " + loss);
+                    lossLabel.setForeground(Color.LIGHT_GRAY);
+                    lossLabel.setFont(lossLabel.getFont().deriveFont(10f));
+                    nnStats.add(lossLabel);
+
+                    // Mood from bio system
+                    JsonObject bio = marketSignalClient.getBioStatus();
+                    String mood = "?";
+                    if (bio != null && bio.has("emotions"))
+                    {
+                        JsonObject emo = bio.getAsJsonObject("emotions");
+                        if (emo != null && emo.has("mood"))
+                        {
+                            mood = emo.get("mood").getAsString();
+                        }
+                    }
+                    JLabel moodNnLabel = new JLabel("Mood: " + mood);
+                    moodNnLabel.setForeground(new Color(0xD2, 0x99, 0x22));
+                    moodNnLabel.setFont(moodNnLabel.getFont().deriveFont(10f));
+                    nnStats.add(moodNnLabel);
+
+                    nnPanel.add(nnStats);
+                }
+
+                // Insights summary
+                JsonObject insights = marketSignalClient.getInsights();
+                if (insights != null && insights.has("summary"))
+                {
+                    JLabel insightLabel = new JLabel(insights.get("summary").getAsString());
+                    insightLabel.setForeground(new Color(0x8B, 0x94, 0x9E));
+                    insightLabel.setFont(insightLabel.getFont().deriveFont(Font.ITALIC, 10f));
+                    nnPanel.add(insightLabel);
+                }
+
+                smartPanel.add(nnPanel);
+                smartPanel.add(Box.createVerticalStrut(6));
+            }
+
+            // Alerts
+            if (overview.getAlerts() != null && !overview.getAlerts().isEmpty())
+            {
+                for (String alert : overview.getAlerts())
+                {
+                    JLabel alertLabel = new JLabel("  " + alert);
+                    alertLabel.setForeground(Color.YELLOW);
+                    alertLabel.setBorder(new EmptyBorder(2, 8, 2, 8));
+                    alertLabel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
+                    smartPanel.add(alertLabel);
+                }
+                smartPanel.add(Box.createVerticalStrut(6));
+            }
+
+            // Top Smart Picks header
+            JLabel picksHeader = new JLabel("Top Smart Picks");
+            picksHeader.setForeground(new Color(0xD4, 0xAF, 0x37));
+            picksHeader.setFont(picksHeader.getFont().deriveFont(Font.BOLD, 13f));
+            picksHeader.setBorder(new EmptyBorder(4, 8, 4, 8));
+            smartPanel.add(picksHeader);
+
+            // Top picks
+            if (overview.getTopPicks() != null)
+            {
+                for (int i = 0; i < overview.getTopPicks().size(); i++)
+                {
+                    SmartAdvisor.SmartPick pick = overview.getTopPicks().get(i);
+                    smartPanel.add(buildSmartPickCard(pick, i + 1));
+                    smartPanel.add(Box.createVerticalStrut(3));
+                }
+            }
+
+            // Sell warnings
+            if (overview.getTopSells() != null && !overview.getTopSells().isEmpty())
+            {
+                smartPanel.add(Box.createVerticalStrut(8));
+                JLabel sellHeader = new JLabel("Avoid / Sell");
+                sellHeader.setForeground(Color.RED);
+                sellHeader.setFont(sellHeader.getFont().deriveFont(Font.BOLD, 13f));
+                sellHeader.setBorder(new EmptyBorder(4, 8, 4, 8));
+                smartPanel.add(sellHeader);
+
+                for (SmartAdvisor.SmartPick pick : overview.getTopSells())
+                {
+                    smartPanel.add(buildSmartPickCard(pick, 0));
+                    smartPanel.add(Box.createVerticalStrut(3));
+                }
+            }
+        }
+        else
+        {
+            JLabel empty = new JLabel("Click 'Analyze' to run Smart Advisor.");
+            empty.setForeground(Color.GRAY);
+            empty.setBorder(new EmptyBorder(20, 8, 20, 8));
+            smartPanel.add(empty);
+        }
+
+        smartPanel.revalidate();
+        smartPanel.repaint();
+    }
+
+    private JPanel buildSmartPickCard(SmartAdvisor.SmartPick pick, int rank)
+    {
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        card.setBorder(new EmptyBorder(6, 8, 6, 8));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 160));
+
+        // Row 1: Name + Action + Score
+        JPanel row1 = new JPanel(new BorderLayout());
+        row1.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        String prefix = rank > 0 ? "#" + rank + " " : "";
+        JLabel nameLabel = new JLabel(prefix + pick.getItemName());
+        nameLabel.setForeground(Color.WHITE);
+        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD));
+        row1.add(nameLabel, BorderLayout.WEST);
+
+        JLabel scoreLabel = new JLabel(pick.getAction().getLabel() + " (" + pick.getSmartScore() + ")");
+        scoreLabel.setForeground(getActionColor(pick.getAction()));
+        scoreLabel.setFont(scoreLabel.getFont().deriveFont(Font.BOLD));
+        row1.add(scoreLabel, BorderLayout.EAST);
+        card.add(row1);
+
+        // Row 2: Price + Risk + Confidence
+        JPanel row2 = new JPanel(new GridLayout(1, 3, 4, 0));
+        row2.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        row2.add(createInfoLabel("Price: " + formatGp(pick.getCurrentPrice())));
+
+        JLabel riskLabel = new JLabel("Risk: " + pick.getRisk().name());
+        riskLabel.setForeground(getRiskColor(pick.getRisk()));
+        row2.add(riskLabel);
+        row2.add(createInfoLabel("Conf: " + pick.getConfidence().name()));
+        card.add(row2);
+
+        // Row 3: JTI + RSI + Regime
+        JPanel row3 = new JPanel(new GridLayout(1, 3, 4, 0));
+        row3.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        row3.add(createInfoLabel("JTI: " + pick.getJtiScore()));
+        row3.add(createInfoLabel("RSI: " + pick.getRsi()));
+        row3.add(createInfoLabel(pick.getRegime()));
+        card.add(row3);
+
+        // Row 4: Profit estimate + hold time
+        JPanel row4 = new JPanel(new GridLayout(1, 2, 4, 0));
+        row4.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+        JLabel profitLabel = new JLabel("Est: " + formatGp(pick.getEstimatedProfitLow()) + " - " + formatGp(pick.getEstimatedProfitHigh()));
+        profitLabel.setForeground(ColorScheme.GRAND_EXCHANGE_PRICE);
+        row4.add(profitLabel);
+        row4.add(createInfoLabel("Hold: " + pick.getHoldTime()));
+        card.add(row4);
+
+        // Row 5: Reasons (first 2)
+        if (pick.getReasons() != null && !pick.getReasons().isEmpty())
+        {
+            int reasonCount = Math.min(pick.getReasons().size(), 2);
+            for (int i = 0; i < reasonCount; i++)
+            {
+                JLabel reasonLabel = new JLabel("+ " + pick.getReasons().get(i));
+                reasonLabel.setForeground(new Color(0x90, 0xCA, 0x77)); // Light green
+                reasonLabel.setFont(reasonLabel.getFont().deriveFont(10f));
+                card.add(reasonLabel);
+            }
+        }
+
+        // Row 6: Warnings (first 1)
+        if (pick.getWarnings() != null && !pick.getWarnings().isEmpty())
+        {
+            JLabel warnLabel = new JLabel("! " + pick.getWarnings().get(0));
+            warnLabel.setForeground(Color.YELLOW);
+            warnLabel.setFont(warnLabel.getFont().deriveFont(10f));
+            card.add(warnLabel);
+        }
+
+        return card;
+    }
+
+    private Color getActionColor(SmartAdvisor.SmartAction action)
+    {
+        switch (action)
+        {
+            case STRONG_BUY: return new Color(0x00, 0xE6, 0x76); // Bright green
+            case BUY: return Color.GREEN;
+            case HOLD: return Color.YELLOW;
+            case SELL: return Color.ORANGE;
+            case STRONG_SELL: return Color.RED;
+            case AVOID: return Color.DARK_GRAY;
+            default: return Color.WHITE;
+        }
+    }
+
+    private Color getRiskColor(SmartAdvisor.RiskLevel risk)
+    {
+        switch (risk)
+        {
+            case LOW: return Color.GREEN;
+            case MODERATE: return Color.YELLOW;
+            case HIGH: return Color.ORANGE;
+            case EXTREME: return Color.RED;
+            default: return Color.WHITE;
+        }
+    }
+
+    private Color getMoodColor(String mood)
+    {
+        if ("Bullish".equals(mood)) return Color.GREEN;
+        if ("Bearish".equals(mood)) return Color.RED;
+        if ("Volatile".equals(mood)) return Color.ORANGE;
+        return Color.YELLOW; // Neutral
+    }
+
+    // ==================== UPDATE METHODS ====================
+
     public void updateAll()
     {
         SwingUtilities.invokeLater(() -> {
             updateHeader();
+            updateSuggestionsTab();
             updateFlipsTab();
             updateHistoryTab();
             if (profitChartPanel != null) profitChartPanel.update();
@@ -413,9 +883,57 @@ public class GrandFlipOutPanel extends PluginPanel
             }
         }
     }
+
+    public void updateSuggestionsTab()
+    {
+        suggestionsPanel.removeAll();
+
+        if (!priceService.isReady())
+        {
+            JLabel loading = new JLabel("Loading price data...");
+            loading.setForeground(Color.GRAY);
+            loading.setBorder(new EmptyBorder(20, 8, 20, 8));
+            suggestionsPanel.add(loading);
+            suggestionsPanel.revalidate();
+            suggestionsPanel.repaint();
+            return;
+        }
+
+        List<FlipSuggestionEngine.FlipSuggestion> suggestions = suggestionEngine.generateSuggestions();
+
+        for (int i = 0; i < suggestions.size(); i++)
+        {
+            FlipSuggestionEngine.FlipSuggestion s = suggestions.get(i);
+            JPanel card = buildSuggestionCard(s, i + 1);
+            suggestionsPanel.add(card);
+            // Thin separator between cards
+            if (i < suggestions.size() - 1)
+            {
+                JSeparator sep = new JSeparator();
+                sep.setForeground(new Color(0x2A, 0x2A, 0x45));
+                sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+                suggestionsPanel.add(sep);
+            }
+        }
+
+        if (suggestions.isEmpty())
+        {
+            JLabel noResults = new JLabel("No items match criteria. Adjust filter settings.");
+            noResults.setForeground(new Color(0x60, 0x60, 0x80));
+            noResults.setBorder(new EmptyBorder(20, 12, 20, 12));
+            noResults.setHorizontalAlignment(SwingConstants.CENTER);
+            suggestionsPanel.add(noResults);
+        }
+
+        suggestionsPanel.revalidate();
+        suggestionsPanel.repaint();
+    }
+
     public void updateFlipsTab()
     {
         activeFlipsPanel.removeAll();
+        activeFlipsPanel.add(buildHotkeyAssistCard());
+        activeFlipsPanel.add(Box.createVerticalStrut(6));
 
         if (flipTracker.getActiveFlips().isEmpty())
         {
@@ -497,8 +1015,7 @@ public class GrandFlipOutPanel extends PluginPanel
                             summaryPanel.add(Box.createVerticalStrut(4));
                             for (Map.Entry<String, Long> entry : topItems.entrySet())
                             {
-                                JLabel itemLabel = new JLabel(
-                                    "  " + entry.getKey() + ": " + formatGp(entry.getValue()));
+                                JLabel itemLabel = new JLabel("  " + entry.getKey() + ": " + formatGp(entry.getValue()));
                                 itemLabel.setForeground(entry.getValue() >= 0 ? Color.GREEN : Color.RED);
                                 itemLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
                                 summaryPanel.add(itemLabel);
@@ -527,6 +1044,183 @@ public class GrandFlipOutPanel extends PluginPanel
     }
 
     // ==================== CARD BUILDERS ====================
+
+    private JPanel buildSuggestionCard(FlipSuggestionEngine.FlipSuggestion s, int rank)
+    {
+        Color cardBg = new Color(0x1A, 0x1A, 0x2E);
+        Color cardBgAlt = new Color(0x16, 0x16, 0x25);
+
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBackground(cardBg);
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            new EmptyBorder(8, 10, 8, 10)
+        ));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
+
+        // ── Top banner for #1 ──
+        if (rank == 1)
+        {
+            JPanel bannerPanel = new JPanel(new BorderLayout());
+            bannerPanel.setBackground(new Color(0x0A, 0x3D, 0x0A));
+            bannerPanel.setBorder(new EmptyBorder(3, 8, 3, 8));
+            bannerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+            JLabel bannerLabel = new JLabel("\u2B50 TOP PICK");
+            bannerLabel.setForeground(new Color(0xFF, 0xB8, 0x00));
+            bannerLabel.setFont(bannerLabel.getFont().deriveFont(Font.BOLD, 10f));
+            bannerPanel.add(bannerLabel, BorderLayout.WEST);
+            card.add(bannerPanel);
+            card.add(Box.createVerticalStrut(4));
+        }
+
+        // ── Row 1: Rank + Name (left) | Grade badge (right) ──
+        JPanel row1 = new JPanel(new BorderLayout());
+        row1.setOpaque(false);
+        JLabel rankLabel = new JLabel("#" + rank);
+        rankLabel.setForeground(new Color(0x60, 0x60, 0x80));
+        rankLabel.setFont(rankLabel.getFont().deriveFont(Font.BOLD, 11f));
+        JLabel nameLabel = new JLabel(" " + s.getItemName());
+        nameLabel.setForeground(Color.WHITE);
+        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 13f));
+        JPanel nameGroup = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        nameGroup.setOpaque(false);
+        nameGroup.add(rankLabel);
+        nameGroup.add(nameLabel);
+        row1.add(nameGroup, BorderLayout.WEST);
+
+        // Grade as a colored badge
+        Color gradeColor = getQfGradeColor(s.getQfGrade());
+        JLabel gradeLabel = new JLabel(" " + s.getQfGrade() + " " + s.getQfScore() + " ");
+        gradeLabel.setForeground(Color.WHITE);
+        gradeLabel.setOpaque(true);
+        gradeLabel.setBackground(gradeColor.darker());
+        gradeLabel.setFont(gradeLabel.getFont().deriveFont(Font.BOLD, 10f));
+        row1.add(gradeLabel, BorderLayout.EAST);
+        card.add(row1);
+        card.add(Box.createVerticalStrut(6));
+
+        // ── Row 2: JTI Progress Bar ──
+        int jtiScore = s.getQfScore();
+        JPanel jtiRow = new JPanel(new BorderLayout(6, 0));
+        jtiRow.setOpaque(false);
+        jtiRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 16));
+        JLabel jtiLabel = new JLabel("JTI");
+        jtiLabel.setForeground(new Color(0x60, 0x60, 0x80));
+        jtiLabel.setFont(jtiLabel.getFont().deriveFont(Font.BOLD, 9f));
+        jtiRow.add(jtiLabel, BorderLayout.WEST);
+        JProgressBar jtiBar = new JProgressBar(0, 100);
+        jtiBar.setValue(Math.min(jtiScore, 100));
+        jtiBar.setStringPainted(true);
+        jtiBar.setString(String.valueOf(jtiScore));
+        jtiBar.setFont(jtiBar.getFont().deriveFont(Font.BOLD, 9f));
+        jtiBar.setBackground(new Color(0x0F, 0x0F, 0x17));
+        jtiBar.setForeground(jtiScore >= 70 ? new Color(0x00, 0xD2, 0x6A) : jtiScore >= 40 ? new Color(0xFF, 0xB8, 0x00) : new Color(0xFF, 0x47, 0x57));
+        jtiBar.setBorderPainted(false);
+        jtiRow.add(jtiBar, BorderLayout.CENTER);
+        card.add(jtiRow);
+        card.add(Box.createVerticalStrut(6));
+
+        // ── Row 3: Buy / Sell / Margin in mini-cards ──
+        JPanel priceRow = new JPanel(new GridLayout(1, 3, 4, 0));
+        priceRow.setOpaque(false);
+
+        JPanel buyCard = buildStatMiniCard();
+        JLabel buyTitle = new JLabel("BUY");
+        buyTitle.setForeground(new Color(0x60, 0x60, 0x80));
+        buyTitle.setFont(buyTitle.getFont().deriveFont(Font.BOLD, 8f));
+        buyCard.add(buyTitle, BorderLayout.NORTH);
+        JLabel buyVal = new JLabel(formatGp(s.getBuyPrice()));
+        buyVal.setForeground(new Color(0x00, 0xD2, 0x6A));
+        buyVal.setFont(buyVal.getFont().deriveFont(Font.BOLD, 11f));
+        buyCard.add(buyVal, BorderLayout.CENTER);
+        priceRow.add(buyCard);
+
+        JPanel sellCard = buildStatMiniCard();
+        JLabel sellTitle = new JLabel("SELL");
+        sellTitle.setForeground(new Color(0x60, 0x60, 0x80));
+        sellTitle.setFont(sellTitle.getFont().deriveFont(Font.BOLD, 8f));
+        sellCard.add(sellTitle, BorderLayout.NORTH);
+        JLabel sellVal = new JLabel(formatGp(s.getSellPrice()));
+        sellVal.setForeground(new Color(0xFF, 0x47, 0x57));
+        sellVal.setFont(sellVal.getFont().deriveFont(Font.BOLD, 11f));
+        sellCard.add(sellVal, BorderLayout.CENTER);
+        priceRow.add(sellCard);
+
+        JPanel marginCard = buildStatMiniCard();
+        JLabel marginTitle = new JLabel("MARGIN");
+        marginTitle.setForeground(new Color(0x60, 0x60, 0x80));
+        marginTitle.setFont(marginTitle.getFont().deriveFont(Font.BOLD, 8f));
+        marginCard.add(marginTitle, BorderLayout.NORTH);
+        JLabel marginVal = new JLabel(formatGp(s.getMargin()));
+        marginVal.setForeground(new Color(0xFF, 0xB8, 0x00));
+        marginVal.setFont(marginVal.getFont().deriveFont(Font.BOLD, 11f));
+        marginCard.add(marginVal, BorderLayout.CENTER);
+        priceRow.add(marginCard);
+
+        card.add(priceRow);
+        card.add(Box.createVerticalStrut(4));
+
+        // ── Row 4: Volume | Limit | ROI | Fill time ──
+        JPanel metaRow = new JPanel(new GridLayout(1, 4, 4, 0));
+        metaRow.setOpaque(false);
+        metaRow.add(createMetaLabel("Vol/1h", QuantityFormatter.formatNumber(s.getVolume1h())));
+        metaRow.add(createMetaLabel("Limit", QuantityFormatter.formatNumber(s.getBuyLimit())));
+        metaRow.add(createMetaLabel("ROI", String.format("%.1f%%", s.getRoi())));
+        String timeline = estimateFlipTimeline(s.getVolume1h(), s.getBuyLimit());
+        metaRow.add(createMetaLabel("Fill", timeline));
+        card.add(metaRow);
+        card.add(Box.createVerticalStrut(4));
+
+        // ── Row 5: Profit/Limit + Capital ──
+        JPanel profitRow = new JPanel(new GridLayout(1, 2, 4, 0));
+        profitRow.setOpaque(false);
+        JLabel pLabel = new JLabel("Profit/Limit: " + formatGp(s.getProfitPerLimit()));
+        pLabel.setForeground(new Color(0xFF, 0xB8, 0x00));
+        pLabel.setFont(pLabel.getFont().deriveFont(Font.BOLD, 11f));
+        profitRow.add(pLabel);
+        JLabel capLabel = new JLabel("Capital: " + formatGp(s.getCapitalRequired()));
+        capLabel.setForeground(Color.LIGHT_GRAY);
+        profitRow.add(capLabel);
+        card.add(profitRow);
+        card.add(Box.createVerticalStrut(6));
+
+        // ── Row 6: Action buttons ──
+        JPanel actionPanel = new JPanel(new GridLayout(1, 2, 6, 0));
+        actionPanel.setOpaque(false);
+        actionPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+
+        JButton copyBuyBtn = new JButton("Copy Buy");
+        styleActionButton(copyBuyBtn, new Color(0x0A, 0x5C, 0x2E));
+        copyBuyBtn.addActionListener(e -> {
+            java.awt.datatransfer.StringSelection sel =
+                new java.awt.datatransfer.StringSelection(String.valueOf(s.getBuyPrice()));
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(sel, null);
+            copyBuyBtn.setText("\u2713 Copied");
+            Timer timer = new Timer(1200, ev -> copyBuyBtn.setText("Copy Buy"));
+            timer.setRepeats(false);
+            timer.start();
+        });
+        actionPanel.add(copyBuyBtn);
+
+        JButton copySellBtn = new JButton("Copy Sell");
+        styleActionButton(copySellBtn, new Color(0x5C, 0x0A, 0x0A));
+        copySellBtn.addActionListener(e -> {
+            java.awt.datatransfer.StringSelection sel =
+                new java.awt.datatransfer.StringSelection(String.valueOf(s.getSellPrice()));
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(sel, null);
+            copySellBtn.setText("\u2713 Copied");
+            Timer timer = new Timer(1200, ev -> copySellBtn.setText("Copy Sell"));
+            timer.setRepeats(false);
+            timer.start();
+        });
+        actionPanel.add(copySellBtn);
+
+        card.add(actionPanel);
+
+        return card;
+    }
+
     /**
      * Style a small action button with consistent look.
      */
@@ -658,6 +1352,20 @@ public class GrandFlipOutPanel extends PluginPanel
         return p;
     }
 
+    private Color getQfGradeColor(String grade)
+    {
+        if (grade == null) return Color.GRAY;
+        switch (grade)
+        {
+            case "S": return new Color(0x00, 0xFF, 0xFF); // Cyan — legendary
+            case "A": return new Color(0x00, 0xE6, 0x76); // Bright green
+            case "B": return Color.GREEN;
+            case "C": return Color.YELLOW;
+            case "F": return Color.RED;
+            default: return Color.GRAY;
+        }
+    }
+
     private JPanel buildFlipCard(com.fliphelper.model.FlipItem flip)
     {
         Color cardBg = new Color(0x1A, 0x1A, 0x2E);
@@ -713,8 +1421,7 @@ public class GrandFlipOutPanel extends PluginPanel
             JPanel profitRow = new JPanel(new BorderLayout());
             profitRow.setOpaque(false);
             JLabel expectedLabel = new JLabel("Expected Profit: " + formatGp(expectedProfit));
-            expectedLabel.setForeground(expectedProfit >= 0
-                ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
+            expectedLabel.setForeground(expectedProfit >= 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
             expectedLabel.setFont(expectedLabel.getFont().deriveFont(Font.BOLD, 11f));
             profitRow.add(expectedLabel, BorderLayout.WEST);
             card.add(profitRow);
@@ -815,24 +1522,16 @@ public class GrandFlipOutPanel extends PluginPanel
         switch (category)
         {
             case "Weapons":
-                return name.matches(".*(sword|scimitar|bow|crossbow|arrow|bolt|dart|javelin|"
-                    + "knife|mace|warhammer|battleaxe|halberd|spear|hasta|staff|wand|"
-                    + "blowpipe|whip|dagger|claws|godsword|rapier|tentacle|trident).*");
+                return name.matches(".*(sword|scimitar|bow|crossbow|arrow|bolt|dart|javelin|knife|mace|warhammer|battleaxe|halberd|spear|hasta|staff|wand|blowpipe|whip|dagger|claws|godsword|rapier|tentacle|trident).*");
 
             case "Armor":
-                return name.matches(".*(helm|helmet|platebody|chainbody|platelegs|plateskirt|"
-                    + "shield|defender|boots|gloves|gauntlets|cape|ring|amulet|necklace|"
-                    + "bracelet|coif|chaps).*");
+                return name.matches(".*(helm|helmet|platebody|chainbody|platelegs|plateskirt|shield|defender|boots|gloves|gauntlets|cape|ring|amulet|necklace|bracelet|coif|chaps).*");
 
             case "Consumables":
-                return name.matches(".*(potion|brew|restore|prayer|food|shark|lobster|swordfish|"
-                    + "tuna|monkfish|karambwan|anglerfish|manta|pie|cake|stew|combo|antifire|"
-                    + "antivenom|super|ranging|sara|zamor|guthix).*");
+                return name.matches(".*(potion|brew|restore|prayer|food|shark|lobster|swordfish|tuna|monkfish|karambwan|anglerfish|manta|pie|cake|stew|combo|antifire|antivenom|super|ranging|sara|zamor|guthix).*");
 
             case "Resources":
-                return name.matches(".*(ore|bar|log|plank|herb|seed|rune|essence|bone|ash|"
-                    + "hide|leather|gem|diamond|ruby|emerald|sapphire|onyx|dragonstone|"
-                    + "scale|feather|coal|clay|flax).*");
+                return name.matches(".*(ore|bar|log|plank|herb|seed|rune|essence|bone|ash|hide|leather|gem|diamond|ruby|emerald|sapphire|onyx|dragonstone|scale|feather|coal|clay|flax).*");
 
             default:
                 return false;
@@ -1166,4 +1865,34 @@ public class GrandFlipOutPanel extends PluginPanel
         return (seconds / 3600) + "h " + ((seconds % 3600) / 60) + "m";
     }
 
+    /**
+     * Estimate how long a flip cycle will take based on trade volume.
+     */
+    private String estimateFlipTimeline(long volume1h, int buyLimit)
+    {
+        if (volume1h <= 0 || buyLimit <= 0)
+        {
+            return "Unknown";
+        }
+
+        // Estimate based on volume: if volume/h >> limit, it's fast
+        double hoursToFill = (double) buyLimit / Math.max(volume1h / 2.0, 1);
+
+        if (hoursToFill < 0.1)
+        {
+            return "<5 min";
+        }
+        else if (hoursToFill < 0.5)
+        {
+            return "~" + (int)(hoursToFill * 60) + " min";
+        }
+        else if (hoursToFill < 4)
+        {
+            return String.format("~%.1f hrs", hoursToFill);
+        }
+        else
+        {
+            return "4h+ (limit cycle)";
+        }
+    }
 }
