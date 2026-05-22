@@ -93,11 +93,23 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
+        keyName = "enableServerFlipRecord",
+        name = "Send Flips to GFO Server",
+        description = "When a flip completes, POST outcome to grandflipout.com for verified accuracy (opt-in, on by default).",
+        section = flipTrackerSection,
+        position = 1
+    )
+    default boolean enableServerFlipRecord()
+    {
+        return true;
+    }
+
+    @ConfigItem(
         keyName = "persistHistory",
         name = "Save Flip History",
         description = "Save flip history between sessions (stored locally only).",
         section = flipTrackerSection,
-        position = 1
+        position = 2
     )
     default boolean persistHistory()
     {
@@ -109,7 +121,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Max History Entries",
         description = "Maximum number of flip records to retain in local history.",
         section = flipTrackerSection,
-        position = 2
+        position = 3
     )
     @Range(min = 50, max = 10000)
     default int maxHistoryEntries()

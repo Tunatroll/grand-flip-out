@@ -125,6 +125,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         priceService = new PriceService(okHttpClient, config, gson);
         gfoServerClient = new GfoServerClient(okHttpClient, config, gson);
         flipTracker = new FlipTracker(config, DATA_DIR, gson);
+        flipTracker.setFlipCompleteListener(flip -> {
+            if (config.enableServerFlipRecord() && gfoServerClient != null)
+            {
+                executor.execute(() -> gfoServerClient.recordFlip(flip));
+            }
+        });
 
         // Initialize session tracking
         sessionManager = new SessionManager(DATA_DIR.getAbsolutePath(), gson);

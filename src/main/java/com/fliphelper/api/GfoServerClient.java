@@ -1,14 +1,17 @@
 package com.fliphelper.api;
 
 import com.fliphelper.GrandFlipOutConfig;
+import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.ServerOpportunity;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 
 import java.io.IOException;
@@ -25,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 public class GfoServerClient
 {
     private static final int TIMEOUT_SEC = 8;
+    private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
     private final OkHttpClient httpClient;
     private final GrandFlipOutConfig config;
@@ -133,6 +137,56 @@ public class GfoServerClient
         {
             lastError = e.getMessage();
             log.debug("GFO server poll error: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * POST completed flip to GFO for federation + signal ledger (opt-in, on by default).
+     */
+    public void recordFlip(FlipItem flip)
+    {
+        if (!config.enableServerFlipRecord() || flip == null || !flip.isComplete())
+        {
+            return;
+        }
+
+        String base = config.serverBaseUrl();
+        if (base == null || base.trim().isEmpty())
+        {
+            return;
+        }
+
+        JsonObject body = new JsonObject();
+        body.addProperty("item_id", flip.getItemId());
+        body.addProperty("item_name", flip.getItemName());
+        body.addProperty("buy_price", flip.getBuyPrice());
+        body.addProperty("sell_price", flip.getSellPrice());
+        body.addProperty("quantity", flip.getQuantity());
+        body.addProperty("profit", flip.getProfit());
+        body.addProperty("source", "plugin");
+        body.addProperty("hold_time_sec", flip.getFlipDurationSeconds());
+        body.addProperty("tax_applied", true);
+
+        String url = base.replaceAll("/+$", "") + "/api/flips/record";
+        Request request = new Request.Builder()
+            .url(url)
+            .header("User-Agent", config.userAgent())
+            .header("Accept", "application/json")
+            .post(RequestBody.create(body.toString(), JSON))
+            .build();
+
+        try (Response response = httpClient.newCall(request).execute())
+        {
+            if (!response.isSuccessful())
+            {
+                log.debug("GFO flip record failed: HTTP {}", response.code());
+                return;
+            }
+            log.debug("GFO flip recorded: {} profit {}gp", flip.getItemName(), flip.getProfit());
+        }
+        catch (IOException e)
+        {
+            log.debug("GFO flip record error: {}", e.getMessage());
         }
     }
 }
