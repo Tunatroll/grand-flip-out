@@ -1,5 +1,6 @@
 package com.fliphelper;
 
+import com.fliphelper.api.GfoServerClient;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.ui.GpDropOverlay;
 import com.fliphelper.model.FlipItem;
@@ -94,6 +95,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private ScheduledExecutorService executor;
 
     private PriceService priceService;
+    private GfoServerClient gfoServerClient;
     private FlipTracker flipTracker;
     private SessionManager sessionManager;
     private GrandFlipOutPanel panel;
@@ -101,6 +103,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private GpDropOverlay gpDropOverlay;
     private NavigationButton navButton;
     private ScheduledFuture<?> refreshFuture;
+    private ScheduledFuture<?> serverPollFuture;
     // Track GE offer states to detect completions
     private final int[] lastOfferQuantity = new int[8];
     private final GrandExchangeOfferState[] lastOfferState = new GrandExchangeOfferState[8];
@@ -120,6 +123,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
+        gfoServerClient = new GfoServerClient(okHttpClient, config, gson);
         flipTracker = new FlipTracker(config, DATA_DIR, gson);
 
         // Initialize session tracking
@@ -152,6 +156,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             config.priceRefreshInterval(),
             TimeUnit.SECONDS
         );
+        rescheduleServerPoll();
 
         log.info("Grand Flip Out started successfully");
     }
@@ -165,6 +170,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             refreshFuture.cancel(false);
             refreshFuture = null;
+        }
+
+        if (serverPollFuture != null)
+        {
+            serverPollFuture.cancel(false);
+            serverPollFuture = null;
         }
 
         if (priceService != null)
@@ -292,6 +303,44 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             );
         }
 
+        if ("enableServerPoll".equals(event.getKey())
+            || "serverPollInterval".equals(event.getKey())
+            || "serverBaseUrl".equals(event.getKey()))
+        {
+            rescheduleServerPoll();
+        }
+
+    }
+
+    private void rescheduleServerPoll()
+    {
+        if (serverPollFuture != null)
+        {
+            serverPollFuture.cancel(false);
+            serverPollFuture = null;
+        }
+        if (!config.enableServerPoll())
+        {
+            return;
+        }
+        int interval = Math.max(120, config.serverPollInterval());
+        executor.execute(this::pollServerOpportunities);
+        serverPollFuture = executor.scheduleAtFixedRate(
+            this::pollServerOpportunities,
+            interval,
+            interval,
+            TimeUnit.SECONDS
+        );
+    }
+
+    private void pollServerOpportunities()
+    {
+        if (!config.enableServerPoll() || gfoServerClient == null || panel == null)
+        {
+            return;
+        }
+        gfoServerClient.refreshIfEnabled();
+        panel.updateServerOpportunities(gfoServerClient.getLastOpportunities(), gfoServerClient.getLastError());
     }
 
     // ==================== HOTKEY HANDLING ====================

@@ -43,6 +43,13 @@ public interface GrandFlipOutConfig extends Config
     )
     String hotkeysSection = "hotkeys";
 
+    @ConfigSection(
+        name = "Optional Server",
+        description = "Read-only poll of GFO market picks (off by default)",
+        position = 4
+    )
+    String optionalServerSection = "optionalServer";
+
     // ==================== DATA SOURCE ====================
 
     @ConfigItem(
@@ -281,5 +288,57 @@ public interface GrandFlipOutConfig extends Config
     default Keybind copySlotAssistHotkey()
     {
         return new Keybind(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+    }
+
+    // ==================== OPTIONAL SERVER (PR4) ====================
+
+    @ConfigItem(
+        keyName = "enableServerPoll",
+        name = "Enable Server Picks",
+        description = "Poll GFO for ranked GE opportunities (read-only). Off by default.",
+        section = optionalServerSection,
+        position = 0
+    )
+    default boolean enableServerPoll()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "serverBaseUrl",
+        name = "Server URL",
+        description = "GFO server base URL, e.g. https://grandflipout.com",
+        section = optionalServerSection,
+        position = 1
+    )
+    default String serverBaseUrl()
+    {
+        return "https://grandflipout.com";
+    }
+
+    @ConfigItem(
+        keyName = "serverPollInterval",
+        name = "Poll Interval (seconds)",
+        description = "How often to refresh server picks (minimum 120s).",
+        section = optionalServerSection,
+        position = 2
+    )
+    @Range(min = 120, max = 900)
+    default int serverPollInterval()
+    {
+        return 180;
+    }
+
+    @ConfigItem(
+        keyName = "serverPollMaxItems",
+        name = "Max Server Picks",
+        description = "Maximum opportunities to show from the server.",
+        section = optionalServerSection,
+        position = 3
+    )
+    @Range(min = 3, max = 20)
+    default int serverPollMaxItems()
+    {
+        return 10;
     }
 }
