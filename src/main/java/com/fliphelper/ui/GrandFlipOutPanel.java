@@ -3,6 +3,7 @@ package com.fliphelper.ui;
 import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
+import com.fliphelper.model.ServerOpportunity;
 import com.fliphelper.tracker.FlipTracker;
 import com.fliphelper.tracker.SessionManager;
 import net.runelite.client.ui.ColorScheme;
@@ -45,6 +46,8 @@ public class GrandFlipOutPanel extends PluginPanel
     private JPanel pricesTab;
     private JPanel flipsTab;
     private JPanel historyTab;
+    private JPanel serverPicksTab;
+    private JPanel serverPicksContentPanel;
     private JTextField searchField;
     private JPanel priceResultsPanel;
     private JPanel activeFlipsPanel;
@@ -98,10 +101,12 @@ public class GrandFlipOutPanel extends PluginPanel
         pricesTab = buildPricesTab();
         flipsTab = buildFlipsTab();
         historyTab = buildHistoryTab();
+        serverPicksTab = buildServerPicksTab();
 
         tabbedPane.addTab("Prices", pricesTab);
         tabbedPane.addTab("Flips", flipsTab);
         tabbedPane.addTab("History", historyTab);
+        tabbedPane.addTab("Picks", serverPicksTab);
         tabbedPane.addTab("Chart", profitChartPanel);
         styleTabbedPane();
 
@@ -1196,6 +1201,84 @@ public class GrandFlipOutPanel extends PluginPanel
         if (seconds < 60) return seconds + "s";
         if (seconds < 3600) return (seconds / 60) + "m";
         return (seconds / 3600) + "h " + ((seconds % 3600) / 60) + "m";
+    }
+
+    private JPanel buildServerPicksTab()
+    {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        panel.add(buildSectionHeader("Server Picks (optional)"), BorderLayout.NORTH);
+
+        serverPicksContentPanel = new JPanel();
+        serverPicksContentPanel.setLayout(new BoxLayout(serverPicksContentPanel, BoxLayout.Y_AXIS));
+        serverPicksContentPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        JLabel hint = new JLabel("<html><div style='color:#888;padding:8px'>"
+            + "Enable <b>Optional Server → Enable Server Picks</b> in plugin config.<br>"
+            + "Read-only poll of GFO ranked opportunities.</div></html>");
+        serverPicksContentPanel.add(hint);
+
+        JScrollPane scroll = new JScrollPane(serverPicksContentPanel);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        styleScrollPane(scroll);
+        panel.add(scroll, BorderLayout.CENTER);
+        return panel;
+    }
+
+    public void updateServerOpportunities(List<ServerOpportunity> opps, String error)
+    {
+        if (serverPicksContentPanel == null)
+        {
+            return;
+        }
+        SwingUtilities.invokeLater(() -> {
+            serverPicksContentPanel.removeAll();
+            if (error != null && !error.isEmpty())
+            {
+                JLabel err = new JLabel("Server: " + error);
+                err.setForeground(LOSS_RED);
+                err.setBorder(new EmptyBorder(12, 8, 12, 8));
+                serverPicksContentPanel.add(err);
+            }
+            else if (opps == null || opps.isEmpty())
+            {
+                JLabel empty = new JLabel("No server picks yet.");
+                empty.setForeground(Color.GRAY);
+                empty.setBorder(new EmptyBorder(12, 8, 12, 8));
+                serverPicksContentPanel.add(empty);
+            }
+            else
+            {
+                for (ServerOpportunity opp : opps)
+                {
+                    JPanel row = new JPanel(new BorderLayout());
+                    row.setBackground(PANEL_CARD);
+                    row.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(PANEL_BORDER),
+                        new EmptyBorder(6, 8, 6, 8)
+                    ));
+                    row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
+                    JLabel title = new JLabel(opp.getName());
+                    title.setForeground(Color.WHITE);
+                    title.setFont(title.getFont().deriveFont(Font.BOLD, 12f));
+                    row.add(title, BorderLayout.NORTH);
+                    String meta = String.format("%s · %s · buy %s → sell %s · %.0f GP/hr",
+                        opp.getGrade(),
+                        opp.getSignalType(),
+                        formatGp(opp.getBuyPrice()),
+                        formatGp(opp.getSellPrice()),
+                        opp.getGpPerHour());
+                    JLabel sub = new JLabel(meta);
+                    sub.setForeground(TEXT_DIM);
+                    sub.setFont(sub.getFont().deriveFont(10f));
+                    row.add(sub, BorderLayout.CENTER);
+                    serverPicksContentPanel.add(row);
+                    serverPicksContentPanel.add(Box.createVerticalStrut(4));
+                }
+            }
+            serverPicksContentPanel.revalidate();
+            serverPicksContentPanel.repaint();
+        });
     }
 
 }
