@@ -8,7 +8,6 @@
 
 package com.fliphelper.util;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +23,6 @@ import java.util.List;
 @Slf4j
 public final class TradeLogReader
 {
-    private static final Gson GSON = new Gson();
 
     private TradeLogReader()
     {

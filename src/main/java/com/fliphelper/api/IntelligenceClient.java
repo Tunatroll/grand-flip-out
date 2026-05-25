@@ -8,7 +8,6 @@
 
 package com.fliphelper.api;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import lombok.Value;
@@ -22,7 +21,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Thin read-only client for Grand Flip Out server intelligence (optional, off by default).
@@ -30,8 +28,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class IntelligenceClient
 {
-    private static final Gson GSON = new Gson();
-
     private final OkHttpClient httpClient;
     private final String baseUrl;
 
@@ -43,12 +39,7 @@ public class IntelligenceClient
             normalized = normalized.substring(0, normalized.length() - 1);
         }
         this.baseUrl = normalized;
-        this.httpClient = sharedClient != null
-            ? sharedClient
-            : new OkHttpClient.Builder()
-                .connectTimeout(8, TimeUnit.SECONDS)
-                .readTimeout(12, TimeUnit.SECONDS)
-                .build();
+        this.httpClient = sharedClient;
     }
 
     public SmartAdvisorResult fetchSmartAdvisor(int itemId) throws IOException
