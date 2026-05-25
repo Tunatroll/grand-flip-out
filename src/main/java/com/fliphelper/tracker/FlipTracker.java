@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2026, tuna troll
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the conditions in the BSD
+ * 2-Clause License are met (see repository LICENSE file).
+ */
+
 package com.fliphelper.tracker;
 
 import com.fliphelper.GrandFlipOutConfig;
@@ -11,12 +19,25 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
 import java.lang.reflect.Type;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -125,6 +146,10 @@ public class FlipTracker
                         .sellTime(trade.getTimestamp())
                         .state(FlipState.COMPLETE)
                         .geSlot(trade.getGeSlot())
+                        .sellCoinGp(trade.getCoinGp())
+                        .sellInventoryGp(trade.getInventoryGp())
+                        .sellBankGp(trade.getBankGp())
+                        .sellTotalWealthGp(trade.getTotalWealthGp())
                         .build();
 
                     completedFlips.add(0, completedFlip);
@@ -152,6 +177,8 @@ public class FlipTracker
                     {
                         saveHistory();
                     }
+
+                    appendTradeLogEntry(completedFlip, trade, "ge_event");
 
                     // Notify listener (profile logging, Discord alerts, etc.)
                     if (flipCompleteListener != null)
@@ -184,6 +211,7 @@ public class FlipTracker
             {
                 saveHistory();
             }
+            appendTradeLogEntry(flip, null, "manual_add");
         }
         else
         {
@@ -405,7 +433,8 @@ public class FlipTracker
         try (Writer writer = new BufferedWriter(new FileWriter(csvFile)))
         {
             writer.write("item_id,item_name,quantity,buy_price,sell_price,tax,profit,"
-                + "roi_percent,gp_per_hour,buy_time,sell_time,duration_seconds\n");
+                + "roi_percent,gp_per_hour,buy_time,sell_time,duration_seconds,"
+                + "coin_gp,inventory_gp,bank_gp,total_wealth_gp\n");
             synchronized (completedFlips)
             {
                 for (FlipItem flip : completedFlips)
@@ -416,7 +445,7 @@ public class FlipTracker
                     }
 
                     writer.write(String.format(Locale.US,
-                        "%d,\"%s\",%d,%d,%d,%d,%d,%.2f,%d,%s,%s,%d\n",
+                        "%d,\"%s\",%d,%d,%d,%d,%d,%.2f,%d,%s,%s,%d,%s,%s,%s,%s\n",
                         flip.getItemId(),
                         flip.getItemName().replace("\"", "\"\""),
                         flip.getQuantity(),
@@ -428,12 +457,94 @@ public class FlipTracker
                         flip.getGpPerHour(),
                         dtf.format(flip.getBuyTime()),
                         dtf.format(flip.getSellTime()),
-                        flip.getFlipDurationSeconds()
+                        flip.getFlipDurationSeconds(),
+                        formatCsvLong(flip.getSellCoinGp()),
+                        formatCsvLong(flip.getSellInventoryGp()),
+                        formatCsvLong(flip.getSellBankGp()),
+                        formatCsvLong(flip.getSellTotalWealthGp())
                     ));
                 }
             }
         }
 
         return csvFile.getAbsolutePath();
+    }
+
+    private static String formatCsvLong(Long value)
+    {
+        return value != null ? Long.toString(value) : "";
+    }
+
+    private void appendTradeLogEntry(FlipItem flip, TradeRecord sellTrade, String source)
+    {
+        if (flip == null || !flip.isComplete())
+        {
+            return;
+        }
+
+        try
+        {
+            dataDir.mkdirs();
+            File logFile = new File(dataDir, "trade_log.ndjson");
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("event", "flip_completed");
+            entry.put("source", source);
+            entry.put("timestamp", Instant.now().toString());
+            entry.put("itemId", flip.getItemId());
+            entry.put("itemName", flip.getItemName());
+            entry.put("quantity", flip.getQuantity());
+            entry.put("buyPrice", flip.getBuyPrice());
+            entry.put("sellPrice", flip.getSellPrice());
+            entry.put("tax", flip.getTax());
+            entry.put("profit", flip.getProfit());
+            entry.put("roiPercent", flip.getProfitPercent());
+            entry.put("geSlot", flip.getGeSlot());
+            entry.put("buyTime", flip.getBuyTime() != null ? flip.getBuyTime().toString() : null);
+            entry.put("sellTime", flip.getSellTime() != null ? flip.getSellTime().toString() : null);
+            Long coinGp = null;
+            Long inventoryGp = null;
+            Long bankGp = null;
+            Long totalWealthGp = null;
+            if (sellTrade != null)
+            {
+                coinGp = sellTrade.getCoinGp();
+                inventoryGp = sellTrade.getInventoryGp();
+                bankGp = sellTrade.getBankGp();
+                totalWealthGp = sellTrade.getTotalWealthGp();
+            }
+            else if (flip.getSellTotalWealthGp() != null)
+            {
+                coinGp = flip.getSellCoinGp();
+                inventoryGp = flip.getSellInventoryGp();
+                bankGp = flip.getSellBankGp();
+                totalWealthGp = flip.getSellTotalWealthGp();
+            }
+            if (coinGp != null)
+            {
+                entry.put("coinGp", coinGp);
+            }
+            if (inventoryGp != null)
+            {
+                entry.put("inventoryGp", inventoryGp);
+            }
+            if (bankGp != null)
+            {
+                entry.put("bankGp", bankGp);
+            }
+            if (totalWealthGp != null)
+            {
+                entry.put("totalWealthGp", totalWealthGp);
+            }
+
+            try (Writer writer = new BufferedWriter(new FileWriter(logFile, true)))
+            {
+                writer.write(gson.toJson(entry));
+                writer.write('\n');
+            }
+        }
+        catch (IOException e)
+        {
+            log.debug("Failed to append trade log entry: {}", e.getMessage());
+        }
     }
 }

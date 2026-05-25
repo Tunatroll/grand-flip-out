@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2026, tuna troll
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the conditions in the BSD
+ * 2-Clause License are met (see repository LICENSE file).
+ */
+
 package com.fliphelper.ui;
 
 import com.fliphelper.GrandFlipOutConfig;
@@ -5,19 +13,50 @@ import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.tracker.FlipTracker;
 import com.fliphelper.tracker.SessionManager;
+import com.fliphelper.util.TradeLogEntry;
+import com.fliphelper.util.TradeLogReader;
+import com.fliphelper.util.WealthSnapshot;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.QuantityFormatter;
 
-import javax.swing.*;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
+import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicTabbedPaneUI;
-import java.awt.*;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Desktop;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.GridLayout;
+import java.awt.Rectangle;
+import java.io.File;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -36,10 +75,13 @@ public class GrandFlipOutPanel extends PluginPanel
     private static final Color PANEL_BUTTON = new Color(0x11, 0x11, 0x11);
     private static final Color PANEL_BUTTON_ACTIVE = new Color(0x26, 0x26, 0x26);
 
+    private static final NumberFormat GP_FORMAT = NumberFormat.getIntegerInstance(Locale.US);
+
     private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final FlipTracker flipTracker;
-    private ProfitChartPanel profitChartPanel;
+    private final SessionManager sessionManager;
+    private final File dataDir;
 
     private JTabbedPane tabbedPane;
     private JPanel pricesTab;
@@ -55,7 +97,9 @@ public class GrandFlipOutPanel extends PluginPanel
     private JLabel sessionFlipCountLabel;
     private JLabel avgProfitLabel;
     private JLabel gpPerHourLabel;
+    private JLabel wealthDeltaLabel;
     private JLabel lastRefreshLabel;
+    private String historyFilter = "all";
 
     // Category filtering
     private String selectedCategory = "All";
@@ -65,17 +109,18 @@ public class GrandFlipOutPanel extends PluginPanel
     public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
                            FlipTracker flipTracker)
     {
-        this(config, priceService, flipTracker, null);
+        this(config, priceService, flipTracker, null, null);
     }
 
     public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
-                           FlipTracker flipTracker, SessionManager sessionManager)
+                           FlipTracker flipTracker, SessionManager sessionManager, File dataDir)
     {
         super(false);
         this.config = config;
         this.priceService = priceService;
         this.flipTracker = flipTracker;
-        this.profitChartPanel = new ProfitChartPanel(flipTracker, sessionManager);
+        this.sessionManager = sessionManager;
+        this.dataDir = dataDir;
 
         buildPanel();
     }
@@ -102,7 +147,6 @@ public class GrandFlipOutPanel extends PluginPanel
         tabbedPane.addTab("Prices", pricesTab);
         tabbedPane.addTab("Flips", flipsTab);
         tabbedPane.addTab("History", historyTab);
-        tabbedPane.addTab("Chart", profitChartPanel);
         styleTabbedPane();
 
         add(tabbedPane, BorderLayout.CENTER);
@@ -140,6 +184,21 @@ public class GrandFlipOutPanel extends PluginPanel
         lastRefreshLabel.setFont(lastRefreshLabel.getFont().deriveFont(10f));
         titleRow.add(lastRefreshLabel, BorderLayout.EAST);
         header.add(titleRow);
+        header.add(Box.createVerticalStrut(6));
+
+        JButton recipesBtn = new JButton("Recipe Profits (Web)");
+        recipesBtn.setFont(recipesBtn.getFont().deriveFont(11f));
+        recipesBtn.setForeground(BRAND_GOLD);
+        recipesBtn.setBackground(PANEL_BUTTON);
+        recipesBtn.setFocusPainted(false);
+        recipesBtn.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+        recipesBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        recipesBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        recipesBtn.setToolTipText("Open grandflipout.com recipe margins (herb/gem processing)");
+        recipesBtn.addActionListener(e -> openDashboardUrl("https://grandflipout.com/dashboard.html?page=recipes"));
+        header.add(recipesBtn);
         header.add(Box.createVerticalStrut(8));
 
         // Session stats as mini-cards (2x2 grid for compact layout)
@@ -196,6 +255,23 @@ public class GrandFlipOutPanel extends PluginPanel
 
         header.add(statsRow);
 
+        if (config.showWealthInOverlay())
+        {
+            JPanel wealthRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+            wealthRow.setOpaque(false);
+            wealthRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+            JLabel wealthTitle = new JLabel("WEALTH Δ");
+            wealthTitle.setForeground(TEXT_DIM);
+            wealthTitle.setFont(wealthTitle.getFont().deriveFont(Font.BOLD, 9f));
+            wealthDeltaLabel = new JLabel("—");
+            wealthDeltaLabel.setForeground(BRAND_GOLD);
+            wealthDeltaLabel.setFont(wealthDeltaLabel.getFont().deriveFont(Font.BOLD, 11f));
+            wealthRow.add(wealthTitle);
+            wealthRow.add(wealthDeltaLabel);
+            header.add(Box.createVerticalStrut(4));
+            header.add(wealthRow);
+        }
+
         // Bottom separator line
         header.add(Box.createVerticalStrut(6));
         JSeparator sep = new JSeparator();
@@ -241,6 +317,12 @@ public class GrandFlipOutPanel extends PluginPanel
         searchBtn.addActionListener(e -> searchItems());
         searchPanel.add(searchBtn, BorderLayout.EAST);
 
+        JButton webChartBtn = new JButton("Web Chart");
+        styleSecondaryButton(webChartBtn);
+        webChartBtn.setToolTipText("Open live web dashboard chart for current search");
+        webChartBtn.addActionListener(e -> openWebChartForSearch());
+        searchPanel.add(webChartBtn, BorderLayout.WEST);
+
         topPanel.add(searchPanel, BorderLayout.CENTER);
 
         // Category filter buttons
@@ -284,6 +366,44 @@ public class GrandFlipOutPanel extends PluginPanel
         panel.add(scrollPane, BorderLayout.CENTER);
 
         return panel;
+    }
+
+    private void openWebChartForSearch()
+    {
+        String query = searchField != null ? searchField.getText().trim() : "";
+        String base = "https://grandflipout.com/dashboard.html";
+        String url = query.isEmpty()
+            ? base
+            : base + "?q=" + URLEncoder.encode(query, StandardCharsets.UTF_8);
+        openDashboardUrl(url);
+    }
+
+    private void openDashboardUrl(String url)
+    {
+        try
+        {
+            if (!Desktop.isDesktopSupported())
+            {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "Desktop browser is not supported in this environment.",
+                    "Open Web Chart",
+                    JOptionPane.INFORMATION_MESSAGE
+                );
+                return;
+            }
+
+            Desktop.getDesktop().browse(new URI(url));
+        }
+        catch (Exception ex)
+        {
+            JOptionPane.showMessageDialog(
+                this,
+                "Failed to open web chart: " + ex.getMessage(),
+                "Open Web Chart",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
     }
 
     private JPanel buildFlipsTab()
@@ -331,36 +451,6 @@ public class GrandFlipOutPanel extends PluginPanel
 
         return panel;
     }
-
-    private JPanel buildHotkeyAssistCard()
-    {
-        JPanel card = new JPanel();
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBackground(new Color(0x15, 0x15, 0x1F));
-        card.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(PANEL_BORDER),
-            new EmptyBorder(8, 10, 8, 10)
-        ));
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
-
-        JLabel title = new JLabel("Hotkey Assist (manual entry)");
-        title.setForeground(BRAND_GOLD);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 11f));
-        card.add(title);
-        card.add(Box.createVerticalStrut(4));
-
-        card.add(createCompactLabel("Ctrl+Shift+B  Copy buy +/- margin assist"));
-        card.add(createCompactLabel("Ctrl+Shift+S  Copy sell +/- margin assist"));
-        card.add(createCompactLabel("Ctrl+Shift+G  Copy full slot assist block"));
-
-        JLabel note = createCompactLabel("No auto-submit; you still confirm everything manually.");
-        note.setForeground(TEXT_DIM);
-        note.setBorder(new EmptyBorder(4, 0, 0, 0));
-        card.add(note);
-        return card;
-    }
-
     private JPanel buildHistoryTab()
     {
         JPanel panel = new JPanel(new BorderLayout());
@@ -368,8 +458,28 @@ public class GrandFlipOutPanel extends PluginPanel
 
         JPanel headerPanel = buildSectionHeader("Flip History");
 
-        JPanel historyActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        JPanel historyActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         historyActions.setOpaque(false);
+
+        JButton filterAllBtn = new JButton("All");
+        JButton filterProfitBtn = new JButton("Profit");
+        JButton filterLossBtn = new JButton("Loss");
+        for (JButton b : new JButton[] { filterAllBtn, filterProfitBtn, filterLossBtn })
+        {
+            styleSecondaryButton(b);
+            b.setFont(b.getFont().deriveFont(10f));
+        }
+        filterAllBtn.addActionListener(e -> { historyFilter = "all"; updateHistoryTab(); });
+        filterProfitBtn.addActionListener(e -> { historyFilter = "profit"; updateHistoryTab(); });
+        filterLossBtn.addActionListener(e -> { historyFilter = "loss"; updateHistoryTab(); });
+        historyActions.add(filterAllBtn);
+        historyActions.add(filterProfitBtn);
+        historyActions.add(filterLossBtn);
+
+        JButton refreshLogBtn = new JButton("Refresh Log");
+        styleSecondaryButton(refreshLogBtn);
+        refreshLogBtn.addActionListener(e -> updateHistoryTab());
+        historyActions.add(refreshLogBtn);
 
         JButton exportCsvBtn = new JButton("Export CSV");
         stylePrimaryButton(exportCsvBtn);
@@ -407,26 +517,48 @@ public class GrandFlipOutPanel extends PluginPanel
             updateHeader();
             updateFlipsTab();
             updateHistoryTab();
-            if (profitChartPanel != null) profitChartPanel.update();
         });
     }
 
     public void updateHeader()
     {
         long profit = flipTracker.getSessionProfit().get();
-        sessionProfitLabel.setText(formatGp(profit) + " gp");
+        sessionProfitLabel.setText(formatGpFull(profit) + " gp");
         sessionProfitLabel.setForeground(profit >= 0 ? PROFIT_GREEN : LOSS_RED);
 
         long flipCount = flipTracker.getSessionFlipCount().get();
         sessionFlipCountLabel.setText(String.valueOf(flipCount));
 
         long avgProfit = (long) flipTracker.getAverageProfitPerFlip();
-        avgProfitLabel.setText(formatGp(avgProfit));
+        avgProfitLabel.setText(formatGpFull(avgProfit) + " gp");
         avgProfitLabel.setForeground(avgProfit >= 0 ? Color.WHITE : new Color(0xFF, 0x47, 0x57));
 
         long gpPerHour = flipTracker.getGpPerHour();
-        gpPerHourLabel.setText(gpPerHour > 0 ? formatGp(gpPerHour) : "-");
+        gpPerHourLabel.setText(gpPerHour > 0 ? formatGpFull(gpPerHour) + " gp/hr" : "—");
         gpPerHourLabel.setForeground(gpPerHour > 0 ? BRAND_GOLD : TEXT_DIM);
+
+        if (wealthDeltaLabel != null && sessionManager != null && sessionManager.getActiveSession() != null)
+        {
+            long start = sessionManager.getActiveSession().getStartTotalWealthGp();
+            long current = sessionManager.getActiveSession().getEndTotalWealthGp();
+            if (current <= 0 && start <= 0)
+            {
+                wealthDeltaLabel.setText("—");
+                wealthDeltaLabel.setForeground(TEXT_DIM);
+            }
+            else if (current <= 0)
+            {
+                wealthDeltaLabel.setText("Start: " + formatGpFull(start) + " gp");
+                wealthDeltaLabel.setForeground(TEXT_DIM);
+            }
+            else
+            {
+                long delta = current - start;
+                String prefix = delta > 0 ? "+" : "";
+                wealthDeltaLabel.setText(prefix + formatGpFull(delta) + " gp");
+                wealthDeltaLabel.setForeground(delta > 0 ? PROFIT_GREEN : delta < 0 ? LOSS_RED : TEXT_DIM);
+            }
+        }
 
         if (priceService.getLastRefresh() != Instant.EPOCH)
         {
@@ -446,8 +578,6 @@ public class GrandFlipOutPanel extends PluginPanel
     public void updateFlipsTab()
     {
         activeFlipsPanel.removeAll();
-        activeFlipsPanel.add(buildHotkeyAssistCard());
-        activeFlipsPanel.add(Box.createVerticalStrut(8));
 
         if (flipTracker.getActiveFlips().isEmpty())
         {
@@ -480,35 +610,73 @@ public class GrandFlipOutPanel extends PluginPanel
     {
         historyPanel.removeAll();
 
-        List<com.fliphelper.model.FlipItem> completed = flipTracker.getCompletedFlips();
-        int displayCount = Math.min(completed.size(), 50);
+        List<TradeLogEntry> logEntries = dataDir != null
+            ? TradeLogReader.readRecent(dataDir, 40)
+            : new ArrayList<>();
 
-        for (int i = 0; i < displayCount; i++)
+        List<TradeLogEntry> filteredLog = new ArrayList<>();
+        for (TradeLogEntry entry : logEntries)
         {
-            com.fliphelper.model.FlipItem flip = completed.get(i);
-            JPanel card = buildHistoryCard(flip);
-            historyPanel.add(card);
-            if (i < displayCount - 1)
+            if ("profit".equals(historyFilter) && entry.getProfit() <= 0)
+            {
+                continue;
+            }
+            if ("loss".equals(historyFilter) && entry.getProfit() >= 0)
+            {
+                continue;
+            }
+            filteredLog.add(entry);
+            if (filteredLog.size() >= 25)
+            {
+                break;
+            }
+        }
+
+        for (int i = 0; i < filteredLog.size(); i++)
+        {
+            if (i > 0)
             {
                 JSeparator sep = new JSeparator();
                 sep.setForeground(new Color(0x2A, 0x2A, 0x45));
                 sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
                 historyPanel.add(sep);
             }
+            historyPanel.add(buildTradeLogCard(filteredLog.get(i)));
         }
 
-        if (completed.isEmpty())
+        int shown = filteredLog.size();
+
+        if (shown == 0)
         {
-            JLabel empty = new JLabel("No completed flips yet.");
-            empty.setForeground(Color.GRAY);
-            empty.setBorder(new EmptyBorder(20, 8, 20, 8));
-            historyPanel.add(empty);
+            List<com.fliphelper.model.FlipItem> completed = flipTracker.getCompletedFlips();
+            int displayCount = Math.min(completed.size(), 25);
+            for (int i = 0; i < displayCount; i++)
+            {
+                com.fliphelper.model.FlipItem flip = completed.get(i);
+                if ("profit".equals(historyFilter) && flip.getProfit() <= 0)
+                {
+                    continue;
+                }
+                if ("loss".equals(historyFilter) && flip.getProfit() >= 0)
+                {
+                    continue;
+                }
+                JPanel card = buildHistoryCard(flip);
+                historyPanel.add(card);
+            }
+            if (displayCount == 0 && logEntries.isEmpty())
+            {
+                JLabel empty = new JLabel("No completed flips yet. trade_log.ndjson fills on GE sells.");
+                empty.setForeground(Color.GRAY);
+                empty.setBorder(new EmptyBorder(20, 8, 20, 8));
+                historyPanel.add(empty);
+            }
         }
 
         historyPanel.revalidate();
         historyPanel.repaint();
 
-        // Refresh the summary panel (top items) — find it by name
+        // Refresh the summary panel (top items + session log totals) — find it by name
         if (historyTab != null)
         {
             for (Component comp : historyTab.getComponents())
@@ -519,6 +687,15 @@ public class GrandFlipOutPanel extends PluginPanel
                     summaryPanel.removeAll();
                     try
                     {
+                        long logProfit = TradeLogReader.sumProfit(logEntries);
+                        JLabel sessionLogLabel = new JLabel(
+                            "Trade log (session): " + logEntries.size() + " flips, "
+                                + formatGpFull(logProfit) + " gp");
+                        sessionLogLabel.setForeground(logProfit >= 0 ? PROFIT_GREEN : LOSS_RED);
+                        sessionLogLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                        summaryPanel.add(sessionLogLabel);
+                        summaryPanel.add(Box.createVerticalStrut(6));
+
                         Map<String, Long> topItems = flipTracker.getMostProfitableItems(3);
                         if (!topItems.isEmpty())
                         {
@@ -530,7 +707,7 @@ public class GrandFlipOutPanel extends PluginPanel
                             for (Map.Entry<String, Long> entry : topItems.entrySet())
                             {
                                 JLabel itemLabel = new JLabel(
-                                    "  " + entry.getKey() + ": " + formatGp(entry.getValue()));
+                                    "  " + entry.getKey() + ": " + formatGpFull(entry.getValue()) + " gp");
                                 itemLabel.setForeground(entry.getValue() >= 0 ? Color.GREEN : Color.RED);
                                 itemLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
                                 summaryPanel.add(itemLabel);
@@ -744,7 +921,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
             JPanel profitRow = new JPanel(new BorderLayout());
             profitRow.setOpaque(false);
-            JLabel expectedLabel = new JLabel("Expected Profit: " + formatGp(expectedProfit));
+            JLabel expectedLabel = new JLabel("Expected Profit: " + formatGpFull(expectedProfit) + " gp");
             expectedLabel.setForeground(expectedProfit >= 0
                 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
             expectedLabel.setFont(expectedLabel.getFont().deriveFont(Font.BOLD, 11f));
@@ -783,7 +960,7 @@ public class GrandFlipOutPanel extends PluginPanel
         nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 11f));
         row1.add(nameLabel, BorderLayout.WEST);
 
-        String profitText = (profit >= 0 ? "+" : "") + formatGp(profit);
+        String profitText = (profit >= 0 ? "+" : "") + formatGpFull(profit) + " gp";
         JLabel profitLabel = new JLabel(profitText);
         profitLabel.setForeground(profit >= 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
         profitLabel.setFont(profitLabel.getFont().deriveFont(Font.BOLD, 11f));
@@ -815,6 +992,61 @@ public class GrandFlipOutPanel extends PluginPanel
         gpHrLabel.setForeground(gpPerHour > 0 ? new Color(0xFF, 0xB8, 0x00) : new Color(0x60, 0x60, 0x80));
         row3.add(gpHrLabel);
         card.add(row3);
+
+        return card;
+    }
+
+    private JPanel buildTradeLogCard(TradeLogEntry entry)
+    {
+        long profit = entry.getProfit();
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBackground(new Color(0x1A, 0x1A, 0x2E));
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            new EmptyBorder(6, 10, 6, 10)
+        ));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
+
+        JPanel row1 = new JPanel(new BorderLayout());
+        row1.setOpaque(false);
+        JLabel nameLabel = new JLabel(entry.getItemName() != null ? entry.getItemName() : ("Item " + entry.getItemId()));
+        nameLabel.setForeground(Color.WHITE);
+        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 11f));
+        row1.add(nameLabel, BorderLayout.WEST);
+
+        String profitText = (profit >= 0 ? "+" : "") + formatGpFull(profit) + " gp";
+        JLabel profitLabel = new JLabel(profitText);
+        profitLabel.setForeground(profit >= 0 ? PROFIT_GREEN : LOSS_RED);
+        profitLabel.setFont(profitLabel.getFont().deriveFont(Font.BOLD, 11f));
+        row1.add(profitLabel, BorderLayout.EAST);
+        card.add(row1);
+        card.add(Box.createVerticalStrut(2));
+
+        if (entry.getSource() != null && !entry.getSource().isEmpty())
+        {
+            JLabel sourceLabel = createCompactLabel(
+                "ge_event".equals(entry.getSource()) ? "GE sell" : entry.getSource());
+            sourceLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            card.add(sourceLabel);
+            card.add(Box.createVerticalStrut(2));
+        }
+
+        JPanel row2 = new JPanel(new GridLayout(1, 4, 4, 0));
+        row2.setOpaque(false);
+        row2.add(createCompactLabel(entry.getQuantity() + "x"));
+        row2.add(createCompactLabel("B:" + formatGpFull(entry.getBuyPrice())));
+        row2.add(createCompactLabel("S:" + formatGpFull(entry.getSellPrice())));
+        row2.add(createCompactLabel("Slot " + (entry.getGeSlot() + 1)));
+        card.add(row2);
+
+        if (entry.getTotalWealthGp() != null && entry.getTotalWealthGp() > 0)
+        {
+            card.add(Box.createVerticalStrut(2));
+            JLabel wealthLabel = createCompactLabel("Wealth @ sell: " + formatGpFull(entry.getTotalWealthGp()) + " gp");
+            wealthLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            card.add(wealthLabel);
+        }
 
         return card;
     }
@@ -1171,6 +1403,11 @@ public class GrandFlipOutPanel extends PluginPanel
         JLabel label = new JLabel(text);
         label.setForeground(Color.LIGHT_GRAY);
         return label;
+    }
+
+    private String formatGpFull(long amount)
+    {
+        return GP_FORMAT.format(amount);
     }
 
     private String formatGp(long amount)

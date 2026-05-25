@@ -1,9 +1,19 @@
+/*
+ * Copyright (c) 2026, tuna troll
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the conditions in the BSD
+ * 2-Clause License are met (see repository LICENSE file).
+ */
+
 package com.fliphelper;
 
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.tracker.FlipTracker;
+import com.fliphelper.tracker.SessionManager;
+import com.fliphelper.util.WealthSnapshot;
 import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
@@ -19,9 +29,14 @@ import net.runelite.client.ui.overlay.components.TitleComponent;
 import net.runelite.client.util.QuantityFormatter;
 
 import javax.inject.Inject;
-import java.awt.*;
+
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics2D;
+import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Locale;
 
 /**
  * In-game overlay displayed when the Grand Exchange interface is open.
@@ -37,10 +52,12 @@ public class GrandFlipOutOverlay extends Overlay
     private static final Color SLOT_PROFIT = new Color(0x00, 0xB0, 0x5A, 180);
     private static final Color SLOT_LOSS = new Color(0xCC, 0x40, 0x40, 180);
     private static final Color SLOT_FLAT = new Color(0xC8, 0x96, 0x00, 180);
+    private static final NumberFormat GP_FORMAT = NumberFormat.getIntegerInstance(Locale.US);
     private final Client client;
     private final GrandFlipOutConfig config;
     private final PriceService priceService;
     private final FlipTracker flipTracker;
+    private final SessionManager sessionManager;
     private final PanelComponent panelComponent = new PanelComponent();
 
     /** Slot activity timestamps for slot timer display (like Flipping Utilities). */
@@ -50,12 +67,14 @@ public class GrandFlipOutOverlay extends Overlay
 
     @Inject
     public GrandFlipOutOverlay(Client client, GrandFlipOutConfig config,
-                              PriceService priceService, FlipTracker flipTracker)
+                              PriceService priceService, FlipTracker flipTracker,
+                              SessionManager sessionManager)
     {
         this.client = client;
         this.config = config;
         this.priceService = priceService;
         this.flipTracker = flipTracker;
+        this.sessionManager = sessionManager;
 
         setPosition(OverlayPosition.TOP_LEFT);
         setLayer(OverlayLayer.ABOVE_WIDGETS);
@@ -100,7 +119,7 @@ public class GrandFlipOutOverlay extends Overlay
             boolean geOpen = geWidget != null && !geWidget.isHidden();
 
             panelComponent.getChildren().clear();
-            panelComponent.setPreferredSize(new Dimension(200, 0));
+            panelComponent.setPreferredSize(new Dimension(235, 0));
 
             if (config.showProfitOverlay())
             {
@@ -207,6 +226,53 @@ public class GrandFlipOutOverlay extends Overlay
                 .right(String.valueOf(activeCount))
                 .rightColor(META_NEUTRAL)
                 .build());
+        }
+
+        if (priceService.getLastRefresh() != null && priceService.getLastRefresh() != Instant.EPOCH)
+        {
+            long ageSeconds = Duration.between(priceService.getLastRefresh(), Instant.now()).getSeconds();
+            panelComponent.getChildren().add(LineComponent.builder()
+                .left("Price Feed Age:")
+                .right(ageSeconds < 60 ? ageSeconds + "s" : (ageSeconds / 60) + "m")
+                .rightColor(ageSeconds <= 120 ? PROFIT_GREEN : WARNING_AMBER)
+                .build());
+        }
+
+        panelComponent.getChildren().add(LineComponent.builder()
+            .left("Price-Fill Hotkey:")
+            .right(config.priceFillHotkey().toString())
+            .rightColor(META_NEUTRAL)
+            .build());
+
+        if (config.showWealthInOverlay())
+        {
+            WealthSnapshot wealth = WealthSnapshot.capture(client, priceService);
+            if (wealth.getTotalWealthGp() > 0)
+            {
+                panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Est. Wealth:")
+                    .right(formatGp(wealth.getTotalWealthGp()))
+                    .rightColor(META_NEUTRAL)
+                    .build());
+                panelComponent.getChildren().add(LineComponent.builder()
+                    .left("  Coins / Bank:")
+                    .right(formatGp(wealth.getCoinGp()) + " / " + formatGp(wealth.getBankGp()))
+                    .rightColor(META_NEUTRAL)
+                    .build());
+
+                if (sessionManager != null && sessionManager.getActiveSession() != null)
+                {
+                    long start = sessionManager.getActiveSession().getStartTotalWealthGp();
+                    long delta = wealth.getTotalWealthGp() - start;
+                    Color deltaColor = delta > 0 ? PROFIT_GREEN : delta < 0 ? LOSS_RED : WARNING_AMBER;
+                    String deltaPrefix = delta > 0 ? "+" : "";
+                    panelComponent.getChildren().add(LineComponent.builder()
+                        .left("  Session Δ Wealth:")
+                        .right(deltaPrefix + formatGp(delta))
+                        .rightColor(deltaColor)
+                        .build());
+                }
+            }
         }
     }
 
@@ -413,14 +479,6 @@ public class GrandFlipOutOverlay extends Overlay
 
     private String formatGp(long amount)
     {
-        if (Math.abs(amount) >= 1_000_000)
-        {
-            return String.format("%.1fm", amount / 1_000_000.0);
-        }
-        if (Math.abs(amount) >= 1_000)
-        {
-            return String.format("%.1fk", amount / 1_000.0);
-        }
-        return amount + " gp";
+        return GP_FORMAT.format(amount) + " gp";
     }
 }

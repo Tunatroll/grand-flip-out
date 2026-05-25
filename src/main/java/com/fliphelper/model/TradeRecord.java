@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2026, tuna troll
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the conditions in the BSD
+ * 2-Clause License are met (see repository LICENSE file).
+ */
+
 package com.fliphelper.model;
 
 import lombok.Builder;
@@ -18,4 +26,12 @@ public class TradeRecord
     private final boolean bought;
     private final Instant timestamp;
     private final int geSlot;
+    /** Coin pouch + inventory coins at transaction time (gp). */
+    private final Long coinGp;
+    /** Non-coin inventory value at transaction time (Wiki midpoint, gp). */
+    private final Long inventoryGp;
+    /** Bank value at transaction time (Wiki midpoint, gp). */
+    private final Long bankGp;
+    /** coin + inventory + bank at transaction time (gp). */
+    private final Long totalWealthGp;
 }

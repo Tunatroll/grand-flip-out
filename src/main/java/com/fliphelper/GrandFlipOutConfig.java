@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2026, tuna troll
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the conditions in the BSD
+ * 2-Clause License are met (see repository LICENSE file).
+ */
+
 package com.fliphelper;
 
 import net.runelite.client.config.Config;
@@ -37,9 +45,16 @@ public interface GrandFlipOutConfig extends Config
     String overlaySection = "overlay";
 
     @ConfigSection(
+        name = "Server Intelligence",
+        description = "Optional read-only calls to grandflipout.com (off by default)",
+        position = 3
+    )
+    String intelligenceSection = "intelligence";
+
+    @ConfigSection(
         name = "Hotkeys",
         description = "Keyboard shortcuts",
-        position = 3
+        position = 4
     )
     String hotkeysSection = "hotkeys";
 
@@ -98,11 +113,23 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
+        keyName = "showWealthInOverlay",
+        name = "Show Wealth Snapshot",
+        description = "Display estimated coin/bank/total wealth on the session overlay (read-only, Wiki prices).",
+        section = flipTrackerSection,
+        position = 3
+    )
+    default boolean showWealthInOverlay()
+    {
+        return true;
+    }
+
+    @ConfigItem(
         keyName = "maxHistoryEntries",
         name = "Max History Entries",
         description = "Maximum number of flip records to retain in local history.",
         section = flipTrackerSection,
-        position = 2
+        position = 4
     )
     @Range(min = 50, max = 10000)
     default int maxHistoryEntries()
@@ -172,6 +199,45 @@ public interface GrandFlipOutConfig extends Config
         return true;
     }
 
+    // ==================== SERVER INTELLIGENCE ====================
+
+    @ConfigItem(
+        keyName = "enableServerIntelligence",
+        name = "Enable Server Advisor",
+        description = "Fetch read-only smart-advisor hints from grandflipout.com for the active GE item.",
+        section = intelligenceSection,
+        position = 0
+    )
+    default boolean enableServerIntelligence()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "intelligenceBaseUrl",
+        name = "Intelligence API URL",
+        description = "Base URL for Grand Flip Out intelligence API (no trailing slash).",
+        section = intelligenceSection,
+        position = 1
+    )
+    default String intelligenceBaseUrl()
+    {
+        return "https://grandflipout.com";
+    }
+
+    @ConfigItem(
+        keyName = "marginAssistPercent",
+        name = "Margin Assist ±%",
+        description = "Percent above/below Wiki buy/sell used for ± margin clipboard strings.",
+        section = intelligenceSection,
+        position = 2
+    )
+    @Range(min = 1, max = 25)
+    default int marginAssistPercent()
+    {
+        return 5;
+    }
+
     // ==================== HOTKEYS ====================
 
     @ConfigItem(
@@ -235,22 +301,21 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
-        keyName = "marginAssistPercent",
-        name = "Margin Assist Percent",
-        description = "Percent range used for buy/sell clipboard assist blocks.",
+        keyName = "priceFillHotkey",
+        name = "Price-Fill Assist",
+        description = "Copy recommended buy/sell prices to clipboard for manual GE entry.",
         section = hotkeysSection,
         position = 5
     )
-    @Range(min = 1, max = 20)
-    default int marginAssistPercent()
+    default Keybind priceFillHotkey()
     {
-        return 3;
+        return new Keybind(KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
     }
 
     @ConfigItem(
         keyName = "copyBuyPriceHotkey",
-        name = "Copy Buy Assist",
-        description = "Copy buy-side +/- margin assist values for the active item.",
+        name = "Copy Buy Price",
+        description = "Copy Wiki buy price (and ±% variants) for active GE slot to clipboard.",
         section = hotkeysSection,
         position = 6
     )
@@ -261,8 +326,8 @@ public interface GrandFlipOutConfig extends Config
 
     @ConfigItem(
         keyName = "copySellPriceHotkey",
-        name = "Copy Sell Assist",
-        description = "Copy sell-side +/- margin assist values for the active item.",
+        name = "Copy Sell Price",
+        description = "Copy Wiki sell price (and ±% variants) for active GE slot to clipboard.",
         section = hotkeysSection,
         position = 7
     )
@@ -273,8 +338,8 @@ public interface GrandFlipOutConfig extends Config
 
     @ConfigItem(
         keyName = "copySlotAssistHotkey",
-        name = "Copy Slot Assist Block",
-        description = "Copy combined buy/sell assist block with tax and net-per-item hints.",
+        name = "Copy Slot Assist",
+        description = "Copy buy/sell/qty suggestion block for the first active GE slot.",
         section = hotkeysSection,
         position = 8
     )

@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2026, tuna troll
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the conditions in the BSD
+ * 2-Clause License are met (see repository LICENSE file).
+ */
+
 package com.fliphelper.model;
 
 import lombok.Builder;
@@ -266,5 +274,165 @@ public class PriceAggregate
         }
         if (latestTime <= 0) return null;
         return new Date(latestTime * 1000L);
+    }
+
+    /**
+     * Lightweight confidence score (0-100) for UI explainability.
+     * Hub-safe heuristic: higher liquidity + valid spread + buy limit => higher confidence.
+     */
+    public int getLocalConfidenceScore()
+    {
+        long volume1h = getTotalVolume1h();
+        long low = getBestLowPrice();
+        long high = getBestHighPrice();
+        long margin = getConsensusMargin();
+        int limit = getBuyLimit();
+
+        if (low <= 0 || high <= 0 || margin <= 0)
+        {
+            return 0;
+        }
+
+        int score = 25; // baseline for valid bid/ask
+
+        if (volume1h >= 20_000)
+        {
+            score += 35;
+        }
+        else if (volume1h >= 5_000)
+        {
+            score += 25;
+        }
+        else if (volume1h >= 1_000)
+        {
+            score += 15;
+        }
+        else
+        {
+            score += 5;
+        }
+
+        double marginPct = getConsensusMarginPercent();
+        if (marginPct >= 1.0 && marginPct <= 8.0)
+        {
+            score += 20;
+        }
+        else if (marginPct > 0.4 && marginPct <= 12.0)
+        {
+            score += 10;
+        }
+
+        if (limit >= 1000)
+        {
+            score += 12;
+        }
+        else if (limit > 0)
+        {
+            score += 6;
+        }
+
+        return Math.min(100, Math.max(0, score));
+    }
+
+    /**
+     * Human-readable confidence bucket for quick scanning.
+     */
+    public String getLocalConfidenceLabel()
+    {
+        int score = getLocalConfidenceScore();
+        if (score >= 75)
+        {
+            return "High";
+        }
+        if (score >= 50)
+        {
+            return "Medium";
+        }
+        if (score > 0)
+        {
+            return "Low";
+        }
+        return "N/A";
+    }
+
+    /**
+     * Lightweight risk bucket derived from spread shape and liquidity stress.
+     */
+    public String getLocalRiskLabel()
+    {
+        long volume1h = getTotalVolume1h();
+        double marginPct = getConsensusMarginPercent();
+
+        if (volume1h <= 0 || marginPct <= 0.0)
+        {
+            return "Unknown";
+        }
+
+        // Wide spreads on thin volume are most likely to gap/slip.
+        if (volume1h < 1_000 && marginPct > 6.0)
+        {
+            return "High";
+        }
+
+        if (volume1h < 3_000 && marginPct > 3.5)
+        {
+            return "Medium";
+        }
+
+        if (volume1h >= 10_000 && marginPct <= 5.0)
+        {
+            return "Low";
+        }
+
+        return "Medium";
+    }
+
+    /**
+     * Compact reason code for local signal transparency (no black-box feel).
+     */
+    public String getLocalSignalReasonCode()
+    {
+        long volume1h = getTotalVolume1h();
+        double marginPct = getConsensusMarginPercent();
+        int limit = getBuyLimit();
+
+        String volCode;
+        if (volume1h >= 20_000)
+        {
+            volCode = "VOL_H";
+        }
+        else if (volume1h >= 5_000)
+        {
+            volCode = "VOL_M";
+        }
+        else if (volume1h > 0)
+        {
+            volCode = "VOL_L";
+        }
+        else
+        {
+            volCode = "VOL_0";
+        }
+
+        String spreadCode;
+        if (marginPct <= 0.0)
+        {
+            spreadCode = "SPR_0";
+        }
+        else if (marginPct > 8.0)
+        {
+            spreadCode = "SPR_W";
+        }
+        else if (marginPct > 3.0)
+        {
+            spreadCode = "SPR_M";
+        }
+        else
+        {
+            spreadCode = "SPR_T";
+        }
+
+        String limitCode = limit >= 1000 ? "LIM_H" : (limit > 0 ? "LIM_L" : "LIM_0");
+        return volCode + "|" + spreadCode + "|" + limitCode;
     }
 }

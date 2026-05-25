@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2026, tuna troll
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the conditions in the BSD
+ * 2-Clause License are met (see repository LICENSE file).
+ */
+
 package com.fliphelper.tracker;
 
 import com.fliphelper.model.FlipItem;
@@ -15,7 +23,12 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -52,6 +65,8 @@ public class SessionManager {
                 .itemsTracked(new ConcurrentHashMap<>())
                 .flipCount(0)
                 .actualProfit(0)
+                .startTotalWealthGp(0L)
+                .endTotalWealthGp(0L)
                 .build();
 
         log.info("Started new session: {} with goal: {}", name, goalAmount);
@@ -92,6 +107,25 @@ public class SessionManager {
             long profit = (flip.getSellPrice() - flip.getBuyPrice()) * (long) flip.getQuantity() - tax;
             activeSession.actualProfit += profit;
             log.debug("Recorded flip in session - profit: {}, total: {}", profit, activeSession.actualProfit);
+        }
+    }
+
+    /**
+     * Record wealth at session start (read-only client estimate).
+     */
+    public void setStartWealth(long totalWealthGp) {
+        if (activeSession != null) {
+            activeSession.startTotalWealthGp = totalWealthGp;
+            activeSession.endTotalWealthGp = totalWealthGp;
+        }
+    }
+
+    /**
+     * Update latest wealth snapshot on the active session (after each completed flip).
+     */
+    public void updateSessionWealth(long totalWealthGp) {
+        if (activeSession != null) {
+            activeSession.endTotalWealthGp = totalWealthGp;
         }
     }
 
@@ -232,6 +266,8 @@ public class SessionManager {
         private int flipCount;
         private Map<Integer, FlipItem> itemsTracked;
         private boolean isActive;
+        private long startTotalWealthGp;
+        private long endTotalWealthGp;
 
         public FlipSession() {
             this.startTime = Instant.now();
