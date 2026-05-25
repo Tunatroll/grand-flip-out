@@ -153,6 +153,8 @@ public class FlipTracker
                         saveHistory();
                     }
 
+                    appendTradeLogEntry(completedFlip, "ge_event");
+
                     // Notify listener (profile logging, Discord alerts, etc.)
                     if (flipCompleteListener != null)
                     {
@@ -184,6 +186,7 @@ public class FlipTracker
             {
                 saveHistory();
             }
+            appendTradeLogEntry(flip, "manual_add");
         }
         else
         {
@@ -435,5 +438,44 @@ public class FlipTracker
         }
 
         return csvFile.getAbsolutePath();
+    }
+
+    private void appendTradeLogEntry(FlipItem flip, String source)
+    {
+        if (flip == null || !flip.isComplete())
+        {
+            return;
+        }
+
+        try
+        {
+            dataDir.mkdirs();
+            File logFile = new File(dataDir, "trade_log.ndjson");
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("event", "flip_completed");
+            entry.put("source", source);
+            entry.put("timestamp", Instant.now().toString());
+            entry.put("itemId", flip.getItemId());
+            entry.put("itemName", flip.getItemName());
+            entry.put("quantity", flip.getQuantity());
+            entry.put("buyPrice", flip.getBuyPrice());
+            entry.put("sellPrice", flip.getSellPrice());
+            entry.put("tax", flip.getTax());
+            entry.put("profit", flip.getProfit());
+            entry.put("roiPercent", flip.getProfitPercent());
+            entry.put("geSlot", flip.getGeSlot());
+            entry.put("buyTime", flip.getBuyTime() != null ? flip.getBuyTime().toString() : null);
+            entry.put("sellTime", flip.getSellTime() != null ? flip.getSellTime().toString() : null);
+
+            try (Writer writer = new BufferedWriter(new FileWriter(logFile, true)))
+            {
+                writer.write(gson.toJson(entry));
+                writer.write('\n');
+            }
+        }
+        catch (IOException e)
+        {
+            log.debug("Failed to append trade log entry: {}", e.getMessage());
+        }
     }
 }

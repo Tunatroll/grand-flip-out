@@ -126,7 +126,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         sessionManager = new SessionManager(DATA_DIR.getAbsolutePath(), gson);
 
         // Create UI — pass sessionManager so ProfitChartPanel has GP/hr data
-        panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager);
+        panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager, DATA_DIR);
         overlay = new GrandFlipOutOverlay(client, config, priceService, flipTracker);
         gpDropOverlay = new GpDropOverlay(client, config);
 
