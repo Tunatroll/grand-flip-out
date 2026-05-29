@@ -91,6 +91,7 @@ public class GrandFlipOutPanel extends PluginPanel
     private JPanel flipsTab;
     private JPanel historyTab;
     private JPanel intelPanel;
+    private RecipePanel recipesTab;
     private JPanel intelContentPanel;
     private com.fliphelper.api.IntelligenceClient intelligenceClient;
     private com.fliphelper.api.EntitlementService entitlementService;
@@ -197,8 +198,11 @@ public class GrandFlipOutPanel extends PluginPanel
         flipsTab = buildFlipsTab();
         historyTab = buildHistoryTab();
 
+        recipesTab = new RecipePanel(priceService);
+
         tabbedPane.addTab("Prices", pricesTab);
         tabbedPane.addTab("Flips", flipsTab);
+        tabbedPane.addTab("Recipes", recipesTab);
         tabbedPane.addTab("History", historyTab);
         intelPanel = buildIntelTab();
         tabbedPane.addTab("Intel", intelPanel);
@@ -336,6 +340,21 @@ public class GrandFlipOutPanel extends PluginPanel
         this.geHistoryImportAction = action;
     }
 
+    /** Switch to the native Recipes tab and recompute its set-vs-pieces arbitrage. */
+    private void openRecipesTab()
+    {
+        if (tabbedPane == null || recipesTab == null)
+        {
+            return;
+        }
+        recipesTab.refresh();
+        int idx = tabbedPane.indexOfComponent(recipesTab);
+        if (idx >= 0)
+        {
+            tabbedPane.setSelectedIndex(idx);
+        }
+    }
+
     private JPanel buildHeaderPanel()
     {
         JPanel header = new JPanel();
@@ -374,7 +393,7 @@ public class GrandFlipOutPanel extends PluginPanel
         dashboardBtn.addActionListener(e -> openWebChartForSearch());
         header.add(dashboardBtn);
 
-        JButton recipesBtn = new JButton("Recipe Profits (Web)");
+        JButton recipesBtn = new JButton("Recipe Profits");
         recipesBtn.setFont(recipesBtn.getFont().deriveFont(11f));
         recipesBtn.setForeground(BRAND_GOLD);
         recipesBtn.setBackground(PANEL_BUTTON);
@@ -384,8 +403,8 @@ public class GrandFlipOutPanel extends PluginPanel
             BorderFactory.createEmptyBorder(6, 10, 6, 10)));
         recipesBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         recipesBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        recipesBtn.setToolTipText("Open grandflipout.com recipe margins (herb/gem processing)");
-        recipesBtn.addActionListener(e -> openDashboardUrl("https://grandflipout.com/dashboard.html?page=recipes"));
+        recipesBtn.setToolTipText("Set-vs-pieces arbitrage (Barrows sets, godswords) after GE tax");
+        recipesBtn.addActionListener(e -> openRecipesTab());
         header.add(recipesBtn);
         header.add(Box.createVerticalStrut(8));
 
