@@ -147,6 +147,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     // Advisor (Phase 1)
     private com.fliphelper.ui.AdvisorPanel advisorPanel;
     private com.fliphelper.util.BlacklistStore advisorBlacklist;
+    private com.fliphelper.api.DumpFeedClient dumpFeedClient;
     private final java.util.Set<Integer> advisorSkipped = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private volatile long lastSuggestAt = 0;
 
@@ -166,6 +167,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
         intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl());
+        dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl());
         entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl());
         flipTracker = new FlipTracker(config, priceService, DATA_DIR, gson);
         geHistoryImporter = GeHistoryImporter.create(client, flipTracker, DATA_DIR);
@@ -402,7 +404,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      * Back-fill trades from the in-game GE History tab when it opens. The history
      * interface (group 383) loads both from the GE "History" button and the banker
      * right-click, so {@link WidgetLoaded} is the reliable trigger. Reads run on the
-     * client thread (this handler already does) and are deduplicated by the importer.
+     * client thread and are deduplicated by the importer.
      */
     @Subscribe
     public void onWidgetLoaded(WidgetLoaded event)
@@ -420,9 +422,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     }
 
     /**
-     * Run a GE-history import on the client thread and refresh the panel. Safe to
-     * call from any thread (the widget read is marshalled onto the client thread).
-     * Used by both the auto-trigger and the panel's "Import GE history" button.
+     * Run a GE-history import on the client thread and refresh the panel. Used by both
+     * the auto-trigger and the panel's "Import GE history" button.
      */
     public void importGeHistoryNow()
     {
@@ -517,6 +518,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         if (!config.enableAdvisor() || advisorPanel == null || advisorPanel.isPaused()
             || intelligenceClient == null)
         {
+            if (overlay != null)
+            {
+                overlay.setActSlot(-1);
+            }
             return;
         }
         long now = System.currentTimeMillis();
@@ -543,7 +548,27 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     exclude.addAll(advisorSkipped);
                     com.fliphelper.model.Suggestion suggestion =
                         intelligenceClient.fetchSuggestion(snapshot, exclude, f2pOnly, config.apiKey());
+                    // Point the in-game overlay at the slot this action targets (abort/sell),
+                    // or clear the highlight when there's nothing slot-specific to do.
+                    if (overlay != null)
+                    {
+                        overlay.setActSlot(suggestion != null && !suggestion.isWait()
+                            ? suggestion.getTargetSlot() : -1);
+                    }
                     javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showSuggestion(suggestion));
+
+                    // Free F2P dump feed — informational, shown to everyone (members gated
+                    // server-side). Best-effort: a feed failure never breaks the suggestion.
+                    try
+                    {
+                        java.util.List<com.fliphelper.model.DumpFeedEntry> feed =
+                            dumpFeedClient.fetch(5, config.apiKey());
+                        javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showDumpFeed(feed));
+                    }
+                    catch (Exception feedErr)
+                    {
+                        log.debug("Dump feed fetch failed: {}", feedErr.getMessage());
+                    }
                 }
                 catch (Exception e)
                 {

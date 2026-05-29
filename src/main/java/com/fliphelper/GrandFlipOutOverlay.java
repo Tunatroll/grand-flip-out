@@ -52,6 +52,8 @@ public class GrandFlipOutOverlay extends Overlay
     private static final Color SLOT_PROFIT = new Color(0x00, 0xB0, 0x5A, 180);
     private static final Color SLOT_LOSS = new Color(0xCC, 0x40, 0x40, 180);
     private static final Color SLOT_FLAT = new Color(0xC8, 0x96, 0x00, 180);
+    private static final Color ACT_FILL = new Color(0xFF, 0xB8, 0x00, 60);
+    private static final Color ACT_OUTLINE = new Color(0xFF, 0xB8, 0x00, 220);
     private static final NumberFormat GP_FORMAT = NumberFormat.getIntegerInstance(Locale.US);
     private final Client client;
     private final GrandFlipOutConfig config;
@@ -66,6 +68,9 @@ public class GrandFlipOutOverlay extends Overlay
     /** Buy limit reset tracking: itemId -> timestamp of first buy in current 4h window. */
     private final java.util.Map<Integer, Instant> buyLimitStartTimes = new java.util.concurrent.ConcurrentHashMap<>();
     private static final Duration BUY_LIMIT_WINDOW = Duration.ofHours(4);
+
+    /** GE slot the current Advisor suggestion targets (abort/sell), or -1 = none. */
+    private volatile int actSlot = -1;
 
     private boolean visible = true;
 
@@ -88,6 +93,16 @@ public class GrandFlipOutOverlay extends Overlay
     public void toggleVisibility()
     {
         visible = !visible;
+    }
+
+    /**
+     * Set the GE slot the current Advisor suggestion wants the player to act on
+     * (e.g. the offer to abort or the filled buy to re-list). Pass -1 to clear.
+     * The overlay tints/outlines that slot widget so "Act here" is unambiguous.
+     */
+    public void setActSlot(int slot)
+    {
+        this.actSlot = (slot >= 0 && slot < 8) ? slot : -1;
     }
 
     /**
@@ -134,6 +149,11 @@ public class GrandFlipOutOverlay extends Overlay
             {
                 renderGEInfo();
                 renderRecommendedPrices();
+            }
+
+            if (geOpen)
+            {
+                renderActSlotHighlight(graphics);
             }
 
             if (panelComponent.getChildren().isEmpty())
@@ -471,6 +491,41 @@ public class GrandFlipOutOverlay extends Overlay
                     .build());
             }
         }
+    }
+
+    /**
+     * Tint + outline the GE slot the Advisor is pointing at, so the "Act here"
+     * suggestion (abort a stale buy, re-list a filled buy to sell) maps onto a
+     * physical slot. Read-only — draws over the slot widget bounds, never clicks.
+     */
+    private void renderActSlotHighlight(Graphics2D graphics)
+    {
+        int slot = actSlot;
+        if (slot < 0 || slot >= 8)
+        {
+            return;
+        }
+        Widget geWindow = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+        if (geWindow == null || geWindow.isHidden())
+        {
+            return;
+        }
+        // Children 7..14 of the GE window container are the eight offer slots.
+        Widget slotWidget = geWindow.getChild(7 + slot);
+        if (slotWidget == null || slotWidget.isHidden())
+        {
+            return;
+        }
+        java.awt.Rectangle b = slotWidget.getBounds();
+        if (b == null || b.width <= 0 || b.height <= 0)
+        {
+            return;
+        }
+        graphics.setColor(ACT_FILL);
+        graphics.fillRect(b.x, b.y, b.width, b.height);
+        graphics.setColor(ACT_OUTLINE);
+        graphics.setStroke(new java.awt.BasicStroke(2f));
+        graphics.drawRect(b.x, b.y, b.width, b.height);
     }
 
     private void renderGESlotColorizer()

@@ -8,6 +8,7 @@
 
 package com.fliphelper.ui;
 
+import com.fliphelper.model.DumpFeedEntry;
 import com.fliphelper.model.Suggestion;
 import net.runelite.client.ui.ColorScheme;
 
@@ -27,6 +28,7 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
+import java.util.List;
 
 /**
  * The Advisor tab: shows one next-action suggestion at a time (Copilot-style).
@@ -52,6 +54,7 @@ public class AdvisorPanel extends JPanel
 
     private final Listener listener;
     private final JPanel content = new JPanel();
+    private final JPanel dumpFeed = new JPanel();
     private final JButton pauseBtn = new JButton("Pause");
     private boolean paused;
 
@@ -84,6 +87,11 @@ public class AdvisorPanel extends JPanel
         content.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         content.setBorder(new EmptyBorder(4, 8, 8, 8));
         add(content, BorderLayout.CENTER);
+
+        dumpFeed.setLayout(new BoxLayout(dumpFeed, BoxLayout.Y_AXIS));
+        dumpFeed.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        dumpFeed.setBorder(new EmptyBorder(4, 8, 8, 8));
+        add(dumpFeed, BorderLayout.SOUTH);
 
         showMessage("Enable the Advisor in plugin config to get next-flip suggestions.");
     }
@@ -173,6 +181,65 @@ public class AdvisorPanel extends JPanel
         content.add(buttons);
         content.revalidate();
         content.repaint();
+    }
+
+    /**
+     * Render the free, no-account "Recent F2P dumps" feed below the suggestion card.
+     * F2P-only for anonymous users (the server gates members items). Read-only list —
+     * informational, never an action button. Pass an empty/null list to hide it.
+     */
+    public void showDumpFeed(List<DumpFeedEntry> entries)
+    {
+        dumpFeed.removeAll();
+        if (entries != null && !entries.isEmpty())
+        {
+            JLabel header = new JLabel("Recent F2P dumps");
+            header.setForeground(GOLD);
+            header.setFont(header.getFont().deriveFont(Font.BOLD, 11f));
+            header.setAlignmentX(Component.LEFT_ALIGNMENT);
+            dumpFeed.add(wrapLeft(header));
+            dumpFeed.add(Box.createVerticalStrut(2));
+
+            int shown = 0;
+            for (DumpFeedEntry e : entries)
+            {
+                if (e == null || shown >= 5)
+                {
+                    continue;
+                }
+                JPanel row = new JPanel(new BorderLayout());
+                row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+                row.setAlignmentX(Component.LEFT_ALIGNMENT);
+                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+
+                JLabel name = new JLabel(e.getItemName());
+                name.setForeground(Color.WHITE);
+                name.setFont(name.getFont().deriveFont(11f));
+
+                JLabel chg = new JLabel(formatPct(e.getPercentChange()), SwingConstants.RIGHT);
+                chg.setForeground(e.getPercentChange() < 0 ? RED : DIM);
+                chg.setFont(chg.getFont().deriveFont(Font.BOLD, 11f));
+
+                row.add(name, BorderLayout.WEST);
+                row.add(chg, BorderLayout.EAST);
+                dumpFeed.add(row);
+                shown++;
+            }
+
+            JLabel note = new JLabel("Free feed — no account needed");
+            note.setForeground(DIM);
+            note.setFont(note.getFont().deriveFont(9f));
+            note.setAlignmentX(Component.LEFT_ALIGNMENT);
+            dumpFeed.add(Box.createVerticalStrut(2));
+            dumpFeed.add(wrapLeft(note));
+        }
+        dumpFeed.revalidate();
+        dumpFeed.repaint();
+    }
+
+    private static String formatPct(double pct)
+    {
+        return String.format("%.1f%%", pct);
     }
 
     private static Color actionColor(String action)
