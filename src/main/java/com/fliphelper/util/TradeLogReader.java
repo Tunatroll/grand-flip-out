@@ -23,7 +23,6 @@ import java.util.List;
 @Slf4j
 public final class TradeLogReader
 {
-
     private TradeLogReader()
     {
     }
@@ -109,6 +108,8 @@ public final class TradeLogReader
             entry.setInventoryGp(getLongObj(obj, "inventoryGp"));
             entry.setBankGp(getLongObj(obj, "bankGp"));
             entry.setTotalWealthGp(getLongObj(obj, "totalWealthGp"));
+            entry.setAccountName(getString(obj, "accountName"));
+            entry.setAccountId(getLong(obj, "accountId"));
             return entry;
         }
         catch (Exception e)

@@ -32,4 +32,8 @@ public class TradeLogEntry
     private Long inventoryGp;
     private Long bankGp;
     private Long totalWealthGp;
+    /** Account display name (RSN); null for pre-account log lines. */
+    private String accountName;
+    /** Stable account hash; 0 for pre-account log lines. */
+    private long accountId;
 }

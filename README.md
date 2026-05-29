@@ -11,38 +11,30 @@ locally on your machine.
 and shows you analysis. It does not automate trades or interact with the game
 client.
 
-## v1.0.0 — initial Plugin Hub release
-
-This is an intentionally small initial release. Follow-up PRs will add features
-back individually for review.
-
-**Included in v1.0.0:**
+## Features
 
 - **Live Wiki pricing** — refreshes from `prices.runescape.wiki` on a configurable
   interval (default 60s, minimum 60s per Wiki etiquette)
-- **Top-flips panel** — items ranked by realistic 4-hour profit (profit-per-GE-limit),
-  filtered by minimum trade volume
+- **Ranked flip suggestions** — items ranked by realistic 4-hour profit
+  (profit-per-GE-limit), absolute margin, or margin %, volume-floored so only
+  flippable items appear; sortable, category-filterable
 - **Search** — find any item by name; see its current margin, volume, and timeline
-  estimate
+  estimate (free for every item)
 - **Flip tracker** — automatically pairs your buy/sell offers into completed flips,
-  computes per-flip P&L with the GE tax baked in, persists history between sessions
-- **Session stats** — running profit, flip count, average per flip, GP/hr
-- **Profit chart** — visual session-profit timeline
-- **In-game GE overlay** — margin / volume / profit info while the Grand Exchange
-  is open
+  computes per-flip P&L with the GE tax baked in, persists history between sessions,
+  tracked **per in-game account**
+- **Session stats panel** — running profit, ROI %, flip count, tax paid, GP/hr, and
+  session time, over a selectable interval
+- **In-game GE overlay** — margin / volume / profit, per-slot buy/sell targets, slot
+  timers, and remaining 4-hour buy limit while the Grand Exchange is open
+- **Inventory price tooltips** — hover values for items in your inventory
 - **Margin check helper** — quick "buy 1 at X, sell 1 at Y" workflow
 - **GP-drop animation** on profitable sells
-- **Five keyboard hotkeys** — toggle panel, refresh prices, quick lookup, copy margin,
-  toggle overlay
-
-**Planned for follow-up PRs** (kept on a development branch and submitted in smaller
-chunks per Plugin Hub maintainer guidance):
-
-- Flip-suggestion engine
-- Dump-detection alerts
-- Technical indicators (RSI / EMA / MACD / Bollinger)
-- Recovery prediction
-- Multi-account aggregation
+- **Flipping Utilities import** — one-time import of existing flip history
+- **Keyboard hotkeys** — toggle panel, refresh prices, quick lookup, copy margin/prices,
+  toggle overlay, optional GE price-fill assist
+- **Optional account** — free account (created on the web) unlocks members-item
+  suggestions and premium server features; see *Compliance and data handling* below
 
 ## Installation
 
@@ -53,14 +45,25 @@ chunks per Plugin Hub maintainer guidance):
 
 ## Compliance and data handling
 
-- **No outbound network besides** `prices.runescape.wiki` for price data and an
-  optional `Desktop.browse()` link to a public chart page (user-triggered only)
-- **No player data is sent off-device** — flip history is stored locally under
-  `~/.runelite/grand-flip-out/`
-- **No reflection, no `Runtime.exec`, no inbound sockets, no game-packet
-  injection**
+- **Information only** — never automates trades, injects packets/clicks, or interacts
+  with the game client
+- **Default network is Wiki-only** — out of the box the plugin talks only to
+  `prices.runescape.wiki` (plus user-triggered `Desktop.browse()` links to public web
+  pages). All `grandflipout.com` communication is **opt-in**:
+  - *API key* (empty by default): if you paste an account key, it is sent as a `Bearer`
+    token to `grandflipout.com/api/entitlements` **only** to check whether your account
+    unlocks members-item suggestions / premium features. No key set → this call is never made.
+  - *Server Advisor* (off by default): read-only fetch of signals for the active item.
+  - *Contribute trades* (off by default): the only setting that sends data — anonymized
+    completed trades (item ID, price, quantity, side, timestamp) for crowd-sourced pricing.
+- **No player data is sent off-device by default** — flip history is stored locally under
+  `~/.runelite/grand-flip-out/`. No character names or passwords are ever sent; the only
+  credential transmitted is the API key you choose to paste.
+- **No reflection, no `Runtime.exec`, no inbound sockets, no game-packet injection**
 - **Uses RuneLite's injected `OkHttpClient`** with a proper User-Agent
 - **All file I/O is sandboxed** to `RUNELITE_DIR/grand-flip-out/`
+- **No in-client payment** — any account/premium gating is server-side; the plugin never
+  takes in-game gold or in-client real-money payment (Jagex rule)
 
 ## Requirements
 

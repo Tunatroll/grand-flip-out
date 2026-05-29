@@ -24,6 +24,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -65,15 +66,15 @@ import java.util.Map;
  */
 public class GrandFlipOutPanel extends PluginPanel
 {
-    private static final Color BRAND_GOLD = new Color(0xFF, 0xA3, 0x1A); // PH Orange
-    private static final Color PANEL_DEEP = new Color(0x00, 0x00, 0x00); // Pure black
-    private static final Color PANEL_CARD = new Color(0x1A, 0x1A, 0x1A); // Dark gray card
-    private static final Color TEXT_DIM = new Color(0x88, 0x88, 0x88);
-    private static final Color PROFIT_GREEN = new Color(0x22, 0xC5, 0x5E);
-    private static final Color LOSS_RED = new Color(0xEF, 0x44, 0x44);
-    private static final Color PANEL_BORDER = new Color(0x33, 0x33, 0x33);
-    private static final Color PANEL_BUTTON = new Color(0x11, 0x11, 0x11);
-    private static final Color PANEL_BUTTON_ACTIVE = new Color(0x26, 0x26, 0x26);
+    private static final Color BRAND_GOLD = new Color(0xE0, 0xA8, 0x2E); // granary wheat-gold
+    private static final Color PANEL_DEEP = new Color(0x0D, 0x0D, 0x0C); // warm near-black
+    private static final Color PANEL_CARD = new Color(0x1A, 0x18, 0x15); // granary card
+    private static final Color TEXT_DIM = new Color(0x7A, 0x71, 0x5C); // muted wheat
+    private static final Color PROFIT_GREEN = new Color(0x5F, 0xB8, 0x5F); // granary green
+    private static final Color LOSS_RED = new Color(0xD4, 0x6A, 0x6A); // granary red
+    private static final Color PANEL_BORDER = new Color(0x2A, 0x26, 0x20); // granary border
+    private static final Color PANEL_BUTTON = new Color(0x14, 0x13, 0x12);
+    private static final Color PANEL_BUTTON_ACTIVE = new Color(0x22, 0x1F, 0x1A);
 
     private static final NumberFormat GP_FORMAT = NumberFormat.getIntegerInstance(Locale.US);
 
@@ -87,10 +88,19 @@ public class GrandFlipOutPanel extends PluginPanel
     private JPanel pricesTab;
     private JPanel flipsTab;
     private JPanel historyTab;
+    private JPanel intelPanel;
+    private JPanel intelContentPanel;
+    private com.fliphelper.api.IntelligenceClient intelligenceClient;
+    private com.fliphelper.api.EntitlementService entitlementService;
+    private java.util.concurrent.ScheduledExecutorService executor;
     private JTextField searchField;
     private JPanel priceResultsPanel;
     private JPanel activeFlipsPanel;
     private JPanel historyPanel;
+    private StatsPanel statsPanel;
+    private JLabel upgradeLink;
+    private boolean intelAutoRefreshStarted;
+    private com.fliphelper.util.WatchlistStore watchlist;
 
     // Session stats labels
     private JLabel sessionProfitLabel;
@@ -103,8 +113,25 @@ public class GrandFlipOutPanel extends PluginPanel
 
     // Category filtering
     private String selectedCategory = "All";
+    // Suggestion sort (default: best flips by profit per GE limit)
+    private String selectedSort = "best";
     private JButton[] categoryButtons;
     private boolean tabChangeListenerAttached;
+
+    // Intelligence signal cache (itemId -> advisor result, TTL 60s)
+    private final java.util.concurrent.ConcurrentHashMap<Integer, CachedAdvisor> advisorCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static final class CachedAdvisor {
+        final String action;
+        final int strength;
+        final long fetchedAt;
+        CachedAdvisor(String action, int strength) {
+            this.action = action;
+            this.strength = strength;
+            this.fetchedAt = System.currentTimeMillis();
+        }
+        boolean isStale() { return System.currentTimeMillis() - fetchedAt > 60_000; }
+    }
 
     public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
                            FlipTracker flipTracker)
@@ -115,12 +142,33 @@ public class GrandFlipOutPanel extends PluginPanel
     public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
                            FlipTracker flipTracker, SessionManager sessionManager, File dataDir)
     {
+        this(config, priceService, flipTracker, sessionManager, dataDir, null, null);
+    }
+
+    public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
+                           FlipTracker flipTracker, SessionManager sessionManager, File dataDir,
+                           com.fliphelper.api.IntelligenceClient intelligenceClient,
+                           java.util.concurrent.ScheduledExecutorService executor)
+    {
+        this(config, priceService, flipTracker, sessionManager, dataDir, intelligenceClient, executor, null);
+    }
+
+    public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
+                           FlipTracker flipTracker, SessionManager sessionManager, File dataDir,
+                           com.fliphelper.api.IntelligenceClient intelligenceClient,
+                           java.util.concurrent.ScheduledExecutorService executor,
+                           com.fliphelper.api.EntitlementService entitlementService)
+    {
         super(false);
         this.config = config;
         this.priceService = priceService;
         this.flipTracker = flipTracker;
         this.sessionManager = sessionManager;
         this.dataDir = dataDir;
+        this.intelligenceClient = intelligenceClient;
+        this.executor = executor;
+        this.entitlementService = entitlementService;
+        this.watchlist = new com.fliphelper.util.WatchlistStore(dataDir);
 
         buildPanel();
     }
@@ -147,9 +195,119 @@ public class GrandFlipOutPanel extends PluginPanel
         tabbedPane.addTab("Prices", pricesTab);
         tabbedPane.addTab("Flips", flipsTab);
         tabbedPane.addTab("History", historyTab);
+        intelPanel = buildIntelTab();
+        tabbedPane.addTab("Intel", intelPanel);
         styleTabbedPane();
 
         add(tabbedPane, BorderLayout.CENTER);
+        add(buildLinksFooter(), BorderLayout.SOUTH);
+    }
+
+    /** True when the user has an unlocked Grand Flip Out account (all items + premium). */
+    private boolean isUnlocked()
+    {
+        return entitlementService != null && entitlementService.isUnlocked();
+    }
+
+    /**
+     * Footer row of external links: site, Discord, and an account-aware Upgrade/Account CTA.
+     * Opens in the system browser via {@link #openDashboardUrl} (no in-client payment).
+     */
+    private JPanel buildLinksFooter()
+    {
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 4));
+        footer.setBackground(PANEL_DEEP);
+        footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, PANEL_BORDER));
+
+        footer.add(buildFooterLink("Website", "https://grandflipout.com"));
+        footer.add(buildFooterDot());
+        footer.add(buildFooterLink("Discord", "https://discord.gg/TkJ7mauxj"));
+        footer.add(buildFooterDot());
+
+        // Upgrade CTA changes label once the account is unlocked. "Upgrade" only opens the
+        // web — payment/account management is server-side per Jagex rules (no in-client pay).
+        upgradeLink = buildFooterLink(isUnlocked() ? "Account" : "Upgrade", "https://grandflipout.com");
+        upgradeLink.setForeground(BRAND_GOLD);
+        footer.add(upgradeLink);
+
+        return footer;
+    }
+
+    private JLabel buildFooterDot()
+    {
+        JLabel dot = new JLabel("·");
+        dot.setForeground(TEXT_DIM);
+        return dot;
+    }
+
+    private JLabel buildFooterLink(String text, String url)
+    {
+        JLabel link = new JLabel(text);
+        link.setForeground(TEXT_DIM);
+        link.setFont(link.getFont().deriveFont(11f));
+        link.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        link.addMouseListener(new java.awt.event.MouseAdapter()
+        {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e)
+            {
+                openDashboardUrl(url);
+            }
+        });
+        return link;
+    }
+
+    /**
+     * "Create free account -> unlock members flips" call-to-action shown to anonymous users
+     * above the F2P-filtered suggestion list. Opens the web signup (no in-client payment).
+     */
+    private JPanel buildUnlockCta(int membersHidden)
+    {
+        JPanel cta = new JPanel(new BorderLayout(0, 6));
+        cta.setBackground(PANEL_CARD);
+        cta.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BRAND_GOLD),
+            new EmptyBorder(8, 10, 8, 10)));
+        cta.setMaximumSize(new Dimension(Integer.MAX_VALUE, 96));
+
+        JLabel msg = new JLabel("<html><div style='width:170px'><b>" + membersHidden
+            + " members items hidden.</b><br>Create a free account to unlock all "
+            + "members flips and premium features.</div></html>");
+        msg.setForeground(TEXT_DIM);
+        msg.setFont(msg.getFont().deriveFont(11f));
+        cta.add(msg, BorderLayout.CENTER);
+
+        cta.add(buildUnlockButton("Create free account"), BorderLayout.SOUTH);
+        return cta;
+    }
+
+    /** Shared gold "create account" button that opens the web signup (no in-client payment). */
+    private JButton buildUnlockButton(String label)
+    {
+        JButton btn = new JButton(label);
+        btn.setFont(btn.getFont().deriveFont(Font.BOLD, 11f));
+        btn.setForeground(PANEL_DEEP);
+        btn.setBackground(BRAND_GOLD);
+        btn.setFocusPainted(false);
+        btn.setBorder(new EmptyBorder(6, 10, 6, 10));
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btn.addActionListener(e -> openDashboardUrl("https://grandflipout.com/signup.html"));
+        return btn;
+    }
+
+    /**
+     * Re-render account-gated surfaces after the entitlement is (re)resolved. Must run on the EDT.
+     */
+    public void onEntitlementChanged()
+    {
+        if (upgradeLink != null)
+        {
+            upgradeLink.setText(isUnlocked() ? "Account" : "Upgrade");
+        }
+        // Re-render the gated browse list and the premium Intel tab.
+        displayAllItemsInCategory();
+        rebuildIntelGate();
     }
 
     /**
@@ -184,7 +342,23 @@ public class GrandFlipOutPanel extends PluginPanel
         lastRefreshLabel.setFont(lastRefreshLabel.getFont().deriveFont(10f));
         titleRow.add(lastRefreshLabel, BorderLayout.EAST);
         header.add(titleRow);
-        header.add(Box.createVerticalStrut(6));
+        header.add(Box.createVerticalStrut(4));
+
+        // (Nature-rune barometer removed — nat price is now just an alch-cost
+        //  input to high-alch margins via the production graph, not a special branch.)
+
+        JButton dashboardBtn = new JButton("Intelligence Dashboard");
+        dashboardBtn.setFont(dashboardBtn.getFont().deriveFont(Font.BOLD, 11f));
+        dashboardBtn.setForeground(BRAND_GOLD);
+        dashboardBtn.setBackground(PANEL_BUTTON);
+        dashboardBtn.setFocusPainted(false);
+        dashboardBtn.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+        dashboardBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        dashboardBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        dashboardBtn.addActionListener(e -> openWebChartForSearch());
+        header.add(dashboardBtn);
 
         JButton recipesBtn = new JButton("Recipe Profits (Web)");
         recipesBtn.setFont(recipesBtn.getFont().deriveFont(11f));
@@ -329,7 +503,7 @@ public class GrandFlipOutPanel extends PluginPanel
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 0));
         filterPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
-        String[] categories = {"All", "Weapons", "Armor", "Consumables", "Resources"};
+        String[] categories = {"All", CAT_WATCH, "Weapons", "Armor", "Consumables", "Resources"};
         categoryButtons = new JButton[categories.length];
         for (int i = 0; i < categories.length; i++)
         {
@@ -351,7 +525,40 @@ public class GrandFlipOutPanel extends PluginPanel
         updateCategoryButtonStyles();
         styleSearchField(searchField);
 
-        topPanel.add(filterPanel, BorderLayout.SOUTH);
+        // Sort row — turns the browse list into ranked flip suggestions.
+        JPanel sortRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 2));
+        sortRow.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        JLabel sortLbl = new JLabel("Sort:");
+        sortLbl.setForeground(TEXT_DIM);
+        sortLbl.setFont(sortLbl.getFont().deriveFont(10f));
+        sortRow.add(sortLbl);
+
+        final String[] sortLabels = {"Best (profit/limit)", "Margin (gp)", "Margin %", "Name (A-Z)"};
+        final String[] sortKeys = {SORT_BEST, SORT_MARGIN, SORT_MARGIN_PCT, SORT_NAME};
+        JComboBox<String> sortCombo = new JComboBox<>(sortLabels);
+        sortCombo.setFont(sortCombo.getFont().deriveFont(10f));
+        sortCombo.setForeground(Color.LIGHT_GRAY);
+        sortCombo.setBackground(PANEL_BUTTON);
+        sortCombo.setToolTipText("Rank suggestions by flip metric (volume-floored) or browse by name");
+        sortCombo.addActionListener(e ->
+        {
+            int idx = sortCombo.getSelectedIndex();
+            if (idx >= 0 && idx < sortKeys.length)
+            {
+                selectedSort = sortKeys[idx];
+                searchField.setText("");
+                displayAllItemsInCategory();
+            }
+        });
+        sortRow.add(sortCombo);
+
+        JPanel controls = new JPanel();
+        controls.setLayout(new BoxLayout(controls, BoxLayout.Y_AXIS));
+        controls.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        controls.add(filterPanel);
+        controls.add(sortRow);
+
+        topPanel.add(controls, BorderLayout.SOUTH);
         panel.add(topPanel, BorderLayout.NORTH);
 
         // Results
@@ -488,7 +695,23 @@ public class GrandFlipOutPanel extends PluginPanel
         historyActions.add(exportCsvBtn);
 
         headerPanel.add(historyActions, BorderLayout.EAST);
-        panel.add(headerPanel, BorderLayout.NORTH);
+
+        // Stack the section header above the numbers-only Stats block (both NORTH).
+        JPanel northStack = new JPanel();
+        northStack.setLayout(new BoxLayout(northStack, BoxLayout.Y_AXIS));
+        northStack.setOpaque(false);
+        headerPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        northStack.add(headerPanel);
+        statsPanel = new StatsPanel(flipTracker, sessionManager);
+        statsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        // Re-render the history list whenever the account/interval selection changes.
+        statsPanel.setSelectionListener(this::updateHistoryTab);
+        northStack.add(statsPanel);
+        JSeparator statsSep = new JSeparator();
+        statsSep.setForeground(ColorScheme.MEDIUM_GRAY_COLOR);
+        statsSep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        northStack.add(statsSep);
+        panel.add(northStack, BorderLayout.NORTH);
 
         historyPanel = new JPanel();
         historyPanel.setLayout(new BoxLayout(historyPanel, BoxLayout.Y_AXIS));
@@ -574,6 +797,8 @@ public class GrandFlipOutPanel extends PluginPanel
                 lastRefreshLabel.setForeground(BRAND_GOLD);
             }
         }
+
+        // (Nature-rune barometer update removed — see note in buildPanel.)
     }
     public void updateFlipsTab()
     {
@@ -614,6 +839,9 @@ public class GrandFlipOutPanel extends PluginPanel
             ? TradeLogReader.readRecent(dataDir, 40)
             : new ArrayList<>();
 
+        String selectedAccount = statsPanel != null
+            ? statsPanel.getSelectedAccount() : StatsPanel.ALL_ACCOUNTS;
+
         List<TradeLogEntry> filteredLog = new ArrayList<>();
         for (TradeLogEntry entry : logEntries)
         {
@@ -622,6 +850,10 @@ public class GrandFlipOutPanel extends PluginPanel
                 continue;
             }
             if ("loss".equals(historyFilter) && entry.getProfit() >= 0)
+            {
+                continue;
+            }
+            if (!matchesAccount(entry.getAccountName(), selectedAccount))
             {
                 continue;
             }
@@ -661,6 +893,11 @@ public class GrandFlipOutPanel extends PluginPanel
                 {
                     continue;
                 }
+                if (!StatsPanel.ALL_ACCOUNTS.equals(selectedAccount)
+                    && !StatsPanel.accountLabel(flip).equals(selectedAccount))
+                {
+                    continue;
+                }
                 JPanel card = buildHistoryCard(flip);
                 historyPanel.add(card);
             }
@@ -675,6 +912,12 @@ public class GrandFlipOutPanel extends PluginPanel
 
         historyPanel.revalidate();
         historyPanel.repaint();
+
+        // Refresh the numbers-only Stats block for the selected interval.
+        if (statsPanel != null)
+        {
+            statsPanel.recompute();
+        }
 
         // Refresh the summary panel (top items + session log totals) — find it by name
         if (historyTab != null)
@@ -1062,6 +1305,25 @@ public class GrandFlipOutPanel extends PluginPanel
         return label;
     }
 
+    /**
+     * Whether a trade-log entry's account matches the selected account filter.
+     * Null/blank account names bucket as {@link StatsPanel#UNKNOWN_ACCOUNT}.
+     *
+     * @param accountName the entry's recorded RSN (may be null on legacy lines)
+     * @param selected the account selected in the stats panel
+     * @return true if the entry should be shown
+     */
+    private boolean matchesAccount(String accountName, String selected)
+    {
+        if (StatsPanel.ALL_ACCOUNTS.equals(selected))
+        {
+            return true;
+        }
+        String bucket = (accountName == null || accountName.trim().isEmpty())
+            ? StatsPanel.UNKNOWN_ACCOUNT : accountName;
+        return bucket.equals(selected);
+    }
+
     // ==================== CATEGORY FILTERING ====================
 
     /**
@@ -1113,7 +1375,7 @@ public class GrandFlipOutPanel extends PluginPanel
             return;
         }
 
-        String[] categories = {"All", "Weapons", "Armor", "Consumables", "Resources"};
+        String[] categories = {"All", CAT_WATCH, "Weapons", "Armor", "Consumables", "Resources"};
         for (int i = 0; i < categoryButtons.length; i++)
         {
             JButton btn = categoryButtons[i];
@@ -1162,19 +1424,51 @@ public class GrandFlipOutPanel extends PluginPanel
 
         priceResultsPanel.removeAll();
 
-        // Get all items and filter by category
+        boolean watchMode = CAT_WATCH.equals(selectedCategory);
+        // Anonymous (no unlocked account) sees F2P-item suggestions only. Explicit search
+        // and price lookup stay free for ALL items — only this browse list is gated.
+        boolean unlocked = isUnlocked();
+        int membersHidden = 0;
         List<PriceAggregate> allItems = new ArrayList<>();
-        for (Integer itemId : priceService.getAllItemIds())
+
+        if (watchMode)
         {
-            PriceAggregate agg = priceService.getPrice(itemId);
-            if (agg != null && matchesCategory(agg.getItemName(), selectedCategory))
+            // The player's starred items — their own picks, shown in full (no F2P gate,
+            // no volume floor), ordered by the active sort.
+            for (Integer id : watchlist.getAll())
             {
+                PriceAggregate agg = priceService.getPrice(id);
+                if (agg != null)
+                {
+                    allItems.add(agg);
+                }
+            }
+            allItems.sort(comparatorFor(selectedSort));
+        }
+        else
+        {
+            // Candidates come pre-ranked (and volume-floored) from the price engine for the
+            // metric sorts; "name" falls back to the full alphabetical browse. We then apply
+            // the category + F2P gate while PRESERVING the engine's rank order.
+            for (PriceAggregate agg : getRankedCandidates())
+            {
+                if (agg == null || !matchesCategory(agg.getItemName(), selectedCategory))
+                {
+                    continue;
+                }
+                if (!unlocked && agg.getMapping() != null && agg.getMapping().isMembers())
+                {
+                    membersHidden++;
+                    continue;
+                }
                 allItems.add(agg);
             }
-        }
 
-        // Sort by name
-        allItems.sort(Comparator.comparing(PriceAggregate::getItemName));
+            if (!unlocked && membersHidden > 0)
+            {
+                priceResultsPanel.add(buildUnlockCta(membersHidden));
+            }
+        }
 
         int displayCount = Math.min(allItems.size(), 50);
         for (int i = 0; i < displayCount; i++)
@@ -1193,14 +1487,17 @@ public class GrandFlipOutPanel extends PluginPanel
 
         if (allItems.isEmpty())
         {
-            JLabel noResults = new JLabel("No items in '" + selectedCategory + "' category.");
+            JLabel noResults = new JLabel(watchMode
+                ? "<html>Nothing starred yet.<br>Tap the ☆ on any item to watch it here.</html>"
+                : "No items in '" + selectedCategory + "' category.");
             noResults.setForeground(Color.GRAY);
             noResults.setBorder(new EmptyBorder(20, 8, 20, 8));
             priceResultsPanel.add(noResults);
         }
         else
         {
-            JLabel countLabel = new JLabel("Showing " + displayCount + " of " + allItems.size() + " results");
+            JLabel countLabel = new JLabel("Showing " + displayCount + " of " + allItems.size()
+                + " · sorted by " + sortLabel(selectedSort));
             countLabel.setForeground(Color.GRAY);
             countLabel.setBorder(new EmptyBorder(4, 8, 4, 8));
             priceResultsPanel.add(countLabel);
@@ -1208,6 +1505,78 @@ public class GrandFlipOutPanel extends PluginPanel
 
         priceResultsPanel.revalidate();
         priceResultsPanel.repaint();
+    }
+
+    // Category label for the player's starred items.
+    private static final String CAT_WATCH = "★ Watch";
+    // Sort modes for the Prices suggestion list.
+    private static final String SORT_BEST = "best";   // profit per GE limit (default)
+    private static final String SORT_MARGIN = "margin"; // absolute margin (gp)
+    private static final String SORT_MARGIN_PCT = "marginPct"; // margin %
+    private static final String SORT_NAME = "name";   // alphabetical browse
+    // Min 1h volume for an item to qualify as a suggestion (must be flippable).
+    private static final int MIN_SUGGESTION_VOLUME = 10;
+
+    /**
+     * Candidate items for the suggestion list, pre-ranked by the selected sort. The metric
+     * sorts route through the PriceService ranking engine (volume-floored, descending); the
+     * "name" sort returns the full catalogue alphabetically for plain browsing.
+     */
+    private List<PriceAggregate> getRankedCandidates()
+    {
+        switch (selectedSort)
+        {
+            case SORT_MARGIN:
+                return priceService.getTopByMargin(500, MIN_SUGGESTION_VOLUME);
+            case SORT_MARGIN_PCT:
+                return priceService.getHighMarginItems(0.0, MIN_SUGGESTION_VOLUME);
+            case SORT_NAME:
+            {
+                List<PriceAggregate> all = new ArrayList<>();
+                for (Integer id : priceService.getAllItemIds())
+                {
+                    PriceAggregate agg = priceService.getPrice(id);
+                    if (agg != null)
+                    {
+                        all.add(agg);
+                    }
+                }
+                all.sort(Comparator.comparing(PriceAggregate::getItemName));
+                return all;
+            }
+            case SORT_BEST:
+            default:
+                return priceService.getTopByProfitPerLimit(500, MIN_SUGGESTION_VOLUME);
+        }
+    }
+
+    private String sortLabel(String sort)
+    {
+        switch (sort)
+        {
+            case SORT_MARGIN: return "margin";
+            case SORT_MARGIN_PCT: return "margin %";
+            case SORT_NAME: return "name";
+            case SORT_BEST:
+            default: return "profit/limit";
+        }
+    }
+
+    /** Comparator matching the selected sort — used to order the watchlist (no volume floor). */
+    private Comparator<PriceAggregate> comparatorFor(String sort)
+    {
+        switch (sort)
+        {
+            case SORT_MARGIN:
+                return Comparator.comparingLong(PriceAggregate::getConsensusMargin).reversed();
+            case SORT_MARGIN_PCT:
+                return Comparator.comparingDouble(PriceAggregate::getConsensusMarginPercent).reversed();
+            case SORT_NAME:
+                return Comparator.comparing(PriceAggregate::getItemName);
+            case SORT_BEST:
+            default:
+                return Comparator.comparingLong(PriceAggregate::getProfitPerLimit).reversed();
+        }
     }
 
     // ==================== SEARCH ====================
@@ -1342,13 +1711,70 @@ public class GrandFlipOutPanel extends PluginPanel
         ));
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 80));
 
-        // ── Row 1: Name + Margin % badge ──
+        // ── Row 1: ☆ star + Name + Margin % badge + Signal badge ──
         JPanel row1 = new JPanel(new BorderLayout());
         row1.setOpaque(false);
+
+        JPanel nameRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        nameRow.setOpaque(false);
+
+        final int watchItemId = agg.getItemId();
+        JLabel star = new JLabel(watchlist.contains(watchItemId) ? "★" : "☆");
+        star.setForeground(watchlist.contains(watchItemId) ? BRAND_GOLD : TEXT_DIM);
+        star.setFont(star.getFont().deriveFont(14f));
+        star.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        star.setToolTipText("Star this item to add it to your ★ Watch list");
+        star.addMouseListener(new java.awt.event.MouseAdapter()
+        {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e)
+            {
+                boolean nowWatched = watchlist.toggle(watchItemId);
+                star.setText(nowWatched ? "★" : "☆");
+                star.setForeground(nowWatched ? BRAND_GOLD : TEXT_DIM);
+                // When viewing the watch list, un-starring should drop the card immediately.
+                if (CAT_WATCH.equals(selectedCategory))
+                {
+                    displayAllItemsInCategory();
+                }
+            }
+        });
+        nameRow.add(star);
+
         JLabel nameLabel = new JLabel(agg.getItemName());
         nameLabel.setForeground(Color.WHITE);
         nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 12f));
-        row1.add(nameLabel, BorderLayout.WEST);
+        nameRow.add(nameLabel);
+        row1.add(nameRow, BorderLayout.WEST);
+
+        JPanel badges = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        badges.setOpaque(false);
+
+        // Signal badge from server intelligence (cached)
+        if (config.enableServerIntelligence())
+        {
+            int itemId = agg.getItemId();
+            CachedAdvisor cached = advisorCache.get(itemId);
+            if (cached != null && !cached.isStale())
+            {
+                JLabel sigBadge = new JLabel(" " + cached.action + " ");
+                sigBadge.setForeground(Color.WHITE);
+                sigBadge.setOpaque(true);
+                sigBadge.setBackground(cached.action.equals("BUY") ? new Color(0x00, 0xA8, 0x6B)
+                    : cached.action.equals("SELL") ? new Color(0xC0, 0x39, 0x2B) : new Color(0x55, 0x55, 0x55));
+                sigBadge.setFont(sigBadge.getFont().deriveFont(Font.BOLD, 9f));
+                badges.add(sigBadge);
+            }
+            else if (executor != null && intelligenceClient != null)
+            {
+                executor.execute(() -> {
+                    try {
+                        var result = intelligenceClient.fetchSmartAdvisor(itemId);
+                        advisorCache.put(itemId, new CachedAdvisor(result.getAction(), result.getSignalStrength()));
+                    } catch (Exception ignored) {}
+                });
+            }
+        }
 
         double marginPct = agg.getConsensusMarginPercent();
         Color marginColor = marginPct >= 5 ? new Color(0x00, 0xD2, 0x6A)
@@ -1359,7 +1785,9 @@ public class GrandFlipOutPanel extends PluginPanel
         marginBadge.setOpaque(true);
         marginBadge.setBackground(marginColor.darker());
         marginBadge.setFont(marginBadge.getFont().deriveFont(Font.BOLD, 10f));
-        row1.add(marginBadge, BorderLayout.EAST);
+        badges.add(marginBadge);
+
+        row1.add(badges, BorderLayout.EAST);
         card.add(row1);
         card.add(Box.createVerticalStrut(4));
 
@@ -1393,7 +1821,324 @@ public class GrandFlipOutPanel extends PluginPanel
         row3.add(profitMeta);
         card.add(row3);
 
+        // ── Row 4: Alch floor (if item has highalch value) ──
+        if (agg.getMapping() != null && agg.getMapping().getHighalch() > 0)
+        {
+            int highalch = agg.getMapping().getHighalch();
+            long natPrice = 150;
+            PriceAggregate natAgg = priceService.getPrice(561);
+            if (natAgg != null && natAgg.getBestLowPrice() > 0)
+            {
+                natPrice = natAgg.getBestLowPrice();
+            }
+            long alchFloor = highalch - natPrice;
+            long currentBuy = agg.getBestLowPrice();
+            boolean nearFloor = alchFloor > 0 && currentBuy > 0 && currentBuy <= alchFloor * 1.05;
+
+            if (alchFloor > 0)
+            {
+                card.add(Box.createVerticalStrut(2));
+                JPanel alchRow = new JPanel(new GridLayout(1, 2, 4, 0));
+                alchRow.setOpaque(false);
+                JPanel alchMeta = createMetaLabel("Alch Floor", formatGp(alchFloor));
+                if (nearFloor)
+                {
+                    Component[] acs = alchMeta.getComponents();
+                    if (acs.length > 1 && acs[1] instanceof JLabel)
+                    {
+                        ((JLabel) acs[1]).setForeground(new Color(0xFF, 0x47, 0x57));
+                        ((JLabel) acs[1]).setText(formatGp(alchFloor) + " (NEAR)");
+                    }
+                }
+                alchRow.add(alchMeta);
+                long alchProfit = highalch - currentBuy - natPrice;
+                JPanel alchProfitMeta = createMetaLabel("Alch Profit", formatGp(alchProfit));
+                Component[] apcs = alchProfitMeta.getComponents();
+                if (apcs.length > 1 && apcs[1] instanceof JLabel)
+                {
+                    ((JLabel) apcs[1]).setForeground(alchProfit > 0
+                        ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
+                }
+                alchRow.add(alchProfitMeta);
+                card.add(alchRow);
+            }
+        }
+
         return card;
+    }
+
+    // ==================== INTEL TAB ====================
+
+    private JPanel buildIntelTab()
+    {
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setBackground(PANEL_DEEP);
+
+        JPanel top = new JPanel(new BorderLayout());
+        top.setOpaque(false);
+        top.setBorder(new EmptyBorder(8, 8, 4, 8));
+        JLabel title = new JLabel("Server Intelligence (opt-in)");
+        title.setForeground(BRAND_GOLD);
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 12f));
+        top.add(title, BorderLayout.WEST);
+
+        JButton refreshBtn = new JButton("Refresh");
+        refreshBtn.setFont(refreshBtn.getFont().deriveFont(10f));
+        refreshBtn.setForeground(BRAND_GOLD);
+        refreshBtn.setBackground(PANEL_BUTTON);
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(PANEL_BORDER),
+            BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+        refreshBtn.addActionListener(e -> refreshIntel());
+        top.add(refreshBtn, BorderLayout.EAST);
+        wrapper.add(top, BorderLayout.NORTH);
+
+        intelContentPanel = new JPanel();
+        intelContentPanel.setLayout(new BoxLayout(intelContentPanel, BoxLayout.Y_AXIS));
+        intelContentPanel.setBackground(PANEL_DEEP);
+        intelContentPanel.setBorder(new EmptyBorder(4, 8, 8, 8));
+
+        rebuildIntelGate();
+
+        JScrollPane scroll = new JScrollPane(intelContentPanel);
+        scroll.setBorder(null);
+        scroll.getViewport().setBackground(PANEL_DEEP);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        wrapper.add(scroll, BorderLayout.CENTER);
+
+        return wrapper;
+    }
+
+    /**
+     * Decide what the Intel tab shows: a premium unlock CTA for anonymous users, the
+     * "server intelligence is off" hint when the account is unlocked but the toggle is off,
+     * or the live intelligence (with a 60s auto-refresh started once).
+     */
+    private void rebuildIntelGate()
+    {
+        if (intelContentPanel == null)
+        {
+            return;
+        }
+        intelContentPanel.removeAll();
+
+        if (!isUnlocked())
+        {
+            JLabel msg = new JLabel("<html><div style='width:170px'><b>Server intelligence is a "
+                + "premium feature.</b><br>Create a free Grand Flip Out account to unlock VPIN "
+                + "alerts, screener signals, dump predictions, and the portfolio optimizer.</div></html>");
+            msg.setForeground(TEXT_DIM);
+            msg.setBorder(new EmptyBorder(16, 8, 12, 8));
+            msg.setAlignmentX(Component.LEFT_ALIGNMENT);
+            intelContentPanel.add(msg);
+
+            intelContentPanel.add(buildUnlockButton("Create free account"));
+        }
+        else if (!config.enableServerIntelligence())
+        {
+            JLabel offLabel = new JLabel("<html>Server intelligence is OFF.<br>Enable in plugin config to see VPIN alerts,<br>screener signals, dump predictions, and more.</html>");
+            offLabel.setForeground(TEXT_DIM);
+            offLabel.setBorder(new EmptyBorder(20, 8, 20, 8));
+            intelContentPanel.add(offLabel);
+        }
+        else
+        {
+            JLabel loading = new JLabel("Loading intelligence data...");
+            loading.setForeground(TEXT_DIM);
+            loading.setBorder(new EmptyBorder(20, 8, 20, 8));
+            intelContentPanel.add(loading);
+
+            // Auto-refresh the Intel tab every 60s — register the schedule only once.
+            if (executor != null && !intelAutoRefreshStarted)
+            {
+                intelAutoRefreshStarted = true;
+                executor.scheduleAtFixedRate(this::refreshIntel, 2, 60, java.util.concurrent.TimeUnit.SECONDS);
+            }
+            else
+            {
+                refreshIntel();
+            }
+        }
+
+        intelContentPanel.revalidate();
+        intelContentPanel.repaint();
+    }
+
+    private void refreshIntel()
+    {
+        // Premium feature — gated behind an unlocked account and the opt-in toggle.
+        if (!isUnlocked() || !config.enableServerIntelligence() || intelligenceClient == null)
+        {
+            return;
+        }
+
+        executor.execute(() ->
+        {
+            try
+            {
+                com.google.gson.JsonObject screener = intelligenceClient.fetchScreener("buy_signal", 10);
+                com.google.gson.JsonObject vpin = intelligenceClient.fetchVPIN();
+                com.google.gson.JsonObject nextDumps = intelligenceClient.fetchNextDumps(10);
+                com.google.gson.JsonObject alerts = intelligenceClient.fetchAlerts(5);
+                com.google.gson.JsonObject barometer = null;
+                com.google.gson.JsonObject banWave = null;
+                com.google.gson.JsonObject portfolio = null;
+                try { barometer = intelligenceClient.fetchBarometer(); } catch (Exception ignored) {}
+                try { banWave = intelligenceClient.fetchBanWave(); } catch (Exception ignored) {}
+
+                try { portfolio = intelligenceClient.fetchOptimize(10_000_000, 4, "balanced"); } catch (Exception ignored) {}
+
+                final com.google.gson.JsonObject fBarometer = barometer;
+                final com.google.gson.JsonObject fBanWave = banWave;
+                final com.google.gson.JsonObject fPortfolio = portfolio;
+
+                javax.swing.SwingUtilities.invokeLater(() ->
+                {
+                    intelContentPanel.removeAll();
+
+                    // Barometer (nature rune macro)
+                    if (fBarometer != null && fBarometer.has("price"))
+                    {
+                        int natPrice = fBarometer.get("price").getAsInt();
+                        String change = fBarometer.has("change5mPct") && !fBarometer.get("change5mPct").isJsonNull()
+                            ? String.format("%+.1f%%", fBarometer.get("change5mPct").getAsDouble()) : "—";
+                        String signal = fBarometer.has("signal") ? fBarometer.get("signal").getAsString() : "neutral";
+                        Color sigColor = "alch_opportunity".equals(signal) ? PROFIT_GREEN
+                            : "alch_squeeze".equals(signal) ? LOSS_RED : TEXT_DIM;
+
+                        JLabel baroHeader = new JLabel("Nature Rune Barometer");
+                        baroHeader.setForeground(BRAND_GOLD);
+                        baroHeader.setFont(baroHeader.getFont().deriveFont(Font.BOLD, 11f));
+                        baroHeader.setBorder(new EmptyBorder(4, 0, 2, 0));
+                        baroHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
+                        intelContentPanel.add(baroHeader);
+
+                        JLabel baroVal = new JLabel("  " + formatGpFull(natPrice) + " gp (" + change + ") — " + signal.replace('_', ' '));
+                        baroVal.setForeground(sigColor);
+                        baroVal.setFont(baroVal.getFont().deriveFont(10f));
+                        baroVal.setBorder(new EmptyBorder(1, 8, 4, 0));
+                        baroVal.setAlignmentX(Component.LEFT_ALIGNMENT);
+                        intelContentPanel.add(baroVal);
+                    }
+
+                    // Ban wave alert
+                    if (fBanWave != null && fBanWave.has("banWaveDetected") && fBanWave.get("banWaveDetected").getAsBoolean())
+                    {
+                        JLabel bwHeader = new JLabel("⚠ BOT BAN WAVE DETECTED");
+                        bwHeader.setForeground(LOSS_RED);
+                        bwHeader.setFont(bwHeader.getFont().deriveFont(Font.BOLD, 11f));
+                        bwHeader.setBorder(new EmptyBorder(4, 0, 2, 0));
+                        bwHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
+                        intelContentPanel.add(bwHeader);
+
+                        int affected = fBanWave.has("affectedCount") ? fBanWave.get("affectedCount").getAsInt() : 0;
+                        JLabel bwDetail = new JLabel("  " + affected + " bot-farmed items with supply drops");
+                        bwDetail.setForeground(Color.LIGHT_GRAY);
+                        bwDetail.setFont(bwDetail.getFont().deriveFont(10f));
+                        bwDetail.setBorder(new EmptyBorder(1, 8, 4, 0));
+                        bwDetail.setAlignmentX(Component.LEFT_ALIGNMENT);
+                        intelContentPanel.add(bwDetail);
+                    }
+
+                    // VPIN section
+                    addIntelSection("VPIN Order Flow", vpin, "elevated",
+                        e -> e.getAsJsonObject().has("itemName")
+                            ? e.getAsJsonObject().get("itemName").getAsString()
+                              + " — VPIN " + e.getAsJsonObject().get("vpin").getAsString()
+                              + " (" + e.getAsJsonObject().get("signal").getAsString() + ")"
+                            : "?");
+
+                    // Buy signals
+                    addIntelSection("Buy Signals", screener, "results",
+                        e -> {
+                            com.google.gson.JsonObject r = e.getAsJsonObject();
+                            String name = r.has("itemName") ? r.get("itemName").getAsString() : "?";
+                            int score = r.has("score") ? r.get("score").getAsInt() : 0;
+                            String regime = r.has("regime") ? r.get("regime").getAsString() : "";
+                            return name + " — score " + (score > 0 ? "+" : "") + score + " (" + regime + ")";
+                        });
+
+                    // Next dumps
+                    addIntelSection("Next Dump Predictions", nextDumps, "predictions",
+                        e -> {
+                            com.google.gson.JsonObject p = e.getAsJsonObject();
+                            String name = p.has("name") ? p.get("name").getAsString() : "Item " + p.get("item_id");
+                            int hazard = (int) (p.get("hazard").getAsDouble() * 100);
+                            return name + " — " + hazard + "% hazard";
+                        });
+
+                    // HP alerts
+                    addIntelSection("Dump Alerts", alerts, "alerts",
+                        e -> {
+                            com.google.gson.JsonObject a = e.getAsJsonObject();
+                            String name = a.has("name") ? a.get("name").getAsString() : "?";
+                            int score = a.has("score") ? a.get("score").getAsInt() : 0;
+                            String sev = a.has("severity") ? a.get("severity").getAsString() : "";
+                            return name + " — score " + score + " [" + sev + "]";
+                        });
+
+                    // Portfolio optimizer
+                    if (fPortfolio != null && fPortfolio.has("allocations"))
+                    {
+                        addIntelSection("Portfolio Optimizer (10M balanced)", fPortfolio, "allocations",
+                            e -> {
+                                com.google.gson.JsonObject a = e.getAsJsonObject();
+                                String name = a.has("itemName") ? a.get("itemName").getAsString() : "?";
+                                int qty = a.has("quantity") ? a.get("quantity").getAsInt() : 0;
+                                long exp = a.has("expectedProfit") ? a.get("expectedProfit").getAsLong() : 0;
+                                return name + " x" + qty + " — exp " + formatGpFull(exp) + " gp";
+                            });
+                    }
+
+                    if (intelContentPanel.getComponentCount() == 0)
+                    {
+                        JLabel empty = new JLabel("No active intelligence signals.");
+                        empty.setForeground(TEXT_DIM);
+                        empty.setBorder(new EmptyBorder(20, 8, 20, 8));
+                        intelContentPanel.add(empty);
+                    }
+
+                    intelContentPanel.revalidate();
+                    intelContentPanel.repaint();
+                });
+            }
+            catch (Exception e)
+            {
+                System.err.println("Intel refresh failed: " + e.getMessage());
+            }
+        });
+    }
+
+    private void addIntelSection(String title, com.google.gson.JsonObject data, String arrayKey,
+                                  java.util.function.Function<com.google.gson.JsonElement, String> formatter)
+    {
+        if (data == null || !data.has(arrayKey)) return;
+        com.google.gson.JsonArray arr = data.getAsJsonArray(arrayKey);
+        if (arr == null || arr.size() == 0) return;
+
+        JLabel header = new JLabel(title + " (" + arr.size() + ")");
+        header.setForeground(BRAND_GOLD);
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 11f));
+        header.setBorder(new EmptyBorder(8, 0, 4, 0));
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
+        intelContentPanel.add(header);
+
+        int max = Math.min(arr.size(), 8);
+        for (int i = 0; i < max; i++)
+        {
+            try
+            {
+                String text = formatter.apply(arr.get(i));
+                JLabel item = new JLabel(text);
+                item.setForeground(Color.LIGHT_GRAY);
+                item.setFont(item.getFont().deriveFont(10f));
+                item.setBorder(new EmptyBorder(1, 8, 1, 0));
+                item.setAlignmentX(Component.LEFT_ALIGNMENT);
+                intelContentPanel.add(item);
+            }
+            catch (Exception ignored) {}
+        }
     }
 
     // ==================== HELPERS ====================

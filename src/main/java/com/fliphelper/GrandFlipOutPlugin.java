@@ -12,20 +12,30 @@ import com.fliphelper.api.IntelligenceClient;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.ui.GpDropOverlay;
+import com.fliphelper.ui.InventoryTooltipOverlay;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.TradeRecord;
 import com.fliphelper.tracker.FlipTracker;
 import com.fliphelper.tracker.SessionManager;
 import com.fliphelper.ui.GrandFlipOutPanel;
+import com.fliphelper.util.FlippingUtilitiesImporter;
 import com.fliphelper.util.WealthSnapshot;
 import com.google.gson.Gson;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.ChatMessageType;
+import net.runelite.api.Player;
+import net.runelite.api.VarClientStr;
+import net.runelite.api.ScriptID;
+import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.ComponentID;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GrandExchangeOfferChanged;
+import net.runelite.api.events.ScriptPostFired;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -37,6 +47,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.ui.overlay.tooltip.TooltipManager;
 import net.runelite.client.util.ImageUtil;
 import okhttp3.OkHttpClient;
 
@@ -99,6 +110,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private KeyManager keyManager;
 
     @Inject
+    private TooltipManager tooltipManager;
+
+    @Inject
     private OkHttpClient okHttpClient;
 
     @Inject
@@ -111,14 +125,22 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private FlipTracker flipTracker;
     private SessionManager sessionManager;
     private IntelligenceClient intelligenceClient;
+    private com.fliphelper.api.EntitlementService entitlementService;
     private GrandFlipOutPanel panel;
     private GrandFlipOutOverlay overlay;
     private GpDropOverlay gpDropOverlay;
+    private InventoryTooltipOverlay inventoryTooltipOverlay;
     private NavigationButton navButton;
     private ScheduledFuture<?> refreshFuture;
     // Track GE offer states to detect completions
     private final int[] lastOfferQuantity = new int[8];
     private final GrandExchangeOfferState[] lastOfferState = new GrandExchangeOfferState[8];
+    // Pending GE price fill — armed by hotkey, injected when chatbox opens
+    private volatile long pendingGePrice = -1;
+    private static final int CHATBOX_INPUT_OPEN_SCRIPT = 108;
+    // Per-character data directory
+    private String currentDisplayName = null;
+    private File characterDataDir = null;
 
     @Provides
     GrandFlipOutConfig provideConfig(ConfigManager configManager)
@@ -136,7 +158,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
         intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl());
-        flipTracker = new FlipTracker(config, DATA_DIR, gson);
+        entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl());
+        flipTracker = new FlipTracker(config, priceService, DATA_DIR, gson);
 
         // Initialize session tracking
         sessionManager = new SessionManager(DATA_DIR.getAbsolutePath(), gson);
@@ -153,10 +176,28 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             });
         });
 
-        // Create UI — pass sessionManager so ProfitChartPanel has GP/hr data
-        panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager, DATA_DIR);
+        // One-time Flipping Utilities import (runs async to avoid blocking startUp)
+        if (config.importFlippingUtilities())
+        {
+            File fuImportMarker = new File(DATA_DIR, ".fu_imported");
+            if (!fuImportMarker.exists())
+            {
+                executor.execute(() -> runFlippingUtilitiesImport(fuImportMarker));
+            }
+        }
+
+        // Create UI — pass sessionManager so the panel has GP/hr data
+        panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager, DATA_DIR, intelligenceClient, executor, entitlementService);
+
+        // Resolve the user's account entitlement off-thread (no network call when no key is set).
+        executor.execute(() ->
+        {
+            entitlementService.refresh(config.apiKey());
+            javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
+        });
         overlay = new GrandFlipOutOverlay(client, config, priceService, flipTracker, sessionManager);
         gpDropOverlay = new GpDropOverlay(client, config);
+        inventoryTooltipOverlay = new InventoryTooltipOverlay(client, config, priceService, flipTracker, tooltipManager);
 
         // Navigation button
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
@@ -170,6 +211,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         clientToolbar.addNavigation(navButton);
         overlayManager.add(overlay);
         overlayManager.add(gpDropOverlay);
+        overlayManager.add(inventoryTooltipOverlay);
         keyManager.registerKeyListener(this);
 
         // Start background price refresh using RuneLite's shared scheduler
@@ -208,6 +250,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         overlayManager.remove(overlay);
         overlayManager.remove(gpDropOverlay);
+        overlayManager.remove(inventoryTooltipOverlay);
         clientToolbar.removeNavigation(navButton);
         keyManager.unregisterKeyListener(this);
 
@@ -248,6 +291,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 String itemName = itemDef != null ? itemDef.getName() : "Item #" + itemId;
 
                 WealthSnapshot wealth = WealthSnapshot.capture(client, priceService);
+                // Tag the trade with the active account so flips can be attributed
+                // per-RSN. accountHash is the stable key (survives RSN changes); the
+                // display name is captured for human-readable per-account filtering.
+                Player localPlayer = client.getLocalPlayer();
+                String accountName = localPlayer != null ? localPlayer.getName() : null;
                 TradeRecord trade = TradeRecord.builder()
                     .itemId(itemId)
                     .itemName(itemName)
@@ -260,6 +308,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     .inventoryGp(wealth.getInventoryGp())
                     .bankGp(wealth.getBankGp())
                     .totalWealthGp(wealth.getTotalWealthGp())
+                    .accountId(client.getAccountHash())
+                    .accountName(accountName)
                     .build();
 
                 flipTracker.recordTransaction(trade);
@@ -267,6 +317,14 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
                 log.info("GE {} detected: {}x {} @ {}gp (slot {})",
                     isBuy ? "buy" : "sell", deltaQuantity, itemName, pricePerItem, slot);
+
+                // Contribute this trade to the crowdsourced dataset (separate opt-in,
+                // OFF by default, async fire-and-forget). Gated on contributeTrades, NOT
+                // enableServerIntelligence — the latter is strictly read-only.
+                if (config.contributeTrades() && intelligenceClient != null)
+                {
+                    intelligenceClient.submitTrade(itemId, pricePerItem, deltaQuantity, isBuy);
+                }
 
                 // Record GE trade event in debug manager
                 // Trigger GP drop overlay for completed sells (profit celebration)
@@ -331,6 +389,108 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             );
         }
 
+        // Re-check account entitlement when the API key changes (off-thread; no call when blank).
+        if ("apiKey".equals(event.getKey()) && entitlementService != null)
+        {
+            executor.execute(() ->
+            {
+                entitlementService.refresh(config.apiKey());
+                if (panel != null)
+                {
+                    javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
+                }
+            });
+        }
+    }
+
+    // ==================== PER-CHARACTER DATA ====================
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event)
+    {
+        if (event.getGameState() == GameState.LOGGED_IN)
+        {
+            clientThread.invokeLater(() ->
+            {
+                Player local = client.getLocalPlayer();
+                if (local == null || local.getName() == null)
+                {
+                    return;
+                }
+
+                String name = local.getName();
+                if (name.equals(currentDisplayName))
+                {
+                    return;
+                }
+
+                currentDisplayName = name;
+                String safeName = name.replaceAll("[^a-zA-Z0-9_ -]", "");
+                characterDataDir = new File(DATA_DIR, safeName);
+                characterDataDir.mkdirs();
+
+                log.info("Switched to character data directory: {}", characterDataDir);
+
+                flipTracker.switchDataDir(characterDataDir, gson);
+                sessionManager.switchDataDir(characterDataDir.getAbsolutePath());
+
+                WealthSnapshot wealth = WealthSnapshot.capture(client, priceService);
+                sessionManager.startSession(name, 0);
+                sessionManager.setStartWealth(wealth.getTotalWealthGp());
+
+                panel.updateAll();
+            });
+        }
+    }
+
+    // ==================== GE PRICE INJECTION ====================
+
+    @Subscribe
+    public void onScriptPostFired(ScriptPostFired event)
+    {
+        if (event.getScriptId() != CHATBOX_INPUT_OPEN_SCRIPT)
+        {
+            return;
+        }
+
+        if (pendingGePrice > 0)
+        {
+            long price = pendingGePrice;
+            pendingGePrice = -1;
+            injectGePrice(price);
+        }
+    }
+
+    private void injectGePrice(long price)
+    {
+        // Opt-in, default-off. Single chokepoint for the GE offer-field write — no
+        // path injects unless the user enabled it. The user still presses Confirm.
+        if (!config.enableGePriceFill())
+        {
+            return;
+        }
+        clientThread.invokeLater(() ->
+        {
+            try
+            {
+                Widget chatboxInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
+                if (chatboxInput != null)
+                {
+                    chatboxInput.setText(price + "*");
+                }
+                client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(price));
+                client.addChatMessage(
+                    ChatMessageType.GAMEMESSAGE,
+                    "",
+                    String.format("Grand Flip Out: filled %s gp into GE offer.", formatGp(price)),
+                    null
+                );
+            }
+            catch (Exception e)
+            {
+                log.debug("GE price injection failed: {}", e.getMessage());
+            }
+        });
     }
 
     // ==================== HOTKEY HANDLING ====================
@@ -378,19 +538,19 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             copyCurrentMarginToClipboard();
             e.consume();
         }
-        else if (config.priceFillHotkey().matches(e))
+        else if (config.enableGePriceFill() && config.priceFillHotkey().matches(e))
         {
-            copyPriceFillToClipboard();
+            fillGePrice();
             e.consume();
         }
         else if (config.copyBuyPriceHotkey().matches(e))
         {
-            copySlotPriceAssist(true);
+            fillGeBuyPrice();
             e.consume();
         }
         else if (config.copySellPriceHotkey().matches(e))
         {
-            copySlotPriceAssist(false);
+            fillGeSellPrice();
             e.consume();
         }
         else if (config.copySlotAssistHotkey().matches(e))
@@ -457,6 +617,44 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
+    private void runFlippingUtilitiesImport(File marker)
+    {
+        try
+        {
+            List<File> fuFiles = FlippingUtilitiesImporter.findFuFiles(RUNELITE_DIR);
+            if (fuFiles.isEmpty())
+            {
+                log.info("No Flipping Utilities data files found");
+                return;
+            }
+
+            File tradeLog = new File(DATA_DIR, "trade_log.ndjson");
+            int totalImported = 0;
+            for (File fuFile : fuFiles)
+            {
+                log.info("Importing Flipping Utilities data from {}", fuFile.getName());
+                int count = FlippingUtilitiesImporter.importToTradeLog(fuFile, tradeLog);
+                totalImported += count;
+            }
+
+            // Create marker file so we don't re-import next startup
+            marker.createNewFile();
+
+            if (totalImported > 0)
+            {
+                log.info("Imported {} trades from Flipping Utilities", totalImported);
+            }
+            else
+            {
+                log.info("No new trades imported from Flipping Utilities (0 new or all duplicates)");
+            }
+        }
+        catch (Exception e)
+        {
+            log.warn("Flipping Utilities import failed: {}", e.getMessage());
+        }
+    }
+
     private void copyCurrentMarginToClipboard()
     {
         // Copy margin info for the first active flip item
@@ -477,6 +675,71 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     new java.awt.datatransfer.StringSelection(data);
                 java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
             }
+        }
+    }
+
+    private void fillGePrice()
+    {
+        SlotContext ctx = resolveActiveSlotContext();
+        if (ctx == null) return;
+
+        // Determine if we're buying or selling based on GE state
+        boolean isBuying = true;
+        try
+        {
+            GrandExchangeOffer[] offers = client.getGrandExchangeOffers();
+            if (offers != null)
+            {
+                for (GrandExchangeOffer offer : offers)
+                {
+                    if (offer != null && offer.getItemId() == ctx.itemId)
+                    {
+                        isBuying = offer.getState() == GrandExchangeOfferState.BUYING
+                            || offer.getState() == GrandExchangeOfferState.BOUGHT;
+                        break;
+                    }
+                }
+            }
+        }
+        catch (Exception ignored) {}
+
+        long price = isBuying ? ctx.buyPrice : ctx.sellPrice;
+        armOrInjectPrice(price, ctx.itemName, isBuying ? "buy" : "sell");
+        maybeFetchServerAdvisor(ctx.itemId, ctx.itemName);
+    }
+
+    private void fillGeBuyPrice()
+    {
+        SlotContext ctx = resolveActiveSlotContext();
+        if (ctx == null) return;
+        armOrInjectPrice(ctx.buyPrice, ctx.itemName, "buy");
+    }
+
+    private void fillGeSellPrice()
+    {
+        SlotContext ctx = resolveActiveSlotContext();
+        if (ctx == null) return;
+        armOrInjectPrice(ctx.sellPrice, ctx.itemName, "sell");
+    }
+
+    private void armOrInjectPrice(long price, String itemName, String side)
+    {
+        // Try direct injection if chatbox is already open
+        Widget chatboxInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
+        if (chatboxInput != null && chatboxInput.getText() != null && !chatboxInput.isHidden())
+        {
+            injectGePrice(price);
+        }
+        else
+        {
+            // Arm for injection when chatbox opens (script 108)
+            pendingGePrice = price;
+            client.addChatMessage(
+                ChatMessageType.GAMEMESSAGE,
+                "",
+                String.format("Grand Flip Out: %s price %s armed — open a GE offer to fill.", side, formatGp(price)),
+                null
+            );
         }
     }
 
@@ -509,34 +772,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         );
 
         maybeFetchServerAdvisor(ctx.itemId, ctx.itemName);
-    }
-
-    private void maybeFetchServerAdvisor(int itemId, String itemName)
-    {
-        if (!config.enableServerIntelligence() || intelligenceClient == null)
-        {
-            return;
-        }
-
-        executor.execute(() ->
-        {
-            try
-            {
-                IntelligenceClient.SmartAdvisorResult result = intelligenceClient.fetchSmartAdvisor(itemId);
-                String reason = result.getReasons().isEmpty() ? "no details" : result.getReasons().get(0);
-                clientThread.invokeLater(() -> client.addChatMessage(
-                    ChatMessageType.GAMEMESSAGE,
-                    "",
-                    String.format("GFO Advisor: %s → %s (strength %d) — %s",
-                        result.getItemName(), result.getAction(), result.getSignalStrength(), reason),
-                    null
-                ));
-            }
-            catch (Exception e)
-            {
-                log.debug("Server advisor unavailable for {}: {}", itemName, e.getMessage());
-            }
-        });
     }
 
     private void copySlotPriceAssist(boolean buySide)
@@ -603,6 +838,34 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             String.format("Grand Flip Out: copied slot assist for %s (slot %d).", ctx.itemName, ctx.slot + 1),
             null
         );
+    }
+
+    private void maybeFetchServerAdvisor(int itemId, String itemName)
+    {
+        if (!config.enableServerIntelligence() || intelligenceClient == null)
+        {
+            return;
+        }
+
+        executor.execute(() ->
+        {
+            try
+            {
+                IntelligenceClient.SmartAdvisorResult result = intelligenceClient.fetchSmartAdvisor(itemId);
+                String reason = result.getReasons().isEmpty() ? "no details" : result.getReasons().get(0);
+                clientThread.invokeLater(() -> client.addChatMessage(
+                    ChatMessageType.GAMEMESSAGE,
+                    "",
+                    String.format("GFO Advisor: %s → %s (strength %d) — %s",
+                        result.getItemName(), result.getAction(), result.getSignalStrength(), reason),
+                    null
+                ));
+            }
+            catch (Exception e)
+            {
+                log.debug("Server advisor unavailable for {}: {}", itemName, e.getMessage());
+            }
+        });
     }
 
     private SlotContext resolveActiveSlotContext()

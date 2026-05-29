@@ -9,8 +9,10 @@
 package com.fliphelper.tracker;
 
 import com.fliphelper.GrandFlipOutConfig;
+import com.fliphelper.api.PriceService;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.FlipState;
+import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.model.TradeRecord;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -64,8 +66,9 @@ public class FlipTracker
     }
 
     private final GrandFlipOutConfig config;
-    private final File dataDir;
-    private final Gson gson;
+    private final PriceService priceService;
+    private File dataDir;
+    private Gson gson;
 
     @Getter
     private final Map<Integer, FlipItem> activeFlips = new ConcurrentHashMap<>();
@@ -82,12 +85,28 @@ public class FlipTracker
     @Getter
     private final AtomicInteger sessionFlipCount = new AtomicInteger(0);
 
-    public FlipTracker(GrandFlipOutConfig config, File dataDir, Gson gson)
+    public FlipTracker(GrandFlipOutConfig config, PriceService priceService, File dataDir, Gson gson)
     {
         this.config = config;
+        this.priceService = priceService;
         this.dataDir = dataDir;
         this.gson = gson;
 
+        if (config.persistHistory())
+        {
+            loadHistory();
+        }
+    }
+
+    public void switchDataDir(File newDataDir, Gson newGson)
+    {
+        if (config.persistHistory())
+        {
+            saveHistory();
+        }
+        this.dataDir = newDataDir;
+        this.gson = newGson;
+        this.completedFlips.clear();
         if (config.persistHistory())
         {
             loadHistory();
@@ -111,12 +130,21 @@ public class FlipTracker
                 // Record buy - add to pending buys
                 pendingBuys.computeIfAbsent(trade.getItemId(), k -> new ArrayDeque<>()).addLast(trade);
 
+                // Capture market sell price at buy time (frozen sell price)
+                long frozen = 0;
+                PriceAggregate agg = priceService.getPrice(trade.getItemId());
+                if (agg != null)
+                {
+                    frozen = agg.getBestHighPrice();
+                }
+
                 // Create or update active flip
                 FlipItem flip = FlipItem.builder()
                     .itemId(trade.getItemId())
                     .itemName(trade.getItemName())
                     .quantity(trade.getQuantity())
                     .buyPrice(trade.getPrice())
+                    .frozenSellPrice(frozen)
                     .buyTime(trade.getTimestamp())
                     .state(FlipState.BOUGHT)
                     .geSlot(trade.getGeSlot())
@@ -136,12 +164,25 @@ public class FlipTracker
                 {
                     TradeRecord matchedBuy = buys.pollFirst();
 
+                    // Recover frozen sell price from the active flip for this slot
+                    FlipItem activeFlip = activeFlips.get(trade.getGeSlot());
+                    long frozenSell = activeFlip != null ? activeFlip.getFrozenSellPrice() : 0;
+
+                    // Attribute the flip to the account that placed the matched buy
+                    // (falls back to the sell trade's account if the buy predates
+                    // account tagging, e.g. an in-flight flip across an upgrade).
+                    long accountId = matchedBuy.getAccountId() != 0
+                        ? matchedBuy.getAccountId() : trade.getAccountId();
+                    String accountName = matchedBuy.getAccountName() != null
+                        ? matchedBuy.getAccountName() : trade.getAccountName();
+
                     FlipItem completedFlip = FlipItem.builder()
                         .itemId(trade.getItemId())
                         .itemName(trade.getItemName())
                         .quantity(Math.min(matchedBuy.getQuantity(), trade.getQuantity()))
                         .buyPrice(matchedBuy.getPrice())
                         .sellPrice(trade.getPrice())
+                        .frozenSellPrice(frozenSell)
                         .buyTime(matchedBuy.getTimestamp())
                         .sellTime(trade.getTimestamp())
                         .state(FlipState.COMPLETE)
@@ -150,6 +191,8 @@ public class FlipTracker
                         .sellInventoryGp(trade.getInventoryGp())
                         .sellBankGp(trade.getBankGp())
                         .sellTotalWealthGp(trade.getTotalWealthGp())
+                        .accountId(accountId)
+                        .accountName(accountName)
                         .build();
 
                     completedFlips.add(0, completedFlip);
@@ -296,6 +339,25 @@ public class FlipTracker
         sessionFlipCount.set(0);
         activeFlips.clear();
         pendingBuys.clear();
+    }
+
+    /**
+     * Get the average buy price for an item across all active (bought, not yet sold) flips.
+     * Returns 0 if no active flips exist for the item.
+     */
+    public long getAverageBuyPrice(int itemId)
+    {
+        long totalCost = 0;
+        int totalQty = 0;
+        for (FlipItem flip : activeFlips.values())
+        {
+            if (flip.getItemId() == itemId && flip.getBuyPrice() > 0)
+            {
+                totalCost += flip.getBuyPrice() * flip.getQuantity();
+                totalQty += flip.getQuantity();
+            }
+        }
+        return totalQty > 0 ? totalCost / totalQty : 0;
     }
 
     /**
@@ -501,6 +563,14 @@ public class FlipTracker
             entry.put("geSlot", flip.getGeSlot());
             entry.put("buyTime", flip.getBuyTime() != null ? flip.getBuyTime().toString() : null);
             entry.put("sellTime", flip.getSellTime() != null ? flip.getSellTime().toString() : null);
+            if (flip.getAccountName() != null)
+            {
+                entry.put("accountName", flip.getAccountName());
+            }
+            if (flip.getAccountId() != 0)
+            {
+                entry.put("accountId", flip.getAccountId());
+            }
             Long coinGp = null;
             Long inventoryGp = null;
             Long bankGp = null;

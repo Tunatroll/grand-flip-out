@@ -45,16 +45,23 @@ public interface GrandFlipOutConfig extends Config
     String overlaySection = "overlay";
 
     @ConfigSection(
-        name = "Server Intelligence",
-        description = "Optional read-only calls to grandflipout.com (off by default)",
+        name = "Account",
+        description = "Free Grand Flip Out account — unlocks all members items + premium features",
         position = 3
+    )
+    String accountSection = "account";
+
+    @ConfigSection(
+        name = "Server Intelligence",
+        description = "Optional read-only calls to grandflipout.com (off by default for Plugin Hub)",
+        position = 4
     )
     String intelligenceSection = "intelligence";
 
     @ConfigSection(
         name = "Hotkeys",
         description = "Keyboard shortcuts",
-        position = 4
+        position = 5
     )
     String hotkeysSection = "hotkeys";
 
@@ -63,7 +70,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "priceRefreshInterval",
         name = "Refresh Interval (seconds)",
-        description = "How often to refresh price data from the OSRS Wiki API (minimum 60s per Wiki etiquette).",
+        description = "How often to refresh price data from the OSRS Wiki API (minimum 60s per Wiki etiquette). Live intelligence (dumps/VPIN) is computed server-side at 8-10s and fetched here.",
         section = dataSourcesSection,
         position = 0
     )
@@ -137,6 +144,19 @@ public interface GrandFlipOutConfig extends Config
         return 1000;
     }
 
+    @ConfigItem(
+        keyName = "importFlippingUtilities",
+        name = "Import Flipping Utilities",
+        description = "One-time import of trade history from Flipping Utilities on startup. "
+            + "Searches ~/.runelite/flipping/ and ~/.runelite/profiles/*/flipping/ for FU export files.",
+        section = flipTrackerSection,
+        position = 5
+    )
+    default boolean importFlippingUtilities()
+    {
+        return false;
+    }
+
     // ==================== OVERLAY ====================
 
     @ConfigItem(
@@ -199,12 +219,41 @@ public interface GrandFlipOutConfig extends Config
         return true;
     }
 
+    @ConfigItem(
+        keyName = "showInventoryTooltips",
+        name = "Inventory Tooltips",
+        description = "Show buy/sell prices, cost basis, and ROI when hovering inventory items while the GE is open.",
+        section = overlaySection,
+        position = 5
+    )
+    default boolean showInventoryTooltips()
+    {
+        return true;
+    }
+
+    // ==================== ACCOUNT ====================
+
+    @ConfigItem(
+        keyName = "apiKey",
+        name = "API key",
+        description = "Paste your free Grand Flip Out account key (create one at grandflipout.com) to "
+            + "unlock all members items and premium features. Leave blank to keep using the free "
+            + "F2P suggestions. Stored locally; only sent to grandflipout.com to check your account.",
+        section = accountSection,
+        position = 0,
+        secret = true
+    )
+    default String apiKey()
+    {
+        return "";
+    }
+
     // ==================== SERVER INTELLIGENCE ====================
 
     @ConfigItem(
         keyName = "enableServerIntelligence",
         name = "Enable Server Advisor",
-        description = "Fetch read-only smart-advisor hints from grandflipout.com for the active GE item.",
+        description = "Off by default. When enabled, fetch BUY/SELL/HOLD signals, VPIN alerts, dump predictions, and screener data from grandflipout.com. Read-only — your trades are not sent unless you also enable 'Contribute trades'.",
         section = intelligenceSection,
         position = 0
     )
@@ -236,6 +285,20 @@ public interface GrandFlipOutConfig extends Config
     default int marginAssistPercent()
     {
         return 5;
+    }
+
+    @ConfigItem(
+        keyName = "contributeTrades",
+        name = "Contribute trades (crowdsourced data)",
+        description = "Opt in to share your completed GE trades (item, price, quantity, buy/sell) "
+            + "with grandflipout.com to improve crowdsourced flip data. Off by default. "
+            + "Independent of the read-only advisor above.",
+        section = intelligenceSection,
+        position = 3
+    )
+    default boolean contributeTrades()
+    {
+        return false;
     }
 
     // ==================== HOTKEYS ====================
@@ -301,11 +364,23 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
-        keyName = "priceFillHotkey",
-        name = "Price-Fill Assist",
-        description = "Copy recommended buy/sell prices to clipboard for manual GE entry.",
+        keyName = "enableGePriceFill",
+        name = "GE price-fill assist",
+        description = "Off by default. When on, pressing the Price-Fill hotkey with a Grand Exchange offer open fills the recommended price into the offer's price field. You always review it and press Confirm yourself — nothing is ever submitted automatically.",
         section = hotkeysSection,
         position = 5
+    )
+    default boolean enableGePriceFill()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "priceFillHotkey",
+        name = "Price-Fill Assist",
+        description = "Hotkey that fills the recommended price into the open GE offer field (requires 'GE price-fill assist' enabled). You press Confirm yourself.",
+        section = hotkeysSection,
+        position = 6
     )
     default Keybind priceFillHotkey()
     {

@@ -79,6 +79,147 @@ public class IntelligenceClient
         }
     }
 
+    public JsonObject fetchScreener(String preset, int limit) throws IOException
+    {
+        HttpUrl url = HttpUrl.parse(baseUrl + "/api/intelligence/screener")
+            .newBuilder()
+            .addQueryParameter("preset", preset)
+            .addQueryParameter("limit", String.valueOf(limit))
+            .build();
+        return fetchJson(url);
+    }
+
+    public JsonObject fetchHighAlch(int limit, boolean bryoStaff) throws IOException
+    {
+        HttpUrl url = HttpUrl.parse(baseUrl + "/api/intelligence/high-alch")
+            .newBuilder()
+            .addQueryParameter("limit", String.valueOf(limit))
+            .addQueryParameter("bryoStaff", String.valueOf(bryoStaff))
+            .build();
+        return fetchJson(url);
+    }
+
+    public JsonObject fetchVPIN() throws IOException
+    {
+        return fetchJson(HttpUrl.parse(baseUrl + "/api/intelligence/vpin"));
+    }
+
+    public JsonObject fetchNextDumps(int limit) throws IOException
+    {
+        HttpUrl url = HttpUrl.parse(baseUrl + "/api/intelligence/next-dumps")
+            .newBuilder()
+            .addQueryParameter("limit", String.valueOf(limit))
+            .build();
+        return fetchJson(url);
+    }
+
+    public JsonObject fetchDips(int minDip) throws IOException
+    {
+        HttpUrl url = HttpUrl.parse(baseUrl + "/api/intelligence/dips")
+            .newBuilder()
+            .addQueryParameter("minDip", String.valueOf(minDip))
+            .build();
+        return fetchJson(url);
+    }
+
+    public JsonObject fetchAlerts(int limit) throws IOException
+    {
+        HttpUrl url = HttpUrl.parse(baseUrl + "/api/market/alerts")
+            .newBuilder()
+            .addQueryParameter("limit", String.valueOf(limit))
+            .build();
+        return fetchJson(url);
+    }
+
+    public JsonObject fetchKelly(int itemId, long cashStack) throws IOException
+    {
+        HttpUrl url = HttpUrl.parse(baseUrl + "/api/intelligence/kelly")
+            .newBuilder()
+            .addQueryParameter("itemId", String.valueOf(itemId))
+            .addQueryParameter("cashStack", String.valueOf(cashStack))
+            .build();
+        return fetchJson(url);
+    }
+
+    public JsonObject fetchOptimize(long cashStack, int slots, String risk) throws IOException
+    {
+        HttpUrl url = HttpUrl.parse(baseUrl + "/api/intelligence/optimize")
+            .newBuilder()
+            .addQueryParameter("cashStack", String.valueOf(cashStack))
+            .addQueryParameter("slots", String.valueOf(slots))
+            .addQueryParameter("risk", risk)
+            .build();
+        return fetchJson(url);
+    }
+
+    public JsonObject fetchBarometer() throws IOException
+    {
+        return fetchJson(HttpUrl.parse(baseUrl + "/api/intelligence/barometer"));
+    }
+
+    public JsonObject fetchBanWave() throws IOException
+    {
+        return fetchJson(HttpUrl.parse(baseUrl + "/api/intelligence/ban-wave"));
+    }
+
+    public void submitTrade(int itemId, long price, int quantity, boolean isBuy)
+    {
+        try
+        {
+            String json = "{\"trades\":[{\"item_id\":" + itemId
+                + ",\"price\":" + price
+                + ",\"quantity\":" + quantity
+                + ",\"side\":\"" + (isBuy ? "buy" : "sell") + "\""
+                + ",\"ts\":" + System.currentTimeMillis()
+                + "}],\"plugin_version\":\"1.0.0\"}";
+
+            okhttp3.RequestBody body = okhttp3.RequestBody.create(
+                okhttp3.MediaType.parse("application/json"), json);
+
+            Request request = new Request.Builder()
+                .url(baseUrl + "/api/intelligence/trades/submit")
+                .post(body)
+                .header("Content-Type", "application/json")
+                .header("User-Agent", "GrandFlipOut-Plugin/1.0")
+                .build();
+
+            httpClient.newCall(request).enqueue(new okhttp3.Callback()
+            {
+                @Override public void onFailure(okhttp3.Call call, IOException e)
+                {
+                    log.debug("Trade sync failed: {}", e.getMessage());
+                }
+                @Override public void onResponse(okhttp3.Call call, Response response)
+                {
+                    response.close();
+                }
+            });
+        }
+        catch (Exception e)
+        {
+            log.debug("Trade sync error: {}", e.getMessage());
+        }
+    }
+
+    private JsonObject fetchJson(HttpUrl url) throws IOException
+    {
+        Request request = new Request.Builder()
+            .url(url)
+            .get()
+            .header("Accept", "application/json")
+            .header("User-Agent", "GrandFlipOut-Plugin/1.0")
+            .build();
+
+        try (Response response = httpClient.newCall(request).execute())
+        {
+            if (!response.isSuccessful() || response.body() == null)
+            {
+                throw new IOException("HTTP " + response.code());
+            }
+            return new JsonParser().parse(response.body().string()).getAsJsonObject();
+        }
+    }
+
     @Value
     public static class SmartAdvisorResult
     {

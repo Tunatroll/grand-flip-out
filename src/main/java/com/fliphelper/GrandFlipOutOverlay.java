@@ -63,6 +63,10 @@ public class GrandFlipOutOverlay extends Overlay
     /** Slot activity timestamps for slot timer display (like Flipping Utilities). */
     private final Instant[] slotLastActive = new Instant[8];
 
+    /** Buy limit reset tracking: itemId -> timestamp of first buy in current 4h window. */
+    private final java.util.Map<Integer, Instant> buyLimitStartTimes = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Duration BUY_LIMIT_WINDOW = Duration.ofHours(4);
+
     private boolean visible = true;
 
     @Inject
@@ -129,6 +133,7 @@ public class GrandFlipOutOverlay extends Overlay
             if (geOpen && config.showGEOverlay())
             {
                 renderGEInfo();
+                renderRecommendedPrices();
             }
 
             if (panelComponent.getChildren().isEmpty())
@@ -368,6 +373,102 @@ public class GrandFlipOutOverlay extends Overlay
                     .right(expPrefix + formatGp(expectedProfit))
                     .rightColor(profitColor)
                     .build());
+
+                if (flip.getFrozenSellPrice() > 0)
+                {
+                    long drift = expectedSell - flip.getFrozenSellPrice();
+                    String frozenLabel = drift >= 0
+                        ? "  Sell target: " + formatGp(flip.getFrozenSellPrice()) + " (+" + formatGp(drift) + ")"
+                        : "  Sell target: " + formatGp(flip.getFrozenSellPrice()) + " (" + formatGp(drift) + ")";
+                    panelComponent.getChildren().add(LineComponent.builder()
+                        .left(frozenLabel)
+                        .right("")
+                        .leftColor(drift >= 0 ? PROFIT_GREEN : WARNING_AMBER)
+                        .build());
+                }
+            }
+        }
+    }
+
+    private void renderRecommendedPrices()
+    {
+        int currentItemId = client.getVarpValue(net.runelite.api.VarPlayer.CURRENT_GE_ITEM);
+        if (currentItemId <= 0)
+        {
+            return;
+        }
+
+        PriceAggregate agg = priceService.getPrice(currentItemId);
+        if (agg == null)
+        {
+            return;
+        }
+
+        panelComponent.getChildren().add(TitleComponent.builder()
+            .text("Rec. Prices")
+            .color(ACCENT_GOLD)
+            .build());
+
+        String name = agg.getItemName();
+        if (name != null && name.length() > 20) name = name.substring(0, 18) + "..";
+        panelComponent.getChildren().add(LineComponent.builder()
+            .left(name != null ? name : "Item " + currentItemId)
+            .right("")
+            .build());
+
+        long buyPrice = agg.getBestLowPrice();
+        long sellPrice = agg.getBestHighPrice();
+        long tax = Math.min((long) (sellPrice * 0.02), 5_000_000L);
+        long netProfit = sellPrice - buyPrice - tax;
+        int geLimit = agg.getBuyLimit();
+
+        panelComponent.getChildren().add(LineComponent.builder()
+            .left("  Buy at:")
+            .right(formatGp(buyPrice))
+            .rightColor(PROFIT_GREEN)
+            .build());
+
+        panelComponent.getChildren().add(LineComponent.builder()
+            .left("  Sell at:")
+            .right(formatGp(sellPrice))
+            .rightColor(PROFIT_GREEN)
+            .build());
+
+        panelComponent.getChildren().add(LineComponent.builder()
+            .left("  Net/item:")
+            .right(formatGp(netProfit))
+            .rightColor(netProfit > 0 ? PROFIT_GREEN : LOSS_RED)
+            .build());
+
+        if (geLimit > 0)
+        {
+            long profitAtLimit = netProfit * geLimit;
+            panelComponent.getChildren().add(LineComponent.builder()
+                .left("  P/Limit:")
+                .right(formatGp(profitAtLimit))
+                .rightColor(profitAtLimit > 0 ? PROFIT_GREEN : LOSS_RED)
+                .build());
+        }
+
+        // Alch floor
+        if (agg.getMapping() != null && agg.getMapping().getHighalch() > 0)
+        {
+            int highalch = agg.getMapping().getHighalch();
+            long natPrice = 150;
+            PriceAggregate natAgg = priceService.getPrice(561);
+            if (natAgg != null && natAgg.getBestLowPrice() > 0)
+            {
+                natPrice = natAgg.getBestLowPrice();
+            }
+            long alchFloor = highalch - natPrice;
+            boolean nearFloor = alchFloor > 0 && buyPrice > 0 && buyPrice <= alchFloor * 1.05;
+            if (alchFloor > 0)
+            {
+                panelComponent.getChildren().add(LineComponent.builder()
+                    .left("  Alch floor:")
+                    .right(formatGp(alchFloor) + (nearFloor ? " NEAR" : ""))
+                    .rightColor(nearFloor ? LOSS_RED : META_NEUTRAL)
+                    .build());
             }
         }
     }
@@ -452,7 +553,85 @@ public class GrandFlipOutOverlay extends Overlay
                 .right(String.format("%s%s %d%% %s", timerStr, stateStr, pctFilled, profitText))
                 .rightColor(slotColor)
                 .build());
+
+            // Buy limit reset countdown
+            if (isBuying)
+            {
+                recordBuyStart(itemId);
+            }
+            Duration limitRemaining = getBuyLimitRemaining(itemId);
+            if (limitRemaining != null)
+            {
+                long mins = limitRemaining.toMinutes();
+                String limitStr = mins >= 60
+                    ? String.format("%dh%02dm", mins / 60, mins % 60)
+                    : mins + "m";
+                int geLimit = agg.getBuyLimit();
+                int remaining = geLimit > 0 ? Math.max(0, geLimit - quantitySold) : 0;
+                String limitLine = remaining > 0
+                    ? String.format("  Limit: %d left · resets %s", remaining, limitStr)
+                    : String.format("  Limit resets in %s", limitStr);
+                panelComponent.getChildren().add(LineComponent.builder()
+                    .left(limitLine)
+                    .right("")
+                    .leftColor(mins < 30 ? WARNING_AMBER : META_NEUTRAL)
+                    .build());
+            }
+
+            // Drift alert: warn when market price has moved away from offer price
+            long driftGp;
+            String driftLabel;
+            if (isBuying)
+            {
+                long marketBuy = agg.getBestLowPrice();
+                driftGp = price - marketBuy;
+                driftLabel = driftGp > 0 ? "  Overpaying by " + formatGp(driftGp)
+                    : driftGp < 0 ? "  Underpriced by " + formatGp(-driftGp) : null;
+            }
+            else
+            {
+                long marketSell = agg.getBestHighPrice();
+                driftGp = marketSell - price;
+                driftLabel = driftGp > 0 ? "  Underselling by " + formatGp(driftGp)
+                    : driftGp < 0 ? "  Above market by " + formatGp(-driftGp) : null;
+            }
+            if (driftLabel != null && Math.abs(driftGp) > Math.max(50, price * 0.01))
+            {
+                boolean bad = (isBuying && driftGp > 0) || (!isBuying && driftGp > 0);
+                panelComponent.getChildren().add(LineComponent.builder()
+                    .left(driftLabel)
+                    .right("")
+                    .leftColor(bad ? LOSS_RED : PROFIT_GREEN)
+                    .build());
+            }
         }
+    }
+
+    /**
+     * Record that a buy offer was placed for an item. If no existing window is
+     * active, starts the 4-hour countdown.
+     */
+    public void recordBuyStart(int itemId)
+    {
+        buyLimitStartTimes.computeIfAbsent(itemId, k -> Instant.now());
+        buyLimitStartTimes.entrySet().removeIf(e ->
+            Duration.between(e.getValue(), Instant.now()).compareTo(BUY_LIMIT_WINDOW) > 0);
+    }
+
+    /**
+     * Get remaining time until buy limit resets for an item, or null if no active window.
+     */
+    public Duration getBuyLimitRemaining(int itemId)
+    {
+        Instant start = buyLimitStartTimes.get(itemId);
+        if (start == null) return null;
+        Duration elapsed = Duration.between(start, Instant.now());
+        if (elapsed.compareTo(BUY_LIMIT_WINDOW) >= 0)
+        {
+            buyLimitStartTimes.remove(itemId);
+            return null;
+        }
+        return BUY_LIMIT_WINDOW.minus(elapsed);
     }
 
     private String truncate(String s, int maxLen)

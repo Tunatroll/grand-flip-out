@@ -2,6 +2,12 @@ plugins {
     id 'java-library'
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
 repositories {
     mavenLocal()
     maven {
@@ -24,11 +30,10 @@ dependencies {
 
 group = 'com.fliphelper'
 version = '1.0.0'
-sourceCompatibility = '11'
-targetCompatibility = '11'
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+    options.release.set(11)
 }
 
 jar {
@@ -40,7 +45,27 @@ jar {
             'Plugin-Id': 'grand-flip-out',
             'Plugin-Provider': 'Tunatroll',
             'Plugin-Version': version,
-            'Plugin-Description': 'GE flipping assistant with OSRS Wiki pricing, top-flip suggestions ranked by realistic 4h profit, GE tax math, and local flip P&L tracking. Information-only.'
+            'Plugin-Description': 'Flip suggestions ranked by 4h profit, a watchlist, live Wiki prices, and local per-account profit tracking with GE tax and GP/hr.'
         )
     }
+}
+
+// Dev launcher — starts RuneLite with Grand Flip Out loaded in developer mode
+// Usage: ./gradlew run
+tasks.register('run', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fliphelper.GrandFlipOutPluginTest'
+
+    jvmArgs '-ea'
+    args '--developer-mode', '--debug'
+}
+
+// Screenshot harness — renders the plugin panel offscreen to a PNG for visual
+// review (no full client). Run under a virtual framebuffer:
+//   xvfb-run -a ./gradlew screenshot
+// Output: build/screenshots/panel.png
+tasks.register('screenshot', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fliphelper.ScreenshotHarness'
+    args = [(project.findProperty('out') ?: 'build/screenshots/panel.png').toString()]
 }

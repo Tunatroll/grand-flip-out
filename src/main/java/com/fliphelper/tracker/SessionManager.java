@@ -38,12 +38,20 @@ public class SessionManager {
     private FlipSession activeSession;
     private final List<FlipSession> sessionHistory;
     private final Gson gson;
-    private final File dataFile;
+    private File dataFile;
 
     public SessionManager(String dataDirectory, Gson gson) {
         this.sessionHistory = Collections.synchronizedList(new ArrayList<>());
         this.gson = gson;
         this.dataFile = new File(dataDirectory, SESSIONS_FILE);
+        loadSessionHistory();
+    }
+
+    public void switchDataDir(String newDataDirectory) {
+        saveSessionHistory();
+        this.dataFile = new File(newDataDirectory, SESSIONS_FILE);
+        this.sessionHistory.clear();
+        this.activeSession = null;
         loadSessionHistory();
     }
 

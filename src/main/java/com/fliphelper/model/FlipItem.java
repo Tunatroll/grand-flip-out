@@ -26,10 +26,22 @@ public class FlipItem
     private FlipState state;
     private int geSlot;
     /** Wealth snapshot at sell completion (optional, local-only). */
+    /** Market sell price at the time the buy was placed (for frozen sell tracking). */
+    private long frozenSellPrice;
     private Long sellCoinGp;
     private Long sellInventoryGp;
     private Long sellBankGp;
     private Long sellTotalWealthGp;
+    /**
+     * Stable per-account key (RuneScape account hash). Survives RSN changes.
+     * Absent in pre-account history files, where Gson leaves it {@code 0}.
+     */
+    private long accountId;
+    /**
+     * In-game display name (RSN) of the account that made this flip.
+     * Absent in pre-account history files, where Gson leaves it {@code null}.
+     */
+    private String accountName;
 
     public long getProfit()
     {

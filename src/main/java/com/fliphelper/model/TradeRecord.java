@@ -34,4 +34,8 @@ public class TradeRecord
     private final Long bankGp;
     /** coin + inventory + bank at transaction time (gp). */
     private final Long totalWealthGp;
+    /** Stable per-account key (RuneScape account hash) of the trading account. */
+    private final long accountId;
+    /** In-game display name (RSN) of the trading account. */
+    private final String accountName;
 }
