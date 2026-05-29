@@ -162,9 +162,10 @@ public final class FlippingUtilitiesImporter
      *
      * @param fuFile      the FU export JSON file
      * @param gfoTradeLog the GFO trade_log.ndjson file (created if absent)
+     * @param gson        the client's injected Gson (do not create a fresh instance)
      * @return number of new trades imported (excluding duplicates)
      */
-    public static int importToTradeLog(File fuFile, File gfoTradeLog)
+    public static int importToTradeLog(File fuFile, File gfoTradeLog, Gson gson)
     {
         List<TradeLogEntry> entries = importFromFile(fuFile);
         if (entries.isEmpty())
@@ -175,7 +176,6 @@ public final class FlippingUtilitiesImporter
         // Build set of existing trade keys for duplicate detection
         Set<String> existingKeys = loadExistingKeys(gfoTradeLog);
 
-        Gson gson = new Gson();
         int imported = 0;
 
         try

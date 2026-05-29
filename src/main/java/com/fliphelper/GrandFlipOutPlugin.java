@@ -633,7 +633,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             for (File fuFile : fuFiles)
             {
                 log.info("Importing Flipping Utilities data from {}", fuFile.getName());
-                int count = FlippingUtilitiesImporter.importToTradeLog(fuFile, tradeLog);
+                int count = FlippingUtilitiesImporter.importToTradeLog(fuFile, tradeLog, gson);
                 totalImported += count;
             }
 
