@@ -11,6 +11,7 @@ package com.fliphelper.api;
 import com.fliphelper.model.ItemMapping;
 import com.fliphelper.model.PriceData;
 import com.fliphelper.model.PriceSource;
+import com.fliphelper.model.TimeseriesPoint;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -321,6 +322,62 @@ public class WikiPriceClient
             }
 
             return series;
+        }
+    }
+
+    /**
+     * Fetch the raw Wiki time-series for a single item as clean chart points.
+     *
+     * @param itemId   the OSRS item id
+     * @param timestep one of {@code 5m}, {@code 1h}, {@code 6h}, {@code 24h}
+     * @return up to 365 points (oldest first), each holding avg high/low price and volumes
+     */
+    public List<TimeseriesPoint> fetchTimeseries(int itemId, String timestep) throws IOException
+    {
+        Request request = new Request.Builder()
+            .url(BASE_URL + "/timeseries?id=" + itemId + "&timestep=" + timestep)
+            .header("User-Agent", userAgent)
+            .build();
+
+        try (Response response = httpClient.newCall(request).execute())
+        {
+            if (!response.isSuccessful())
+            {
+                throw new IOException("Wiki timeseries request failed: " + response.code());
+            }
+
+            var body = response.body();
+            if (body == null)
+            {
+                throw new IOException("Wiki timeseries request returned empty response body");
+            }
+
+            JsonObject json = new JsonParser().parse(body.string()).getAsJsonObject();
+            JsonElement dataElement = json.get("data");
+            List<TimeseriesPoint> points = new ArrayList<>();
+            if (dataElement == null || !dataElement.isJsonArray())
+            {
+                return points;
+            }
+
+            for (JsonElement element : dataElement.getAsJsonArray())
+            {
+                if (!element.isJsonObject())
+                {
+                    continue;
+                }
+                JsonObject point = element.getAsJsonObject();
+                points.add(TimeseriesPoint.builder()
+                    .timestamp(getJsonLong(point, "timestamp"))
+                    .avgHighPrice(getJsonLong(point, "avgHighPrice"))
+                    .avgLowPrice(getJsonLong(point, "avgLowPrice"))
+                    .highPriceVolume(getJsonLong(point, "highPriceVolume"))
+                    .lowPriceVolume(getJsonLong(point, "lowPriceVolume"))
+                    .build());
+            }
+
+            log.debug("Fetched {} timeseries points for item {} ({})", points.size(), itemId, timestep);
+            return points;
         }
     }
 

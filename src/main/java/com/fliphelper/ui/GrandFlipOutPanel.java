@@ -505,11 +505,11 @@ public class GrandFlipOutPanel extends PluginPanel
         searchBtn.addActionListener(e -> searchItems());
         searchPanel.add(searchBtn, BorderLayout.EAST);
 
-        JButton webChartBtn = new JButton("Web Chart");
-        styleSecondaryButton(webChartBtn);
-        webChartBtn.setToolTipText("Open live web dashboard chart for current search");
-        webChartBtn.addActionListener(e -> openWebChartForSearch());
-        searchPanel.add(webChartBtn, BorderLayout.WEST);
+        JButton chartBtn = new JButton("Chart");
+        styleSecondaryButton(chartBtn);
+        chartBtn.setToolTipText("Show a native price-history chart for the current search");
+        chartBtn.addActionListener(e -> openNativeChartForSearch());
+        searchPanel.add(chartBtn, BorderLayout.WEST);
 
         topPanel.add(searchPanel, BorderLayout.CENTER);
 
@@ -624,6 +624,99 @@ public class GrandFlipOutPanel extends PluginPanel
                 "Open Web Chart",
                 JOptionPane.ERROR_MESSAGE
             );
+        }
+    }
+
+    /**
+     * Resolve the current search box to an item and show a native, in-plugin
+     * price-history chart for it in a popup dialog. The Wiki timeseries fetch
+     * runs off the EDT; rendering happens back on the EDT.
+     */
+    private void openNativeChartForSearch()
+    {
+        String query = searchField != null ? searchField.getText().trim() : "";
+        if (query.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this,
+                "Type an item name in the search box first, then click Chart.",
+                "Price Chart", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        if (!priceService.isReady())
+        {
+            JOptionPane.showMessageDialog(this,
+                "Price data is still loading. Please wait a moment and try again.",
+                "Price Chart", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        List<PriceAggregate> matches = priceService.searchByName(query);
+        PriceAggregate target = null;
+        for (PriceAggregate agg : matches)
+        {
+            if (agg.getItemName() != null && agg.getItemName().equalsIgnoreCase(query))
+            {
+                target = agg;
+                break;
+            }
+        }
+        if (target == null && !matches.isEmpty())
+        {
+            target = matches.get(0);
+        }
+        if (target == null)
+        {
+            JOptionPane.showMessageDialog(this,
+                "No item found for '" + query + "'.",
+                "Price Chart", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        openNativeChart(target.getItemId(), target.getItemName());
+    }
+
+    /** Build the chart dialog for a specific item and kick off the data fetch. */
+    private void openNativeChart(int itemId, String itemName)
+    {
+        final String name = itemName != null ? itemName : ("Item " + itemId);
+        final String timestep = "1h"; // ~15 days of hourly data — a useful default window
+
+        PriceChartPanel chart = new PriceChartPanel();
+        chart.setLoading();
+
+        java.awt.Window owner = SwingUtilities.getWindowAncestor(this);
+        final javax.swing.JDialog dialog = new javax.swing.JDialog(owner, "Price History — " + name);
+        dialog.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        dialog.getContentPane().setBackground(ColorScheme.DARK_GRAY_COLOR);
+        chart.setPreferredSize(new Dimension(560, 320));
+        dialog.getContentPane().add(chart);
+        dialog.pack();
+        dialog.setLocationRelativeTo(owner);
+        dialog.setVisible(true);
+
+        Runnable fetch = () ->
+        {
+            try
+            {
+                List<com.fliphelper.model.TimeseriesPoint> points =
+                    priceService.getWikiClient().fetchTimeseries(itemId, timestep);
+                SwingUtilities.invokeLater(() -> chart.setPoints(name + " (" + timestep + ")", points));
+            }
+            catch (Exception ex)
+            {
+                log.warn("Failed to load timeseries for item {}", itemId, ex);
+                SwingUtilities.invokeLater(() -> chart.setError("Failed to load price history"));
+            }
+        };
+
+        if (executor != null)
+        {
+            executor.execute(fetch);
+        }
+        else
+        {
+            new Thread(fetch, "gfo-chart-fetch").start();
         }
     }
 
