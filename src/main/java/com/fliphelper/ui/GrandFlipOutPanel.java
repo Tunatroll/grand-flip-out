@@ -16,6 +16,7 @@ import com.fliphelper.tracker.SessionManager;
 import com.fliphelper.util.TradeLogEntry;
 import com.fliphelper.util.TradeLogReader;
 import com.fliphelper.util.WealthSnapshot;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.QuantityFormatter;
@@ -64,6 +65,7 @@ import java.util.Map;
  * Main side panel for the Grand Flip Out plugin.
  * Contains tabs for Prices, Flips, History, and Profit Chart.
  */
+@Slf4j
 public class GrandFlipOutPanel extends PluginPanel
 {
     private static final Color BRAND_GOLD = new Color(0xE0, 0xA8, 0x2E); // granary wheat-gold
@@ -2105,7 +2107,7 @@ public class GrandFlipOutPanel extends PluginPanel
             }
             catch (Exception e)
             {
-                System.err.println("Intel refresh failed: " + e.getMessage());
+                log.warn("Intel refresh failed: {}", e.getMessage());
             }
         });
     }
