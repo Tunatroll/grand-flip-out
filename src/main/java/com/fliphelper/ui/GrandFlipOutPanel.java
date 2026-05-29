@@ -113,6 +113,8 @@ public class GrandFlipOutPanel extends PluginPanel
     private JLabel wealthDeltaLabel;
     private JLabel lastRefreshLabel;
     private String historyFilter = "all";
+    /** Optional callback to trigger a manual GE-history-tab import (wired by the plugin). */
+    private Runnable geHistoryImportAction;
 
     // Category filtering
     private String selectedCategory = "All";
@@ -323,6 +325,15 @@ public class GrandFlipOutPanel extends PluginPanel
             tabbedPane.addTab(title, tabPanel);
             styleTabbedPane();
         }
+    }
+
+    /**
+     * Wire the "Import GE history" button to a plugin-supplied action that reads
+     * the in-game GE History tab and back-fills any new trades.
+     */
+    public void setGeHistoryImportAction(Runnable action)
+    {
+        this.geHistoryImportAction = action;
     }
 
     private JPanel buildHeaderPanel()
@@ -690,6 +701,19 @@ public class GrandFlipOutPanel extends PluginPanel
         styleSecondaryButton(refreshLogBtn);
         refreshLogBtn.addActionListener(e -> updateHistoryTab());
         historyActions.add(refreshLogBtn);
+
+        JButton importGeHistoryBtn = new JButton("Import GE history");
+        styleSecondaryButton(importGeHistoryBtn);
+        importGeHistoryBtn.setToolTipText("Open the in-game Grand Exchange History tab, then click "
+            + "to back-fill any mobile/untracked trades it shows (deduplicated).");
+        importGeHistoryBtn.addActionListener(e ->
+        {
+            if (geHistoryImportAction != null)
+            {
+                geHistoryImportAction.run();
+            }
+        });
+        historyActions.add(importGeHistoryBtn);
 
         JButton exportCsvBtn = new JButton("Export CSV");
         stylePrimaryButton(exportCsvBtn);

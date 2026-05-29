@@ -165,6 +165,20 @@ public interface GrandFlipOutConfig extends Config
         return false;
     }
 
+    @ConfigItem(
+        keyName = "importGeHistory",
+        name = "Import GE History Tab",
+        description = "Back-fill trades made on mobile or before the plugin loaded by reading the "
+            + "in-game Grand Exchange History tab when you open it. Read-only; deduplicated so "
+            + "re-opening History never double-counts.",
+        section = flipTrackerSection,
+        position = 6
+    )
+    default boolean importGeHistory()
+    {
+        return true;
+    }
+
     // ==================== OVERLAY ====================
 
     @ConfigItem(

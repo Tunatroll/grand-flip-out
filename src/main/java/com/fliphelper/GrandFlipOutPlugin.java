@@ -19,6 +19,7 @@ import com.fliphelper.tracker.FlipTracker;
 import com.fliphelper.tracker.SessionManager;
 import com.fliphelper.ui.GrandFlipOutPanel;
 import com.fliphelper.util.FlippingUtilitiesImporter;
+import com.fliphelper.util.GeHistoryImporter;
 import com.fliphelper.util.WealthSnapshot;
 import com.google.gson.Gson;
 import com.google.inject.Provides;
@@ -36,6 +37,7 @@ import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 import net.runelite.api.events.ScriptPostFired;
+import net.runelite.api.events.WidgetLoaded;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -123,6 +125,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
     private PriceService priceService;
     private FlipTracker flipTracker;
+    private GeHistoryImporter geHistoryImporter;
     private SessionManager sessionManager;
     private IntelligenceClient intelligenceClient;
     private com.fliphelper.api.EntitlementService entitlementService;
@@ -165,6 +168,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl());
         entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl());
         flipTracker = new FlipTracker(config, priceService, DATA_DIR, gson);
+        geHistoryImporter = GeHistoryImporter.create(client, flipTracker, DATA_DIR);
 
         // Initialize session tracking
         sessionManager = new SessionManager(DATA_DIR.getAbsolutePath(), gson);
@@ -193,6 +197,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Create UI — pass sessionManager so the panel has GP/hr data
         panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager, DATA_DIR, intelligenceClient, executor, entitlementService);
+        panel.setGeHistoryImportAction(this::importGeHistoryNow);
 
         // Resolve the user's account entitlement off-thread (no network call when no key is set).
         executor.execute(() ->
@@ -393,6 +398,61 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         requestSuggestion();
     }
 
+    /**
+     * Back-fill trades from the in-game GE History tab when it opens. The history
+     * interface (group 383) loads both from the GE "History" button and the banker
+     * right-click, so {@link WidgetLoaded} is the reliable trigger. Reads run on the
+     * client thread (this handler already does) and are deduplicated by the importer.
+     */
+    @Subscribe
+    public void onWidgetLoaded(WidgetLoaded event)
+    {
+        if (!config.importGeHistory() || geHistoryImporter == null)
+        {
+            return;
+        }
+        if (event.getGroupId() == GeHistoryImporter.GE_HISTORY_GROUP_ID)
+        {
+            // The list children are not yet populated on the WidgetLoaded tick;
+            // defer a tick so the rows are present when we read them.
+            clientThread.invokeLater(this::importGeHistoryNow);
+        }
+    }
+
+    /**
+     * Run a GE-history import on the client thread and refresh the panel. Safe to
+     * call from any thread (the widget read is marshalled onto the client thread).
+     * Used by both the auto-trigger and the panel's "Import GE history" button.
+     */
+    public void importGeHistoryNow()
+    {
+        if (geHistoryImporter == null)
+        {
+            return;
+        }
+        clientThread.invokeLater(() ->
+        {
+            try
+            {
+                int imported = geHistoryImporter.importVisibleHistory();
+                if (imported > 0)
+                {
+                    panel.updateAll();
+                    client.addChatMessage(
+                        ChatMessageType.GAMEMESSAGE,
+                        "",
+                        String.format("Grand Flip Out: imported %d trade(s) from GE history.", imported),
+                        null
+                    );
+                }
+            }
+            catch (Exception e)
+            {
+                log.debug("GE history import failed: {}", e.getMessage());
+            }
+        });
+    }
+
     @Subscribe
     public void onConfigChanged(ConfigChanged event)
     {
@@ -524,6 +584,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 log.info("Switched to character data directory: {}", characterDataDir);
 
                 flipTracker.switchDataDir(characterDataDir, gson);
+                geHistoryImporter = GeHistoryImporter.create(client, flipTracker, characterDataDir);
                 sessionManager.switchDataDir(characterDataDir.getAbsolutePath());
 
                 WealthSnapshot wealth = WealthSnapshot.capture(client, priceService);
