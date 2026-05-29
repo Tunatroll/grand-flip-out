@@ -8,6 +8,7 @@
 
 package com.fliphelper.model;
 
+import com.fliphelper.util.GeTax;
 import lombok.Builder;
 import lombok.Data;
 import java.time.Instant;
@@ -49,10 +50,9 @@ public class FlipItem
         {
             return 0;
         }
-        // GE tax is 2% capped at 5m per transaction total (not per unit)
         long revenue = sellPrice * quantity;
         long cost = buyPrice * quantity;
-        long tax = Math.min((long)(revenue * 0.02), 5_000_000L);
+        long tax = GeTax.tax(itemId, sellPrice, quantity);
         return revenue - cost - tax;
     }
 
@@ -88,8 +88,7 @@ public class FlipItem
         {
             return 0;
         }
-        long revenue = sellPrice * quantity;
-        return Math.min((long)(revenue * 0.02), 5_000_000L);
+        return GeTax.tax(itemId, sellPrice, quantity);
     }
 
     /**

@@ -141,6 +141,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     // Per-character data directory
     private String currentDisplayName = null;
     private File characterDataDir = null;
+    // Advisor (Phase 1)
+    private com.fliphelper.ui.AdvisorPanel advisorPanel;
+    private com.fliphelper.util.BlacklistStore advisorBlacklist;
+    private final java.util.Set<Integer> advisorSkipped = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private volatile long lastSuggestAt = 0;
 
     @Provides
     GrandFlipOutConfig provideConfig(ConfigManager configManager)
@@ -208,6 +213,20 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             .panel(panel)
             .build();
 
+        // Advisor tab (Phase 1) — opt-in; one-at-a-time next-flip suggestions.
+        advisorBlacklist = new com.fliphelper.util.BlacklistStore(DATA_DIR);
+        advisorPanel = new com.fliphelper.ui.AdvisorPanel(new com.fliphelper.ui.AdvisorPanel.Listener()
+        {
+            @Override public void onSkip(int itemId) { advisorSkipped.add(itemId); lastSuggestAt = 0; requestSuggestion(); }
+            @Override public void onBlock(int itemId) { advisorBlacklist.add(itemId); lastSuggestAt = 0; requestSuggestion(); }
+            @Override public void onPauseToggled(boolean paused) { if (!paused) { lastSuggestAt = 0; requestSuggestion(); } }
+        });
+        panel.addTab("Advisor", advisorPanel);
+        if (config.enableAdvisor())
+        {
+            advisorPanel.showMessage("Loading your next flip...");
+        }
+
         clientToolbar.addNavigation(navButton);
         overlayManager.add(overlay);
         overlayManager.add(gpDropOverlay);
@@ -246,6 +265,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         if (priceService != null)
         {
             priceService.shutdown();
+        }
+
+        if (panel != null)
+        {
+            panel.shutdown();
         }
 
         overlayManager.remove(overlay);
@@ -364,6 +388,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             overlay.updateSlotActivity(slot);
         }
+
+        // Refresh the advisor — placing/collecting an offer changes the next-best action.
+        requestSuggestion();
     }
 
     @Subscribe
@@ -389,6 +416,21 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             );
         }
 
+        // Advisor toggled — show the right state and fetch immediately when enabled.
+        if ("enableAdvisor".equals(event.getKey()) && advisorPanel != null)
+        {
+            if (config.enableAdvisor())
+            {
+                advisorPanel.showMessage("Loading your next flip...");
+                lastSuggestAt = 0;
+                requestSuggestion();
+            }
+            else
+            {
+                advisorPanel.showMessage("Enable the Advisor in plugin config to get next-flip suggestions.");
+            }
+        }
+
         // Re-check account entitlement when the API key changes (off-thread; no call when blank).
         if ("apiKey".equals(event.getKey()) && entitlementService != null)
         {
@@ -401,6 +443,56 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 }
             });
         }
+    }
+
+    // ==================== ADVISOR ====================
+
+    /**
+     * Ask the server for the next flip and render it. Throttled (≥3s) and a no-op when
+     * the Advisor is disabled, paused, or the player isn't logged in. The snapshot is
+     * captured on the client thread; the network call and UI update run off it.
+     */
+    private void requestSuggestion()
+    {
+        if (!config.enableAdvisor() || advisorPanel == null || advisorPanel.isPaused()
+            || intelligenceClient == null)
+        {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastSuggestAt < 3000)
+        {
+            return;
+        }
+        lastSuggestAt = now;
+
+        clientThread.invokeLater(() ->
+        {
+            if (client.getGameState() != GameState.LOGGED_IN)
+            {
+                return;
+            }
+            com.fliphelper.model.GameStateSnapshot snapshot =
+                com.fliphelper.model.GameStateSnapshot.capture(client);
+            executor.execute(() ->
+            {
+                try
+                {
+                    boolean f2pOnly = !(entitlementService != null && entitlementService.isUnlocked());
+                    java.util.List<Integer> exclude = new java.util.ArrayList<>(advisorBlacklist.getAll());
+                    exclude.addAll(advisorSkipped);
+                    com.fliphelper.model.Suggestion suggestion =
+                        intelligenceClient.fetchSuggestion(snapshot, exclude, f2pOnly, config.apiKey());
+                    javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showSuggestion(suggestion));
+                }
+                catch (Exception e)
+                {
+                    log.debug("Advisor fetch failed: {}", e.getMessage());
+                    javax.swing.SwingUtilities.invokeLater(() ->
+                        advisorPanel.showMessage("Advisor unavailable — retrying after your next GE action."));
+                }
+            });
+        });
     }
 
     // ==================== PER-CHARACTER DATA ====================
@@ -439,6 +531,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 sessionManager.setStartWealth(wealth.getTotalWealthGp());
 
                 panel.updateAll();
+                requestSuggestion();
             });
         }
     }

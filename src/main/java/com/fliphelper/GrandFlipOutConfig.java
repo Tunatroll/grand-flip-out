@@ -52,16 +52,24 @@ public interface GrandFlipOutConfig extends Config
     String accountSection = "account";
 
     @ConfigSection(
+        name = "Advisor",
+        description = "Suggests your next flip (item, price, quantity). Off by default — when on, "
+            + "your current GE offers and approximate coins are sent to grandflipout.com to generate suggestions.",
+        position = 4
+    )
+    String advisorSection = "advisor";
+
+    @ConfigSection(
         name = "Server Intelligence",
         description = "Optional read-only calls to grandflipout.com (off by default for Plugin Hub)",
-        position = 4
+        position = 5
     )
     String intelligenceSection = "intelligence";
 
     @ConfigSection(
         name = "Hotkeys",
         description = "Keyboard shortcuts",
-        position = 5
+        position = 6
     )
     String hotkeysSection = "hotkeys";
 
@@ -246,6 +254,24 @@ public interface GrandFlipOutConfig extends Config
     default String apiKey()
     {
         return "";
+    }
+
+    // ==================== ADVISOR ====================
+
+    @ConfigItem(
+        keyName = "enableAdvisor",
+        name = "Enable Advisor",
+        description = "Off by default. When on, the Advisor tab suggests your next flip "
+            + "(item, buy/sell price, quantity) based on your coins and free GE slots. Anonymous "
+            + "users get free-to-play suggestions; paste an account key to unlock all items. "
+            + "Your current GE offers and approximate coin total are sent to grandflipout.com "
+            + "to generate suggestions; nothing is submitted to the GE automatically.",
+        section = advisorSection,
+        position = 0
+    )
+    default boolean enableAdvisor()
+    {
+        return false;
     }
 
     // ==================== SERVER INTELLIGENCE ====================

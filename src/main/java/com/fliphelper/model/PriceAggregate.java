@@ -104,6 +104,22 @@ public class PriceAggregate
     }
 
     /**
+     * Consensus margin after the per-item GE sell tax (2%, item-exempt aware) — the
+     * honest profit per item. A flip needs this to be positive to make money, so it's
+     * the number the UI should lead with rather than the gross margin.
+     */
+    public long getNetMarginAfterTax()
+    {
+        long high = getBestHighPrice();
+        long low = getBestLowPrice();
+        if (high <= 0 || low <= 0)
+        {
+            return 0;
+        }
+        return (high - low) - com.fliphelper.util.GeTax.tax(itemId, high, 1);
+    }
+
+    /**
      * Get GE buy limit from mapping data.
      */
     public int getBuyLimit()
@@ -171,6 +187,75 @@ public class PriceAggregate
             }
         }
         return latestTime;
+    }
+
+    /**
+     * Seconds since the most recent real trade (max of the latest high/low trade
+     * times from the Wiki). {@code Long.MAX_VALUE} if no trade time is known.
+     * Lets the UI flag thin/stale items whose prices may be unreliable.
+     */
+    public long getDataAgeSeconds()
+    {
+        long latest = Math.max(getLatestHighTime(), getLatestLowTime());
+        if (latest <= 0)
+        {
+            return Long.MAX_VALUE;
+        }
+        return Math.max(0, (System.currentTimeMillis() / 1000L) - latest);
+    }
+
+    /** Short human label for data freshness: "fresh", "Nm", or "Nh". */
+    public String getFreshnessLabel()
+    {
+        long age = getDataAgeSeconds();
+        if (age == Long.MAX_VALUE)
+        {
+            return "no data";
+        }
+        if (age < 300)
+        {
+            return "fresh";
+        }
+        if (age < 3600)
+        {
+            return (age / 60) + "m";
+        }
+        return (age / 3600) + "h";
+    }
+
+    /**
+     * Rough estimate of minutes to buy the full GE buy limit at the current 1h volume.
+     * A liquidity guide for capital lock-up risk (the #1 flipping pain), NOT an exact
+     * fill time — you only capture a share of volume. Returns -1 when unknown.
+     */
+    public double getEstFillMinutesForLimit()
+    {
+        long vol = getTotalVolume1h();
+        int limit = getBuyLimit();
+        if (vol <= 0 || limit <= 0)
+        {
+            return -1;
+        }
+        return limit * 60.0 / vol;
+    }
+
+    /** Short label for the fill estimate: "&lt;1m", "~Nm", "~N.Nh", or "—". */
+    public String getFillEstimateLabel()
+    {
+        double minutes = getEstFillMinutesForLimit();
+        if (minutes < 0)
+        {
+            return "—";
+        }
+        if (minutes < 1)
+        {
+            return "<1m";
+        }
+        if (minutes < 60)
+        {
+            return "~" + Math.round(minutes) + "m";
+        }
+        return "~" + (Math.round(minutes / 6.0) / 10.0) + "h";
     }
 
     /**

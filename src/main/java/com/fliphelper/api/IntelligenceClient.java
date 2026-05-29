@@ -8,6 +8,8 @@
 
 package com.fliphelper.api;
 
+import com.fliphelper.model.GameStateSnapshot;
+import com.fliphelper.model.Suggestion;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import lombok.Value;
@@ -160,6 +162,58 @@ public class IntelligenceClient
     public JsonObject fetchBanWave() throws IOException
     {
         return fetchJson(HttpUrl.parse(baseUrl + "/api/intelligence/ban-wave"));
+    }
+
+    /**
+     * Advisor (Phase 1): POST a game-state snapshot and get the single next action.
+     * {@code apiKey} (when non-blank) is sent as a Bearer token to unlock members
+     * items + deep-intel ranking; blank = anonymous F2P suggestions. Synchronous —
+     * the caller runs it off the client thread.
+     */
+    public Suggestion fetchSuggestion(GameStateSnapshot snapshot, List<Integer> excludeIds,
+                                      boolean f2pOnly, String apiKey) throws IOException
+    {
+        String json = snapshot.toRequestJson(excludeIds, f2pOnly);
+        okhttp3.RequestBody body = okhttp3.RequestBody.create(
+            okhttp3.MediaType.parse("application/json"), json);
+
+        Request.Builder builder = new Request.Builder()
+            .url(baseUrl + "/api/intelligence/suggest")
+            .post(body)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .header("User-Agent", "GrandFlipOut-Plugin/1.0");
+        if (apiKey != null && !apiKey.trim().isEmpty())
+        {
+            builder.header("Authorization", "Bearer " + apiKey.trim());
+        }
+
+        try (Response response = httpClient.newCall(builder.build()).execute())
+        {
+            if (!response.isSuccessful() || response.body() == null)
+            {
+                throw new IOException("HTTP " + response.code());
+            }
+            JsonObject root = new JsonParser().parse(response.body().string()).getAsJsonObject();
+
+            String action = root.has("action") ? root.get("action").getAsString() : "WAIT";
+            int itemId = root.has("itemId") ? root.get("itemId").getAsInt() : 0;
+            String itemName = root.has("itemName") ? root.get("itemName").getAsString() : "";
+            long price = root.has("price") ? root.get("price").getAsLong() : 0;
+            int quantity = root.has("quantity") ? root.get("quantity").getAsInt() : 0;
+            long expectedProfit = root.has("expectedProfit") ? root.get("expectedProfit").getAsLong() : 0;
+            double confidence = root.has("confidence") ? root.get("confidence").getAsDouble() : 0;
+            int targetSlot = root.has("targetSlot") ? root.get("targetSlot").getAsInt() : -1;
+
+            List<String> reasons = new ArrayList<>();
+            if (root.has("reasons") && root.get("reasons").isJsonArray())
+            {
+                root.get("reasons").getAsJsonArray().forEach(el -> reasons.add(el.getAsString()));
+            }
+
+            return new Suggestion(action, itemId, itemName, price, quantity,
+                expectedProfit, confidence, reasons, targetSlot);
+        }
     }
 
     public void submitTrade(int itemId, long price, int quantity, boolean isBuy)

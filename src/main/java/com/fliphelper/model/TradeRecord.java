@@ -16,7 +16,7 @@ import java.time.Instant;
  * Represents a completed trade recorded from the GE history.
  */
 @Data
-@Builder
+@Builder(toBuilder = true)
 public class TradeRecord
 {
     private final int itemId;

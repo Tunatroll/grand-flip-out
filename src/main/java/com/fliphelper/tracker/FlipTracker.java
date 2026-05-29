@@ -158,15 +158,24 @@ public class FlipTracker
             }
             else
             {
-                // Record sell - try to match with a pending buy
+                // Record sell — match against pending buys FIFO, consuming the
+                // full sell quantity across multiple buys and splitting a partial
+                // buy so no quantity is dropped when a buy or sell is filled across
+                // several offers (previously only one buy was matched per sell event,
+                // which under-reported profit on split fills).
                 Deque<TradeRecord> buys = pendingBuys.get(trade.getItemId());
-                if (buys != null && !buys.isEmpty())
+
+                // Recover frozen sell price from the active flip for this slot
+                FlipItem activeFlip = activeFlips.get(trade.getGeSlot());
+                long frozenSell = activeFlip != null ? activeFlip.getFrozenSellPrice() : 0;
+
+                int remainingSell = trade.getQuantity();
+                boolean matchedAny = false;
+
+                while (remainingSell > 0 && buys != null && !buys.isEmpty())
                 {
                     TradeRecord matchedBuy = buys.pollFirst();
-
-                    // Recover frozen sell price from the active flip for this slot
-                    FlipItem activeFlip = activeFlips.get(trade.getGeSlot());
-                    long frozenSell = activeFlip != null ? activeFlip.getFrozenSellPrice() : 0;
+                    int matchQty = Math.min(matchedBuy.getQuantity(), remainingSell);
 
                     // Attribute the flip to the account that placed the matched buy
                     // (falls back to the sell trade's account if the buy predates
@@ -179,7 +188,7 @@ public class FlipTracker
                     FlipItem completedFlip = FlipItem.builder()
                         .itemId(trade.getItemId())
                         .itemName(trade.getItemName())
-                        .quantity(Math.min(matchedBuy.getQuantity(), trade.getQuantity()))
+                        .quantity(matchQty)
                         .buyPrice(matchedBuy.getPrice())
                         .sellPrice(trade.getPrice())
                         .frozenSellPrice(frozenSell)
@@ -195,47 +204,69 @@ public class FlipTracker
                         .accountName(accountName)
                         .build();
 
-                    completedFlips.add(0, completedFlip);
-                    activeFlips.remove(trade.getGeSlot());
+                    recordCompletedFlip(completedFlip, trade);
+                    matchedAny = true;
+                    remainingSell -= matchQty;
 
-                    long profit = completedFlip.getProfit();
-                    sessionProfit.addAndGet(profit);
-                    sessionFlipCount.incrementAndGet();
-
-                    log.info("Completed flip: {}x {} | Buy: {}gp Sell: {}gp | Profit: {}gp",
-                        completedFlip.getQuantity(), completedFlip.getItemName(),
-                        completedFlip.getBuyPrice(), completedFlip.getSellPrice(), profit);
-
-                    // Record flip completion in debug manager
-                    // Notify listener outside the critical section to avoid deadlocks
-                    FlipItem flipToNotify = completedFlip;
-
-                    // Trim history
-                    while (completedFlips.size() > config.maxHistoryEntries())
+                    // Partial buy: push the unmatched remainder back to the front.
+                    if (matchQty < matchedBuy.getQuantity())
                     {
-                        completedFlips.remove(completedFlips.size() - 1);
+                        buys.addFirst(matchedBuy.toBuilder()
+                            .quantity(matchedBuy.getQuantity() - matchQty)
+                            .build());
                     }
+                }
 
+                if (matchedAny)
+                {
+                    activeFlips.remove(trade.getGeSlot());
                     if (config.persistHistory())
                     {
                         saveHistory();
                     }
-
-                    appendTradeLogEntry(completedFlip, trade, "ge_event");
-
-                    // Notify listener (profile logging, Discord alerts, etc.)
-                    if (flipCompleteListener != null)
-                    {
-                        try { flipCompleteListener.onFlipComplete(flipToNotify); }
-                        catch (Exception e) { log.debug("Flip listener error: {}", e.getMessage()); }
-                    }
                 }
-                else
+                if (remainingSell > 0)
                 {
-                    // Sell without a tracked buy (could be a normal sale, not a flip)
-                    log.debug("Sell recorded without matching buy for {}", trade.getItemName());
+                    // Sell quantity with no tracked buy (a normal sale, not a flip).
+                    log.debug("Sell of {}x {} had {} unmatched (no tracked buy)",
+                        trade.getQuantity(), trade.getItemName(), remainingSell);
                 }
             }
+        }
+    }
+
+    /**
+     * Record one completed (buy→sell paired) flip: tally profit, log, trim
+     * history, persist, append to the trade log, and notify the listener.
+     * Called once per matched buy so split fills produce one sub-flip each.
+     */
+    private void recordCompletedFlip(FlipItem completedFlip, TradeRecord sellTrade)
+    {
+        completedFlips.add(0, completedFlip);
+
+        long profit = completedFlip.getProfit();
+        sessionProfit.addAndGet(profit);
+        sessionFlipCount.incrementAndGet();
+
+        log.info("Completed flip: {}x {} | Buy: {}gp Sell: {}gp | Profit: {}gp",
+            completedFlip.getQuantity(), completedFlip.getItemName(),
+            completedFlip.getBuyPrice(), completedFlip.getSellPrice(), profit);
+
+        // Trim history
+        while (completedFlips.size() > config.maxHistoryEntries())
+        {
+            completedFlips.remove(completedFlips.size() - 1);
+        }
+
+        // Note: saveHistory() is batched by the caller (once per sell event) so a
+        // split fill matched across several buys writes the history file only once.
+        appendTradeLogEntry(completedFlip, sellTrade, "ge_event");
+
+        // Notify listener (profile logging, Discord alerts, etc.)
+        if (flipCompleteListener != null)
+        {
+            try { flipCompleteListener.onFlipComplete(completedFlip); }
+            catch (Exception e) { log.debug("Flip listener error: {}", e.getMessage()); }
         }
     }
 

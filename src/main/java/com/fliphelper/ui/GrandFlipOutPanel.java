@@ -16,7 +16,6 @@ import com.fliphelper.tracker.SessionManager;
 import com.fliphelper.util.TradeLogEntry;
 import com.fliphelper.util.TradeLogReader;
 import com.fliphelper.util.WealthSnapshot;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.QuantityFormatter;
@@ -60,6 +59,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Main side panel for the Grand Flip Out plugin.
@@ -102,6 +102,7 @@ public class GrandFlipOutPanel extends PluginPanel
     private StatsPanel statsPanel;
     private JLabel upgradeLink;
     private boolean intelAutoRefreshStarted;
+    private java.util.concurrent.ScheduledFuture<?> intelRefreshFuture;
     private com.fliphelper.util.WatchlistStore watchlist;
 
     // Session stats labels
@@ -1787,7 +1788,28 @@ public class GrandFlipOutPanel extends PluginPanel
         marginBadge.setOpaque(true);
         marginBadge.setBackground(marginColor.darker());
         marginBadge.setFont(marginBadge.getFont().deriveFont(Font.BOLD, 10f));
+        // N2: explainable confidence — surface the locally-computed score + the inputs
+        // behind it (margin / volume / freshness) so the suggestion isn't a black box.
+        marginBadge.setToolTipText("Confidence: " + agg.getLocalConfidenceLabel()
+            + " — margin " + String.format("%.1f%%", marginPct)
+            + ", volume " + formatGp(agg.getTotalVolume1h()) + "/h"
+            + ", data " + agg.getFreshnessLabel());
         badges.add(marginBadge);
+
+        // N1: data-freshness badge — flag items whose last real trade is old, so a
+        // stale (possibly unreliable) price is visible at a glance.
+        long ageSec = agg.getDataAgeSeconds();
+        Color freshColor = ageSec < 300 ? new Color(0x00, 0xD2, 0x6A)
+            : ageSec < 3600 ? new Color(0xFF, 0xB8, 0x00)
+            : new Color(0xFF, 0x47, 0x57);
+        JLabel freshBadge = new JLabel(" " + agg.getFreshnessLabel() + " ");
+        freshBadge.setForeground(Color.WHITE);
+        freshBadge.setOpaque(true);
+        freshBadge.setBackground(freshColor.darker());
+        freshBadge.setFont(freshBadge.getFont().deriveFont(Font.BOLD, 9f));
+        freshBadge.setToolTipText("Last real trade: " + agg.getFreshnessLabel()
+            + " ago. Older data may mean a thin, unreliable price.");
+        badges.add(freshBadge);
 
         row1.add(badges, BorderLayout.EAST);
         card.add(row1);
@@ -1798,12 +1820,16 @@ public class GrandFlipOutPanel extends PluginPanel
         row2.setOpaque(false);
         row2.add(createMetaLabel("Insta-Buy", formatGp(agg.getBestHighPrice())));
         row2.add(createMetaLabel("Insta-Sell", formatGp(agg.getBestLowPrice())));
-        JPanel marginMeta = createMetaLabel("Margin", formatGp(margin));
-        // Color the margin value
+        // Lead with the AFTER-TAX net margin — the honest profit per item. Showing the
+        // gross margin overstates profit (the #1 flipping mistake post-2% tax).
+        long netMargin = agg.getNetMarginAfterTax();
+        JPanel marginMeta = createMetaLabel("Net margin", formatGp(netMargin));
+        marginMeta.setToolTipText("Margin after the 2% GE sell tax (gross "
+            + formatGp(margin) + ")");
         Component[] mcs = marginMeta.getComponents();
         if (mcs.length > 1 && mcs[1] instanceof JLabel)
         {
-            ((JLabel) mcs[1]).setForeground(margin > 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
+            ((JLabel) mcs[1]).setForeground(netMargin > 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
         }
         row2.add(marginMeta);
         card.add(row2);
@@ -1822,6 +1848,25 @@ public class GrandFlipOutPanel extends PluginPanel
         }
         row3.add(profitMeta);
         card.add(row3);
+
+        // ── Est. fill — liquidity / capital-lockup guide (no competitor surfaces this) ──
+        double fillMin = agg.getEstFillMinutesForLimit();
+        if (fillMin >= 0)
+        {
+            card.add(Box.createVerticalStrut(2));
+            JPanel fillMeta = createMetaLabel("Est. fill (limit)", agg.getFillEstimateLabel());
+            fillMeta.setToolTipText("Rough time to buy the full buy limit at current volume — "
+                + "a liquidity guide, not exact. Longer = capital may sit unfilled.");
+            Component[] fcs = fillMeta.getComponents();
+            if (fcs.length > 1 && fcs[1] instanceof JLabel)
+            {
+                Color fillColor = fillMin < 15 ? new Color(0x00, 0xD2, 0x6A)
+                    : fillMin < 60 ? new Color(0xFF, 0xB8, 0x00)
+                    : new Color(0xFF, 0x47, 0x57);
+                ((JLabel) fcs[1]).setForeground(fillColor);
+            }
+            card.add(fillMeta);
+        }
 
         // ── Row 4: Alch floor (if item has highalch value) ──
         if (agg.getMapping() != null && agg.getMapping().getHighalch() > 0)
@@ -1870,6 +1915,21 @@ public class GrandFlipOutPanel extends PluginPanel
     }
 
     // ==================== INTEL TAB ====================
+
+    /**
+     * Cancel background tasks (the Intel auto-refresh scheduled on RuneLite's shared
+     * executor). Called from the plugin's shutDown so the task does not keep firing
+     * network calls after the plugin is disabled.
+     */
+    public void shutdown()
+    {
+        if (intelRefreshFuture != null)
+        {
+            intelRefreshFuture.cancel(false);
+            intelRefreshFuture = null;
+        }
+        intelAutoRefreshStarted = false;
+    }
 
     private JPanel buildIntelTab()
     {
@@ -1955,7 +2015,7 @@ public class GrandFlipOutPanel extends PluginPanel
             if (executor != null && !intelAutoRefreshStarted)
             {
                 intelAutoRefreshStarted = true;
-                executor.scheduleAtFixedRate(this::refreshIntel, 2, 60, java.util.concurrent.TimeUnit.SECONDS);
+                intelRefreshFuture = executor.scheduleAtFixedRate(this::refreshIntel, 2, 60, java.util.concurrent.TimeUnit.SECONDS);
             }
             else
             {
@@ -2107,7 +2167,7 @@ public class GrandFlipOutPanel extends PluginPanel
             }
             catch (Exception e)
             {
-                log.warn("Intel refresh failed: {}", e.getMessage());
+                log.debug("Intel refresh failed: {}", e.getMessage());
             }
         });
     }
