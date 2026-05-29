@@ -17,12 +17,11 @@ import com.fliphelper.util.WealthSnapshot;
 import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.ComponentID;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
-import net.runelite.client.ui.overlay.OverlayPriority;
 import net.runelite.client.ui.overlay.components.LineComponent;
 import net.runelite.client.ui.overlay.components.PanelComponent;
 import net.runelite.client.ui.overlay.components.TitleComponent;
@@ -78,7 +77,7 @@ public class GrandFlipOutOverlay extends Overlay
 
         setPosition(OverlayPosition.TOP_LEFT);
         setLayer(OverlayLayer.ABOVE_WIDGETS);
-        setPriority(OverlayPriority.MED);
+        setPriority(Overlay.PRIORITY_MED);
     }
 
     public void toggleVisibility()
@@ -115,7 +114,7 @@ public class GrandFlipOutOverlay extends Overlay
 
         try
         {
-            Widget geWidget = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+            Widget geWidget = client.getWidget(InterfaceID.GeOffers.UNIVERSE);
             boolean geOpen = geWidget != null && !geWidget.isHidden();
 
             panelComponent.getChildren().clear();

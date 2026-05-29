@@ -15,7 +15,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
-import net.runelite.api.InventoryID;
+import net.runelite.api.gameval.InventoryID;
 
 /**
  * Read-only estimate of player wealth from RuneLite client state.
@@ -42,7 +42,7 @@ public class WealthSnapshot
         long inventory = 0;
         long bank = 0;
 
-        ItemContainer inventoryContainer = client.getItemContainer(InventoryID.INVENTORY);
+        ItemContainer inventoryContainer = client.getItemContainer(InventoryID.INV);
         if (inventoryContainer != null)
         {
             for (Item item : inventoryContainer.getItems())

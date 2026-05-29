@@ -6,7 +6,6 @@ import net.runelite.api.Client;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
-import net.runelite.client.ui.overlay.OverlayPriority;
 
 import javax.inject.Inject;
 import java.awt.*;
@@ -37,7 +36,7 @@ public class GpDropOverlay extends Overlay
         this.config = config;
         setPosition(OverlayPosition.DYNAMIC);
         setLayer(OverlayLayer.ABOVE_WIDGETS);
-        setPriority(OverlayPriority.HIGHEST);
+        setPriority(Overlay.PRIORITY_HIGHEST);
     }
 
     /**
