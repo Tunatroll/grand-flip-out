@@ -9,8 +9,10 @@
 package com.fliphelper.ui;
 
 import com.fliphelper.api.PriceService;
+import com.fliphelper.model.DecantOpportunity;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.model.Recipe;
+import com.fliphelper.util.DecantCatalog;
 import com.fliphelper.util.GeTax;
 import com.fliphelper.util.RecipeCatalog;
 import net.runelite.client.ui.ColorScheme;
@@ -62,6 +64,7 @@ public class RecipePanel extends JPanel
 
     private final transient PriceService priceService;
     private final JPanel listPanel;
+    private final JPanel decantPanel;
 
     public RecipePanel(PriceService priceService)
     {
@@ -76,11 +79,22 @@ public class RecipePanel extends JPanel
         listPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
         listPanel.setBorder(new EmptyBorder(6, 8, 8, 8));
 
-        // Anchor the card list to the top so BoxLayout cards keep their preferred
-        // height instead of stretching to fill extra vertical space.
+        decantPanel = new JPanel();
+        decantPanel.setLayout(new BoxLayout(decantPanel, BoxLayout.Y_AXIS));
+        decantPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        decantPanel.setBorder(new EmptyBorder(0, 8, 8, 8));
+
+        // Stack the two sections (recipe arbitrage, then potion decanting) top-anchored
+        // so BoxLayout cards keep their preferred height instead of stretching.
+        JPanel sections = new JPanel();
+        sections.setLayout(new BoxLayout(sections, BoxLayout.Y_AXIS));
+        sections.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        sections.add(listPanel);
+        sections.add(decantPanel);
+
         JPanel holder = new JPanel(new BorderLayout());
         holder.setBackground(ColorScheme.DARK_GRAY_COLOR);
-        holder.add(listPanel, BorderLayout.NORTH);
+        holder.add(sections, BorderLayout.NORTH);
 
         JScrollPane scroll = new JScrollPane(holder);
         scroll.setBorder(null);
@@ -163,8 +177,120 @@ public class RecipePanel extends JPanel
             listPanel.add(empty);
         }
 
+        refreshDecants();
+
         listPanel.revalidate();
         listPanel.repaint();
+        decantPanel.revalidate();
+        decantPanel.repaint();
+    }
+
+    /** Rebuild the potion-decanting section from current prices. */
+    private void refreshDecants()
+    {
+        decantPanel.removeAll();
+
+        JLabel section = new JLabel("Decanting");
+        section.setForeground(BRAND_GOLD);
+        section.setFont(section.getFont().deriveFont(Font.BOLD, 13f));
+        section.setAlignmentX(Component.LEFT_ALIGNMENT);
+        section.setBorder(new EmptyBorder(8, 0, 1, 0));
+        decantPanel.add(section);
+
+        JLabel sub = new JLabel("Per-dose arbitrage across dose variants, after 2% GE tax");
+        sub.setForeground(TEXT_DIM);
+        sub.setFont(sub.getFont().deriveFont(9f));
+        sub.setAlignmentX(Component.LEFT_ALIGNMENT);
+        decantPanel.add(sub);
+        decantPanel.add(Box.createVerticalStrut(6));
+
+        int rendered = 0;
+        for (DecantCatalog.Potion potion : DecantCatalog.all())
+        {
+            JPanel card = buildDecantCard(potion);
+            if (card != null)
+            {
+                decantPanel.add(card);
+                decantPanel.add(Box.createVerticalStrut(6));
+                rendered++;
+            }
+        }
+
+        if (rendered == 0)
+        {
+            JLabel empty = new JLabel(priceService != null
+                ? "Potion prices loading — try Refresh in a moment."
+                : "No price service available.");
+            empty.setForeground(TEXT_DIM);
+            empty.setBorder(new EmptyBorder(8, 4, 8, 4));
+            empty.setAlignmentX(Component.LEFT_ALIGNMENT);
+            decantPanel.add(empty);
+        }
+    }
+
+    /**
+     * Build a card for one potion's best decant, or {@code null} if fewer than two dose
+     * variants are priced (need one to buy and one to sell).
+     */
+    private JPanel buildDecantCard(DecantCatalog.Potion potion)
+    {
+        int[] ids = potion.getDoseItemIds();
+        long[] asks = new long[4];
+        long[] bids = new long[4];
+        for (int i = 0; i < 4; i++)
+        {
+            PriceAggregate agg = priceService != null ? priceService.getPrice(ids[i]) : null;
+            asks[i] = agg != null ? agg.getBestLowPrice() : 0;
+            bids[i] = agg != null ? agg.getBestHighPrice() : 0;
+        }
+
+        DecantOpportunity opp = DecantOpportunity.compute(potion.getName(), ids, asks, bids);
+        if (opp == null)
+        {
+            return null;
+        }
+
+        boolean profitable = opp.isProfitable();
+        long profitPerDose = Math.round(opp.getProfitPerDose());
+
+        JPanel card = new JPanel(new BorderLayout(6, 2));
+        card.setBackground(PANEL_CARD);
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(profitable ? PROFIT_GREEN : PANEL_BORDER),
+            new EmptyBorder(8, 10, 8, 10)));
+        card.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        // ---- Top row: name + per-dose profit ----
+        JPanel top = new JPanel(new BorderLayout());
+        top.setOpaque(false);
+        JLabel name = new JLabel(potion.getName());
+        name.setForeground(TEXT_LIGHT);
+        name.setFont(name.getFont().deriveFont(Font.BOLD, 12f));
+        top.add(name, BorderLayout.WEST);
+
+        JLabel profit = new JLabel(signed(profitPerDose) + "/dose");
+        profit.setForeground(profitable ? PROFIT_GREEN : LOSS_RED);
+        profit.setFont(profit.getFont().deriveFont(Font.BOLD, 12f));
+        top.add(profit, BorderLayout.EAST);
+        card.add(top, BorderLayout.NORTH);
+
+        // ---- Detail grid ----
+        JPanel grid = new JPanel(new GridLayout(0, 2, 6, 1));
+        grid.setOpaque(false);
+        grid.setBorder(new EmptyBorder(4, 0, 2, 0));
+
+        String flow = "(" + opp.getBuyDoses() + ") -> (" + opp.getSellDoses() + ")";
+        grid.add(metaLabel("Buy variant", "(" + opp.getBuyDoses() + ")-dose"));
+        grid.add(metaLabel("Sell variant", "(" + opp.getSellDoses() + ")-dose"));
+        grid.add(metaLabel("Buy " + formatGp(opp.getBuyPrice()) + " gp",
+            String.format("%.1f gp/dose", opp.getBuyPerDose())));
+        grid.add(metaLabel("Sell " + formatGp(opp.getSellPrice()) + " gp (net)",
+            String.format("%.1f gp/dose", opp.getSellPerDoseAfterTax())));
+        grid.add(metaLabel("Decant", flow));
+        grid.add(metaLabel("Per 4-dose", signed(profitPerDose * 4)));
+        card.add(grid, BorderLayout.CENTER);
+
+        return card;
     }
 
     /**

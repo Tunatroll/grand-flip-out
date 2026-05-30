@@ -184,6 +184,109 @@ public class AdvisorPanel extends JPanel
     }
 
     /**
+     * Render a coordinated basket of buys (Phase 3): one compact row per pick covering
+     * item, action, price, quantity and est. profit, plus a footer with the basket's
+     * total outlay and total expected profit. Used when the player has multiple free GE
+     * slots; {@link #showSuggestion} still handles the single-flip case. Falls back to a
+     * status message when the basket is empty.
+     */
+    public void showBasket(List<Suggestion> basket)
+    {
+        if (basket == null || basket.isEmpty())
+        {
+            showMessage("No basket right now — your slots are full or capital is low. "
+                + "Collect a finished offer and check back.");
+            return;
+        }
+
+        content.removeAll();
+
+        JLabel header = new JLabel("Portfolio basket (" + basket.size() + ")");
+        header.setForeground(GOLD);
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 12f));
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(wrapLeft(header));
+        content.add(Box.createVerticalStrut(2));
+
+        JLabel sub = new JLabel("Coins spread across your free slots");
+        sub.setForeground(DIM);
+        sub.setFont(sub.getFont().deriveFont(10f));
+        sub.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(wrapLeft(sub));
+        content.add(Box.createVerticalStrut(6));
+
+        long totalSpend = 0;
+        long totalProfit = 0;
+        for (Suggestion s : basket)
+        {
+            if (s == null)
+            {
+                continue;
+            }
+            totalSpend += s.getPrice() * (long) s.getQuantity();
+            totalProfit += s.getExpectedProfit();
+            content.add(basketRow(s));
+            content.add(Box.createVerticalStrut(4));
+        }
+
+        content.add(Box.createVerticalStrut(2));
+        JPanel sep = new JPanel();
+        sep.setBackground(new Color(0x3A, 0x3A, 0x3A));
+        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        sep.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(sep);
+        content.add(Box.createVerticalStrut(4));
+
+        content.add(meta("Total cost", formatGp(totalSpend)));
+        JPanel profitRow = meta("Est. profit", formatGp(totalProfit));
+        content.add(profitRow);
+
+        content.revalidate();
+        content.repaint();
+    }
+
+    /** One compact basket line: name + action tag on top, price/qty/profit below. */
+    private JPanel basketRow(Suggestion s)
+    {
+        JPanel row = new JPanel();
+        row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
+        row.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        row.setBorder(new EmptyBorder(4, 6, 4, 6));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+
+        JPanel top = new JPanel(new BorderLayout());
+        top.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        JLabel name = new JLabel(s.getItemName());
+        name.setForeground(Color.WHITE);
+        name.setFont(name.getFont().deriveFont(Font.BOLD, 12f));
+        JLabel tag = new JLabel(s.getAction(), SwingConstants.RIGHT);
+        tag.setForeground(Color.WHITE);
+        tag.setOpaque(true);
+        tag.setBackground(actionColor(s.getAction()));
+        tag.setBorder(new EmptyBorder(1, 6, 1, 6));
+        tag.setFont(tag.getFont().deriveFont(Font.BOLD, 10f));
+        top.add(name, BorderLayout.WEST);
+        JPanel tagWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        tagWrap.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        tagWrap.add(tag);
+        top.add(tagWrap, BorderLayout.EAST);
+        row.add(top);
+
+        JLabel detail = new JLabel(s.getQuantity() + " @ " + formatGp(s.getPrice())
+            + "  •  +" + formatGp(s.getExpectedProfit()));
+        detail.setForeground(GREEN);
+        detail.setFont(detail.getFont().deriveFont(11f));
+        detail.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JPanel detailWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        detailWrap.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        detailWrap.add(detail);
+        row.add(detailWrap);
+
+        return row;
+    }
+
+    /**
      * Render the free, no-account "Recent F2P dumps" feed below the suggestion card.
      * F2P-only for anonymous users (the server gates members items). Read-only list —
      * informational, never an action button. Pass an empty/null list to hide it.

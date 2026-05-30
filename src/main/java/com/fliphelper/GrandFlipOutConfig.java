@@ -179,6 +179,35 @@ public interface GrandFlipOutConfig extends Config
         return true;
     }
 
+    @ConfigItem(
+        keyName = "enableAlerts",
+        name = "Price / Offer Alerts",
+        description = "Off by default. When on, get a RuneLite notification when a watched item "
+            + "crosses a buy/sell target price you set (tap the bell on any item in the Prices "
+            + "list), and when a Grand Exchange offer fills (bought/sold) or a buy offer sits "
+            + "idle too long. Information-only; nothing is submitted to the GE.",
+        section = flipTrackerSection,
+        position = 7
+    )
+    default boolean enableAlerts()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "buyIdleAlertMinutes",
+        name = "Idle buy alert (minutes)",
+        description = "When alerts are on, notify if a buy offer has been sitting unfilled for "
+            + "this many minutes so you can reprice. Set to 0 to disable the idle-buy alert.",
+        section = flipTrackerSection,
+        position = 8
+    )
+    @Range(min = 0, max = 240)
+    default int buyIdleAlertMinutes()
+    {
+        return 15;
+    }
+
     // ==================== OVERLAY ====================
 
     @ConfigItem(

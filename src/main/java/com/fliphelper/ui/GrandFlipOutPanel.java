@@ -105,6 +105,7 @@ public class GrandFlipOutPanel extends PluginPanel
     private boolean intelAutoRefreshStarted;
     private java.util.concurrent.ScheduledFuture<?> intelRefreshFuture;
     private com.fliphelper.util.WatchlistStore watchlist;
+    private com.fliphelper.util.AlertStore alertStore;
 
     // Session stats labels
     private JLabel sessionProfitLabel;
@@ -175,6 +176,7 @@ public class GrandFlipOutPanel extends PluginPanel
         this.executor = executor;
         this.entitlementService = entitlementService;
         this.watchlist = new com.fliphelper.util.WatchlistStore(dataDir);
+        this.alertStore = new com.fliphelper.util.AlertStore(dataDir);
 
         buildPanel();
     }
@@ -317,6 +319,21 @@ public class GrandFlipOutPanel extends PluginPanel
         // Re-render the gated browse list and the premium Intel tab.
         displayAllItemsInCategory();
         rebuildIntelGate();
+    }
+
+    /**
+     * The shared per-character price-alert targets. The plugin checks these on each price
+     * refresh; the panel lets the user set them. Same instance so both see the same data.
+     */
+    public com.fliphelper.util.AlertStore getAlertStore()
+    {
+        return alertStore;
+    }
+
+    /** The shared per-character starred-item list, used for the GE-search quick-look. */
+    public com.fliphelper.util.WatchlistStore getWatchlist()
+    {
+        return watchlist;
     }
 
     /**
@@ -1836,6 +1853,69 @@ public class GrandFlipOutPanel extends PluginPanel
         }
     }
 
+    /**
+     * Small "set target" dialog for an item's price alert. Lets the user enter a target buy
+     * price (alert when the price drops to it) and/or a target sell price (alert when it
+     * rises to it); blank or 0 clears that side. Persisted via {@link com.fliphelper.util.AlertStore};
+     * the plugin checks targets on each price refresh and notifies on a crossing. Read-only —
+     * setting a target never touches the GE.
+     */
+    private void editAlertTarget(PriceAggregate agg)
+    {
+        int itemId = agg.getItemId();
+        long curBuy = alertStore.getBuyTarget(itemId);
+        long curSell = alertStore.getSellTarget(itemId);
+
+        JTextField buyField = new JTextField(curBuy > 0 ? String.valueOf(curBuy) : "", 10);
+        JTextField sellField = new JTextField(curSell > 0 ? String.valueOf(curSell) : "", 10);
+
+        JPanel form = new JPanel(new GridLayout(0, 1, 0, 4));
+        form.add(new JLabel(agg.getItemName()));
+        form.add(new JLabel("Alert when insta-buy drops to (gp):"));
+        form.add(buyField);
+        form.add(new JLabel("Now: " + formatGpFull(agg.getBestLowPrice()) + " gp"));
+        form.add(new JLabel("Alert when insta-sell rises to (gp):"));
+        form.add(sellField);
+        form.add(new JLabel("Now: " + formatGpFull(agg.getBestHighPrice()) + " gp"));
+        form.add(new JLabel("Leave blank or 0 to clear a target."));
+
+        int result = JOptionPane.showConfirmDialog(this, form,
+            "Set price alert", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+
+        long buy = parseGpField(buyField.getText());
+        long sell = parseGpField(sellField.getText());
+        alertStore.setTargets(itemId, buy, sell);
+        // Re-render so the bell reflects the new state.
+        displayAllItemsInCategory();
+    }
+
+    /** Parse a user-entered gp value (commas allowed); returns 0 for blank/invalid. */
+    private static long parseGpField(String text)
+    {
+        if (text == null)
+        {
+            return 0;
+        }
+        String cleaned = text.replaceAll("[,\\s]", "");
+        if (cleaned.isEmpty())
+        {
+            return 0;
+        }
+        try
+        {
+            long v = Long.parseLong(cleaned);
+            return Math.max(0, v);
+        }
+        catch (NumberFormatException e)
+        {
+            return 0;
+        }
+    }
+
     private JPanel buildPriceCard(PriceAggregate agg)
     {
         Color cardBg = new Color(0x1A, 0x1A, 0x2E);
@@ -1879,6 +1959,29 @@ public class GrandFlipOutPanel extends PluginPanel
             }
         });
         nameRow.add(star);
+
+        // Bell: set a buy/sell price target. Lit gold when a target is active. Tapping opens
+        // a tiny dialog; the plugin fires a RuneLite notification when the target is crossed
+        // (only while "Price / Offer Alerts" is enabled in config).
+        final boolean hasTarget = alertStore.get(watchItemId) != null;
+        // Plain-text affordance (BMP emoji bells render as tofu in Swing). Reads "alert ●"
+        // when a target is set, dim "alert" otherwise.
+        JLabel bell = new JLabel(hasTarget ? "alert ●" : "alert");
+        bell.setForeground(hasTarget ? BRAND_GOLD : TEXT_DIM);
+        bell.setFont(bell.getFont().deriveFont(Font.BOLD, 9f));
+        bell.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        bell.setToolTipText(hasTarget
+            ? "Price alert set — click to edit or clear"
+            : "Set a buy/sell price target for an alert");
+        bell.addMouseListener(new java.awt.event.MouseAdapter()
+        {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e)
+            {
+                editAlertTarget(agg);
+            }
+        });
+        nameRow.add(bell);
 
         JLabel nameLabel = new JLabel(agg.getItemName());
         nameLabel.setForeground(Color.WHITE);

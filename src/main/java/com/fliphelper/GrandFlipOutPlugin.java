@@ -42,6 +42,7 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.Notifier;
 import net.runelite.client.input.KeyListener;
 import net.runelite.client.input.KeyManager;
 import net.runelite.client.plugins.Plugin;
@@ -123,6 +124,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     @Inject
     private ScheduledExecutorService executor;
 
+    @Inject
+    private Notifier notifier;
+
     private PriceService priceService;
     private FlipTracker flipTracker;
     private GeHistoryImporter geHistoryImporter;
@@ -150,6 +154,17 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private com.fliphelper.api.DumpFeedClient dumpFeedClient;
     private final java.util.Set<Integer> advisorSkipped = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private volatile long lastSuggestAt = 0;
+    // Alerts (price targets + offer fills / idle buys). The store is shared with the panel.
+    private com.fliphelper.util.AlertStore alertStore;
+    // Per-slot timestamp (ms) when a BUYING offer with no fills was first seen — drives the
+    // idle-buy alert. Reset when the offer fills, is cancelled, or the slot empties.
+    private final long[] buyOfferStartMs = new long[8];
+    // Slots we've already fired an idle-buy alert for, so it doesn't repeat every event.
+    private final boolean[] idleBuyAlerted = new boolean[8];
+    // Last offer state the ALERT path saw per slot — independent of the flip-tracker's
+    // lastOfferState (which is only updated when auto-track is on), so the offer-fill alert
+    // fires once per transition even with auto-track off and ignores re-emitted states.
+    private final GrandExchangeOfferState[] lastAlertOfferState = new GrandExchangeOfferState[8];
 
     @Provides
     GrandFlipOutConfig provideConfig(ConfigManager configManager)
@@ -200,6 +215,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // Create UI — pass sessionManager so the panel has GP/hr data
         panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager, DATA_DIR, intelligenceClient, executor, entitlementService);
         panel.setGeHistoryImportAction(this::importGeHistoryNow);
+        // Share the panel's per-character alert targets so refreshPrices() can check them.
+        alertStore = panel.getAlertStore();
 
         // Resolve the user's account entitlement off-thread (no network call when no key is set).
         executor.execute(() ->
@@ -292,6 +309,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     @Subscribe
     public void onGrandExchangeOfferChanged(GrandExchangeOfferChanged event)
     {
+        // Offer alerts run independently of flip-tracking so they work even with auto-track off.
+        handleOfferAlerts(event);
+
         if (!config.autoTrackFlips())
         {
             return;
@@ -546,16 +566,34 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     boolean f2pOnly = !(entitlementService != null && entitlementService.isUnlocked());
                     java.util.List<Integer> exclude = new java.util.ArrayList<>(advisorBlacklist.getAll());
                     exclude.addAll(advisorSkipped);
-                    com.fliphelper.model.Suggestion suggestion =
-                        intelligenceClient.fetchSuggestion(snapshot, exclude, f2pOnly, config.apiKey());
-                    // Point the in-game overlay at the slot this action targets (abort/sell),
-                    // or clear the highlight when there's nothing slot-specific to do.
-                    if (overlay != null)
+
+                    // With more than one free slot, ask for a COORDINATED basket: a diversified
+                    // set of buys with the player's gold split across them. A single free slot
+                    // (or none) falls back to the one-at-a-time next-action card.
+                    if (snapshot.getFreeSlots() > 1)
                     {
-                        overlay.setActSlot(suggestion != null && !suggestion.isWait()
-                            ? suggestion.getTargetSlot() : -1);
+                        java.util.List<com.fliphelper.model.Suggestion> basket =
+                            intelligenceClient.fetchBasket(snapshot, exclude, f2pOnly, config.apiKey());
+                        // A basket spans several slots — there's no single slot to highlight.
+                        if (overlay != null)
+                        {
+                            overlay.setActSlot(-1);
+                        }
+                        javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showBasket(basket));
                     }
-                    javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showSuggestion(suggestion));
+                    else
+                    {
+                        com.fliphelper.model.Suggestion suggestion =
+                            intelligenceClient.fetchSuggestion(snapshot, exclude, f2pOnly, config.apiKey());
+                        // Point the in-game overlay at the slot this action targets (abort/sell),
+                        // or clear the highlight when there's nothing slot-specific to do.
+                        if (overlay != null)
+                        {
+                            overlay.setActSlot(suggestion != null && !suggestion.isWait()
+                                ? suggestion.getTargetSlot() : -1);
+                        }
+                        javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showSuggestion(suggestion));
+                    }
 
                     // Free F2P dump feed — informational, shown to everyone (members gated
                     // server-side). Best-effort: a feed failure never breaks the suggestion.
@@ -627,6 +665,14 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     @Subscribe
     public void onScriptPostFired(ScriptPostFired event)
     {
+        // When the GE item-search box opens, surface the player's starred favourites + their
+        // margins as a chat message (read-only quick-look — we never write into the search box).
+        if (event.getScriptId() == ScriptID.GE_ITEM_SEARCH)
+        {
+            showFavouriteQuickLook();
+            return;
+        }
+
         if (event.getScriptId() != CHATBOX_INPUT_OPEN_SCRIPT)
         {
             return;
@@ -638,6 +684,54 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             pendingGePrice = -1;
             injectGePrice(price);
         }
+    }
+
+    /**
+     * Quick-look: list the player's starred (watchlist) items and their net-after-tax margins
+     * in the game chat when the GE search opens, so favourites are one glance away. Strictly
+     * read-only — this prints to chat and never touches the search input (autotyping is
+     * forbidden). Gated behind the alerts toggle (the same opt-in convenience surface).
+     */
+    private void showFavouriteQuickLook()
+    {
+        if (!config.enableAlerts() || panel == null)
+        {
+            return;
+        }
+        com.fliphelper.util.WatchlistStore watchlist = panel.getWatchlist();
+        if (watchlist == null || watchlist.isEmpty())
+        {
+            return;
+        }
+        java.util.List<Integer> ids = watchlist.getAll();
+        StringBuilder sb = new StringBuilder("Grand Flip Out favourites: ");
+        int shown = 0;
+        for (Integer id : ids)
+        {
+            if (shown >= 5)
+            {
+                break;
+            }
+            PriceAggregate agg = priceService.getPrice(id);
+            if (agg == null || agg.getItemName() == null)
+            {
+                continue;
+            }
+            if (shown > 0)
+            {
+                sb.append(" | ");
+            }
+            sb.append(agg.getItemName())
+                .append(" (margin ").append(formatGp(agg.getNetMarginAfterTax())).append(')');
+            shown++;
+        }
+        if (shown == 0)
+        {
+            return;
+        }
+        final String message = sb.toString();
+        clientThread.invokeLater(() ->
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null));
     }
 
     private void injectGePrice(long price)
@@ -785,6 +879,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 }
             });
 
+            checkPriceAlerts();
+            checkIdleBuyOffers();
+
             panel.updateAll();
 
             // Record refresh cycle performance + memory snapshot
@@ -794,6 +891,154 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             log.warn("Failed to refresh prices: {}", e.getMessage());
         }
+    }
+
+    // ==================== ALERTS ====================
+
+    /**
+     * Check every watched price target against the freshest Wiki prices and fire a RuneLite
+     * notification on a crossing. De-dupe lives in {@link com.fliphelper.util.AlertStore} (a
+     * target only re-fires after the price moves back to the wrong side), so this can run on
+     * every refresh without spamming. No-op unless the user enabled alerts.
+     */
+    private void checkPriceAlerts()
+    {
+        if (!config.enableAlerts() || alertStore == null || alertStore.isEmpty())
+        {
+            return;
+        }
+        for (Integer itemId : alertStore.getItemIds())
+        {
+            PriceAggregate agg = priceService.getPrice(itemId);
+            if (agg == null)
+            {
+                continue;
+            }
+            String name = agg.getItemName() != null ? agg.getItemName() : "Item #" + itemId;
+            long low = agg.getBestLowPrice();
+            long high = agg.getBestHighPrice();
+            if (alertStore.shouldFireBuy(itemId, low))
+            {
+                notifier.notify(String.format("%s dropped to %s (buy target %s).",
+                    name, formatGp(low), formatGp(alertStore.getBuyTarget(itemId))));
+            }
+            if (alertStore.shouldFireSell(itemId, high))
+            {
+                notifier.notify(String.format("%s rose to %s (sell target %s).",
+                    name, formatGp(high), formatGp(alertStore.getSellTarget(itemId))));
+            }
+        }
+    }
+
+    /**
+     * Fire offer-state alerts: a notification when an offer reaches BOUGHT or SOLD, and
+     * idle-buy bookkeeping (start the clock when a buy goes live, clear it when it fills,
+     * cancels, or empties). The per-minute idle check itself runs in
+     * {@link #checkIdleBuyOffers()} off the refresh cycle. No-op unless alerts are enabled.
+     */
+    private void handleOfferAlerts(GrandExchangeOfferChanged event)
+    {
+        if (!config.enableAlerts())
+        {
+            return;
+        }
+        int slot = event.getSlot();
+        GrandExchangeOffer offer = event.getOffer();
+        if (offer == null || slot < 0 || slot >= buyOfferStartMs.length)
+        {
+            return;
+        }
+        GrandExchangeOfferState state = offer.getState();
+        GrandExchangeOfferState prevAlertState = lastAlertOfferState[slot];
+        lastAlertOfferState[slot] = state;
+
+        if (state == GrandExchangeOfferState.BOUGHT || state == GrandExchangeOfferState.SOLD)
+        {
+            // Only notify on the transition INTO the completed state — re-emitted events for
+            // an already-completed offer (e.g. on login) carry the same state and are ignored.
+            if (prevAlertState != state)
+            {
+                String name = itemNameOf(offer.getItemId());
+                notifier.notify(String.format("GE offer filled: %s %s.",
+                    state == GrandExchangeOfferState.BOUGHT ? "bought" : "sold", name));
+            }
+            buyOfferStartMs[slot] = 0;
+            idleBuyAlerted[slot] = false;
+        }
+        else if (state == GrandExchangeOfferState.BUYING)
+        {
+            // Arm the idle clock the first time we see this buy go live and unfilled.
+            if (buyOfferStartMs[slot] == 0 && offer.getQuantitySold() == 0)
+            {
+                buyOfferStartMs[slot] = System.currentTimeMillis();
+                idleBuyAlerted[slot] = false;
+            }
+        }
+        else
+        {
+            // EMPTY / CANCELLED / SELLING — no idle-buy concern.
+            buyOfferStartMs[slot] = 0;
+            idleBuyAlerted[slot] = false;
+        }
+    }
+
+    /**
+     * Notify when a buy offer has been sitting unfilled past the configured idle threshold,
+     * so the player can reprice. De-duped per slot. Called from the refresh cycle.
+     */
+    private void checkIdleBuyOffers()
+    {
+        if (!config.enableAlerts())
+        {
+            return;
+        }
+        int idleMinutes = config.buyIdleAlertMinutes();
+        if (idleMinutes <= 0)
+        {
+            return;
+        }
+        long thresholdMs = idleMinutes * 60_000L;
+        long now = System.currentTimeMillis();
+        clientThread.invokeLater(() ->
+        {
+            GrandExchangeOffer[] offers = client.getGrandExchangeOffers();
+            if (offers == null)
+            {
+                return;
+            }
+            for (int slot = 0; slot < offers.length && slot < buyOfferStartMs.length; slot++)
+            {
+                GrandExchangeOffer offer = offers[slot];
+                boolean stillBuyingUnfilled = offer != null
+                    && offer.getState() == GrandExchangeOfferState.BUYING
+                    && offer.getQuantitySold() == 0;
+                if (!stillBuyingUnfilled)
+                {
+                    // The state machine in handleOfferAlerts clears these on fill/cancel; this
+                    // guards the case where we missed the transition event.
+                    if (offer == null || offer.getState() != GrandExchangeOfferState.BUYING)
+                    {
+                        buyOfferStartMs[slot] = 0;
+                        idleBuyAlerted[slot] = false;
+                    }
+                    continue;
+                }
+                long started = buyOfferStartMs[slot];
+                if (started > 0 && !idleBuyAlerted[slot] && (now - started) >= thresholdMs)
+                {
+                    idleBuyAlerted[slot] = true;
+                    String name = itemNameOf(offer.getItemId());
+                    notifier.notify(String.format("Buy offer idle %d min: %s — consider repricing.",
+                        idleMinutes, name));
+                }
+            }
+        });
+    }
+
+    private String itemNameOf(int itemId)
+    {
+        net.runelite.api.ItemComposition def = client.getItemDefinition(itemId);
+        return def != null ? def.getName() : "Item #" + itemId;
     }
 
     private void runFlippingUtilitiesImport(File marker)

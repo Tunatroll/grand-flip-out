@@ -216,6 +216,71 @@ public class IntelligenceClient
         }
     }
 
+    /**
+     * Advisor (Phase 3): POST the same game-state snapshot and get a COORDINATED basket
+     * of up to freeSlots distinct BUYs with gold allocated across them. Mirrors
+     * {@link #fetchSuggestion} (Bearer unlocks members + deep-intel ranking; blank =
+     * anonymous F2P). Returns an empty list when no basket fits. Synchronous — the
+     * caller runs it off the client thread.
+     */
+    public List<Suggestion> fetchBasket(GameStateSnapshot snapshot, List<Integer> excludeIds,
+                                        boolean f2pOnly, String apiKey) throws IOException
+    {
+        String json = snapshot.toRequestJson(excludeIds, f2pOnly);
+        okhttp3.RequestBody body = okhttp3.RequestBody.create(
+            okhttp3.MediaType.parse("application/json"), json);
+
+        Request.Builder builder = new Request.Builder()
+            .url(baseUrl + "/api/intelligence/suggest-basket")
+            .post(body)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .header("User-Agent", "GrandFlipOut-Plugin/1.0");
+        if (apiKey != null && !apiKey.trim().isEmpty())
+        {
+            builder.header("Authorization", "Bearer " + apiKey.trim());
+        }
+
+        try (Response response = httpClient.newCall(builder.build()).execute())
+        {
+            if (!response.isSuccessful() || response.body() == null)
+            {
+                throw new IOException("HTTP " + response.code());
+            }
+            JsonObject root = new JsonParser().parse(response.body().string()).getAsJsonObject();
+
+            List<Suggestion> basket = new ArrayList<>();
+            if (root.has("suggestions") && root.get("suggestions").isJsonArray())
+            {
+                for (com.google.gson.JsonElement el : root.get("suggestions").getAsJsonArray())
+                {
+                    if (!el.isJsonObject())
+                    {
+                        continue;
+                    }
+                    JsonObject o = el.getAsJsonObject();
+                    String action = o.has("action") ? o.get("action").getAsString() : "BUY";
+                    int itemId = o.has("itemId") ? o.get("itemId").getAsInt() : 0;
+                    String itemName = o.has("itemName") ? o.get("itemName").getAsString() : "";
+                    long price = o.has("price") ? o.get("price").getAsLong() : 0;
+                    int quantity = o.has("quantity") ? o.get("quantity").getAsInt() : 0;
+                    long expectedProfit = o.has("expectedProfit") ? o.get("expectedProfit").getAsLong() : 0;
+                    double confidence = o.has("confidence") ? o.get("confidence").getAsDouble() : 0;
+
+                    List<String> reasons = new ArrayList<>();
+                    if (o.has("reasons") && o.get("reasons").isJsonArray())
+                    {
+                        o.get("reasons").getAsJsonArray().forEach(r -> reasons.add(r.getAsString()));
+                    }
+
+                    basket.add(new Suggestion(action, itemId, itemName, price, quantity,
+                        expectedProfit, confidence, reasons, -1));
+                }
+            }
+            return basket;
+        }
+    }
+
     public void submitTrade(int itemId, long price, int quantity, boolean isBuy)
     {
         try
