@@ -145,6 +145,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     // Pending GE price fill — armed by hotkey, injected when chatbox opens
     private volatile long pendingGePrice = -1;
     private volatile int pendingGeQty = -1;
+    private volatile int pendingSearchItemId = -1;
     private static final int CHATBOX_INPUT_OPEN_SCRIPT = 108;
     // Per-character data directory
     private String currentDisplayName = null;
@@ -245,7 +246,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             @Override public void onSkip(int itemId) { advisorSkipped.add(itemId); lastSuggestAt = 0; requestSuggestion(); }
             @Override public void onBlock(int itemId) { advisorBlacklist.add(itemId); lastSuggestAt = 0; requestSuggestion(); }
             @Override public void onPauseToggled(boolean paused) { if (!paused) { lastSuggestAt = 0; requestSuggestion(); } }
-            @Override public void onFillOffer(int itemId, long price, int quantity) { armOfferFill(price, quantity); }
+            @Override public void onFillOffer(int itemId, long price, int quantity) { armOfferFill(itemId, price, quantity); }
         });
         panel.addTab("Advisor", advisorPanel);
         if (config.enableAdvisor())
@@ -672,6 +673,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         if (event.getScriptId() == ScriptID.GE_ITEM_SEARCH)
         {
             showFavouriteQuickLook();
+            if (pendingSearchItemId > 0)
+            {
+                int id = pendingSearchItemId;
+                pendingSearchItemId = -1;
+                fillGeSearch(id);
+            }
             return;
         }
 
@@ -760,16 +767,51 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      * opens the GE offer's price / quantity field (the script handler routes each value
      * to the right field by the input title). The player still places + confirms.
      */
-    private void armOfferFill(long price, int quantity)
+    private void armOfferFill(int itemId, long price, int quantity)
     {
+        pendingSearchItemId = itemId > 0 ? itemId : -1;
         pendingGePrice = price > 0 ? price : -1;
         pendingGeQty = quantity > 0 ? quantity : -1;
         clientThread.invokeLater(() -> client.addChatMessage(
             ChatMessageType.GAMEMESSAGE,
             "",
-            String.format("Grand Flip Out: open the GE buy/sell offer to auto-fill %s gp x%,d.",
+            String.format("Grand Flip Out: open a GE buy/sell offer — the item, %s gp, and x%,d auto-fill as you go.",
                 formatGp(price), quantity),
             null));
+    }
+
+    /**
+     * Auto-fill the GE item-search box with the suggested item, then trigger the search —
+     * the same mechanism 07Flip uses (set MESLAYERINPUT + MESLAYERMODE, then run the search
+     * input's key-listener script). This is the GE item search, NOT the chatbox, so it is not
+     * the (forbidden) chatbox autotyping. Opt-in chokepoint; the player still clicks the item.
+     */
+    private void fillGeSearch(int itemId)
+    {
+        if (!config.enableGePriceFill() || itemId <= 0)
+        {
+            return;
+        }
+        net.runelite.api.ItemComposition def = client.getItemDefinition(itemId);
+        String name = def != null ? def.getName() : null;
+        if (name == null || name.isEmpty())
+        {
+            return;
+        }
+        try
+        {
+            client.setVarcStrValue(net.runelite.api.gameval.VarClientID.MESLAYERINPUT, name);
+            client.setVarcIntValue(net.runelite.api.gameval.VarClientID.MESLAYERMODE, 14); // GE search mode
+            Widget searchInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
+            if (searchInput != null && searchInput.getOnKeyListener() != null)
+            {
+                client.runScript(searchInput.getOnKeyListener());
+            }
+        }
+        catch (Exception e)
+        {
+            log.debug("GE search fill failed: {}", e.getMessage());
+        }
     }
 
     /**
