@@ -144,6 +144,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private final GrandExchangeOfferState[] lastOfferState = new GrandExchangeOfferState[8];
     // Pending GE price fill — armed by hotkey, injected when chatbox opens
     private volatile long pendingGePrice = -1;
+    private volatile int pendingGeQty = -1;
     private static final int CHATBOX_INPUT_OPEN_SCRIPT = 108;
     // Per-character data directory
     private String currentDisplayName = null;
@@ -244,6 +245,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             @Override public void onSkip(int itemId) { advisorSkipped.add(itemId); lastSuggestAt = 0; requestSuggestion(); }
             @Override public void onBlock(int itemId) { advisorBlacklist.add(itemId); lastSuggestAt = 0; requestSuggestion(); }
             @Override public void onPauseToggled(boolean paused) { if (!paused) { lastSuggestAt = 0; requestSuggestion(); } }
+            @Override public void onFillOffer(int itemId, long price, int quantity) { armOfferFill(price, quantity); }
         });
         panel.addTab("Advisor", advisorPanel);
         if (config.enableAdvisor())
@@ -678,11 +680,25 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             return;
         }
 
-        if (pendingGePrice > 0)
+        // Discriminate the GE quantity input from the price input by the chatbox title —
+        // the exact approach Flipping Copilot uses ("How many do you wish to..." vs
+        // "Set a price for each item:") — so the armed value lands in the right field.
+        Widget inputTitle = client.getWidget(ComponentID.CHATBOX_TITLE);
+        String prompt = (inputTitle != null && inputTitle.getText() != null)
+            ? inputTitle.getText().toLowerCase() : "";
+        boolean quantityField = prompt.contains("how many");
+
+        if (quantityField && pendingGeQty > 0)
+        {
+            int qty = pendingGeQty;
+            pendingGeQty = -1;
+            injectGeInput(qty, qty + " qty");
+        }
+        else if (!quantityField && pendingGePrice > 0)
         {
             long price = pendingGePrice;
             pendingGePrice = -1;
-            injectGePrice(price);
+            injectGeInput(price, formatGp(price) + " gp");
         }
     }
 
@@ -736,8 +752,35 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
     private void injectGePrice(long price)
     {
-        // Opt-in, default-off. Single chokepoint for the GE offer-field write — no
-        // path injects unless the user enabled it. The user still presses Confirm.
+        injectGeInput(price, formatGp(price) + " gp");
+    }
+
+    /**
+     * Arm the advisor's suggested price + quantity so they auto-fill when the player
+     * opens the GE offer's price / quantity field (the script handler routes each value
+     * to the right field by the input title). The player still places + confirms.
+     */
+    private void armOfferFill(long price, int quantity)
+    {
+        pendingGePrice = price > 0 ? price : -1;
+        pendingGeQty = quantity > 0 ? quantity : -1;
+        clientThread.invokeLater(() -> client.addChatMessage(
+            ChatMessageType.GAMEMESSAGE,
+            "",
+            String.format("Grand Flip Out: open the GE buy/sell offer to auto-fill %s gp x%,d.",
+                formatGp(price), quantity),
+            null));
+    }
+
+    /**
+     * Write a numeric value into the open GE price/quantity input. This is the exact
+     * mechanism Flipping Copilot uses (set the chatbox input widget text + the
+     * {@code INPUT_TEXT} client var) — it is NOT chatbox autotyping (which is the only
+     * thing the Hub forbids) and NOT synthetic keystrokes. Opt-in chokepoint; the
+     * player still reviews the value and presses Confirm themselves.
+     */
+    private void injectGeInput(long value, String label)
+    {
         if (!config.enableGePriceFill())
         {
             return;
@@ -749,19 +792,19 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 Widget chatboxInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
                 if (chatboxInput != null)
                 {
-                    chatboxInput.setText(price + "*");
+                    chatboxInput.setText(value + "*");
                 }
-                client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(price));
+                client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(value));
                 client.addChatMessage(
                     ChatMessageType.GAMEMESSAGE,
                     "",
-                    String.format("Grand Flip Out: filled %s gp into GE offer.", formatGp(price)),
+                    String.format("Grand Flip Out: filled %s into the GE offer (press Confirm).", label),
                     null
                 );
             }
             catch (Exception e)
             {
-                log.debug("GE price injection failed: {}", e.getMessage());
+                log.debug("GE input fill failed: {}", e.getMessage());
             }
         });
     }

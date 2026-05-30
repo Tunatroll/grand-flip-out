@@ -45,6 +45,9 @@ public class AdvisorPanel extends JPanel
         void onBlock(int itemId);
 
         void onPauseToggled(boolean paused);
+
+        /** Arm the GE price/quantity auto-fill for the suggested flip (user opens the offer to apply). */
+        void onFillOffer(int itemId, long price, int quantity);
     }
 
     private static final Color GOLD = new Color(0xFF, 0x98, 0x1F);
@@ -159,11 +162,14 @@ public class AdvisorPanel extends JPanel
         buttons.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         buttons.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JButton copy = new JButton("Copy price");
-        copy.setFont(copy.getFont().deriveFont(10f));
-        copy.setFocusPainted(false);
-        copy.addActionListener(e -> copyToClipboard(String.valueOf(s.getPrice())));
-        buttons.add(copy);
+        // Fill the suggested price/quantity straight into the GE offer input (clipboard
+        // can't paste into the GE box). Arms the fill; the player opens the offer + confirms.
+        JButton fill = new JButton("Fill offer");
+        fill.setFont(fill.getFont().deriveFont(10f));
+        fill.setFocusPainted(false);
+        fill.setToolTipText("Auto-fill this price & quantity into the GE offer — open the offer to apply, you press Confirm");
+        fill.addActionListener(e -> listener.onFillOffer(s.getItemId(), s.getPrice(), s.getQuantity()));
+        buttons.add(fill);
 
         JButton skip = new JButton("Skip");
         skip.setFont(skip.getFont().deriveFont(10f));

@@ -434,14 +434,14 @@ public interface GrandFlipOutConfig extends Config
 
     @ConfigItem(
         keyName = "enableGePriceFill",
-        name = "GE price-fill assist",
-        description = "Off by default. When on, pressing the Price-Fill hotkey with a Grand Exchange offer open fills the recommended price into the offer's price field. You always review it and press Confirm yourself — nothing is ever submitted automatically.",
+        name = "GE offer auto-fill",
+        description = "When on (default), the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input when you open it — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
         section = hotkeysSection,
         position = 5
     )
     default boolean enableGePriceFill()
     {
-        return false;
+        return true;
     }
 
     @ConfigItem(
