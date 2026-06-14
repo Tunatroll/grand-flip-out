@@ -71,22 +71,24 @@ import static net.runelite.client.RuneLite.RUNELITE_DIR;
 /**
  * Grand Flip Out — Grand Exchange flipping assistant for OSRS.
  *
- * <p><b>INFORMATION ONLY</b> — This plugin does NOT automate any Grand
- * Exchange interactions. All buy/sell offers are placed manually by the
- * player. The plugin reads completed transactions via RuneLite's event
- * API and displays OSRS Wiki price data, top-flip suggestions, and
- * local-only flip P&L tracking for informational purposes only.</p>
+ * <p>This plugin does NOT automate trading — you place and confirm every
+ * buy/sell offer yourself. It reads completed transactions via RuneLite's
+ * event API and displays OSRS Wiki price data, top-flip suggestions, and
+ * flip P&L tracking. Optional server-assisted features (advisor and market
+ * intelligence) are off by default.</p>
  *
  * <p>Compliant with Jagex third-party client guidelines and RuneLite
- * Plugin Hub requirements. No game packets are sent, no memory is read
- * beyond the RuneLite Client API, no player data is exposed over HTTP,
- * and no unfair mechanical advantages are provided.</p>
+ * Plugin Hub requirements. No game packets are sent and no memory is read
+ * beyond the RuneLite Client API. With the optional server features off
+ * (the default) nothing leaves your device; when you enable them, only the
+ * data listed in the Plugin Hub warning is sent over HTTPS. No unfair
+ * mechanical advantages are provided.</p>
  */
 @Slf4j
 @PluginDescriptor(
     name = "Grand Flip Out",
     description = "GE flipping assistant with Wiki pricing, top-flip suggestions, "
-        + "and local flip P&L tracking. Information-only.",
+        + "and local flip P&L tracking. No automated trading; optional server features off by default.",
     tags = {"grand exchange", "flipping", "merching", "prices", "profit", "ge", "trading", "flip", "margin", "tracker"}
 )
 public class GrandFlipOutPlugin extends Plugin implements KeyListener
