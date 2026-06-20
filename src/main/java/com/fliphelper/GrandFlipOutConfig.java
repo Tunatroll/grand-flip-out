@@ -290,6 +290,7 @@ public interface GrandFlipOutConfig extends Config
         description = "Paste your free Grand Flip Out account key (create one at grandflipout.com) to "
             + "unlock all members items and premium features. Leave blank to keep using the free "
             + "F2P suggestions. Stored locally; only sent to grandflipout.com to check your account.",
+        warning = "This plugin submits your IP address to a 3rd party website not controlled or verified by the RuneLite Developers",
         section = accountSection,
         position = 0,
         secret = true
@@ -309,6 +310,7 @@ public interface GrandFlipOutConfig extends Config
             + "users get free-to-play suggestions; paste an account key to unlock all items. "
             + "Your current GE offers and approximate coin total are sent to grandflipout.com "
             + "to generate suggestions; nothing is submitted to the GE automatically.",
+        warning = "This plugin submits your IP address to a 3rd party website not controlled or verified by the RuneLite Developers",
         section = advisorSection,
         position = 0
     )
@@ -323,24 +325,13 @@ public interface GrandFlipOutConfig extends Config
         keyName = "enableServerIntelligence",
         name = "Enable Server Advisor",
         description = "Off by default. When enabled, fetch BUY/SELL/HOLD signals, VPIN alerts, dump predictions, and screener data from grandflipout.com. Read-only — your trades are not sent unless you also enable 'Contribute trades'.",
+        warning = "This plugin submits your IP address to a 3rd party website not controlled or verified by the RuneLite Developers",
         section = intelligenceSection,
         position = 0
     )
     default boolean enableServerIntelligence()
     {
         return false;
-    }
-
-    @ConfigItem(
-        keyName = "intelligenceBaseUrl",
-        name = "Intelligence API URL",
-        description = "Base URL for Grand Flip Out intelligence API (no trailing slash).",
-        section = intelligenceSection,
-        position = 1
-    )
-    default String intelligenceBaseUrl()
-    {
-        return "https://grandflipout.com";
     }
 
     @ConfigItem(
@@ -362,6 +353,7 @@ public interface GrandFlipOutConfig extends Config
         description = "Opt in to share your completed GE trades (item, price, quantity, buy/sell) "
             + "with grandflipout.com to improve crowdsourced flip data. Off by default. "
             + "Independent of the read-only advisor above.",
+        warning = "This plugin submits your IP address to a 3rd party website not controlled or verified by the RuneLite Developers",
         section = intelligenceSection,
         position = 3
     )
@@ -435,13 +427,13 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "enableGePriceFill",
         name = "GE offer auto-fill",
-        description = "When on (default), the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input when you open it — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
+        description = "Off by default. When on, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input when you open it — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
         section = hotkeysSection,
         position = 5
     )
     default boolean enableGePriceFill()
     {
-        return true;
+        return false;
     }
 
     @ConfigItem(

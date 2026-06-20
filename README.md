@@ -7,9 +7,11 @@ performance. Live prices come from the OSRS Wiki Real-Time Prices API; all profi
 math accounts for the 2% GE tax (capped at 5M GP); all flip history is stored
 locally on your machine.
 
-**Information only.** The plugin reads completed offers through RuneLite's event API
-and shows you analysis. It does not automate trades or interact with the game
-client.
+**You stay in control.** The plugin reads completed offers through RuneLite's event
+API and shows you analysis. With the optional GE offer auto-fill enabled (off by
+default), it fills the GE offer/search input on your command — you confirm every
+offer. It never submits, cancels, or collects an offer for you, never sends chat,
+and never clicks on your behalf.
 
 ## Features
 
@@ -45,20 +47,29 @@ client.
 
 ## Compliance and data handling
 
-- **Information only** — never automates trades, injects packets/clicks, or interacts
-  with the game client
+- **You confirm every offer** — the plugin never automates, submits, cancels, or
+  collects trades. With GE offer auto-fill enabled (off by default) it writes the
+  suggested price/quantity into the offer input and pre-fills the item search; you
+  review the value and press Confirm yourself. No synthetic clicks or keystrokes, no
+  game-packet injection, no chatbox autotyping.
 - **Default network is Wiki-only** — out of the box the plugin talks only to
-  `prices.runescape.wiki` (plus user-triggered `Desktop.browse()` links to public web
-  pages). All `grandflipout.com` communication is **opt-in**:
+  `prices.runescape.wiki` (plus user-triggered links to public web pages, opened via
+  RuneLite's `LinkBrowser`). All `grandflipout.com` communication is **opt-in**:
   - *API key* (empty by default): if you paste an account key, it is sent as a `Bearer`
     token to `grandflipout.com/api/entitlements` **only** to check whether your account
     unlocks members-item suggestions / premium features. No key set → this call is never made.
+  - *Advisor* (off by default): to suggest your next flip, your approximate coin total
+    and your currently-active GE offers (item, price, quantity, side, slot — a
+    `GameStateSnapshot`) are POSTed to `grandflipout.com`.
   - *Server Advisor* (off by default): read-only fetch of signals for the active item.
-  - *Contribute trades* (off by default): the only setting that sends data — anonymized
-    completed trades (item ID, price, quantity, side, timestamp) for crowd-sourced pricing.
-- **No player data is sent off-device by default** — flip history is stored locally under
-  `~/.runelite/grand-flip-out/`. No character names or passwords are ever sent; the only
-  credential transmitted is the API key you choose to paste.
+  - *Contribute trades* (off by default): shares your completed trades (item ID, price,
+    quantity, side, timestamp) for crowd-sourced pricing. No account identifiers are
+    included in any payload, but — as the in-config warning states — your IP address is
+    visible to the server, which is a 3rd-party site not controlled or verified by the
+    RuneLite Developers.
+- **No player data is sent off-device unless you opt in** — flip history is stored
+  locally under `~/.runelite/grand-flip-out/`. No character names or passwords are ever
+  sent; the only credential transmitted is the API key you choose to paste.
 - **No reflection, no `Runtime.exec`, no inbound sockets, no game-packet injection**
 - **Uses RuneLite's injected `OkHttpClient`** with a proper User-Agent
 - **All file I/O is sandboxed** to `RUNELITE_DIR/grand-flip-out/`

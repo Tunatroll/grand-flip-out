@@ -18,6 +18,7 @@ import com.fliphelper.util.TradeLogReader;
 import com.fliphelper.util.WealthSnapshot;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
+import net.runelite.client.util.LinkBrowser;
 import net.runelite.client.util.QuantityFormatter;
 
 import javax.swing.Box;
@@ -40,7 +41,6 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
-import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -48,7 +48,6 @@ import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.Rectangle;
 import java.io.File;
-import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
@@ -639,18 +638,7 @@ public class GrandFlipOutPanel extends PluginPanel
     {
         try
         {
-            if (!Desktop.isDesktopSupported())
-            {
-                JOptionPane.showMessageDialog(
-                    this,
-                    "Desktop browser is not supported in this environment.",
-                    "Open Web Chart",
-                    JOptionPane.INFORMATION_MESSAGE
-                );
-                return;
-            }
-
-            Desktop.getDesktop().browse(new URI(url));
+            LinkBrowser.browse(url);
         }
         catch (Exception ex)
         {

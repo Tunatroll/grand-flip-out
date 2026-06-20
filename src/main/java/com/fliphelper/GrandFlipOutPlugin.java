@@ -93,6 +93,12 @@ import static net.runelite.client.RuneLite.RUNELITE_DIR;
 )
 public class GrandFlipOutPlugin extends Plugin implements KeyListener
 {
+    /**
+     * Fixed host for all Grand Flip Out server intelligence. Hardcoded (not user-editable)
+     * so the plugin can only ever talk to the disclosed, warned 3rd-party endpoint.
+     */
+    private static final String INTELLIGENCE_BASE_URL = "https://grandflipout.com";
+
     private static final File DATA_DIR = new File(RUNELITE_DIR, "grand-flip-out");
     private static final NumberFormat GP_FORMAT = NumberFormat.getIntegerInstance(Locale.US);
 
@@ -185,9 +191,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
-        intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl());
-        dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl());
-        entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl());
+        intelligenceClient = new IntelligenceClient(okHttpClient, INTELLIGENCE_BASE_URL);
+        dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, INTELLIGENCE_BASE_URL);
+        entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, INTELLIGENCE_BASE_URL);
         flipTracker = new FlipTracker(config, priceService, DATA_DIR, gson);
         geHistoryImporter = GeHistoryImporter.create(client, flipTracker, DATA_DIR);
 
@@ -783,10 +789,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     }
 
     /**
-     * Auto-fill the GE item-search box with the suggested item, then trigger the search —
-     * the same mechanism 07Flip uses (set MESLAYERINPUT + MESLAYERMODE, then run the search
-     * input's key-listener script). This is the GE item search, NOT the chatbox, so it is not
-     * the (forbidden) chatbox autotyping. Opt-in chokepoint; the player still clicks the item.
+     * Pre-fill the GE item-search box with the suggested item's name (set MESLAYERINPUT +
+     * MESLAYERMODE). This only populates the search text; the plugin never executes the
+     * search — the player finalizes it. Opt-in chokepoint; the player still clicks the item.
      */
     private void fillGeSearch(int itemId)
     {
@@ -804,11 +809,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             client.setVarcStrValue(net.runelite.api.gameval.VarClientID.MESLAYERINPUT, name);
             client.setVarcIntValue(net.runelite.api.gameval.VarClientID.MESLAYERMODE, 14); // GE search mode
-            Widget searchInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
-            if (searchInput != null && searchInput.getOnKeyListener() != null)
-            {
-                client.runScript(searchInput.getOnKeyListener());
-            }
         }
         catch (Exception e)
         {

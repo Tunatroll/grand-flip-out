@@ -13,6 +13,9 @@ build/
 *.swo
 *~
 
+# Claude Code agent harness (local only — never part of the Hub submission)
+.claude/
+
 # OS
 .DS_Store
 .project
