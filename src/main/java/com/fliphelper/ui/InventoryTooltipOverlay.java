@@ -161,7 +161,7 @@ public class InventoryTooltipOverlay extends Overlay
         // Recommended sell = high price minus 2% GE tax (capped 5M)
         if (sellPrice > 0)
         {
-            long tax = Math.min((long) (sellPrice * 0.02), 5_000_000L);
+            long tax = com.fliphelper.util.GeTax.tax(itemId, sellPrice, 1);
             long recSell = sellPrice - tax;
             sb.append("</br>Net sell: ").append(formatGp(recSell));
         }
@@ -175,7 +175,7 @@ public class InventoryTooltipOverlay extends Overlay
             // Live ROI
             if (sellPrice > 0)
             {
-                long tax = Math.min((long) (sellPrice * 0.02), 5_000_000L);
+                long tax = com.fliphelper.util.GeTax.tax(itemId, sellPrice, 1);
                 long netSell = sellPrice - tax;
                 double roi = (double) (netSell - costBasis) / costBasis * 100.0;
                 String roiColor = roi >= 0 ? "00d26a" : "ff4757";

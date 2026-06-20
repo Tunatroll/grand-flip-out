@@ -38,7 +38,6 @@ public class GpDropOverlay extends Overlay
     private static final int DROP_DURATION_MS = 2500;
     private static final int DROP_RISE_PIXELS = 80;
     private static final int MAX_CONCURRENT_DROPS = 4; // Cap to prevent UI clutter
-    private static final Font GP_FONT = new Font("RuneScape Bold", Font.BOLD, 24);
     private static final Font GP_FONT_FALLBACK = new Font("Arial", Font.BOLD, 22);
 
     private final Client client;

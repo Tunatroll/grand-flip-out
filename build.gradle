@@ -35,36 +35,3 @@ tasks.withType(JavaCompile) {
     options.release.set(11)
 }
 
-jar {
-    from('.') {
-        include 'runelite-plugin.properties'
-    }
-    manifest {
-        attributes(
-            'Plugin-Id': 'grand-flip-out',
-            'Plugin-Provider': 'Tunatroll',
-            'Plugin-Version': version,
-            'Plugin-Description': 'Flip suggestions ranked by 4h profit, a watchlist, live Wiki prices, and local per-account profit tracking with GE tax and GP/hr.'
-        )
-    }
-}
-
-// Dev launcher — starts RuneLite with Grand Flip Out loaded in developer mode
-// Usage: ./gradlew run
-tasks.register('run', JavaExec) {
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.fliphelper.GrandFlipOutPluginTest'
-
-    jvmArgs '-ea'
-    args '--developer-mode', '--debug'
-}
-
-// Screenshot harness — renders the plugin panel offscreen to a PNG for visual
-// review (no full client). Run under a virtual framebuffer:
-//   xvfb-run -a ./gradlew screenshot
-// Output: build/screenshots/panel.png
-tasks.register('screenshot', JavaExec) {
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.fliphelper.ScreenshotHarness'
-    args = [(project.findProperty('out') ?: 'build/screenshots/panel.png').toString()]
-}

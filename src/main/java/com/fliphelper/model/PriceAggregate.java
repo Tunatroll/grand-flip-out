@@ -138,9 +138,9 @@ public class PriceAggregate
             return 0;
         }
         long margin = getConsensusMargin();
-        // Account for 2% GE tax capped at 5M per item
+        // Account for 2% GE tax capped at 5M per item (exempt-aware SSOT)
         long sellPrice = getBestHighPrice();
-        long taxPerItem = Math.min((long) (sellPrice * 0.02), 5_000_000L);
+        long taxPerItem = com.fliphelper.util.GeTax.tax(itemId, sellPrice, 1);
         return (margin - taxPerItem) * limit;
     }
 

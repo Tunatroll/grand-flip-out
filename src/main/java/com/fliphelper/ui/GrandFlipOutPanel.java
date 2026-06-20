@@ -126,6 +126,10 @@ public class GrandFlipOutPanel extends PluginPanel
 
     // Intelligence signal cache (itemId -> advisor result, TTL 60s)
     private final java.util.concurrent.ConcurrentHashMap<Integer, CachedAdvisor> advisorCache = new java.util.concurrent.ConcurrentHashMap<>();
+    // Cap concurrent advisor fetches so a full card render (up to 50 cards) can't
+    // fire 50 simultaneous GETs at grandflipout.com; uncached cards fill in on later renders.
+    private static final int ADVISOR_FETCH_MAX_INFLIGHT = 4;
+    private final java.util.concurrent.atomic.AtomicInteger advisorInflight = new java.util.concurrent.atomic.AtomicInteger(0);
 
     private static final class CachedAdvisor {
         final String action;
@@ -1303,7 +1307,7 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             long expectedSell = agg.getBestHighPrice();
             long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity();
-            long tax = Math.min((long) (expectedSell * 0.02), 5_000_000L) * flip.getQuantity();
+            long tax = com.fliphelper.util.GeTax.tax(flip.getItemId(), expectedSell, flip.getQuantity());
             expectedProfit -= tax;
 
             JPanel profitRow = new JPanel(new BorderLayout());
@@ -1995,13 +1999,16 @@ public class GrandFlipOutPanel extends PluginPanel
                 sigBadge.setFont(sigBadge.getFont().deriveFont(Font.BOLD, 9f));
                 badges.add(sigBadge);
             }
-            else if (executor != null && intelligenceClient != null)
+            else if (executor != null && intelligenceClient != null
+                && advisorInflight.get() < ADVISOR_FETCH_MAX_INFLIGHT)
             {
+                advisorInflight.incrementAndGet();
                 executor.execute(() -> {
                     try {
                         var result = intelligenceClient.fetchSmartAdvisor(itemId);
                         advisorCache.put(itemId, new CachedAdvisor(result.getAction(), result.getSignalStrength()));
                     } catch (Exception ignored) {}
+                    finally { advisorInflight.decrementAndGet(); }
                 });
             }
         }

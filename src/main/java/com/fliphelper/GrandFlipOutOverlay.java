@@ -369,8 +369,7 @@ public class GrandFlipOutOverlay extends Overlay
 
                 // Expected profit for this flip with color coding
                 long expectedSell = agg.getBestHighPrice();
-                long totalRevenue = expectedSell * flip.getQuantity();
-                long tax = Math.min((long) (totalRevenue * 0.02), 5_000_000L);
+                long tax = com.fliphelper.util.GeTax.tax(flip.getItemId(), expectedSell, flip.getQuantity());
                 long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity() - tax;
 
                 Color profitColor;
@@ -438,7 +437,7 @@ public class GrandFlipOutOverlay extends Overlay
 
         long buyPrice = agg.getBestLowPrice();
         long sellPrice = agg.getBestHighPrice();
-        long tax = Math.min((long) (sellPrice * 0.02), 5_000_000L);
+        long tax = com.fliphelper.util.GeTax.tax(currentItemId, sellPrice, 1);
         long netProfit = sellPrice - buyPrice - tax;
         int geLimit = agg.getBuyLimit();
 
@@ -564,8 +563,7 @@ public class GrandFlipOutOverlay extends Overlay
             if (isBuying)
             {
                 // For buys: estimate profit if we sold at current sell price
-                long totalRevenue = currentPrice * quantitySold;
-                long tax = Math.min((long)(totalRevenue * 0.02), 5_000_000L);
+                long tax = com.fliphelper.util.GeTax.tax(itemId, currentPrice, quantitySold);
                 estimatedProfit = (currentPrice - paidPerItem) * quantitySold - tax;
             }
             else
@@ -652,7 +650,9 @@ public class GrandFlipOutOverlay extends Overlay
             }
             if (driftLabel != null && Math.abs(driftGp) > Math.max(50, price * 0.01))
             {
-                boolean bad = (isBuying && driftGp > 0) || (!isBuying && driftGp > 0);
+                // driftGp is defined per side so a positive value is always the
+                // money-losing case (overpaying when buying, underselling when selling).
+                boolean bad = driftGp > 0;
                 panelComponent.getChildren().add(LineComponent.builder()
                     .left(driftLabel)
                     .right("")

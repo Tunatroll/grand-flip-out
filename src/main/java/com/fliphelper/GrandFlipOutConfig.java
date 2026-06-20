@@ -453,7 +453,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Copy Buy Price",
         description = "Copy Wiki buy price (and ±% variants) for active GE slot to clipboard.",
         section = hotkeysSection,
-        position = 6
+        position = 7
     )
     default Keybind copyBuyPriceHotkey()
     {
@@ -465,7 +465,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Copy Sell Price",
         description = "Copy Wiki sell price (and ±% variants) for active GE slot to clipboard.",
         section = hotkeysSection,
-        position = 7
+        position = 8
     )
     default Keybind copySellPriceHotkey()
     {
@@ -477,7 +477,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Copy Slot Assist",
         description = "Copy buy/sell/qty suggestion block for the first active GE slot.",
         section = hotkeysSection,
-        position = 8
+        position = 9
     )
     default Keybind copySlotAssistHotkey()
     {

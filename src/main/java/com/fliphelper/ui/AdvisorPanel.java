@@ -26,8 +26,6 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 import java.util.List;
 
 /**
@@ -400,19 +398,6 @@ public class AdvisorPanel extends JPanel
         p.setAlignmentX(Component.LEFT_ALIGNMENT);
         p.add(c);
         return p;
-    }
-
-    private static void copyToClipboard(String text)
-    {
-        try
-        {
-            Toolkit.getDefaultToolkit().getSystemClipboard()
-                .setContents(new StringSelection(text), null);
-        }
-        catch (Exception ignored)
-        {
-            // clipboard unavailable (headless) — nothing to do
-        }
     }
 
     private static String formatGp(long gp)

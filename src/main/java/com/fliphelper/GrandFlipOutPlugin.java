@@ -398,7 +398,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     {
                         long sellTotal = pricePerItem * deltaQuantity;
                         long buyTotal = activeFlip.getBuyPrice() * deltaQuantity;
-                        long tax = Math.min((long)(sellTotal * 0.02), 5_000_000L);
+                        long tax = com.fliphelper.util.GeTax.tax(itemId, pricePerItem, deltaQuantity);
                         long profit = sellTotal - buyTotal - tax;
                         if (profit > 0)
                         {
@@ -1254,68 +1254,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
-    private void copyPriceFillToClipboard()
-    {
-        SlotContext ctx = resolveActiveSlotContext();
-        if (ctx == null)
-        {
-            return;
-        }
-
-        long estimatedTax = Math.min((long) (ctx.sellPrice * 0.02), 5_000_000L);
-        long netPerItem = ctx.sellPrice - ctx.buyPrice - estimatedTax;
-
-        String clipboardPayload = String.format(
-            "ITEM: %s%nBUY_PRICE: %s%nSELL_PRICE: %s%nTAX_PER_ITEM: %s%nNET_PER_ITEM: %s%nNOTE: Manual assist only. Paste into GE offer fields and confirm yourself.",
-            ctx.itemName,
-            formatGp(ctx.buyPrice),
-            formatGp(ctx.sellPrice),
-            formatGp(estimatedTax),
-            formatGp(netPerItem)
-        );
-
-        copyToClipboard(clipboardPayload);
-        client.addChatMessage(
-            ChatMessageType.GAMEMESSAGE,
-            "",
-            String.format("Grand Flip Out: copied price-fill for %s (buy %s, sell %s).", ctx.itemName, formatGp(ctx.buyPrice), formatGp(ctx.sellPrice)),
-            null
-        );
-
-        maybeFetchServerAdvisor(ctx.itemId, ctx.itemName);
-    }
-
-    private void copySlotPriceAssist(boolean buySide)
-    {
-        SlotContext ctx = resolveActiveSlotContext();
-        if (ctx == null)
-        {
-            return;
-        }
-
-        int pct = Math.max(1, config.marginAssistPercent());
-        long base = buySide ? ctx.buyPrice : ctx.sellPrice;
-        long minus = Math.max(1, Math.round(base * (100 - pct) / 100.0));
-        long plus = Math.max(1, Math.round(base * (100 + pct) / 100.0));
-
-        String side = buySide ? "BUY" : "SELL";
-        String clipboardPayload = String.format(
-            "ITEM: %s%n%s_BASE: %s%n%s_MINUS_%d%%: %s%n%s_PLUS_%d%%: %s%nNOTE: Manual assist only — paste one value into GE yourself.",
-            ctx.itemName,
-            side, formatGp(base),
-            side, pct, formatGp(minus),
-            side, pct, formatGp(plus)
-        );
-
-        copyToClipboard(clipboardPayload);
-        client.addChatMessage(
-            ChatMessageType.GAMEMESSAGE,
-            "",
-            String.format("Grand Flip Out: copied %s assist for %s (%s).", side.toLowerCase(), ctx.itemName, formatGp(base)),
-            null
-        );
-    }
-
     private void copyFullSlotAssistToClipboard()
     {
         SlotContext ctx = resolveActiveSlotContext();
@@ -1330,7 +1268,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         long sellMinus = Math.max(1, Math.round(ctx.sellPrice * (100 - pct) / 100.0));
         long sellPlus = Math.max(1, Math.round(ctx.sellPrice * (100 + pct) / 100.0));
         int suggestedQty = ctx.geLimit > 0 ? Math.min(ctx.geLimit, 1000) : 1;
-        long tax = Math.min((long) (ctx.sellPrice * 0.02), 5_000_000L);
+        long tax = com.fliphelper.util.GeTax.tax(ctx.itemId, ctx.sellPrice, 1);
 
         String clipboardPayload = String.format(
             "ITEM: %s%nSLOT: %d%nBUY: %s ( -%d%% %s | +%d%% %s )%nSELL: %s ( -%d%% %s | +%d%% %s )%nSUGGESTED_QTY: %d%nTAX_PER_ITEM: %s%nNOTE: Manual assist only.",
