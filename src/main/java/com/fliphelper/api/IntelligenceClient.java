@@ -10,8 +10,8 @@ package com.fliphelper.api;
 
 import com.fliphelper.model.GameStateSnapshot;
 import com.fliphelper.model.Suggestion;
+import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
@@ -32,8 +32,9 @@ public class IntelligenceClient
 {
     private final OkHttpClient httpClient;
     private final String baseUrl;
+    private final Gson gson;
 
-    public IntelligenceClient(OkHttpClient sharedClient, String baseUrl)
+    public IntelligenceClient(OkHttpClient sharedClient, String baseUrl, Gson gson)
     {
         String normalized = baseUrl != null ? baseUrl.trim() : "https://grandflipout.com";
         if (normalized.endsWith("/"))
@@ -42,6 +43,7 @@ public class IntelligenceClient
         }
         this.baseUrl = normalized;
         this.httpClient = sharedClient;
+        this.gson = gson;
     }
 
     public SmartAdvisorResult fetchSmartAdvisor(int itemId) throws IOException
@@ -66,7 +68,7 @@ public class IntelligenceClient
             }
 
             String body = response.body().string();
-            JsonObject root = new JsonParser().parse(body).getAsJsonObject();
+            JsonObject root = gson.fromJson(body, JsonObject.class);
             String action = root.has("action") ? root.get("action").getAsString() : "HOLD";
             int strength = root.has("signalStrength") ? root.get("signalStrength").getAsInt() : 0;
             String itemName = root.has("itemName") ? root.get("itemName").getAsString() : ("Item " + itemId);
@@ -194,7 +196,7 @@ public class IntelligenceClient
             {
                 throw new IOException("HTTP " + response.code());
             }
-            JsonObject root = new JsonParser().parse(response.body().string()).getAsJsonObject();
+            JsonObject root = gson.fromJson(response.body().string(), JsonObject.class);
 
             String action = root.has("action") ? root.get("action").getAsString() : "WAIT";
             int itemId = root.has("itemId") ? root.get("itemId").getAsInt() : 0;
@@ -251,7 +253,7 @@ public class IntelligenceClient
             {
                 throw new IOException("HTTP " + response.code());
             }
-            JsonObject root = new JsonParser().parse(response.body().string()).getAsJsonObject();
+            JsonObject root = gson.fromJson(response.body().string(), JsonObject.class);
 
             List<Suggestion> basket = new ArrayList<>();
             if (root.has("suggestions") && root.get("suggestions").isJsonArray())
@@ -325,7 +327,7 @@ public class IntelligenceClient
             {
                 throw new IOException("HTTP " + response.code());
             }
-            JsonObject root = new JsonParser().parse(response.body().string()).getAsJsonObject();
+            JsonObject root = gson.fromJson(response.body().string(), JsonObject.class);
 
             List<Suggestion> moves = new ArrayList<>();
             if (root.has("plan") && root.get("plan").isJsonArray())
@@ -431,7 +433,7 @@ public class IntelligenceClient
             {
                 throw new IOException("HTTP " + response.code());
             }
-            return new JsonParser().parse(response.body().string()).getAsJsonObject();
+            return gson.fromJson(response.body().string(), JsonObject.class);
         }
     }
 

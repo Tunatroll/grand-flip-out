@@ -14,7 +14,6 @@ import com.fliphelper.model.PriceSource;
 import com.fliphelper.model.TimeseriesPoint;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.Gson;
 import lombok.extern.slf4j.Slf4j;
@@ -118,7 +117,7 @@ public class WikiPriceClient
             }
 
             String bodyString = body.string();
-            JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
+            JsonObject json = gson.fromJson(bodyString, JsonObject.class);
             JsonObject data = getJsonObjectSafe(json, "data");
             if (data == null)
             {
@@ -178,7 +177,7 @@ public class WikiPriceClient
             }
 
             String bodyString = body.string();
-            JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
+            JsonObject json = gson.fromJson(bodyString, JsonObject.class);
             JsonObject data = getJsonObjectSafe(json, "data");
             if (data == null)
             {
@@ -238,7 +237,7 @@ public class WikiPriceClient
             }
 
             String bodyString = body.string();
-            JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
+            JsonObject json = gson.fromJson(bodyString, JsonObject.class);
             JsonObject data = getJsonObjectSafe(json, "data");
             if (data == null)
             {
@@ -298,7 +297,7 @@ public class WikiPriceClient
             }
 
             String bodyString = body.string();
-            JsonObject json = new JsonParser().parse(bodyString).getAsJsonObject();
+            JsonObject json = gson.fromJson(bodyString, JsonObject.class);
             var dataArray = json.getAsJsonArray("data");
 
             ItemMapping mapping = mappingById.get(itemId);
@@ -352,7 +351,7 @@ public class WikiPriceClient
                 throw new IOException("Wiki timeseries request returned empty response body");
             }
 
-            JsonObject json = new JsonParser().parse(body.string()).getAsJsonObject();
+            JsonObject json = gson.fromJson(body.string(), JsonObject.class);
             JsonElement dataElement = json.get("data");
             List<TimeseriesPoint> points = new ArrayList<>();
             if (dataElement == null || !dataElement.isJsonArray())

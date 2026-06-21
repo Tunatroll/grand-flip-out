@@ -8,8 +8,8 @@
 
 package com.fliphelper.api;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
@@ -45,12 +45,13 @@ public class EntitlementService
 
     private final OkHttpClient httpClient;
     private final String baseUrl;
+    private final Gson gson;
 
     private volatile Entitlement cached = LOCKED;
     /** Timestamp of the last SUCCESSFUL server response (drives the grace window). */
     private volatile long lastSuccessAt = 0L;
 
-    public EntitlementService(OkHttpClient sharedClient, String baseUrl)
+    public EntitlementService(OkHttpClient sharedClient, String baseUrl, Gson gson)
     {
         String normalized = baseUrl != null ? baseUrl.trim() : "https://grandflipout.com";
         if (normalized.endsWith("/"))
@@ -59,6 +60,7 @@ public class EntitlementService
         }
         this.baseUrl = normalized;
         this.httpClient = sharedClient;
+        this.gson = gson;
     }
 
     /** Cheap, non-blocking read of the current entitlement (safe on the EDT). */
@@ -126,7 +128,7 @@ public class EntitlementService
                 throw new IOException("HTTP " + response.code());
             }
 
-            JsonObject root = new JsonParser().parse(response.body().string()).getAsJsonObject();
+            JsonObject root = gson.fromJson(response.body().string(), JsonObject.class);
             boolean authenticated = root.has("authenticated") && root.get("authenticated").getAsBoolean();
             boolean unlocked = root.has("unlocked") && root.get("unlocked").getAsBoolean();
             String tier = root.has("tier") && !root.get("tier").isJsonNull()

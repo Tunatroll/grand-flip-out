@@ -40,7 +40,6 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
-import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -639,18 +638,7 @@ public class GrandFlipOutPanel extends PluginPanel
     {
         try
         {
-            if (!Desktop.isDesktopSupported())
-            {
-                JOptionPane.showMessageDialog(
-                    this,
-                    "Desktop browser is not supported in this environment.",
-                    "Open Web Chart",
-                    JOptionPane.INFORMATION_MESSAGE
-                );
-                return;
-            }
-
-            Desktop.getDesktop().browse(new URI(url));
+            net.runelite.client.util.LinkBrowser.browse(url);
         }
         catch (Exception ex)
         {
@@ -992,7 +980,7 @@ public class GrandFlipOutPanel extends PluginPanel
         historyPanel.removeAll();
 
         List<TradeLogEntry> logEntries = dataDir != null
-            ? TradeLogReader.readRecent(dataDir, 40)
+            ? TradeLogReader.readRecent(dataDir, 40, priceService.getGson())
             : new ArrayList<>();
 
         String selectedAccount = statsPanel != null

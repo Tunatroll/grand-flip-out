@@ -8,8 +8,8 @@
 
 package com.fliphelper.util;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
@@ -27,7 +27,7 @@ public final class TradeLogReader
     {
     }
 
-    public static List<TradeLogEntry> readRecent(File dataDir, int maxEntries)
+    public static List<TradeLogEntry> readRecent(File dataDir, int maxEntries, Gson gson)
     {
         if (dataDir == null || maxEntries <= 0)
         {
@@ -62,7 +62,7 @@ public final class TradeLogReader
         List<TradeLogEntry> entries = new ArrayList<>();
         for (int i = lines.size() - 1; i >= start; i--)
         {
-            TradeLogEntry entry = parseLine(lines.get(i));
+            TradeLogEntry entry = parseLine(lines.get(i), gson);
             if (entry != null)
             {
                 entries.add(entry);
@@ -81,11 +81,11 @@ public final class TradeLogReader
         return total;
     }
 
-    private static TradeLogEntry parseLine(String line)
+    private static TradeLogEntry parseLine(String line, Gson gson)
     {
         try
         {
-            JsonObject obj = new JsonParser().parse(line).getAsJsonObject();
+            JsonObject obj = gson.fromJson(line, JsonObject.class);
             if (!"flip_completed".equals(getString(obj, "event")))
             {
                 return null;

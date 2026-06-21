@@ -24,3 +24,4 @@ build/
 *.json
 logs/
 data/
+graphify-out/

@@ -12,7 +12,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;
@@ -68,7 +67,7 @@ public final class FlippingUtilitiesImporter
      * @param jsonFile the FU export file (e.g. "Awful Pure.json")
      * @return list of converted entries, or empty list on parse failure
      */
-    public static List<TradeLogEntry> importFromFile(File jsonFile)
+    public static List<TradeLogEntry> importFromFile(File jsonFile, Gson gson)
     {
         if (jsonFile == null || !jsonFile.exists() || !jsonFile.canRead())
         {
@@ -79,7 +78,7 @@ public final class FlippingUtilitiesImporter
         JsonObject root;
         try (Reader reader = new FileReader(jsonFile))
         {
-            root = new JsonParser().parse(reader).getAsJsonObject();
+            root = gson.fromJson(reader, JsonObject.class);
         }
         catch (Exception e)
         {
@@ -163,14 +162,14 @@ public final class FlippingUtilitiesImporter
      */
     public static int importToTradeLog(File fuFile, File gfoTradeLog, Gson gson)
     {
-        List<TradeLogEntry> entries = importFromFile(fuFile);
+        List<TradeLogEntry> entries = importFromFile(fuFile, gson);
         if (entries.isEmpty())
         {
             return 0;
         }
 
         // Build set of existing trade keys for duplicate detection
-        Set<String> existingKeys = loadExistingKeys(gfoTradeLog);
+        Set<String> existingKeys = loadExistingKeys(gfoTradeLog, gson);
 
         int imported = 0;
 
@@ -314,7 +313,7 @@ public final class FlippingUtilitiesImporter
         return map;
     }
 
-    private static Set<String> loadExistingKeys(File gfoTradeLog)
+    private static Set<String> loadExistingKeys(File gfoTradeLog, Gson gson)
     {
         Set<String> keys = new HashSet<>();
         if (gfoTradeLog == null || !gfoTradeLog.exists())
@@ -333,7 +332,7 @@ public final class FlippingUtilitiesImporter
                 }
                 try
                 {
-                    JsonObject obj = new JsonParser().parse(line).getAsJsonObject();
+                    JsonObject obj = gson.fromJson(line, JsonObject.class);
                     int itemId = getInt(obj, "itemId");
                     long buyPrice = getLong(obj, "buyPrice");
                     long sellPrice = getLong(obj, "sellPrice");

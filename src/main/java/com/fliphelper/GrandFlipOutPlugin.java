@@ -184,9 +184,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
-        intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl());
-        dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl());
-        entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl());
+        intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl(), gson);
+        dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl(), gson);
+        entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl(), gson);
         flipTracker = new FlipTracker(config, priceService, DATA_DIR, gson);
         geHistoryImporter = GeHistoryImporter.create(client, flipTracker, DATA_DIR);
 
@@ -833,11 +833,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             client.setVarcStrValue(net.runelite.api.gameval.VarClientID.MESLAYERINPUT, name);
             client.setVarcIntValue(net.runelite.api.gameval.VarClientID.MESLAYERMODE, 14); // GE search mode
-            Widget searchInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
-            if (searchInput != null && searchInput.getOnKeyListener() != null)
-            {
-                client.runScript(searchInput.getOnKeyListener());
-            }
+            // Text is pre-filled into the GE search input only. We deliberately do NOT fire the
+            // search key-listener script — programmatically advancing an in-game widget is a Hub
+            // anti-automation violation. The player opens search, sees the name, and acts themselves.
         }
         catch (Exception e)
         {
@@ -924,27 +922,27 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         else if (config.copyMarginHotkey().matches(e))
         {
             // Copy margin data for focused item to clipboard
-            copyCurrentMarginToClipboard();
+            clientThread.invokeLater(this::copyCurrentMarginToClipboard);
             e.consume();
         }
         else if (config.enableGePriceFill() && config.priceFillHotkey().matches(e))
         {
-            fillGePrice();
+            clientThread.invokeLater(this::fillGePrice);
             e.consume();
         }
         else if (config.copyBuyPriceHotkey().matches(e))
         {
-            fillGeBuyPrice();
+            clientThread.invokeLater(this::fillGeBuyPrice);
             e.consume();
         }
         else if (config.copySellPriceHotkey().matches(e))
         {
-            fillGeSellPrice();
+            clientThread.invokeLater(this::fillGeSellPrice);
             e.consume();
         }
         else if (config.copySlotAssistHotkey().matches(e))
         {
-            copyFullSlotAssistToClipboard();
+            clientThread.invokeLater(this::copyFullSlotAssistToClipboard);
             e.consume();
         }
     }
@@ -1462,8 +1460,13 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
     private void copyToClipboard(String payload)
     {
-        java.awt.datatransfer.StringSelection selection = new java.awt.datatransfer.StringSelection(payload);
-        java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+        // Clipboard is an AWT/Swing resource. The keybind handlers now run on the client thread
+        // (clientThread.invokeLater) for safe game-state reads, so marshal the clipboard write to the EDT.
+        javax.swing.SwingUtilities.invokeLater(() ->
+        {
+            java.awt.datatransfer.StringSelection selection = new java.awt.datatransfer.StringSelection(payload);
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+        });
     }
 
     private static final class SlotContext

@@ -329,7 +329,7 @@ public interface GrandFlipOutConfig extends Config
             + "once this is enabled.",
         section = intelligenceSection,
         position = 0,
-        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by Runelite developers."
+        warning = "This plugin submits your IP address plus your Grand Exchange offer and trade data (item, price, quantity, and approximate coins) to grandflipout.com, a 3rd-party server not controlled or verified by RuneLite developers."
     )
     default boolean enableServerFunctionality()
     {
@@ -341,7 +341,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Enable Server Advisor",
         description = "Off by default. When enabled, fetch BUY/SELL/HOLD signals, VPIN alerts, dump predictions, and screener data from grandflipout.com. Read-only — your trades are not sent unless you also enable 'Contribute trades'.",
         section = intelligenceSection,
-        position = 0
+        position = 1
     )
     default boolean enableServerIntelligence()
     {
@@ -353,7 +353,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Intelligence API URL",
         description = "Base URL for Grand Flip Out intelligence API (no trailing slash).",
         section = intelligenceSection,
-        position = 1
+        position = 2
     )
     default String intelligenceBaseUrl()
     {
@@ -365,7 +365,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Margin Assist ±%",
         description = "Percent above/below Wiki buy/sell used for ± margin clipboard strings.",
         section = intelligenceSection,
-        position = 2
+        position = 3
     )
     @Range(min = 1, max = 25)
     default int marginAssistPercent()
@@ -380,7 +380,7 @@ public interface GrandFlipOutConfig extends Config
             + "with grandflipout.com to improve crowdsourced flip data. Off by default. "
             + "Independent of the read-only advisor above.",
         section = intelligenceSection,
-        position = 3
+        position = 4
     )
     default boolean contributeTrades()
     {
@@ -478,7 +478,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Copy Buy Price",
         description = "Copy Wiki buy price (and ±% variants) for active GE slot to clipboard.",
         section = hotkeysSection,
-        position = 6
+        position = 7
     )
     default Keybind copyBuyPriceHotkey()
     {
@@ -490,7 +490,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Copy Sell Price",
         description = "Copy Wiki sell price (and ±% variants) for active GE slot to clipboard.",
         section = hotkeysSection,
-        position = 7
+        position = 8
     )
     default Keybind copySellPriceHotkey()
     {
@@ -502,7 +502,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Copy Slot Assist",
         description = "Copy buy/sell/qty suggestion block for the first active GE slot.",
         section = hotkeysSection,
-        position = 8
+        position = 9
     )
     default Keybind copySlotAssistHotkey()
     {

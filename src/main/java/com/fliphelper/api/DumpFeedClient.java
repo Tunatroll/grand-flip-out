@@ -10,8 +10,8 @@ package com.fliphelper.api;
 
 import com.fliphelper.model.DumpFeedEntry;
 import com.google.gson.JsonArray;
+import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
@@ -33,8 +33,9 @@ public class DumpFeedClient
 {
     private final OkHttpClient httpClient;
     private final String baseUrl;
+    private final Gson gson;
 
-    public DumpFeedClient(OkHttpClient sharedClient, String baseUrl)
+    public DumpFeedClient(OkHttpClient sharedClient, String baseUrl, Gson gson)
     {
         String normalized = baseUrl != null ? baseUrl.trim() : "https://grandflipout.com";
         if (normalized.endsWith("/"))
@@ -43,6 +44,7 @@ public class DumpFeedClient
         }
         this.baseUrl = normalized;
         this.httpClient = sharedClient;
+        this.gson = gson;
     }
 
     /**
@@ -73,7 +75,7 @@ public class DumpFeedClient
             {
                 throw new IOException("HTTP " + response.code());
             }
-            JsonObject root = new JsonParser().parse(response.body().string()).getAsJsonObject();
+            JsonObject root = gson.fromJson(response.body().string(), JsonObject.class);
             List<DumpFeedEntry> out = new ArrayList<>();
             if (root.has("dumps") && root.get("dumps").isJsonArray())
             {

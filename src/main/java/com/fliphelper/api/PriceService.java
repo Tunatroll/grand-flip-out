@@ -36,6 +36,7 @@ public class PriceService
 {
     private final GrandFlipOutConfig config;
     private final WikiPriceClient wikiClient;
+    private final Gson gson;
 
     @Getter
     private volatile Map<Integer, PriceAggregate> aggregatedPrices = new ConcurrentHashMap<>();
@@ -48,7 +49,14 @@ public class PriceService
     public PriceService(OkHttpClient httpClient, GrandFlipOutConfig config, Gson gson)
     {
         this.config = config;
+        this.gson = gson;
         this.wikiClient = new WikiPriceClient(httpClient, config.userAgent(), gson);
+    }
+
+    /** The shared injected Gson, exposed so static helpers (e.g. TradeLogReader) reuse it, never new Gson(). */
+    public Gson getGson()
+    {
+        return gson;
     }
 
     /**
