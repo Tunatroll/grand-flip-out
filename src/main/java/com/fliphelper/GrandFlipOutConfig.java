@@ -165,6 +165,49 @@ public interface GrandFlipOutConfig extends Config
         return false;
     }
 
+    @ConfigItem(
+        keyName = "importGeHistory",
+        name = "Import GE History Tab",
+        description = "Back-fill trades made on mobile or before the plugin loaded by reading the "
+            + "in-game Grand Exchange History tab when you open it. Read-only; deduplicated so "
+            + "re-opening History never double-counts.",
+        section = flipTrackerSection,
+        position = 6
+    )
+    default boolean importGeHistory()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "enableAlerts",
+        name = "Price / Offer Alerts",
+        description = "Off by default. When on, get a RuneLite notification when a watched item "
+            + "crosses a buy/sell target price you set (tap the bell on any item in the Prices "
+            + "list), and when a Grand Exchange offer fills (bought/sold) or a buy offer sits "
+            + "idle too long. Information-only; nothing is submitted to the GE.",
+        section = flipTrackerSection,
+        position = 7
+    )
+    default boolean enableAlerts()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "buyIdleAlertMinutes",
+        name = "Idle buy alert (minutes)",
+        description = "When alerts are on, notify if a buy offer has been sitting unfilled for "
+            + "this many minutes so you can reprice. Set to 0 to disable the idle-buy alert.",
+        section = flipTrackerSection,
+        position = 8
+    )
+    @Range(min = 0, max = 240)
+    default int buyIdleAlertMinutes()
+    {
+        return 15;
+    }
+
     // ==================== OVERLAY ====================
 
     @ConfigItem(
@@ -275,6 +318,23 @@ public interface GrandFlipOutConfig extends Config
     }
 
     // ==================== SERVER INTELLIGENCE ====================
+
+    @ConfigItem(
+        keyName = "enableServerFunctionality",
+        name = "Enable grandflipout.com functionality",
+        description = "Master switch for ALL grandflipout.com network features (Advisor suggestions, "
+            + "Server Intelligence signals, trade contribution, and the account/entitlement check). "
+            + "Off by default — while off, the plugin runs entirely on local OSRS Wiki prices and makes "
+            + "no requests to grandflipout.com. The individual feature toggles below only take effect "
+            + "once this is enabled.",
+        section = intelligenceSection,
+        position = 0,
+        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by Runelite developers."
+    )
+    default boolean enableServerFunctionality()
+    {
+        return false;
+    }
 
     @ConfigItem(
         keyName = "enableServerIntelligence",
@@ -391,8 +451,8 @@ public interface GrandFlipOutConfig extends Config
 
     @ConfigItem(
         keyName = "enableGePriceFill",
-        name = "GE price-fill assist",
-        description = "Off by default. When on, pressing the Price-Fill hotkey with a Grand Exchange offer open fills the recommended price into the offer's price field. You always review it and press Confirm yourself — nothing is ever submitted automatically.",
+        name = "GE offer auto-fill",
+        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input when you open it — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
         section = hotkeysSection,
         position = 5
     )

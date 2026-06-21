@@ -48,15 +48,11 @@ import java.util.Set;
  *
  * <p>This importer pairs consecutive buy/sell trades for the same itemId
  * and writes them as GFO {@code flip_completed} NDJSON entries, applying
- * the standard 2% GE tax (capped at 5M GP) on the sell revenue.</p>
+ * the standard 2% GE tax (capped at 5M GP per item) via {@link GeTax}.</p>
  */
 @Slf4j
 public final class FlippingUtilitiesImporter
 {
-    /** GE tax rate: 2% of sell revenue, capped at 5,000,000 GP. */
-    private static final double GE_TAX_RATE = 0.02;
-    private static final long GE_TAX_CAP = 5_000_000L;
-
     private FlippingUtilitiesImporter()
     {
     }
@@ -262,10 +258,12 @@ public final class FlippingUtilitiesImporter
 
         int quantity = Math.min(buyQty, sellQty);
 
-        // Apply 2% GE tax on sell revenue, capped at 5M
+        // 2% GE tax via GeTax — the 5M cap applies PER ITEM, not on the whole
+        // stack's revenue (the old inline formula under-taxed multi-item flips
+        // of items above 250M gp each), and exempt items pay 0.
         long revenue = sellPrice * quantity;
         long cost = buyPrice * quantity;
-        long tax = Math.min((long) (revenue * GE_TAX_RATE), GE_TAX_CAP);
+        long tax = GeTax.tax(itemId, sellPrice, quantity);
         long profit = revenue - cost - tax;
         double roiPercent = cost > 0 ? (double) profit / cost * 100.0 : 0.0;
 

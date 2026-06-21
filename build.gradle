@@ -68,4 +68,16 @@ tasks.register('screenshot', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.fliphelper.ScreenshotHarness'
     args = [(project.findProperty('out') ?: 'build/screenshots/panel.png').toString()]
+    if (project.findProperty('width')) {
+        systemProperty 'gfo.width', project.findProperty('width').toString()
+    }
+    if (project.findProperty('sample')) {
+        systemProperty 'gfo.sample', project.findProperty('sample').toString()
+    }
+    if (project.findProperty('advisor')) {
+        systemProperty 'gfo.advisor', project.findProperty('advisor').toString()
+    }
+    if (project.findProperty('basket')) {
+        systemProperty 'gfo.basket', project.findProperty('basket').toString()
+    }
 }

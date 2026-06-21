@@ -8,6 +8,7 @@
 
 package com.fliphelper.model;
 
+import lombok.Builder;
 import lombok.Value;
 
 import java.util.Collections;
@@ -18,6 +19,7 @@ import java.util.List;
  * {@code action} is BUY / SELL / ABORT / WAIT. For WAIT there is no item.
  */
 @Value
+@Builder
 public class Suggestion
 {
     String action;
@@ -30,6 +32,16 @@ public class Suggestion
     List<String> reasons;
     /** GE slot the action targets (e.g. the offer to abort), or -1 when not slot-specific. */
     int targetSlot;
+
+    // Enrichment fields (server-provided; default to 0 on older responses).
+    /** After-tax profit per item — negative when the flip is currently a loss. */
+    long marginPer;
+    /** GE 4-hour buy limit for this item (0 = unknown). */
+    int geLimit;
+    /** Profit if you bought the FULL GE limit (per-cycle ceiling) — negative = loss. */
+    long profitPerLimit;
+    /** ~1h traded volume (buy + sell) — a liquidity gauge. */
+    long volume;
 
     public List<String> getReasons()
     {

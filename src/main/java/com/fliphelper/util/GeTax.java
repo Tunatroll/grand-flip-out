@@ -36,8 +36,62 @@ public final class GeTax
     private static final Set<Integer> EXEMPT_ITEMS;
     static
     {
+        // OSRS Wiki "Exempt from tax" (verified 2026-06). Only certain IDs are
+        // listed; watering-can fill variants and Civitas illa fortis teleport
+        // are omitted (IDs not individually verified). Keep in sync with
+        // server/ge-tax.js and intelligence config.GE_TAX_EXEMPT_ITEMS.
         Set<Integer> exempt = new HashSet<>();
         exempt.add(OLD_SCHOOL_BOND);
+        // Tools (exempt since 9 Dec 2021)
+        exempt.add(1755);   // Chisel
+        exempt.add(5325);   // Gardening trowel
+        exempt.add(1785);   // Glassblowing pipe
+        exempt.add(2347);   // Hammer
+        exempt.add(1733);   // Needle
+        exempt.add(233);    // Pestle and mortar
+        exempt.add(5341);   // Rake
+        exempt.add(8794);   // Saw
+        exempt.add(5329);   // Secateurs
+        exempt.add(5343);   // Seed dibber
+        exempt.add(1735);   // Shears
+        exempt.add(952);    // Spade
+        // Energy potion (added 29 May 2025), all doses
+        exempt.add(3008);   // Energy potion(4)
+        exempt.add(3010);   // Energy potion(3)
+        exempt.add(3012);   // Energy potion(2)
+        exempt.add(3014);   // Energy potion(1)
+        // Low-tier ammo / runes
+        exempt.add(882);    // Bronze arrow
+        exempt.add(884);    // Iron arrow
+        exempt.add(886);    // Steel arrow
+        exempt.add(806);    // Bronze dart
+        exempt.add(807);    // Iron dart
+        exempt.add(808);    // Steel dart
+        exempt.add(558);    // Mind rune
+        // Basic food
+        exempt.add(365);    // Bass
+        exempt.add(2309);   // Bread
+        exempt.add(1891);   // Cake
+        exempt.add(2140);   // Cooked chicken
+        exempt.add(2142);   // Cooked meat
+        exempt.add(347);    // Herring
+        exempt.add(379);    // Lobster
+        exempt.add(355);    // Mackerel
+        exempt.add(2327);   // Meat pie
+        exempt.add(351);    // Pike
+        exempt.add(329);    // Salmon
+        exempt.add(315);    // Shrimps
+        exempt.add(361);    // Tuna
+        // Teleports
+        exempt.add(8011);   // Ardougne teleport
+        exempt.add(8010);   // Camelot teleport
+        exempt.add(8009);   // Falador teleport
+        exempt.add(19651);  // Kourend castle teleport
+        exempt.add(8008);   // Lumbridge teleport
+        exempt.add(8007);   // Varrock teleport
+        exempt.add(8013);   // Teleport to house
+        exempt.add(3853);   // Games necklace(8)
+        exempt.add(2552);   // Ring of dueling(8)
         EXEMPT_ITEMS = Collections.unmodifiableSet(exempt);
     }
 

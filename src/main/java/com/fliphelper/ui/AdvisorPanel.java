@@ -8,6 +8,7 @@
 
 package com.fliphelper.ui;
 
+import com.fliphelper.model.DumpFeedEntry;
 import com.fliphelper.model.Suggestion;
 import net.runelite.client.ui.ColorScheme;
 
@@ -27,6 +28,7 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
+import java.util.List;
 
 /**
  * The Advisor tab: shows one next-action suggestion at a time (Copilot-style).
@@ -43,6 +45,9 @@ public class AdvisorPanel extends JPanel
         void onBlock(int itemId);
 
         void onPauseToggled(boolean paused);
+
+        /** Arm the GE price/quantity auto-fill for the suggested flip (user opens the offer to apply). */
+        void onFillOffer(int itemId, long price, int quantity);
     }
 
     private static final Color GOLD = new Color(0xFF, 0x98, 0x1F);
@@ -52,6 +57,7 @@ public class AdvisorPanel extends JPanel
 
     private final Listener listener;
     private final JPanel content = new JPanel();
+    private final JPanel dumpFeed = new JPanel();
     private final JButton pauseBtn = new JButton("Pause");
     private boolean paused;
 
@@ -84,6 +90,11 @@ public class AdvisorPanel extends JPanel
         content.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         content.setBorder(new EmptyBorder(4, 8, 8, 8));
         add(content, BorderLayout.CENTER);
+
+        dumpFeed.setLayout(new BoxLayout(dumpFeed, BoxLayout.Y_AXIS));
+        dumpFeed.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        dumpFeed.setBorder(new EmptyBorder(4, 8, 8, 8));
+        add(dumpFeed, BorderLayout.SOUTH);
 
         showMessage("Enable the Advisor in plugin config to get next-flip suggestions.");
     }
@@ -133,7 +144,22 @@ public class AdvisorPanel extends JPanel
 
         content.add(meta("Price", formatGp(s.getPrice())));
         content.add(meta("Quantity", String.valueOf(s.getQuantity())));
-        content.add(meta("Est. profit", formatGp(s.getExpectedProfit())));
+        if (s.getGeLimit() > 0)
+        {
+            content.add(meta("Buy limit", String.format("%,d / 4h", s.getGeLimit())));
+        }
+        content.add(metaColored("Est. profit", profitText(s.getExpectedProfit()),
+            profitColor(s.getExpectedProfit())));
+        if (s.getGeLimit() > 0)
+        {
+            // What a full buy-limit cycle yields — the realistic per-4h ceiling.
+            content.add(metaColored("Profit @ limit", profitText(s.getProfitPerLimit()),
+                profitColor(s.getProfitPerLimit())));
+        }
+        if (s.getVolume() > 0)
+        {
+            content.add(meta("Volume (1h)", formatVolume(s.getVolume())));
+        }
         content.add(meta("Confidence", Math.round(s.getConfidence() * 100) + "%"));
 
         if (!s.getReasons().isEmpty())
@@ -151,11 +177,14 @@ public class AdvisorPanel extends JPanel
         buttons.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         buttons.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JButton copy = new JButton("Copy price");
-        copy.setFont(copy.getFont().deriveFont(10f));
-        copy.setFocusPainted(false);
-        copy.addActionListener(e -> copyToClipboard(String.valueOf(s.getPrice())));
-        buttons.add(copy);
+        // Fill the suggested price/quantity straight into the GE offer input (clipboard
+        // can't paste into the GE box). Arms the fill; the player opens the offer + confirms.
+        JButton fill = new JButton("Fill offer");
+        fill.setFont(fill.getFont().deriveFont(10f));
+        fill.setFocusPainted(false);
+        fill.setToolTipText("Auto-fill this price & quantity into the GE offer — open the offer to apply, you press Confirm");
+        fill.addActionListener(e -> listener.onFillOffer(s.getItemId(), s.getPrice(), s.getQuantity()));
+        buttons.add(fill);
 
         JButton skip = new JButton("Skip");
         skip.setFont(skip.getFont().deriveFont(10f));
@@ -173,6 +202,266 @@ public class AdvisorPanel extends JPanel
         content.add(buttons);
         content.revalidate();
         content.repaint();
+    }
+
+    /**
+     * Render a coordinated basket of buys (Phase 3): one compact row per pick covering
+     * item, action, price, quantity and est. profit, plus a footer with the basket's
+     * total outlay and total expected profit. Used when the player has multiple free GE
+     * slots; {@link #showSuggestion} still handles the single-flip case. Falls back to a
+     * status message when the basket is empty.
+     */
+    public void showBasket(List<Suggestion> basket)
+    {
+        if (basket == null || basket.isEmpty())
+        {
+            showMessage("No basket right now — your slots are full or capital is low. "
+                + "Collect a finished offer and check back.");
+            return;
+        }
+
+        content.removeAll();
+
+        JLabel header = new JLabel("Portfolio basket (" + basket.size() + ")");
+        header.setForeground(GOLD);
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 12f));
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(wrapLeft(header));
+        content.add(Box.createVerticalStrut(2));
+
+        JLabel sub = new JLabel("Coins spread across your free slots");
+        sub.setForeground(DIM);
+        sub.setFont(sub.getFont().deriveFont(10f));
+        sub.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(wrapLeft(sub));
+        content.add(Box.createVerticalStrut(6));
+
+        long totalSpend = 0;
+        long totalProfit = 0;
+        for (Suggestion s : basket)
+        {
+            if (s == null)
+            {
+                continue;
+            }
+            totalSpend += s.getPrice() * (long) s.getQuantity();
+            totalProfit += s.getExpectedProfit();
+            content.add(basketRow(s));
+            content.add(Box.createVerticalStrut(4));
+        }
+
+        content.add(Box.createVerticalStrut(2));
+        JPanel sep = new JPanel();
+        sep.setBackground(new Color(0x3A, 0x3A, 0x3A));
+        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        sep.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(sep);
+        content.add(Box.createVerticalStrut(4));
+
+        content.add(meta("Total cost", formatGp(totalSpend)));
+        content.add(metaColored("Est. profit", profitText(totalProfit), profitColor(totalProfit)));
+
+        content.revalidate();
+        content.repaint();
+    }
+
+    /**
+     * Render the agentic "Next moves" (PRO): a confidence-weighted, reasoned buy plan from
+     * the honesty-calibrated reasoning layer. Same compact rows as {@link #showBasket} plus
+     * the lead reason per pick and a confidence-weighted footer note, under a distinct header
+     * so it reads as the premium, explained variant of the basket. Empty → status message.
+     */
+    public void showNextMoves(List<Suggestion> moves)
+    {
+        if (moves == null || moves.isEmpty())
+        {
+            showMessage("No confident next move right now — capital is low, slots are full, or "
+                + "the reasoner is holding back on weak signals. Check back after your next GE action.");
+            return;
+        }
+
+        content.removeAll();
+
+        JLabel header = new JLabel("Next moves (" + moves.size() + ")");
+        header.setForeground(GOLD);
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 12f));
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(wrapLeft(header));
+        content.add(Box.createVerticalStrut(2));
+
+        JLabel sub = new JLabel("Confidence-weighted, reasoned picks — sized to your coins");
+        sub.setForeground(DIM);
+        sub.setFont(sub.getFont().deriveFont(10f));
+        sub.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(wrapLeft(sub));
+        content.add(Box.createVerticalStrut(6));
+
+        long totalSpend = 0;
+        long totalProfit = 0;
+        for (Suggestion s : moves)
+        {
+            if (s == null)
+            {
+                continue;
+            }
+            totalSpend += s.getPrice() * (long) s.getQuantity();
+            totalProfit += s.getExpectedProfit();
+            content.add(basketRow(s));
+            // The lead reason (agentic explanation), shown dim under the row.
+            if (!s.getReasons().isEmpty())
+            {
+                JLabel why = new JLabel("<html><div style='width:200px'>" + s.getReasons().get(0) + "</div></html>");
+                why.setForeground(DIM);
+                why.setFont(why.getFont().deriveFont(10f));
+                why.setAlignmentX(Component.LEFT_ALIGNMENT);
+                content.add(wrapLeft(why));
+            }
+            content.add(Box.createVerticalStrut(6));
+        }
+
+        content.add(Box.createVerticalStrut(2));
+        JPanel sep = new JPanel();
+        sep.setBackground(new Color(0x3A, 0x3A, 0x3A));
+        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        sep.setAlignmentX(Component.LEFT_ALIGNMENT);
+        content.add(sep);
+        content.add(Box.createVerticalStrut(4));
+
+        content.add(meta("Total cost", formatGp(totalSpend)));
+        content.add(meta("Est. profit", formatGp(totalProfit)));
+
+        content.revalidate();
+        content.repaint();
+    }
+
+    /**
+     * One compact basket line: name + action tag on top; qty @ price + colored
+     * profit/loss on the second line; buy-limit, profit-at-limit and volume on a dim
+     * third line so the per-cycle ceiling and liquidity are visible at a glance.
+     */
+    private JPanel basketRow(Suggestion s)
+    {
+        JPanel row = new JPanel();
+        row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
+        row.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        row.setBorder(new EmptyBorder(4, 6, 4, 6));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
+
+        JPanel top = new JPanel(new BorderLayout());
+        top.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        JLabel name = new JLabel(s.getItemName());
+        name.setForeground(Color.WHITE);
+        name.setFont(name.getFont().deriveFont(Font.BOLD, 12f));
+        JLabel tag = new JLabel(s.getAction(), SwingConstants.RIGHT);
+        tag.setForeground(Color.WHITE);
+        tag.setOpaque(true);
+        tag.setBackground(actionColor(s.getAction()));
+        tag.setBorder(new EmptyBorder(1, 6, 1, 6));
+        tag.setFont(tag.getFont().deriveFont(Font.BOLD, 10f));
+        top.add(name, BorderLayout.WEST);
+        JPanel tagWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        tagWrap.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        tagWrap.add(tag);
+        top.add(tagWrap, BorderLayout.EAST);
+        row.add(top);
+
+        // Line 2: qty @ price  •  signed profit/loss (red when it's a loss).
+        JLabel detail = new JLabel(String.format("%,d @ %s  •  %s",
+            s.getQuantity(), formatGp(s.getPrice()), profitText(s.getExpectedProfit())));
+        detail.setForeground(profitColor(s.getExpectedProfit()));
+        detail.setFont(detail.getFont().deriveFont(11f));
+        JPanel detailWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        detailWrap.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        detailWrap.add(detail);
+        row.add(detailWrap);
+
+        // Line 3 (dim): buy limit · profit-at-full-limit · 1h volume.
+        StringBuilder sub = new StringBuilder();
+        if (s.getGeLimit() > 0)
+        {
+            sub.append(String.format("Limit %,d", s.getGeLimit()))
+                .append("  •  ").append(profitText(s.getProfitPerLimit())).append("/limit");
+        }
+        if (s.getVolume() > 0)
+        {
+            if (sub.length() > 0)
+            {
+                sub.append("  •  ");
+            }
+            sub.append("vol ").append(formatVolume(s.getVolume()));
+        }
+        if (sub.length() > 0)
+        {
+            JLabel meta = new JLabel(sub.toString());
+            meta.setForeground(DIM);
+            meta.setFont(meta.getFont().deriveFont(10f));
+            JPanel metaWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            metaWrap.setBackground(ColorScheme.DARK_GRAY_COLOR);
+            metaWrap.add(meta);
+            row.add(metaWrap);
+        }
+
+        return row;
+    }
+
+    /**
+     * Render the free, no-account "Recent F2P dumps" feed below the suggestion card.
+     * F2P-only for anonymous users (the server gates members items). Read-only list —
+     * informational, never an action button. Pass an empty/null list to hide it.
+     */
+    public void showDumpFeed(List<DumpFeedEntry> entries)
+    {
+        dumpFeed.removeAll();
+        if (entries != null && !entries.isEmpty())
+        {
+            JLabel header = new JLabel("Recent F2P dumps");
+            header.setForeground(GOLD);
+            header.setFont(header.getFont().deriveFont(Font.BOLD, 11f));
+            header.setAlignmentX(Component.LEFT_ALIGNMENT);
+            dumpFeed.add(wrapLeft(header));
+            dumpFeed.add(Box.createVerticalStrut(2));
+
+            int shown = 0;
+            for (DumpFeedEntry e : entries)
+            {
+                if (e == null || shown >= 5)
+                {
+                    continue;
+                }
+                JPanel row = new JPanel(new BorderLayout());
+                row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+                row.setAlignmentX(Component.LEFT_ALIGNMENT);
+                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+
+                JLabel name = new JLabel(e.getItemName());
+                name.setForeground(Color.WHITE);
+                name.setFont(name.getFont().deriveFont(11f));
+
+                JLabel chg = new JLabel(formatPct(e.getPercentChange()), SwingConstants.RIGHT);
+                chg.setForeground(e.getPercentChange() < 0 ? RED : DIM);
+                chg.setFont(chg.getFont().deriveFont(Font.BOLD, 11f));
+
+                row.add(name, BorderLayout.WEST);
+                row.add(chg, BorderLayout.EAST);
+                dumpFeed.add(row);
+                shown++;
+            }
+
+            JLabel note = new JLabel("Free feed — no account needed");
+            note.setForeground(DIM);
+            note.setFont(note.getFont().deriveFont(9f));
+            note.setAlignmentX(Component.LEFT_ALIGNMENT);
+            dumpFeed.add(Box.createVerticalStrut(2));
+            dumpFeed.add(wrapLeft(note));
+        }
+        dumpFeed.revalidate();
+        dumpFeed.repaint();
+    }
+
+    private static String formatPct(double pct)
+    {
+        return String.format("%.1f%%", pct);
     }
 
     private static Color actionColor(String action)
@@ -207,6 +496,53 @@ public class AdvisorPanel extends JPanel
         row.add(l, BorderLayout.WEST);
         row.add(v, BorderLayout.EAST);
         return row;
+    }
+
+    /** Like {@link #meta} but the value is rendered in the given colour (for profit/loss). */
+    private JPanel metaColored(String label, String value, Color valueColor)
+    {
+        JPanel row = new JPanel(new BorderLayout());
+        row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+        JLabel l = new JLabel(label);
+        l.setForeground(DIM);
+        l.setFont(l.getFont().deriveFont(11f));
+        JLabel v = new JLabel(value, SwingConstants.RIGHT);
+        v.setForeground(valueColor);
+        v.setFont(v.getFont().deriveFont(Font.BOLD, 11f));
+        row.add(l, BorderLayout.WEST);
+        row.add(v, BorderLayout.EAST);
+        return row;
+    }
+
+    /** "+1,234 gp" for a gain, "-1,234 gp loss" for a loss — never a silent "+-". */
+    private static String profitText(long profit)
+    {
+        if (profit < 0)
+        {
+            return "-" + formatGp(-profit) + " loss";
+        }
+        return "+" + formatGp(profit);
+    }
+
+    private static Color profitColor(long profit)
+    {
+        return profit < 0 ? RED : GREEN;
+    }
+
+    /** Compact volume: 1,234 / 12.3k / 4.5m — a quick liquidity read. */
+    private static String formatVolume(long vol)
+    {
+        if (vol >= 1_000_000)
+        {
+            return String.format("%.1fm", vol / 1_000_000.0);
+        }
+        if (vol >= 10_000)
+        {
+            return String.format("%.1fk", vol / 1_000.0);
+        }
+        return String.format("%,d", vol);
     }
 
     private static JLabel line(String text, Color color, int style, float size)

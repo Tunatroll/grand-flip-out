@@ -9,6 +9,7 @@
 package com.fliphelper.tracker;
 
 import com.fliphelper.model.FlipItem;
+import com.fliphelper.util.GeTax;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
@@ -110,8 +111,9 @@ public class SessionManager {
         if (flip != null) {
             activeSession.itemsTracked.put(flip.getItemId(), flip);
             activeSession.flipCount++;
-            long revenue = flip.getSellPrice() * (long) flip.getQuantity();
-            long tax = Math.min((long)(revenue * 0.02), 5_000_000L);
+            // GeTax: 5M cap per ITEM (the old inline formula capped the whole
+            // stack's tax at 5M) + exemption handling
+            long tax = GeTax.tax(flip.getItemId(), flip.getSellPrice(), flip.getQuantity());
             long profit = (flip.getSellPrice() - flip.getBuyPrice()) * (long) flip.getQuantity() - tax;
             activeSession.actualProfit += profit;
             log.debug("Recorded flip in session - profit: {}, total: {}", profit, activeSession.actualProfit);

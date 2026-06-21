@@ -91,6 +91,7 @@ public class GrandFlipOutPanel extends PluginPanel
     private JPanel flipsTab;
     private JPanel historyTab;
     private JPanel intelPanel;
+    private RecipePanel recipesTab;
     private JPanel intelContentPanel;
     private com.fliphelper.api.IntelligenceClient intelligenceClient;
     private com.fliphelper.api.EntitlementService entitlementService;
@@ -104,6 +105,7 @@ public class GrandFlipOutPanel extends PluginPanel
     private boolean intelAutoRefreshStarted;
     private java.util.concurrent.ScheduledFuture<?> intelRefreshFuture;
     private com.fliphelper.util.WatchlistStore watchlist;
+    private com.fliphelper.util.AlertStore alertStore;
 
     // Session stats labels
     private JLabel sessionProfitLabel;
@@ -113,6 +115,8 @@ public class GrandFlipOutPanel extends PluginPanel
     private JLabel wealthDeltaLabel;
     private JLabel lastRefreshLabel;
     private String historyFilter = "all";
+    /** Optional callback to trigger a manual GE-history-tab import (wired by the plugin). */
+    private Runnable geHistoryImportAction;
 
     // Category filtering
     private String selectedCategory = "All";
@@ -172,6 +176,7 @@ public class GrandFlipOutPanel extends PluginPanel
         this.executor = executor;
         this.entitlementService = entitlementService;
         this.watchlist = new com.fliphelper.util.WatchlistStore(dataDir);
+        this.alertStore = new com.fliphelper.util.AlertStore(dataDir);
 
         buildPanel();
     }
@@ -195,8 +200,11 @@ public class GrandFlipOutPanel extends PluginPanel
         flipsTab = buildFlipsTab();
         historyTab = buildHistoryTab();
 
+        recipesTab = new RecipePanel(priceService);
+
         tabbedPane.addTab("Prices", pricesTab);
         tabbedPane.addTab("Flips", flipsTab);
+        tabbedPane.addTab("Recipes", recipesTab);
         tabbedPane.addTab("History", historyTab);
         intelPanel = buildIntelTab();
         tabbedPane.addTab("Intel", intelPanel);
@@ -314,6 +322,21 @@ public class GrandFlipOutPanel extends PluginPanel
     }
 
     /**
+     * The shared per-character price-alert targets. The plugin checks these on each price
+     * refresh; the panel lets the user set them. Same instance so both see the same data.
+     */
+    public com.fliphelper.util.AlertStore getAlertStore()
+    {
+        return alertStore;
+    }
+
+    /** The shared per-character starred-item list, used for the GE-search quick-look. */
+    public com.fliphelper.util.WatchlistStore getWatchlist()
+    {
+        return watchlist;
+    }
+
+    /**
      * Add an external panel as a tab (used by ProfilePanel for the Profile tab).
      */
     public void addTab(String title, JPanel tabPanel)
@@ -322,6 +345,30 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             tabbedPane.addTab(title, tabPanel);
             styleTabbedPane();
+        }
+    }
+
+    /**
+     * Wire the "Import GE history" button to a plugin-supplied action that reads
+     * the in-game GE History tab and back-fills any new trades.
+     */
+    public void setGeHistoryImportAction(Runnable action)
+    {
+        this.geHistoryImportAction = action;
+    }
+
+    /** Switch to the native Recipes tab and recompute its set-vs-pieces arbitrage. */
+    private void openRecipesTab()
+    {
+        if (tabbedPane == null || recipesTab == null)
+        {
+            return;
+        }
+        recipesTab.refresh();
+        int idx = tabbedPane.indexOfComponent(recipesTab);
+        if (idx >= 0)
+        {
+            tabbedPane.setSelectedIndex(idx);
         }
     }
 
@@ -363,7 +410,7 @@ public class GrandFlipOutPanel extends PluginPanel
         dashboardBtn.addActionListener(e -> openWebChartForSearch());
         header.add(dashboardBtn);
 
-        JButton recipesBtn = new JButton("Recipe Profits (Web)");
+        JButton recipesBtn = new JButton("Recipe Profits");
         recipesBtn.setFont(recipesBtn.getFont().deriveFont(11f));
         recipesBtn.setForeground(BRAND_GOLD);
         recipesBtn.setBackground(PANEL_BUTTON);
@@ -373,8 +420,8 @@ public class GrandFlipOutPanel extends PluginPanel
             BorderFactory.createEmptyBorder(6, 10, 6, 10)));
         recipesBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         recipesBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        recipesBtn.setToolTipText("Open grandflipout.com recipe margins (herb/gem processing)");
-        recipesBtn.addActionListener(e -> openDashboardUrl("https://grandflipout.com/dashboard.html?page=recipes"));
+        recipesBtn.setToolTipText("Set-vs-pieces arbitrage (Barrows sets, godswords) after GE tax");
+        recipesBtn.addActionListener(e -> openRecipesTab());
         header.add(recipesBtn);
         header.add(Box.createVerticalStrut(8));
 
@@ -494,11 +541,11 @@ public class GrandFlipOutPanel extends PluginPanel
         searchBtn.addActionListener(e -> searchItems());
         searchPanel.add(searchBtn, BorderLayout.EAST);
 
-        JButton webChartBtn = new JButton("Web Chart");
-        styleSecondaryButton(webChartBtn);
-        webChartBtn.setToolTipText("Open live web dashboard chart for current search");
-        webChartBtn.addActionListener(e -> openWebChartForSearch());
-        searchPanel.add(webChartBtn, BorderLayout.WEST);
+        JButton chartBtn = new JButton("Chart");
+        styleSecondaryButton(chartBtn);
+        chartBtn.setToolTipText("Show a native price-history chart for the current search");
+        chartBtn.addActionListener(e -> openNativeChartForSearch());
+        searchPanel.add(chartBtn, BorderLayout.WEST);
 
         topPanel.add(searchPanel, BorderLayout.CENTER);
 
@@ -616,6 +663,99 @@ public class GrandFlipOutPanel extends PluginPanel
         }
     }
 
+    /**
+     * Resolve the current search box to an item and show a native, in-plugin
+     * price-history chart for it in a popup dialog. The Wiki timeseries fetch
+     * runs off the EDT; rendering happens back on the EDT.
+     */
+    private void openNativeChartForSearch()
+    {
+        String query = searchField != null ? searchField.getText().trim() : "";
+        if (query.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this,
+                "Type an item name in the search box first, then click Chart.",
+                "Price Chart", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        if (!priceService.isReady())
+        {
+            JOptionPane.showMessageDialog(this,
+                "Price data is still loading. Please wait a moment and try again.",
+                "Price Chart", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        List<PriceAggregate> matches = priceService.searchByName(query);
+        PriceAggregate target = null;
+        for (PriceAggregate agg : matches)
+        {
+            if (agg.getItemName() != null && agg.getItemName().equalsIgnoreCase(query))
+            {
+                target = agg;
+                break;
+            }
+        }
+        if (target == null && !matches.isEmpty())
+        {
+            target = matches.get(0);
+        }
+        if (target == null)
+        {
+            JOptionPane.showMessageDialog(this,
+                "No item found for '" + query + "'.",
+                "Price Chart", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        openNativeChart(target.getItemId(), target.getItemName());
+    }
+
+    /** Build the chart dialog for a specific item and kick off the data fetch. */
+    private void openNativeChart(int itemId, String itemName)
+    {
+        final String name = itemName != null ? itemName : ("Item " + itemId);
+        final String timestep = "1h"; // ~15 days of hourly data — a useful default window
+
+        PriceChartPanel chart = new PriceChartPanel();
+        chart.setLoading();
+
+        java.awt.Window owner = SwingUtilities.getWindowAncestor(this);
+        final javax.swing.JDialog dialog = new javax.swing.JDialog(owner, "Price History — " + name);
+        dialog.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        dialog.getContentPane().setBackground(ColorScheme.DARK_GRAY_COLOR);
+        chart.setPreferredSize(new Dimension(560, 320));
+        dialog.getContentPane().add(chart);
+        dialog.pack();
+        dialog.setLocationRelativeTo(owner);
+        dialog.setVisible(true);
+
+        Runnable fetch = () ->
+        {
+            try
+            {
+                List<com.fliphelper.model.TimeseriesPoint> points =
+                    priceService.getWikiClient().fetchTimeseries(itemId, timestep);
+                SwingUtilities.invokeLater(() -> chart.setPoints(name + " (" + timestep + ")", points));
+            }
+            catch (Exception ex)
+            {
+                log.warn("Failed to load timeseries for item {}", itemId, ex);
+                SwingUtilities.invokeLater(() -> chart.setError("Failed to load price history"));
+            }
+        };
+
+        if (executor != null)
+        {
+            executor.execute(fetch);
+        }
+        else
+        {
+            new Thread(fetch, "gfo-chart-fetch").start();
+        }
+    }
+
     private JPanel buildFlipsTab()
     {
         JPanel panel = new JPanel(new BorderLayout());
@@ -690,6 +830,19 @@ public class GrandFlipOutPanel extends PluginPanel
         styleSecondaryButton(refreshLogBtn);
         refreshLogBtn.addActionListener(e -> updateHistoryTab());
         historyActions.add(refreshLogBtn);
+
+        JButton importGeHistoryBtn = new JButton("Import GE history");
+        styleSecondaryButton(importGeHistoryBtn);
+        importGeHistoryBtn.setToolTipText("Open the in-game Grand Exchange History tab, then click "
+            + "to back-fill any mobile/untracked trades it shows (deduplicated).");
+        importGeHistoryBtn.addActionListener(e ->
+        {
+            if (geHistoryImportAction != null)
+            {
+                geHistoryImportAction.run();
+            }
+        });
+        historyActions.add(importGeHistoryBtn);
 
         JButton exportCsvBtn = new JButton("Export CSV");
         stylePrimaryButton(exportCsvBtn);
@@ -1162,7 +1315,7 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             long expectedSell = agg.getBestHighPrice();
             long expectedProfit = (expectedSell - flip.getBuyPrice()) * flip.getQuantity();
-            long tax = Math.min((long) (expectedSell * 0.02), 5_000_000L) * flip.getQuantity();
+            long tax = com.fliphelper.util.GeTax.tax(flip.getItemId(), expectedSell, flip.getQuantity());
             expectedProfit -= tax;
 
             JPanel profitRow = new JPanel(new BorderLayout());
@@ -1700,6 +1853,69 @@ public class GrandFlipOutPanel extends PluginPanel
         }
     }
 
+    /**
+     * Small "set target" dialog for an item's price alert. Lets the user enter a target buy
+     * price (alert when the price drops to it) and/or a target sell price (alert when it
+     * rises to it); blank or 0 clears that side. Persisted via {@link com.fliphelper.util.AlertStore};
+     * the plugin checks targets on each price refresh and notifies on a crossing. Read-only —
+     * setting a target never touches the GE.
+     */
+    private void editAlertTarget(PriceAggregate agg)
+    {
+        int itemId = agg.getItemId();
+        long curBuy = alertStore.getBuyTarget(itemId);
+        long curSell = alertStore.getSellTarget(itemId);
+
+        JTextField buyField = new JTextField(curBuy > 0 ? String.valueOf(curBuy) : "", 10);
+        JTextField sellField = new JTextField(curSell > 0 ? String.valueOf(curSell) : "", 10);
+
+        JPanel form = new JPanel(new GridLayout(0, 1, 0, 4));
+        form.add(new JLabel(agg.getItemName()));
+        form.add(new JLabel("Alert when insta-buy drops to (gp):"));
+        form.add(buyField);
+        form.add(new JLabel("Now: " + formatGpFull(agg.getBestLowPrice()) + " gp"));
+        form.add(new JLabel("Alert when insta-sell rises to (gp):"));
+        form.add(sellField);
+        form.add(new JLabel("Now: " + formatGpFull(agg.getBestHighPrice()) + " gp"));
+        form.add(new JLabel("Leave blank or 0 to clear a target."));
+
+        int result = JOptionPane.showConfirmDialog(this, form,
+            "Set price alert", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION)
+        {
+            return;
+        }
+
+        long buy = parseGpField(buyField.getText());
+        long sell = parseGpField(sellField.getText());
+        alertStore.setTargets(itemId, buy, sell);
+        // Re-render so the bell reflects the new state.
+        displayAllItemsInCategory();
+    }
+
+    /** Parse a user-entered gp value (commas allowed); returns 0 for blank/invalid. */
+    private static long parseGpField(String text)
+    {
+        if (text == null)
+        {
+            return 0;
+        }
+        String cleaned = text.replaceAll("[,\\s]", "");
+        if (cleaned.isEmpty())
+        {
+            return 0;
+        }
+        try
+        {
+            long v = Long.parseLong(cleaned);
+            return Math.max(0, v);
+        }
+        catch (NumberFormatException e)
+        {
+            return 0;
+        }
+    }
+
     private JPanel buildPriceCard(PriceAggregate agg)
     {
         Color cardBg = new Color(0x1A, 0x1A, 0x2E);
@@ -1744,6 +1960,29 @@ public class GrandFlipOutPanel extends PluginPanel
         });
         nameRow.add(star);
 
+        // Bell: set a buy/sell price target. Lit gold when a target is active. Tapping opens
+        // a tiny dialog; the plugin fires a RuneLite notification when the target is crossed
+        // (only while "Price / Offer Alerts" is enabled in config).
+        final boolean hasTarget = alertStore.get(watchItemId) != null;
+        // Plain-text affordance (BMP emoji bells render as tofu in Swing). Reads "alert ●"
+        // when a target is set, dim "alert" otherwise.
+        JLabel bell = new JLabel(hasTarget ? "alert ●" : "alert");
+        bell.setForeground(hasTarget ? BRAND_GOLD : TEXT_DIM);
+        bell.setFont(bell.getFont().deriveFont(Font.BOLD, 9f));
+        bell.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        bell.setToolTipText(hasTarget
+            ? "Price alert set — click to edit or clear"
+            : "Set a buy/sell price target for an alert");
+        bell.addMouseListener(new java.awt.event.MouseAdapter()
+        {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e)
+            {
+                editAlertTarget(agg);
+            }
+        });
+        nameRow.add(bell);
+
         JLabel nameLabel = new JLabel(agg.getItemName());
         nameLabel.setForeground(Color.WHITE);
         nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 12f));
@@ -1754,7 +1993,7 @@ public class GrandFlipOutPanel extends PluginPanel
         badges.setOpaque(false);
 
         // Signal badge from server intelligence (cached)
-        if (config.enableServerIntelligence())
+        if (config.enableServerFunctionality() && config.enableServerIntelligence())
         {
             int itemId = agg.getItemId();
             CachedAdvisor cached = advisorCache.get(itemId);
@@ -2030,7 +2269,7 @@ public class GrandFlipOutPanel extends PluginPanel
     private void refreshIntel()
     {
         // Premium feature — gated behind an unlocked account and the opt-in toggle.
-        if (!isUnlocked() || !config.enableServerIntelligence() || intelligenceClient == null)
+        if (!isUnlocked() || !config.enableServerFunctionality() || !config.enableServerIntelligence() || intelligenceClient == null)
         {
             return;
         }
