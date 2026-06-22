@@ -32,8 +32,8 @@ optional GE price/quantity pre-fill writes text into the offer field you have op
 - **Margin check helper** — quick "buy 1 at X, sell 1 at Y" workflow
 - **GP-drop animation** on profitable sells
 - **Flipping Utilities import** — one-time import of existing flip history
-- **Keyboard hotkeys** — toggle panel, refresh prices, quick lookup, copy margin/prices,
-  toggle overlay, optional GE price-fill assist
+- **Keyboard hotkeys** — toggle panel, refresh prices, quick lookup, copy margin & slot assist,
+  toggle overlay, optional GE buy/sell price-fill (off by default)
 - **Optional account** — free account (created on the web) unlocks members-item
   suggestions and premium server features; see *Compliance and data handling* below
 
@@ -56,10 +56,10 @@ optional GE price/quantity pre-fill writes text into the offer field you have op
     token to `grandflipout.com/api/entitlements` **only** to check whether your account
     unlocks members-item suggestions / premium features. No key set → this call is never made.
   - *Advisor / Server Advisor* (off by default): to generate suggestions it sends your
-    current GE offers and approximate coin total (no character name) to grandflipout.com
+    current GE offers, approximate coin total, and the IDs of items you've skipped/blocked (no character name) to grandflipout.com
     and returns ranked flips/signals for the active item.
   - *Contribute trades* (off by default): sends anonymized completed trades (item ID,
-    price, quantity, side, timestamp) for crowd-sourced pricing.
+    price, quantity, side, timestamp, plugin version) for crowd-sourced pricing.
 - **No player data is sent off-device by default** — flip history is stored locally under
   `~/.runelite/grand-flip-out/`. No character names or passwords are ever sent; the only
   credential transmitted is the API key you choose to paste.

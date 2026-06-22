@@ -475,8 +475,8 @@ public interface GrandFlipOutConfig extends Config
 
     @ConfigItem(
         keyName = "copyBuyPriceHotkey",
-        name = "Copy Buy Price",
-        description = "Copy Wiki buy price (and ±% variants) for active GE slot to clipboard.",
+        name = "Fill Buy Price",
+        description = "Fill the open GE offer's price field with the Wiki buy price (the same GE offer auto-fill as Flipping Copilot). Requires 'GE offer auto-fill' enabled (off by default); you review the value and press Confirm yourself.",
         section = hotkeysSection,
         position = 7
     )
@@ -487,8 +487,8 @@ public interface GrandFlipOutConfig extends Config
 
     @ConfigItem(
         keyName = "copySellPriceHotkey",
-        name = "Copy Sell Price",
-        description = "Copy Wiki sell price (and ±% variants) for active GE slot to clipboard.",
+        name = "Fill Sell Price",
+        description = "Fill the open GE offer's price field with the Wiki sell price (the same GE offer auto-fill as Flipping Copilot). Requires 'GE offer auto-fill' enabled (off by default); you review the value and press Confirm yourself.",
         section = hotkeysSection,
         position = 8
     )

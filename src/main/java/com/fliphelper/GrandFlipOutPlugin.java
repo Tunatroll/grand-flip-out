@@ -930,12 +930,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             clientThread.invokeLater(this::fillGePrice);
             e.consume();
         }
-        else if (config.copyBuyPriceHotkey().matches(e))
+        else if (config.enableGePriceFill() && config.copyBuyPriceHotkey().matches(e))
         {
             clientThread.invokeLater(this::fillGeBuyPrice);
             e.consume();
         }
-        else if (config.copySellPriceHotkey().matches(e))
+        else if (config.enableGePriceFill() && config.copySellPriceHotkey().matches(e))
         {
             clientThread.invokeLater(this::fillGeSellPrice);
             e.consume();
