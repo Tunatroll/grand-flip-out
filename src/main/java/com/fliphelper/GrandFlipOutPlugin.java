@@ -370,7 +370,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 flipTracker.recordTransaction(trade);
                 panel.updateAll();
 
-                log.info("GE {} detected: {}x {} @ {}gp (slot {})",
+                log.debug("GE {} detected: {}x {} @ {}gp (slot {})",
                     isBuy ? "buy" : "sell", deltaQuantity, itemName, pricePerItem, slot);
 
                 // Contribute this trade to the crowdsourced dataset (separate opt-in,
