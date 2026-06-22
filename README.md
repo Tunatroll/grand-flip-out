@@ -8,8 +8,9 @@ math accounts for the 2% GE tax (capped at 5M GP); all flip history is stored
 locally on your machine.
 
 **Information only.** The plugin reads completed offers through RuneLite's event API
-and shows you analysis. It does not automate trades or interact with the game
-client.
+and shows you analysis. It does not automate trades or send synthetic input. The
+optional GE price/quantity pre-fill writes text into the offer field you have open
+(the same mechanism as Flipping Copilot) — you review it and press Confirm yourself.
 
 ## Features
 
@@ -45,17 +46,20 @@ client.
 
 ## Compliance and data handling
 
-- **Information only** — never automates trades, injects packets/clicks, or interacts
-  with the game client
+- **Information only** — never automates trades and never injects synthetic
+  clicks/keystrokes or game packets. The optional GE price/quantity pre-fill writes
+  text into the offer input you have open; you confirm every offer yourself
 - **Default network is Wiki-only** — out of the box the plugin talks only to
-  `prices.runescape.wiki` (plus user-triggered `Desktop.browse()` links to public web
+  `prices.runescape.wiki` (plus user-triggered `LinkBrowser` links to public web
   pages). All `grandflipout.com` communication is **opt-in**:
   - *API key* (empty by default): if you paste an account key, it is sent as a `Bearer`
     token to `grandflipout.com/api/entitlements` **only** to check whether your account
     unlocks members-item suggestions / premium features. No key set → this call is never made.
-  - *Server Advisor* (off by default): read-only fetch of signals for the active item.
-  - *Contribute trades* (off by default): the only setting that sends data — anonymized
-    completed trades (item ID, price, quantity, side, timestamp) for crowd-sourced pricing.
+  - *Advisor / Server Advisor* (off by default): to generate suggestions it sends your
+    current GE offers and approximate coin total (no character name) to grandflipout.com
+    and returns ranked flips/signals for the active item.
+  - *Contribute trades* (off by default): sends anonymized completed trades (item ID,
+    price, quantity, side, timestamp) for crowd-sourced pricing.
 - **No player data is sent off-device by default** — flip history is stored locally under
   `~/.runelite/grand-flip-out/`. No character names or passwords are ever sent; the only
   credential transmitted is the API key you choose to paste.
