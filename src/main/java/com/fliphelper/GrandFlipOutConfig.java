@@ -153,19 +153,6 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
-        keyName = "importFlippingUtilities",
-        name = "Import Flipping Utilities",
-        description = "One-time import of trade history from Flipping Utilities on startup. "
-            + "Searches ~/.runelite/flipping/ and ~/.runelite/profiles/*/flipping/ for FU export files.",
-        section = flipTrackerSection,
-        position = 5
-    )
-    default boolean importFlippingUtilities()
-    {
-        return false;
-    }
-
-    @ConfigItem(
         keyName = "importGeHistory",
         name = "Import GE History Tab",
         description = "Back-fill trades made on mobile or before the plugin loaded by reading the "

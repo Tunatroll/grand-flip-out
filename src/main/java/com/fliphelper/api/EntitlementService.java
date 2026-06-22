@@ -17,6 +17,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 import java.io.IOException;
+import java.util.function.BooleanSupplier;
 
 /**
  * Resolves the user's Grand Flip Out account entitlement from a pasted API key.
@@ -46,12 +47,13 @@ public class EntitlementService
     private final OkHttpClient httpClient;
     private final String baseUrl;
     private final Gson gson;
+    private final BooleanSupplier networkEnabled;
 
     private volatile Entitlement cached = LOCKED;
     /** Timestamp of the last SUCCESSFUL server response (drives the grace window). */
     private volatile long lastSuccessAt = 0L;
 
-    public EntitlementService(OkHttpClient sharedClient, String baseUrl, Gson gson)
+    public EntitlementService(OkHttpClient sharedClient, String baseUrl, Gson gson, BooleanSupplier networkEnabled)
     {
         String normalized = baseUrl != null ? baseUrl.trim() : "https://grandflipout.com";
         if (normalized.endsWith("/"))
@@ -61,6 +63,16 @@ public class EntitlementService
         this.baseUrl = normalized;
         this.httpClient = sharedClient;
         this.gson = gson;
+        this.networkEnabled = networkEnabled;
+    }
+
+    /** Hard opt-in gate -- throws unless grandflipout.com networking is enabled (master toggle). */
+    private void ensureNetworkEnabled() throws IOException
+    {
+        if (networkEnabled == null || !networkEnabled.getAsBoolean())
+        {
+            throw new IOException("grandflipout.com networking is disabled (opt-in is off)");
+        }
     }
 
     /** Cheap, non-blocking read of the current entitlement (safe on the EDT). */
@@ -113,6 +125,7 @@ public class EntitlementService
 
     private Entitlement fetch(String apiKey) throws IOException
     {
+        ensureNetworkEnabled();
         Request request = new Request.Builder()
             .url(baseUrl + "/api/entitlements")
             .get()

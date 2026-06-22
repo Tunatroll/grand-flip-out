@@ -18,7 +18,6 @@ import com.fliphelper.model.TradeRecord;
 import com.fliphelper.tracker.FlipTracker;
 import com.fliphelper.tracker.SessionManager;
 import com.fliphelper.ui.GrandFlipOutPanel;
-import com.fliphelper.util.FlippingUtilitiesImporter;
 import com.fliphelper.util.GeHistoryImporter;
 import com.fliphelper.util.GeTax;
 import com.fliphelper.util.WealthSnapshot;
@@ -184,9 +183,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
-        intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl(), gson);
-        dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl(), gson);
-        entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl(), gson);
+        intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl(), gson, config::enableServerFunctionality);
+        dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl(), gson, config::enableServerFunctionality);
+        entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl(), gson, config::enableServerFunctionality);
         flipTracker = new FlipTracker(config, priceService, DATA_DIR, gson);
         geHistoryImporter = GeHistoryImporter.create(client, flipTracker, DATA_DIR);
 
@@ -204,16 +203,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 sessionManager.updateSessionWealth(wealth.getTotalWealthGp());
             });
         });
-
-        // One-time Flipping Utilities import (runs async to avoid blocking startUp)
-        if (config.importFlippingUtilities())
-        {
-            File fuImportMarker = new File(DATA_DIR, ".fu_imported");
-            if (!fuImportMarker.exists())
-            {
-                executor.execute(() -> runFlippingUtilitiesImport(fuImportMarker));
-            }
-        }
 
         // Create UI — pass sessionManager so the panel has GP/hr data
         panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager, DATA_DIR, intelligenceClient, executor, entitlementService);
@@ -1153,44 +1142,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     {
         net.runelite.api.ItemComposition def = client.getItemDefinition(itemId);
         return def != null ? def.getName() : "Item #" + itemId;
-    }
-
-    private void runFlippingUtilitiesImport(File marker)
-    {
-        try
-        {
-            List<File> fuFiles = FlippingUtilitiesImporter.findFuFiles(RUNELITE_DIR);
-            if (fuFiles.isEmpty())
-            {
-                log.info("No Flipping Utilities data files found");
-                return;
-            }
-
-            File tradeLog = new File(DATA_DIR, "trade_log.ndjson");
-            int totalImported = 0;
-            for (File fuFile : fuFiles)
-            {
-                log.info("Importing Flipping Utilities data from {}", fuFile.getName());
-                int count = FlippingUtilitiesImporter.importToTradeLog(fuFile, tradeLog, gson);
-                totalImported += count;
-            }
-
-            // Create marker file so we don't re-import next startup
-            marker.createNewFile();
-
-            if (totalImported > 0)
-            {
-                log.info("Imported {} trades from Flipping Utilities", totalImported);
-            }
-            else
-            {
-                log.info("No new trades imported from Flipping Utilities (0 new or all duplicates)");
-            }
-        }
-        catch (Exception e)
-        {
-            log.warn("Flipping Utilities import failed: {}", e.getMessage());
-        }
     }
 
     private void copyCurrentMarginToClipboard()

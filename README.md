@@ -31,7 +31,6 @@ optional GE price/quantity pre-fill writes text into the offer field you have op
 - **Inventory price tooltips** — hover values for items in your inventory
 - **Margin check helper** — quick "buy 1 at X, sell 1 at Y" workflow
 - **GP-drop animation** on profitable sells
-- **Flipping Utilities import** — one-time import of existing flip history
 - **Keyboard hotkeys** — toggle panel, refresh prices, quick lookup, copy margin & slot assist,
   toggle overlay, optional GE buy/sell price-fill (off by default)
 - **Optional account** — free account (created on the web) unlocks members-item

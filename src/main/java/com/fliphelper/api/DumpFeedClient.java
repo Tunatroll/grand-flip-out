@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 /**
  * Read-only client for the free F2P dump feed (GET /api/intelligence/dump-feed).
@@ -34,8 +35,9 @@ public class DumpFeedClient
     private final OkHttpClient httpClient;
     private final String baseUrl;
     private final Gson gson;
+    private final BooleanSupplier networkEnabled;
 
-    public DumpFeedClient(OkHttpClient sharedClient, String baseUrl, Gson gson)
+    public DumpFeedClient(OkHttpClient sharedClient, String baseUrl, Gson gson, BooleanSupplier networkEnabled)
     {
         String normalized = baseUrl != null ? baseUrl.trim() : "https://grandflipout.com";
         if (normalized.endsWith("/"))
@@ -45,6 +47,16 @@ public class DumpFeedClient
         this.baseUrl = normalized;
         this.httpClient = sharedClient;
         this.gson = gson;
+        this.networkEnabled = networkEnabled;
+    }
+
+    /** Hard opt-in gate -- throws unless grandflipout.com networking is enabled (master toggle). */
+    private void ensureNetworkEnabled() throws IOException
+    {
+        if (networkEnabled == null || !networkEnabled.getAsBoolean())
+        {
+            throw new IOException("grandflipout.com networking is disabled (opt-in is off)");
+        }
     }
 
     /**
@@ -54,6 +66,7 @@ public class DumpFeedClient
      */
     public List<DumpFeedEntry> fetch(int limit, String apiKey) throws IOException
     {
+        ensureNetworkEnabled();
         HttpUrl url = HttpUrl.parse(baseUrl + "/api/intelligence/dump-feed")
             .newBuilder()
             .addQueryParameter("limit", String.valueOf(limit))
