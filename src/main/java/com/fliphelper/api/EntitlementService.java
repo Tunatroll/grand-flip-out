@@ -88,6 +88,17 @@ public class EntitlementService
     }
 
     /**
+     * Force the cached entitlement back to LOCKED. Called when the user turns the
+     * grandflipout.com master toggle OFF, so {@link #isUnlocked()} cannot report a stale
+     * unlock (held through the grace window) after opt-out.
+     */
+    public void lock()
+    {
+        cached = LOCKED;
+        lastSuccessAt = 0L;
+    }
+
+    /**
      * Refresh entitlement for the given key. Blocking — call from a background thread.
      * Safe to call with a null/blank key (resets to LOCKED, makes no network call).
      */

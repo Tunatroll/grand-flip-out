@@ -2212,7 +2212,14 @@ public class GrandFlipOutPanel extends PluginPanel
         }
         intelContentPanel.removeAll();
 
-        if (!isUnlocked())
+        if (!config.enableServerFunctionality())
+        {
+            JLabel offLabel = new JLabel("<html>grandflipout.com features are OFF.<br>Enable the master toggle in plugin config to use server intelligence.</html>");
+            offLabel.setForeground(TEXT_DIM);
+            offLabel.setBorder(new EmptyBorder(20, 8, 20, 8));
+            intelContentPanel.add(offLabel);
+        }
+        else if (!isUnlocked())
         {
             JLabel msg = new JLabel("<html><div style='width:170px'><b>Server intelligence is a "
                 + "premium feature.</b><br>Create a free Grand Flip Out account to unlock VPIN "

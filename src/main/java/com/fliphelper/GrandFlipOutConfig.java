@@ -54,7 +54,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigSection(
         name = "Advisor",
         description = "Suggests your next flip (item, price, quantity). Off by default — when on, "
-            + "your current GE offers and approximate coins are sent to grandflipout.com to generate suggestions.",
+            + "your current GE offers and inventory coin count are sent to grandflipout.com to generate suggestions.",
         position = 4
     )
     String advisorSection = "advisor";
@@ -294,7 +294,7 @@ public interface GrandFlipOutConfig extends Config
         description = "Off by default. When on, the Advisor tab suggests your next flip "
             + "(item, buy/sell price, quantity) based on your coins and free GE slots. Anonymous "
             + "users get free-to-play suggestions; paste an account key to unlock all items. "
-            + "Your current GE offers and approximate coin total are sent to grandflipout.com "
+            + "Your current GE offers and inventory coin count are sent to grandflipout.com "
             + "to generate suggestions; nothing is submitted to the GE automatically.",
         section = advisorSection,
         position = 0
@@ -313,7 +313,9 @@ public interface GrandFlipOutConfig extends Config
             + "Server Intelligence signals, trade contribution, and the account/entitlement check). "
             + "Off by default — while off, the plugin runs entirely on local OSRS Wiki prices and makes "
             + "no requests to grandflipout.com. The individual feature toggles below only take effect "
-            + "once this is enabled.",
+            + "once this is enabled. When on, enabled features send data to grandflipout.com: the Advisor "
+            + "sends your inventory coin count and current GE offers, and the optional trade-contribution "
+            + "feature sends your completed trades.",
         section = intelligenceSection,
         position = 0,
         warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers."
@@ -439,7 +441,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "enableGePriceFill",
         name = "GE offer auto-fill",
-        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input when you open it — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
+        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input field when you open it. You always review the value and press Confirm yourself; nothing is ever submitted automatically and no synthetic input is sent.",
         section = hotkeysSection,
         position = 5
     )
@@ -463,7 +465,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "copyBuyPriceHotkey",
         name = "Fill Buy Price",
-        description = "Fill the open GE offer's price field with the Wiki buy price (the same GE offer auto-fill as Flipping Copilot). Requires 'GE offer auto-fill' enabled (off by default); you review the value and press Confirm yourself.",
+        description = "Fill the open GE offer's price field with the Wiki buy price. Requires 'GE offer auto-fill' enabled (off by default); you review the value and press Confirm yourself.",
         section = hotkeysSection,
         position = 7
     )
@@ -475,7 +477,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "copySellPriceHotkey",
         name = "Fill Sell Price",
-        description = "Fill the open GE offer's price field with the Wiki sell price (the same GE offer auto-fill as Flipping Copilot). Requires 'GE offer auto-fill' enabled (off by default); you review the value and press Confirm yourself.",
+        description = "Fill the open GE offer's price field with the Wiki sell price. Requires 'GE offer auto-fill' enabled (off by default); you review the value and press Confirm yourself.",
         section = hotkeysSection,
         position = 8
     )

@@ -79,8 +79,12 @@ import static net.runelite.client.RuneLite.RUNELITE_DIR;
  *
  * <p>Compliant with Jagex third-party client guidelines and RuneLite
  * Plugin Hub requirements. No game packets are sent, no memory is read
- * beyond the RuneLite Client API, no player data is exposed over HTTP,
- * and no unfair mechanical advantages are provided.</p>
+ * beyond the RuneLite Client API, and no unfair mechanical advantages are
+ * provided. By default no player data leaves the client. If the user opts in
+ * to the grandflipout.com server features (all off by default, behind the
+ * "Enable grandflipout.com functionality" master toggle), the Advisor sends
+ * the coins in the player's inventory and the current GE offers, and the optional
+ * trade-contribution feature sends completed trades.</p>
  */
 @Slf4j
 @PluginDescriptor(
@@ -518,6 +522,31 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 }
             });
         }
+
+        // Master toggle flipped OFF — immediately lock the cached entitlement so no stale
+        // unlock (from the grace window) lingers after opt-out; ON re-checks the account.
+        if ("enableServerFunctionality".equals(event.getKey()) && entitlementService != null)
+        {
+            if (!config.enableServerFunctionality())
+            {
+                entitlementService.lock();
+                if (panel != null)
+                {
+                    javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
+                }
+            }
+            else
+            {
+                executor.execute(() ->
+                {
+                    entitlementService.refresh(config.apiKey());
+                    if (panel != null)
+                    {
+                        javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
+                    }
+                });
+            }
+        }
     }
 
     // ==================== ADVISOR ====================
@@ -707,9 +736,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             return;
         }
 
-        // Discriminate the GE quantity input from the price input by the chatbox title —
-        // the exact approach Flipping Copilot uses ("How many do you wish to..." vs
-        // "Set a price for each item:") — so the armed value lands in the right field.
+        // Discriminate the GE quantity input from the price input by the chatbox title
+        // ("How many do you wish to..." vs "Set a price for each item:") so the armed
+        // value lands in the right field.
         Widget inputTitle = client.getWidget(ComponentID.CHATBOX_TITLE);
         String prompt = (inputTitle != null && inputTitle.getText() != null)
             ? inputTitle.getText().toLowerCase() : "";
@@ -801,10 +830,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     }
 
     /**
-     * Auto-fill the GE item-search box with the suggested item, then trigger the search —
-     * the same mechanism 07Flip uses (set MESLAYERINPUT + MESLAYERMODE, then run the search
-     * input's key-listener script). This is the GE item search, NOT the chatbox, so it is not
-     * the (forbidden) chatbox autotyping. Opt-in chokepoint; the player still clicks the item.
+     * Pre-fill the GE item-search box with the suggested item's name (sets MESLAYERINPUT +
+     * MESLAYERMODE). This writes the search text ONLY; it deliberately does not fire the
+     * search script or otherwise advance the widget — the player opens the search, sees the
+     * name, and acts themselves. No synthetic input. Gated behind the GE price-fill toggle,
+     * which is off by default.
      */
     private void fillGeSearch(int itemId)
     {
@@ -833,11 +863,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     }
 
     /**
-     * Write a numeric value into the open GE price/quantity input. This is the exact
-     * mechanism Flipping Copilot uses (set the chatbox input widget text + the
-     * {@code INPUT_TEXT} client var) — it is NOT chatbox autotyping (which is the only
-     * thing the Hub forbids) and NOT synthetic keystrokes. Opt-in chokepoint; the
-     * player still reviews the value and presses Confirm themselves.
+     * Write a numeric value into the open GE price/quantity input by setting the chatbox
+     * input widget text + the {@code INPUT_TEXT} client var. This writes the field value
+     * only — it is not chatbox autotyping and sends no synthetic keystrokes. Opt-in
+     * chokepoint; the player still reviews the value and presses Confirm themselves.
      */
     private void injectGeInput(long value, String label)
     {
