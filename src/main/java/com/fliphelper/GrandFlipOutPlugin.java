@@ -818,6 +818,17 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      */
     private void armOfferFill(int itemId, long price, int quantity)
     {
+        // GE offer auto-fill is opt-in (off by default). Without it, the fill writes below are
+        // no-ops, so don't promise auto-fill — tell the player how to enable it instead.
+        if (!config.enableGePriceFill())
+        {
+            clientThread.invokeLater(() -> client.addChatMessage(
+                ChatMessageType.GAMEMESSAGE,
+                "",
+                "Grand Flip Out: enable 'GE offer auto-fill' in the plugin config to auto-fill GE offers.",
+                null));
+            return;
+        }
         pendingSearchItemId = itemId > 0 ? itemId : -1;
         pendingGePrice = price > 0 ? price : -1;
         pendingGeQty = quantity > 0 ? quantity : -1;

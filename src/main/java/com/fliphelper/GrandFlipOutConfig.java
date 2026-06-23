@@ -453,7 +453,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "priceFillHotkey",
         name = "Price-Fill Assist",
-        description = "Hotkey that fills the recommended price into the open GE offer field (requires 'GE price-fill assist' enabled). You press Confirm yourself.",
+        description = "Hotkey that fills the recommended price into the open GE offer field (requires 'GE offer auto-fill' enabled). You press Confirm yourself.",
         section = hotkeysSection,
         position = 6
     )
