@@ -79,8 +79,8 @@ public class InventoryTooltipOverlay extends Overlay
         }
 
         // Find the inventory container widget while GE is open
-        // GE-offers-side inventory items container (InterfaceID.GeOffersSide.ITEMS = group 467, child 0)
-        Widget inventoryWidget = client.getWidget(net.runelite.api.gameval.InterfaceID.GeOffersSide.ITEMS);
+        // GE inventory items container: group 467, child 0
+        Widget inventoryWidget = client.getWidget(467, 0);
         if (inventoryWidget == null || inventoryWidget.isHidden())
         {
             return null;

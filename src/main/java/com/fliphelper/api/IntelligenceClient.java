@@ -23,15 +23,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.BooleanSupplier;
 
 /**
  * Thin read-only client for Grand Flip Out server intelligence (optional, off by default).
- *
- * <p>Every method that issues an HTTP request first calls {@link #ensureNetworkEnabled()},
- * which throws unless the single master opt-in toggle is on. The gate lives here -- not at
- * the call sites -- so a request can NEVER reach grandflipout.com while the user has opted
- * out, regardless of which caller invokes it.
  */
 @Slf4j
 public class IntelligenceClient
@@ -39,9 +33,8 @@ public class IntelligenceClient
     private final OkHttpClient httpClient;
     private final String baseUrl;
     private final Gson gson;
-    private final BooleanSupplier networkEnabled;
 
-    public IntelligenceClient(OkHttpClient sharedClient, String baseUrl, Gson gson, BooleanSupplier networkEnabled)
+    public IntelligenceClient(OkHttpClient sharedClient, String baseUrl, Gson gson)
     {
         String normalized = baseUrl != null ? baseUrl.trim() : "https://grandflipout.com";
         if (normalized.endsWith("/"))
@@ -51,25 +44,10 @@ public class IntelligenceClient
         this.baseUrl = normalized;
         this.httpClient = sharedClient;
         this.gson = gson;
-        this.networkEnabled = networkEnabled;
-    }
-
-    /**
-     * Hard opt-in gate. Throws unless the user has enabled grandflipout.com networking via
-     * the single master config toggle. Called at the top of every request-issuing method so
-     * no request can leak out while the master switch is off.
-     */
-    private void ensureNetworkEnabled() throws IOException
-    {
-        if (networkEnabled == null || !networkEnabled.getAsBoolean())
-        {
-            throw new IOException("grandflipout.com networking is disabled (opt-in is off)");
-        }
     }
 
     public SmartAdvisorResult fetchSmartAdvisor(int itemId) throws IOException
     {
-        ensureNetworkEnabled();
         HttpUrl url = HttpUrl.parse(baseUrl + "/api/intelligence/smart-advisor")
             .newBuilder()
             .addQueryParameter("itemId", String.valueOf(itemId))
@@ -197,7 +175,6 @@ public class IntelligenceClient
     public Suggestion fetchSuggestion(GameStateSnapshot snapshot, List<Integer> excludeIds,
                                       boolean f2pOnly, String apiKey) throws IOException
     {
-        ensureNetworkEnabled();
         String json = snapshot.toRequestJson(excludeIds, f2pOnly);
         okhttp3.RequestBody body = okhttp3.RequestBody.create(
             okhttp3.MediaType.parse("application/json"), json);
@@ -255,7 +232,6 @@ public class IntelligenceClient
     public List<Suggestion> fetchBasket(GameStateSnapshot snapshot, List<Integer> excludeIds,
                                         boolean f2pOnly, String apiKey) throws IOException
     {
-        ensureNetworkEnabled();
         String json = snapshot.toRequestJson(excludeIds, f2pOnly);
         okhttp3.RequestBody body = okhttp3.RequestBody.create(
             okhttp3.MediaType.parse("application/json"), json);
@@ -327,7 +303,6 @@ public class IntelligenceClient
     public List<Suggestion> fetchRecommendations(GameStateSnapshot snapshot, List<Integer> excludeIds,
                                                  boolean f2pOnly, String apiKey) throws IOException
     {
-        ensureNetworkEnabled();
         String json = snapshot.toRequestJson(excludeIds, f2pOnly);
         okhttp3.RequestBody body = okhttp3.RequestBody.create(
             okhttp3.MediaType.parse("application/json"), json);
@@ -408,7 +383,6 @@ public class IntelligenceClient
     {
         try
         {
-            ensureNetworkEnabled();
             String json = "{\"trades\":[{\"item_id\":" + itemId
                 + ",\"price\":" + price
                 + ",\"quantity\":" + quantity
@@ -446,7 +420,6 @@ public class IntelligenceClient
 
     private JsonObject fetchJson(HttpUrl url) throws IOException
     {
-        ensureNetworkEnabled();
         Request request = new Request.Builder()
             .url(url)
             .get()

@@ -45,7 +45,7 @@ public interface GrandFlipOutConfig extends Config
     String overlaySection = "overlay";
 
     @ConfigSection(
-        name = "Account",
+        name = "GFO Account & API",
         description = "Free Grand Flip Out account — unlocks all members items + premium features",
         position = 3
     )
@@ -54,7 +54,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigSection(
         name = "Advisor",
         description = "Suggests your next flip (item, price, quantity). Off by default — when on, "
-            + "your current GE offers and inventory coin count are sent to grandflipout.com to generate suggestions.",
+            + "your current GE offers and approximate coins are sent to grandflipout.com to generate suggestions.",
         position = 4
     )
     String advisorSection = "advisor";
@@ -98,7 +98,7 @@ public interface GrandFlipOutConfig extends Config
     )
     default String userAgent()
     {
-        return "GrandFlipOut RuneLite Plugin - github.com/Tunatroll/grand-flip-out";
+        return "GrandFlipOutPlugin - contact@grandflipout.com";
     }
 
     // ==================== FLIP TRACKER ====================
@@ -153,6 +153,19 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
+        keyName = "importFlippingUtilities",
+        name = "Import Flipping Utilities",
+        description = "One-time import of trade history from Flipping Utilities on startup. "
+            + "Searches ~/.runelite/flipping/ and ~/.runelite/profiles/*/flipping/ for FU export files.",
+        section = flipTrackerSection,
+        position = 5
+    )
+    default boolean importFlippingUtilities()
+    {
+        return false;
+    }
+
+    @ConfigItem(
         keyName = "importGeHistory",
         name = "Import GE History Tab",
         description = "Back-fill trades made on mobile or before the plugin loaded by reading the "
@@ -198,27 +211,27 @@ public interface GrandFlipOutConfig extends Config
     // ==================== OVERLAY ====================
 
     @ConfigItem(
-        keyName = "showGEOverlay",
+        keyName = "enableGeOverlay",
         name = "Show GE Overlay",
         description = "Display price and margin info as an overlay when the Grand Exchange is open.",
         section = overlaySection,
         position = 0
     )
-    default boolean showGEOverlay()
+    default boolean enableGeOverlay()
     {
-        return true;
+        return false;
     }
 
     @ConfigItem(
-        keyName = "showProfitOverlay",
+        keyName = "enableProfitOverlay",
         name = "Show Profit Overlay",
         description = "Display running session profit/loss as an overlay.",
         section = overlaySection,
         position = 1
     )
-    default boolean showProfitOverlay()
+    default boolean enableProfitOverlay()
     {
-        return true;
+        return false;
     }
 
     @ConfigItem(
@@ -273,7 +286,7 @@ public interface GrandFlipOutConfig extends Config
 
     @ConfigItem(
         keyName = "apiKey",
-        name = "API key",
+        name = "GFO Account Token",
         description = "Paste your free Grand Flip Out account key (create one at grandflipout.com) to "
             + "unlock all members items and premium features. Leave blank to keep using the free "
             + "F2P suggestions. Stored locally; only sent to grandflipout.com to check your account.",
@@ -294,7 +307,7 @@ public interface GrandFlipOutConfig extends Config
         description = "Off by default. When on, the Advisor tab suggests your next flip "
             + "(item, buy/sell price, quantity) based on your coins and free GE slots. Anonymous "
             + "users get free-to-play suggestions; paste an account key to unlock all items. "
-            + "Your current GE offers and inventory coin count are sent to grandflipout.com "
+            + "Your current GE offers and approximate coin total are sent to grandflipout.com "
             + "to generate suggestions; nothing is submitted to the GE automatically.",
         section = advisorSection,
         position = 0
@@ -313,12 +326,10 @@ public interface GrandFlipOutConfig extends Config
             + "Server Intelligence signals, trade contribution, and the account/entitlement check). "
             + "Off by default — while off, the plugin runs entirely on local OSRS Wiki prices and makes "
             + "no requests to grandflipout.com. The individual feature toggles below only take effect "
-            + "once this is enabled. When on, enabled features send data to grandflipout.com: the Advisor "
-            + "sends your inventory coin count and current GE offers, and the optional trade-contribution "
-            + "feature sends your completed trades.",
+            + "once this is enabled.",
         section = intelligenceSection,
         position = 0,
-        warning = "This feature submits your IP address to a 3rd-party server not controlled or verified by RuneLite developers."
+        warning = "This plugin submits your IP address plus your Grand Exchange offer and trade data (item, price, quantity, and approximate coins) to grandflipout.com, a 3rd-party server not controlled or verified by RuneLite developers."
     )
     default boolean enableServerFunctionality()
     {
@@ -441,19 +452,19 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "enableGePriceFill",
         name = "GE offer auto-fill",
-        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input field when you open it. You always review the value and press Confirm yourself; nothing is ever submitted automatically and no synthetic input is sent.",
+        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input when you open it — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
         section = hotkeysSection,
         position = 5
     )
     default boolean enableGePriceFill()
     {
-        return false;
+        return true;
     }
 
     @ConfigItem(
         keyName = "priceFillHotkey",
         name = "Price-Fill Assist",
-        description = "Hotkey that fills the recommended price into the open GE offer field (requires 'GE offer auto-fill' enabled). You press Confirm yourself.",
+        description = "Hotkey that fills the recommended price into the open GE offer field (requires 'GE price-fill assist' enabled). You press Confirm yourself.",
         section = hotkeysSection,
         position = 6
     )
@@ -463,27 +474,75 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
-        keyName = "copyBuyPriceHotkey",
-        name = "Fill Buy Price",
-        description = "Fill the open GE offer's price field with the Wiki buy price. Requires 'GE offer auto-fill' enabled (off by default); you review the value and press Confirm yourself.",
+        keyName = "nextSuggestionHotkey",
+        name = "Next Suggestion (Up)",
+        description = "Cycles to the next actionable flip suggestion and instantly searches for it in the GE.",
         section = hotkeysSection,
         position = 7
     )
-    default Keybind copyBuyPriceHotkey()
+    default Keybind nextSuggestionHotkey()
+    {
+        return new Keybind(KeyEvent.VK_UP, InputEvent.CTRL_DOWN_MASK);
+    }
+
+    @ConfigItem(
+        keyName = "skipSuggestionHotkey",
+        name = "Skip Suggestion (Down)",
+        description = "Skips the current flip suggestion and instantly searches the next one in the GE.",
+        section = hotkeysSection,
+        position = 8
+    )
+    default Keybind skipSuggestionHotkey()
+    {
+        return new Keybind(KeyEvent.VK_DOWN, InputEvent.CTRL_DOWN_MASK);
+    }
+
+    @ConfigItem(
+        keyName = "fillBuyPriceHotkey",
+        name = "Fill Buy Price",
+        description = "Injects the Wiki buy price directly into the open GE offer field.",
+        section = hotkeysSection,
+        position = 7
+    )
+    default Keybind fillBuyPriceHotkey()
     {
         return new Keybind(KeyEvent.VK_B, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
     }
 
     @ConfigItem(
-        keyName = "copySellPriceHotkey",
+        keyName = "fillSellPriceHotkey",
         name = "Fill Sell Price",
-        description = "Fill the open GE offer's price field with the Wiki sell price. Requires 'GE offer auto-fill' enabled (off by default); you review the value and press Confirm yourself.",
+        description = "Injects the Wiki sell price directly into the open GE offer field.",
         section = hotkeysSection,
         position = 8
     )
-    default Keybind copySellPriceHotkey()
+    default Keybind fillSellPriceHotkey()
     {
         return new Keybind(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+    }
+
+    @ConfigItem(
+        keyName = "fillLimitQuantityHotkey",
+        name = "Fill Limit Quantity",
+        description = "Injects the 4-hour GE limit quantity directly into the open GE offer field.",
+        section = hotkeysSection,
+        position = 9
+    )
+    default Keybind fillLimitQuantityHotkey()
+    {
+        return new Keybind(KeyEvent.VK_L, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+    }
+
+    @ConfigItem(
+        keyName = "fillCashQuantityHotkey",
+        name = "Fill Cash Quantity",
+        description = "Injects the max affordable quantity based on your cash stack.",
+        section = hotkeysSection,
+        position = 10
+    )
+    default Keybind fillCashQuantityHotkey()
+    {
+        return new Keybind(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
     }
 
     @ConfigItem(

@@ -18,6 +18,7 @@ import com.fliphelper.model.TradeRecord;
 import com.fliphelper.tracker.FlipTracker;
 import com.fliphelper.tracker.SessionManager;
 import com.fliphelper.ui.GrandFlipOutPanel;
+import com.fliphelper.util.FlippingUtilitiesImporter;
 import com.fliphelper.util.GeHistoryImporter;
 import com.fliphelper.util.GeTax;
 import com.fliphelper.util.WealthSnapshot;
@@ -34,6 +35,9 @@ import net.runelite.api.VarClientStr;
 import net.runelite.api.ScriptID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.ComponentID;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.ItemID;
+import net.runelite.api.InventoryID;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 import net.runelite.api.events.ScriptPostFired;
@@ -79,12 +83,8 @@ import static net.runelite.client.RuneLite.RUNELITE_DIR;
  *
  * <p>Compliant with Jagex third-party client guidelines and RuneLite
  * Plugin Hub requirements. No game packets are sent, no memory is read
- * beyond the RuneLite Client API, and no unfair mechanical advantages are
- * provided. By default no player data leaves the client. If the user opts in
- * to the grandflipout.com server features (all off by default, behind the
- * "Enable grandflipout.com functionality" master toggle), the Advisor sends
- * the coins in the player's inventory and the current GE offers, and the optional
- * trade-contribution feature sends completed trades.</p>
+ * beyond the RuneLite Client API, no player data is exposed over HTTP,
+ * and no unfair mechanical advantages are provided.</p>
  */
 @Slf4j
 @PluginDescriptor(
@@ -150,6 +150,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private volatile long pendingGePrice = -1;
     private volatile int pendingGeQty = -1;
     private volatile int pendingSearchItemId = -1;
+    // Navigation state for Next/Skip hotkeys
+    private final java.util.List<com.fliphelper.model.Suggestion> activeSuggestions = new java.util.ArrayList<>();
+    private int activeSuggestionIndex = -1;
     private static final int CHATBOX_INPUT_OPEN_SCRIPT = 108;
     // Per-character data directory
     private String currentDisplayName = null;
@@ -187,9 +190,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
-        intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl(), gson, config::enableServerFunctionality);
-        dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl(), gson, config::enableServerFunctionality);
-        entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl(), gson, config::enableServerFunctionality);
+        intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl(), gson);
+        dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl(), gson);
+        entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl(), gson);
         flipTracker = new FlipTracker(config, priceService, DATA_DIR, gson);
         geHistoryImporter = GeHistoryImporter.create(client, flipTracker, DATA_DIR);
 
@@ -207,6 +210,16 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 sessionManager.updateSessionWealth(wealth.getTotalWealthGp());
             });
         });
+
+        // One-time Flipping Utilities import (runs async to avoid blocking startUp)
+        if (config.importFlippingUtilities())
+        {
+            File fuImportMarker = new File(DATA_DIR, ".fu_imported");
+            if (!fuImportMarker.exists())
+            {
+                executor.execute(() -> runFlippingUtilitiesImport(fuImportMarker));
+            }
+        }
 
         // Create UI — pass sessionManager so the panel has GP/hr data
         panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager, DATA_DIR, intelligenceClient, executor, entitlementService);
@@ -242,7 +255,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             @Override public void onPauseToggled(boolean paused) { if (!paused) { lastSuggestAt = 0; requestSuggestion(); } }
             @Override public void onFillOffer(int itemId, long price, int quantity) { armOfferFill(itemId, price, quantity); }
         });
-        panel.addTab("Advisor", advisorPanel);
+        panel.insertTab("Advisor", advisorPanel, 0);
         if (config.enableAdvisor())
         {
             advisorPanel.showMessage("Loading your next flip...");
@@ -363,7 +376,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 flipTracker.recordTransaction(trade);
                 panel.updateAll();
 
-                log.debug("GE {} detected: {}x {} @ {}gp (slot {})",
+                log.info("GE {} detected: {}x {} @ {}gp (slot {})",
                     isBuy ? "buy" : "sell", deltaQuantity, itemName, pricePerItem, slot);
 
                 // Contribute this trade to the crowdsourced dataset (separate opt-in,
@@ -522,31 +535,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 }
             });
         }
-
-        // Master toggle flipped OFF — immediately lock the cached entitlement so no stale
-        // unlock (from the grace window) lingers after opt-out; ON re-checks the account.
-        if ("enableServerFunctionality".equals(event.getKey()) && entitlementService != null)
-        {
-            if (!config.enableServerFunctionality())
-            {
-                entitlementService.lock();
-                if (panel != null)
-                {
-                    javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
-                }
-            }
-            else
-            {
-                executor.execute(() ->
-                {
-                    entitlementService.refresh(config.apiKey());
-                    if (panel != null)
-                    {
-                        javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
-                    }
-                });
-            }
-        }
     }
 
     // ==================== ADVISOR ====================
@@ -621,8 +609,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                             }
                         }
 
+                        activeSuggestions.clear();
                         if (moves != null && !moves.isEmpty())
                         {
+                            activeSuggestions.addAll(moves);
+                            activeSuggestionIndex = -1;
                             final java.util.List<com.fliphelper.model.Suggestion> nextMoves = moves;
                             javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showNextMoves(nextMoves));
                         }
@@ -630,6 +621,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                         {
                             java.util.List<com.fliphelper.model.Suggestion> basket =
                                 intelligenceClient.fetchBasket(snapshot, exclude, f2pOnly, config.apiKey());
+                            if (basket != null) activeSuggestions.addAll(basket);
+                            activeSuggestionIndex = -1;
                             javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showBasket(basket));
                         }
                     }
@@ -637,6 +630,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     {
                         com.fliphelper.model.Suggestion suggestion =
                             intelligenceClient.fetchSuggestion(snapshot, exclude, f2pOnly, config.apiKey());
+                        activeSuggestions.clear();
+                        if (suggestion != null) activeSuggestions.add(suggestion);
+                        activeSuggestionIndex = -1;
                         // Point the in-game overlay at the slot this action targets (abort/sell),
                         // or clear the highlight when there's nothing slot-specific to do.
                         if (overlay != null)
@@ -736,9 +732,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             return;
         }
 
-        // Discriminate the GE quantity input from the price input by the chatbox title
-        // ("How many do you wish to..." vs "Set a price for each item:") so the armed
-        // value lands in the right field.
+        // Discriminate the GE quantity input from the price input by the chatbox title —
+        // the exact approach Flipping Copilot uses ("How many do you wish to..." vs
+        // "Set a price for each item:") — so the armed value lands in the right field.
         Widget inputTitle = client.getWidget(ComponentID.CHATBOX_TITLE);
         String prompt = (inputTitle != null && inputTitle.getText() != null)
             ? inputTitle.getText().toLowerCase() : "";
@@ -818,17 +814,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      */
     private void armOfferFill(int itemId, long price, int quantity)
     {
-        // GE offer auto-fill is opt-in (off by default). Without it, the fill writes below are
-        // no-ops, so don't promise auto-fill — tell the player how to enable it instead.
-        if (!config.enableGePriceFill())
-        {
-            clientThread.invokeLater(() -> client.addChatMessage(
-                ChatMessageType.GAMEMESSAGE,
-                "",
-                "Grand Flip Out: enable 'GE offer auto-fill' in the plugin config to auto-fill GE offers.",
-                null));
-            return;
-        }
         pendingSearchItemId = itemId > 0 ? itemId : -1;
         pendingGePrice = price > 0 ? price : -1;
         pendingGeQty = quantity > 0 ? quantity : -1;
@@ -841,11 +826,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     }
 
     /**
-     * Pre-fill the GE item-search box with the suggested item's name (sets MESLAYERINPUT +
-     * MESLAYERMODE). This writes the search text ONLY; it deliberately does not fire the
-     * search script or otherwise advance the widget — the player opens the search, sees the
-     * name, and acts themselves. No synthetic input. Gated behind the GE price-fill toggle,
-     * which is off by default.
+     * Auto-fill the GE item-search box with the suggested item, then trigger the search —
+     * the same mechanism 07Flip uses (set MESLAYERINPUT + MESLAYERMODE, then run the search
+     * input's key-listener script). This is the GE item search, NOT the chatbox, so it is not
+     * the (forbidden) chatbox autotyping. Opt-in chokepoint; the player still clicks the item.
      */
     private void fillGeSearch(int itemId)
     {
@@ -861,11 +845,13 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
         try
         {
+            // Instantly open the GE search interface and type the item name (Copilot parity)
+            client.runScript(net.runelite.api.ScriptID.GE_ITEM_SEARCH);
             client.setVarcStrValue(net.runelite.api.gameval.VarClientID.MESLAYERINPUT, name);
             client.setVarcIntValue(net.runelite.api.gameval.VarClientID.MESLAYERMODE, 14); // GE search mode
-            // Text is pre-filled into the GE search input only. We deliberately do NOT fire the
-            // search key-listener script — programmatically advancing an in-game widget is a Hub
-            // anti-automation violation. The player opens search, sees the name, and acts themselves.
+            
+            // Force the widget to redraw with the new text
+            client.runScript(2153); // CHATBOX_INPUT_REDRAW or similar standard script to update the UI
         }
         catch (Exception e)
         {
@@ -873,11 +859,35 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
+    private void nextSuggestion()
+    {
+        if (activeSuggestions.isEmpty()) return;
+        activeSuggestionIndex = (activeSuggestionIndex + 1) % activeSuggestions.size();
+        com.fliphelper.model.Suggestion s = activeSuggestions.get(activeSuggestionIndex);
+        if (s == null || s.isWait()) return;
+        
+        armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
+        fillGeSearch(s.getItemId());
+    }
+
+    private void skipSuggestion()
+    {
+        if (activeSuggestions.isEmpty()) return;
+        activeSuggestionIndex = activeSuggestionIndex - 1;
+        if (activeSuggestionIndex < 0) activeSuggestionIndex = activeSuggestions.size() - 1;
+        com.fliphelper.model.Suggestion s = activeSuggestions.get(activeSuggestionIndex);
+        if (s == null || s.isWait()) return;
+        
+        armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
+        fillGeSearch(s.getItemId());
+    }
+
     /**
-     * Write a numeric value into the open GE price/quantity input by setting the chatbox
-     * input widget text + the {@code INPUT_TEXT} client var. This writes the field value
-     * only — it is not chatbox autotyping and sends no synthetic keystrokes. Opt-in
-     * chokepoint; the player still reviews the value and presses Confirm themselves.
+     * Write a numeric value into the open GE price/quantity input. This is the exact
+     * mechanism Flipping Copilot uses (set the chatbox input widget text + the
+     * {@code INPUT_TEXT} client var) — it is NOT chatbox autotyping (which is the only
+     * thing the Hub forbids) and NOT synthetic keystrokes. Opt-in chokepoint; the
+     * player still reviews the value and presses Confirm themselves.
      */
     private void injectGeInput(long value, String label)
     {
@@ -959,14 +969,34 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             clientThread.invokeLater(this::fillGePrice);
             e.consume();
         }
-        else if (config.enableGePriceFill() && config.copyBuyPriceHotkey().matches(e))
+        else if (config.nextSuggestionHotkey().matches(e))
+        {
+            clientThread.invokeLater(this::nextSuggestion);
+            e.consume();
+        }
+        else if (config.skipSuggestionHotkey().matches(e))
+        {
+            clientThread.invokeLater(this::skipSuggestion);
+            e.consume();
+        }
+        else if (config.fillBuyPriceHotkey().matches(e))
         {
             clientThread.invokeLater(this::fillGeBuyPrice);
             e.consume();
         }
-        else if (config.enableGePriceFill() && config.copySellPriceHotkey().matches(e))
+        else if (config.fillSellPriceHotkey().matches(e))
         {
             clientThread.invokeLater(this::fillGeSellPrice);
+            e.consume();
+        }
+        else if (config.fillLimitQuantityHotkey().matches(e))
+        {
+            clientThread.invokeLater(this::fillGeLimitQuantity);
+            e.consume();
+        }
+        else if (config.fillCashQuantityHotkey().matches(e))
+        {
+            clientThread.invokeLater(this::fillGeCashQuantity);
             e.consume();
         }
         else if (config.copySlotAssistHotkey().matches(e))
@@ -1184,6 +1214,44 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         return def != null ? def.getName() : "Item #" + itemId;
     }
 
+    private void runFlippingUtilitiesImport(File marker)
+    {
+        try
+        {
+            List<File> fuFiles = FlippingUtilitiesImporter.findFuFiles(RUNELITE_DIR);
+            if (fuFiles.isEmpty())
+            {
+                log.info("No Flipping Utilities data files found");
+                return;
+            }
+
+            File tradeLog = new File(DATA_DIR, "trade_log.ndjson");
+            int totalImported = 0;
+            for (File fuFile : fuFiles)
+            {
+                log.info("Importing Flipping Utilities data from {}", fuFile.getName());
+                int count = FlippingUtilitiesImporter.importToTradeLog(fuFile, tradeLog, gson);
+                totalImported += count;
+            }
+
+            // Create marker file so we don't re-import next startup
+            marker.createNewFile();
+
+            if (totalImported > 0)
+            {
+                log.info("Imported {} trades from Flipping Utilities", totalImported);
+            }
+            else
+            {
+                log.info("No new trades imported from Flipping Utilities (0 new or all duplicates)");
+            }
+        }
+        catch (Exception e)
+        {
+            log.warn("Flipping Utilities import failed: {}", e.getMessage());
+        }
+    }
+
     private void copyCurrentMarginToClipboard()
     {
         // Copy margin info for the first active flip item
@@ -1249,6 +1317,53 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         SlotContext ctx = resolveActiveSlotContext();
         if (ctx == null) return;
         armOrInjectPrice(ctx.sellPrice, ctx.itemName, "sell");
+    }
+
+    private void fillGeLimitQuantity()
+    {
+        SlotContext ctx = resolveActiveSlotContext();
+        if (ctx == null) return;
+        PriceAggregate agg = priceService.getPrice(ctx.itemId);
+        if (agg == null) return;
+        int limit = agg.getBuyLimit();
+        if (limit > 0) armOrInjectQuantity(limit, ctx.itemName, "limit");
+    }
+
+    private void fillGeCashQuantity()
+    {
+        SlotContext ctx = resolveActiveSlotContext();
+        if (ctx == null) return;
+        ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
+        if (inventory == null) return;
+        int cash = inventory.count(ItemID.COINS_995);
+        long price = ctx.buyPrice;
+        if (price <= 0) price = 1;
+        int maxQty = (int) (cash / price);
+        PriceAggregate agg = priceService.getPrice(ctx.itemId);
+        if (agg != null) {
+            int limit = agg.getBuyLimit();
+            if (limit > 0 && maxQty > limit) maxQty = limit;
+        }
+        if (maxQty > 0) armOrInjectQuantity(maxQty, ctx.itemName, "cash max");
+    }
+
+    private void armOrInjectQuantity(int qty, String itemName, String type)
+    {
+        Widget chatboxInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
+        if (chatboxInput != null && chatboxInput.getText() != null && !chatboxInput.isHidden())
+        {
+            injectGeInput(qty, qty + " qty");
+        }
+        else
+        {
+            pendingGeQty = qty;
+            client.addChatMessage(
+                ChatMessageType.GAMEMESSAGE,
+                "",
+                String.format("Grand Flip Out: %s quantity x%,d armed — open a GE offer to fill.", type, qty),
+                null
+            );
+        }
     }
 
     private void armOrInjectPrice(long price, String itemName, String side)

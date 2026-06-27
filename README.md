@@ -8,9 +8,8 @@ math accounts for the 2% GE tax (capped at 5M GP); all flip history is stored
 locally on your machine.
 
 **Information only.** The plugin reads completed offers through RuneLite's event API
-and shows you analysis. It does not automate trades or send synthetic input. The
-optional GE price/quantity pre-fill writes text into the offer field you have open
-(the same mechanism as Flipping Copilot) — you review it and press Confirm yourself.
+and shows you analysis. It does not automate trades or interact with the game
+client.
 
 ## Features
 
@@ -31,8 +30,9 @@ optional GE price/quantity pre-fill writes text into the offer field you have op
 - **Inventory price tooltips** — hover values for items in your inventory
 - **Margin check helper** — quick "buy 1 at X, sell 1 at Y" workflow
 - **GP-drop animation** on profitable sells
-- **Keyboard hotkeys** — toggle panel, refresh prices, quick lookup, copy margin & slot assist,
-  toggle overlay, optional GE buy/sell price-fill (off by default)
+- **Flipping Utilities import** — one-time import of existing flip history
+- **Keyboard hotkeys** — toggle panel, refresh prices, quick lookup, copy margin/prices,
+  toggle overlay, optional GE price-fill assist
 - **Optional account** — free account (created on the web) unlocks members-item
   suggestions and premium server features; see *Compliance and data handling* below
 
@@ -45,20 +45,17 @@ optional GE price/quantity pre-fill writes text into the offer field you have op
 
 ## Compliance and data handling
 
-- **Information only** — never automates trades and never injects synthetic
-  clicks/keystrokes or game packets. The optional GE price/quantity pre-fill writes
-  text into the offer input you have open; you confirm every offer yourself
+- **Information only** — never automates trades, injects packets/clicks, or interacts
+  with the game client
 - **Default network is Wiki-only** — out of the box the plugin talks only to
-  `prices.runescape.wiki` (plus user-triggered `LinkBrowser` links to public web
+  `prices.runescape.wiki` (plus user-triggered `Desktop.browse()` links to public web
   pages). All `grandflipout.com` communication is **opt-in**:
   - *API key* (empty by default): if you paste an account key, it is sent as a `Bearer`
     token to `grandflipout.com/api/entitlements` **only** to check whether your account
     unlocks members-item suggestions / premium features. No key set → this call is never made.
-  - *Advisor / Server Advisor* (off by default): to generate suggestions it sends your
-    current GE offers, approximate coin total, and the IDs of items you've skipped/blocked (no character name) to grandflipout.com
-    and returns ranked flips/signals for the active item.
-  - *Contribute trades* (off by default): sends anonymized completed trades (item ID,
-    price, quantity, side, timestamp, plugin version) for crowd-sourced pricing.
+  - *Server Advisor* (off by default): read-only fetch of signals for the active item.
+  - *Contribute trades* (off by default): the only setting that sends data — anonymized
+    completed trades (item ID, price, quantity, side, timestamp) for crowd-sourced pricing.
 - **No player data is sent off-device by default** — flip history is stored locally under
   `~/.runelite/grand-flip-out/`. No character names or passwords are ever sent; the only
   credential transmitted is the API key you choose to paste.

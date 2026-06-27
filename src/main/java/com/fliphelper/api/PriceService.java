@@ -173,12 +173,12 @@ public class PriceService
         List<PriceAggregate> sorted = new ArrayList<>();
         for (PriceAggregate agg : aggregatedPrices.values())
         {
-            if (agg.getConsensusMargin() > 0 && agg.getTotalVolume1h() >= minVolume)
+            if (agg.getNetMarginAfterTax() > 0 && agg.getTotalVolume1h() >= minVolume)
             {
                 sorted.add(agg);
             }
         }
-        sorted.sort(Comparator.comparingLong(PriceAggregate::getConsensusMargin).reversed());
+        sorted.sort(Comparator.comparingLong(PriceAggregate::getNetMarginAfterTax).reversed());
         return sorted.subList(0, Math.min(limit, sorted.size()));
     }
 

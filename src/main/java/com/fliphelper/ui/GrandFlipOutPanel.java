@@ -120,7 +120,7 @@ public class GrandFlipOutPanel extends PluginPanel
     // Category filtering
     private String selectedCategory = "All";
     // Suggestion sort (default: best flips by profit per GE limit)
-    private String selectedSort = "best";
+    private String selectedSort = "margin";
     private JButton[] categoryButtons;
     private boolean tabChangeListenerAttached;
 
@@ -194,19 +194,19 @@ public class GrandFlipOutPanel extends PluginPanel
         tabbedPane.setBackground(ColorScheme.DARK_GRAY_COLOR);
         tabbedPane.setForeground(Color.LIGHT_GRAY);
         tabbedPane.setBorder(new EmptyBorder(0, 4, 0, 4));
+        tabbedPane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
 
         pricesTab = buildPricesTab();
         flipsTab = buildFlipsTab();
         historyTab = buildHistoryTab();
 
         recipesTab = new RecipePanel(priceService);
+        GuidePanel guideTab = new GuidePanel();
 
-        tabbedPane.addTab("Prices", pricesTab);
-        tabbedPane.addTab("Flips", flipsTab);
-        tabbedPane.addTab("Recipes", recipesTab);
-        tabbedPane.addTab("History", historyTab);
         intelPanel = buildIntelTab();
-        tabbedPane.addTab("Intel", intelPanel);
+        tabbedPane.addTab("Flips", flipsTab);
+        tabbedPane.addTab("History", historyTab);
+        tabbedPane.addTab("Guide", guideTab);
         styleTabbedPane();
 
         add(tabbedPane, BorderLayout.CENTER);
@@ -231,7 +231,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         footer.add(buildFooterLink("Website", "https://grandflipout.com"));
         footer.add(buildFooterDot());
-        footer.add(buildFooterLink("Discord", "https://discord.gg/TkJ7mauxj"));
+        footer.add(buildFooterLink("Discord", "https://discord.gg/yUhfTJEuMr"));
         footer.add(buildFooterDot());
 
         // Upgrade CTA changes label once the account is unlocked. "Upgrade" only opens the
@@ -340,11 +340,17 @@ public class GrandFlipOutPanel extends PluginPanel
      */
     public void addTab(String title, JPanel tabPanel)
     {
-        if (tabbedPane != null)
-        {
+        SwingUtilities.invokeLater(() -> {
             tabbedPane.addTab(title, tabPanel);
-            styleTabbedPane();
-        }
+        });
+    }
+
+    public void insertTab(String title, JPanel tabPanel, int index)
+    {
+        SwingUtilities.invokeLater(() -> {
+            tabbedPane.insertTab(title, null, tabPanel, null, index);
+            tabbedPane.setSelectedIndex(index);
+        });
     }
 
     /**
@@ -396,33 +402,7 @@ public class GrandFlipOutPanel extends PluginPanel
         // (Nature-rune barometer removed — nat price is now just an alch-cost
         //  input to high-alch margins via the production graph, not a special branch.)
 
-        JButton dashboardBtn = new JButton("Intelligence Dashboard");
-        dashboardBtn.setFont(dashboardBtn.getFont().deriveFont(Font.BOLD, 11f));
-        dashboardBtn.setForeground(BRAND_GOLD);
-        dashboardBtn.setBackground(PANEL_BUTTON);
-        dashboardBtn.setFocusPainted(false);
-        dashboardBtn.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(PANEL_BORDER),
-            BorderFactory.createEmptyBorder(6, 10, 6, 10)));
-        dashboardBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        dashboardBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        dashboardBtn.addActionListener(e -> openWebChartForSearch());
-        header.add(dashboardBtn);
 
-        JButton recipesBtn = new JButton("Recipe Profits");
-        recipesBtn.setFont(recipesBtn.getFont().deriveFont(11f));
-        recipesBtn.setForeground(BRAND_GOLD);
-        recipesBtn.setBackground(PANEL_BUTTON);
-        recipesBtn.setFocusPainted(false);
-        recipesBtn.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(PANEL_BORDER),
-            BorderFactory.createEmptyBorder(6, 10, 6, 10)));
-        recipesBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        recipesBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        recipesBtn.setToolTipText("Set-vs-pieces arbitrage (Barrows sets, godswords) after GE tax");
-        recipesBtn.addActionListener(e -> openRecipesTab());
-        header.add(recipesBtn);
-        header.add(Box.createVerticalStrut(8));
 
         // Session stats as mini-cards (2x2 grid for compact layout)
         JPanel statsRow = new JPanel(new GridLayout(1, 4, 4, 0));
@@ -1654,8 +1634,8 @@ public class GrandFlipOutPanel extends PluginPanel
     // Category label for the player's starred items.
     private static final String CAT_WATCH = "★ Watch";
     // Sort modes for the Prices suggestion list.
-    private static final String SORT_BEST = "best";   // profit per GE limit (default)
-    private static final String SORT_MARGIN = "margin"; // absolute margin (gp)
+    private static final String SORT_BEST = "best";   // profit per GE limit
+    private static final String SORT_MARGIN = "margin"; // net margin after tax (default)
     private static final String SORT_MARGIN_PCT = "marginPct"; // margin %
     private static final String SORT_NAME = "name";   // alphabetical browse
     // Min 1h volume for an item to qualify as a suggestion (must be flippable).
@@ -1701,8 +1681,8 @@ public class GrandFlipOutPanel extends PluginPanel
             case SORT_MARGIN: return "margin";
             case SORT_MARGIN_PCT: return "margin %";
             case SORT_NAME: return "name";
-            case SORT_BEST:
-            default: return "profit/limit";
+            case SORT_BEST: return "profit/limit";
+            default: return "margin";
         }
     }
 
@@ -1712,14 +1692,15 @@ public class GrandFlipOutPanel extends PluginPanel
         switch (sort)
         {
             case SORT_MARGIN:
-                return Comparator.comparingLong(PriceAggregate::getConsensusMargin).reversed();
+                return Comparator.comparingLong(PriceAggregate::getNetMarginAfterTax).reversed();
             case SORT_MARGIN_PCT:
                 return Comparator.comparingDouble(PriceAggregate::getConsensusMarginPercent).reversed();
             case SORT_NAME:
                 return Comparator.comparing(PriceAggregate::getItemName);
             case SORT_BEST:
-            default:
                 return Comparator.comparingLong(PriceAggregate::getProfitPerLimit).reversed();
+            default:
+                return Comparator.comparingLong(PriceAggregate::getNetMarginAfterTax).reversed();
         }
     }
 
@@ -2212,14 +2193,7 @@ public class GrandFlipOutPanel extends PluginPanel
         }
         intelContentPanel.removeAll();
 
-        if (!config.enableServerFunctionality())
-        {
-            JLabel offLabel = new JLabel("<html>grandflipout.com features are OFF.<br>Enable the master toggle in plugin config to use server intelligence.</html>");
-            offLabel.setForeground(TEXT_DIM);
-            offLabel.setBorder(new EmptyBorder(20, 8, 20, 8));
-            intelContentPanel.add(offLabel);
-        }
-        else if (!isUnlocked())
+        if (!isUnlocked())
         {
             JLabel msg = new JLabel("<html><div style='width:170px'><b>Server intelligence is a "
                 + "premium feature.</b><br>Create a free Grand Flip Out account to unlock VPIN "

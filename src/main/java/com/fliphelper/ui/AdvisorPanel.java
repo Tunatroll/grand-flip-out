@@ -129,38 +129,53 @@ public class AdvisorPanel extends JPanel
 
         content.removeAll();
 
-        JLabel action = new JLabel(s.getAction());
-        action.setForeground(Color.WHITE);
-        action.setOpaque(true);
-        action.setBackground(actionColor(s.getAction()));
-        action.setBorder(new EmptyBorder(2, 8, 2, 8));
-        action.setFont(action.getFont().deriveFont(Font.BOLD, 12f));
-        action.setAlignmentX(Component.LEFT_ALIGNMENT);
-        content.add(wrapLeft(action));
-        content.add(Box.createVerticalStrut(6));
+        String actionText = "<html><center style='line-height: 1.2;'>";
+        if ("BUY".equalsIgnoreCase(s.getAction()) || "SELL".equalsIgnoreCase(s.getAction())) {
+            String colorHex = "BUY".equalsIgnoreCase(s.getAction()) ? "#00D26A" : "#FF4757"; // Green for buy, Red for sell
+            actionText += "<span style='color:" + colorHex + "; font-size:14px; font-weight:bold;'>" + s.getAction() + "</span> " 
+                       + "<b>" + s.getQuantity() + "</b><br>"
+                       + "<b style='font-size:15px; color:white;'>" + s.getItemName() + "</b><br>"
+                       + "<span style='color:#9A9A9A;'>for</span> <b style='color:white;'>" + formatGp(s.getPrice()) + "</b> <span style='color:#9A9A9A;'>gp</span>";
+        } else {
+            actionText += "<b>" + s.getAction() + "</b><br><b style='font-size:15px; color:white;'>" + s.getItemName() + "</b>";
+        }
+        actionText += "</center></html>";
 
-        content.add(wrapLeft(line(s.getItemName(), Color.WHITE, Font.BOLD, 13f)));
-        content.add(Box.createVerticalStrut(4));
+        JLabel actionLabel = new JLabel(actionText);
+        actionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JPanel actionContainer = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        actionContainer.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        actionContainer.add(actionLabel);
+        content.add(actionContainer);
+        content.add(Box.createVerticalStrut(12));
 
-        content.add(meta("Price", formatGp(s.getPrice())));
-        content.add(meta("Quantity", String.valueOf(s.getQuantity())));
-        if (s.getGeLimit() > 0)
-        {
+        // Headline metric: Net profit per item
+        if (s.getMarginPer() != 0) {
+            String marginStr = formatGp(s.getMarginPer());
+            if (s.getMarginPer() > 0) marginStr = "+" + marginStr;
+            String marginHtml = "<html><center><b style='color:#00D26A; font-size:14px'>" + marginStr + " gp profit/ea</b><br><span style='color:#9A9A9A; font-size:9px'>after 2% GE tax</span></center></html>";
+            if (s.getMarginPer() < 0) {
+                marginHtml = "<html><center><b style='color:#FF4757; font-size:14px'>" + marginStr + " gp loss/ea</b><br><span style='color:#9A9A9A; font-size:9px'>after 2% GE tax</span></center></html>";
+            }
+            JLabel marginLabel = new JLabel(marginHtml);
+            marginLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            JPanel marginContainer = new JPanel(new FlowLayout(FlowLayout.CENTER));
+            marginContainer.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+            marginContainer.add(marginLabel);
+            content.add(marginContainer);
+            content.add(Box.createVerticalStrut(8));
+        }
+
+        // Secondary metrics
+        if (s.getExpectedProfit() != 0) {
+            content.add(metaColored("Total est. profit", profitText(s.getExpectedProfit()), profitColor(s.getExpectedProfit())));
+        }
+        if (s.getGeLimit() > 0) {
             content.add(meta("Buy limit", String.format("%,d / 4h", s.getGeLimit())));
         }
-        content.add(metaColored("Est. profit", profitText(s.getExpectedProfit()),
-            profitColor(s.getExpectedProfit())));
-        if (s.getGeLimit() > 0)
-        {
-            // What a full buy-limit cycle yields — the realistic per-4h ceiling.
-            content.add(metaColored("Profit @ limit", profitText(s.getProfitPerLimit()),
-                profitColor(s.getProfitPerLimit())));
-        }
-        if (s.getVolume() > 0)
-        {
+        if (s.getVolume() > 0) {
             content.add(meta("Volume (1h)", formatVolume(s.getVolume())));
         }
-        content.add(meta("Confidence", Math.round(s.getConfidence() * 100) + "%"));
 
         if (!s.getReasons().isEmpty())
         {

@@ -126,7 +126,7 @@ public class GrandFlipOutOverlay extends Overlay
         }
 
         // Only show when GE is open
-        if (!config.showGEOverlay() && !config.showProfitOverlay())
+        if (!config.enableGeOverlay() && !config.enableProfitOverlay())
         {
             return null;
         }
@@ -141,12 +141,12 @@ public class GrandFlipOutOverlay extends Overlay
             panelComponent.getChildren().clear();
             panelComponent.setPreferredSize(new Dimension(235, 0));
 
-            if (config.showProfitOverlay())
+            if (config.enableProfitOverlay())
             {
                 renderSessionStats();
             }
 
-            if (geOpen && config.showGEOverlay())
+            if (geOpen && config.enableGeOverlay())
             {
                 renderGEInfo();
                 renderRecommendedPrices();
