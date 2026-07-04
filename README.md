@@ -48,17 +48,20 @@ client.
 - **Information only** — never automates trades, injects packets/clicks, or interacts
   with the game client
 - **Default network is Wiki-only** — out of the box the plugin talks only to
-  `prices.runescape.wiki` (plus user-triggered `Desktop.browse()` links to public web
-  pages). All `grandflipout.com` communication is **opt-in**:
+  `prices.runescape.wiki` (plus user-triggered links opened via RuneLite's `LinkBrowser`
+  to public web pages). All `grandflipout.com` communication is **opt-in**, and any opt-in
+  call necessarily carries your IP (as with any web request):
   - *API key* (empty by default): if you paste an account key, it is sent as a `Bearer`
     token to `grandflipout.com/api/entitlements` **only** to check whether your account
     unlocks members-item suggestions / premium features. No key set → this call is never made.
-  - *Server Advisor* (off by default): read-only fetch of signals for the active item.
-  - *Contribute trades* (off by default): the only setting that sends data — anonymized
-    completed trades (item ID, price, quantity, side, timestamp) for crowd-sourced pricing.
-- **No player data is sent off-device by default** — flip history is stored locally under
-  `~/.runelite/grand-flip-out/`. No character names or passwords are ever sent; the only
-  credential transmitted is the API key you choose to paste.
+  - *Server Advisor* (off by default): when enabled, your current GE offers (item, side,
+    price, quantity) and approximate coins are **sent** to `grandflipout.com` to generate
+    flip suggestions for the active item.
+  - *Contribute trades* (off by default): anonymized completed trades (item ID, price,
+    quantity, side, timestamp) are sent for crowd-sourced pricing.
+- **Nothing is sent off-device unless you opt in** — with the Advisor and Contribute-trades
+  both off (the defaults), flip history stays local under `~/.runelite/grand-flip-out/`. No
+  character names or passwords are ever sent; the only credential is the API key you paste.
 - **No reflection, no `Runtime.exec`, no inbound sockets, no game-packet injection**
 - **Uses RuneLite's injected `OkHttpClient`** with a proper User-Agent
 - **All file I/O is sandboxed** to `RUNELITE_DIR/grand-flip-out/`
