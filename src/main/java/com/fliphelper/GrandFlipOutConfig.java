@@ -329,7 +329,8 @@ public interface GrandFlipOutConfig extends Config
             + "once this is enabled.",
         section = intelligenceSection,
         position = 0,
-        warning = "This plugin submits your IP address plus your Grand Exchange offer and trade data (item, price, quantity, and approximate coins) to grandflipout.com, a 3rd-party server not controlled or verified by RuneLite developers."
+        warning = "This plugin submits your IP address to a 3rd party website not controlled or verified by the RuneLite Developers. "
+            + "When enabled, your Grand Exchange offer and trade data (item, price, quantity, and approximate coins) are sent to grandflipout.com."
     )
     default boolean enableServerFunctionality()
     {

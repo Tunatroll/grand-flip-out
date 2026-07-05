@@ -193,8 +193,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl(), gson);
         dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl(), gson);
         entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl(), gson);
-        flipTracker = new FlipTracker(config, priceService, DATA_DIR, gson);
-        geHistoryImporter = GeHistoryImporter.create(client, flipTracker, DATA_DIR);
+        flipTracker = new FlipTracker(config, priceService, DATA_DIR, gson, executor);
+        geHistoryImporter = GeHistoryImporter.create(client, flipTracker, DATA_DIR, executor);
 
         // Initialize session tracking
         sessionManager = new SessionManager(DATA_DIR.getAbsolutePath(), gson);
@@ -695,7 +695,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 log.info("Switched to character data directory: {}", characterDataDir);
 
                 flipTracker.switchDataDir(characterDataDir, gson);
-                geHistoryImporter = GeHistoryImporter.create(client, flipTracker, characterDataDir);
+                geHistoryImporter = GeHistoryImporter.create(client, flipTracker, characterDataDir, executor);
                 sessionManager.switchDataDir(characterDataDir.getAbsolutePath());
 
                 WealthSnapshot wealth = WealthSnapshot.capture(client, priceService);

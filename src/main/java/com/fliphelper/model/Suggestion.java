@@ -42,6 +42,13 @@ public class Suggestion
     long profitPerLimit;
     /** ~1h traded volume (buy + sell) — a liquidity gauge. */
     long volume;
+    /**
+     * Server margin grade for the quoted round-trip: null/"executable" = a fresh
+     * two-sided book; "estimate" = one leg is stale (the margin is not executable
+     * as quoted); "no_estimate" = no second price exists. Display-only label —
+     * the server already refuses profit numbers on graded margins.
+     */
+    String marginQuality;
 
     public List<String> getReasons()
     {

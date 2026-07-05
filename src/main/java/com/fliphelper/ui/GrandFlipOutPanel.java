@@ -722,14 +722,7 @@ public class GrandFlipOutPanel extends PluginPanel
             }
         };
 
-        if (executor != null)
-        {
-            executor.execute(fetch);
-        }
-        else
-        {
-            new Thread(fetch, "gfo-chart-fetch").start();
-        }
+        executor.execute(fetch);
     }
 
     private JPanel buildFlipsTab()

@@ -315,10 +315,13 @@ public final class GeHistoryImporter
     /**
      * Convenience builder for production wiring: a {@link GeHistoryImporter}
      * backed by a {@link GeHistoryDedupeStore} persisted under {@code dataDir}.
+     * The executor keeps the store's file write off the client thread —
+     * {@link #importVisibleHistory} runs there (widget reads).
      */
-    public static GeHistoryImporter create(Client client, FlipTracker flipTracker, java.io.File dataDir)
+    public static GeHistoryImporter create(Client client, FlipTracker flipTracker, java.io.File dataDir,
+        java.util.concurrent.Executor ioExecutor)
     {
-        return new GeHistoryImporter(client, flipTracker, new GeHistoryDedupeStore(dataDir));
+        return new GeHistoryImporter(client, flipTracker, new GeHistoryDedupeStore(dataDir, ioExecutor));
     }
 
     /**
@@ -329,11 +332,13 @@ public final class GeHistoryImporter
     {
         private static final String FILE_NAME = "ge_history_imported.txt";
         private final java.io.File file;
+        private final java.util.concurrent.Executor ioExecutor;
         private final Set<String> keys = ConcurrentHashMap.newKeySet();
 
-        public GeHistoryDedupeStore(java.io.File dataDir)
+        public GeHistoryDedupeStore(java.io.File dataDir, java.util.concurrent.Executor ioExecutor)
         {
             this.file = dataDir != null ? new java.io.File(dataDir, FILE_NAME) : null;
+            this.ioExecutor = ioExecutor;
             load();
         }
 
@@ -373,6 +378,14 @@ public final class GeHistoryImporter
             {
                 return;
             }
+            // Rewrite on the executor so the import path (client thread) never blocks
+            // on disk. The snapshot is taken inside the serialized write: keys only
+            // grow, so the last write always holds everything regardless of order.
+            ioExecutor.execute(this::writeNow);
+        }
+
+        private synchronized void writeNow()
+        {
             try
             {
                 if (file.getParentFile() != null)

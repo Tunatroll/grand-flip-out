@@ -175,6 +175,19 @@ public class AdvisorPanel extends JPanel
             content.add(meta("Volume (1h)", formatVolume(s.getVolume())));
         }
 
+        // Margin-quality badge (label, don't hide): the server grades the quoted
+        // round-trip; anything but a fresh two-sided book gets a visible caution.
+        String quality = s.getMarginQuality();
+        if (quality != null && !"executable".equalsIgnoreCase(quality))
+        {
+            boolean noEstimate = "no_estimate".equalsIgnoreCase(quality);
+            content.add(metaColored("Margin quality", noEstimate ? "NO ESTIMATE" : "ESTIMATE", GOLD));
+            content.add(wrapLeft(line("• " + (noEstimate
+                ? "No opposite-side price exists — the round-trip margin is unquotable"
+                : "One price leg is stale — the quoted margin is an estimate, not executable"),
+                DIM, Font.PLAIN, 11f)));
+        }
+
         if (!s.getReasons().isEmpty())
         {
             content.add(Box.createVerticalStrut(4));
@@ -403,6 +416,15 @@ public class AdvisorPanel extends JPanel
                 sub.append("  •  ");
             }
             sub.append("vol ").append(formatVolume(s.getVolume()));
+        }
+        if (s.getMarginQuality() != null && !"executable".equalsIgnoreCase(s.getMarginQuality()))
+        {
+            if (sub.length() > 0)
+            {
+                sub.append("  •  ");
+            }
+            sub.append("margin: ").append(
+                "no_estimate".equalsIgnoreCase(s.getMarginQuality()) ? "NO ESTIMATE" : "ESTIMATE");
         }
         if (sub.length() > 0)
         {

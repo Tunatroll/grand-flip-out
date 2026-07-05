@@ -15,7 +15,6 @@ import com.fliphelper.model.FlipState;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.model.TradeRecord;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
 import lombok.Setter;
@@ -41,6 +40,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -67,6 +67,10 @@ public class FlipTracker
 
     private final GrandFlipOutConfig config;
     private final PriceService priceService;
+    private final Executor ioExecutor;
+    // Serializes the file writes submitted to the shared executor — its pool width is
+    // unspecified, and two concurrent temp-file renames would corrupt the history.
+    private final Object ioLock = new Object();
     private File dataDir;
     private Gson gson;
 
@@ -85,12 +89,13 @@ public class FlipTracker
     @Getter
     private final AtomicInteger sessionFlipCount = new AtomicInteger(0);
 
-    public FlipTracker(GrandFlipOutConfig config, PriceService priceService, File dataDir, Gson gson)
+    public FlipTracker(GrandFlipOutConfig config, PriceService priceService, File dataDir, Gson gson, Executor ioExecutor)
     {
         this.config = config;
         this.priceService = priceService;
         this.dataDir = dataDir;
         this.gson = gson;
+        this.ioExecutor = ioExecutor;
 
         if (config.persistHistory())
         {
@@ -449,41 +454,59 @@ public class FlipTracker
     /**
      * Save flip history using atomic writes (write to temp file, then rename).
      * This prevents data corruption if the process crashes mid-write.
+     * The list snapshot and destination are captured on the calling thread (cheap);
+     * serialization and file I/O run on the shared executor so a GE-offer event
+     * never blocks the client thread on disk. Writes serialize on ioLock.
      */
     private void saveHistory()
     {
-        try
+        final File dir = dataDir;
+        final Gson g = gson;
+        final List<FlipItem> snapshot;
+        synchronized (completedFlips)
         {
-            dataDir.mkdirs();
-            File historyFile = new File(dataDir, "flip_history.json");
-            File tempFile = new File(dataDir, "flip_history.json.tmp");
+            snapshot = new ArrayList<>(completedFlips);
+        }
+        ioExecutor.execute(() -> writeHistoryFile(dir, g, snapshot));
+    }
 
-            try (Writer writer = new FileWriter(tempFile))
+    private void writeHistoryFile(File dir, Gson g, List<FlipItem> snapshot)
+    {
+        synchronized (ioLock)
+        {
+            try
             {
-                gson.toJson(completedFlips, writer);
-            }
+                dir.mkdirs();
+                File historyFile = new File(dir, "flip_history.json");
+                File tempFile = new File(dir, "flip_history.json.tmp");
 
-            // Atomic rename — if this fails, the original file is untouched
-            if (tempFile.exists())
-            {
-                if (historyFile.exists())
+                try (Writer writer = new FileWriter(tempFile))
                 {
-                    historyFile.delete();
+                    g.toJson(snapshot, writer);
                 }
-                if (!tempFile.renameTo(historyFile))
+
+                // Atomic rename — if this fails, the original file is untouched
+                if (tempFile.exists())
                 {
-                    log.warn("Atomic rename failed, falling back to direct write");
-                    try (Writer writer = new FileWriter(historyFile))
+                    if (historyFile.exists())
                     {
-                        gson.toJson(completedFlips, writer);
+                        historyFile.delete();
+                    }
+                    if (!tempFile.renameTo(historyFile))
+                    {
+                        log.warn("Atomic rename failed, falling back to direct write");
+                        try (Writer writer = new FileWriter(historyFile))
+                        {
+                            g.toJson(snapshot, writer);
+                        }
                     }
                 }
+                log.debug("Saved {} flip records to history", snapshot.size());
             }
-            log.debug("Saved {} flip records to history", completedFlips.size());
-        }
-        catch (IOException e)
-        {
-            log.warn("Failed to save flip history: {}", e.getMessage());
+            catch (IOException e)
+            {
+                log.warn("Failed to save flip history: {}", e.getMessage());
+            }
         }
     }
 
@@ -575,12 +598,8 @@ public class FlipTracker
             return;
         }
 
-        try
-        {
-            dataDir.mkdirs();
-            File logFile = new File(dataDir, "trade_log.ndjson");
-            Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("event", "flip_completed");
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("event", "flip_completed");
             entry.put("source", source);
             entry.put("timestamp", Instant.now().toString());
             entry.put("itemId", flip.getItemId());
@@ -637,15 +656,29 @@ public class FlipTracker
                 entry.put("totalWealthGp", totalWealthGp);
             }
 
-            try (Writer writer = new BufferedWriter(new FileWriter(logFile, true)))
-            {
-                writer.write(gson.toJson(entry));
-                writer.write('\n');
-            }
-        }
-        catch (IOException e)
+        // Serialize on the calling thread (cheap string work); append on the shared
+        // executor so the GE-event path never touches disk on the client thread.
+        final File dir = dataDir;
+        final String line = gson.toJson(entry);
+        ioExecutor.execute(() ->
         {
-            log.debug("Failed to append trade log entry: {}", e.getMessage());
-        }
+            synchronized (ioLock)
+            {
+                try
+                {
+                    dir.mkdirs();
+                    File logFile = new File(dir, "trade_log.ndjson");
+                    try (Writer writer = new BufferedWriter(new FileWriter(logFile, true)))
+                    {
+                        writer.write(line);
+                        writer.write('\n');
+                    }
+                }
+                catch (IOException e)
+                {
+                    log.debug("Failed to append trade log entry: {}", e.getMessage());
+                }
+            }
+        });
     }
 }

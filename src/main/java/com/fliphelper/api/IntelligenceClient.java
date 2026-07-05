@@ -218,6 +218,7 @@ public class IntelligenceClient
                 .expectedProfit(expectedProfit).confidence(confidence).reasons(reasons).targetSlot(targetSlot)
                 .marginPer(optLong(root, "marginPer")).geLimit(optInt(root, "geLimit"))
                 .profitPerLimit(optLong(root, "profitPerLimit")).volume(optLong(root, "volume"))
+                .marginQuality(optString(root, "marginQuality"))
                 .build();
         }
     }
@@ -284,6 +285,7 @@ public class IntelligenceClient
                         .expectedProfit(expectedProfit).confidence(confidence).reasons(reasons).targetSlot(-1)
                         .marginPer(optLong(o, "marginPer")).geLimit(optInt(o, "geLimit"))
                         .profitPerLimit(optLong(o, "profitPerLimit")).volume(optLong(o, "volume"))
+                        .marginQuality(optString(o, "marginQuality"))
                         .build());
                 }
             }
@@ -372,6 +374,7 @@ public class IntelligenceClient
                         .expectedProfit(expectedProfit).confidence(confidence).reasons(reasons).targetSlot(-1)
                         .marginPer(optLong(o, "marginPer")).geLimit(optInt(o, "geLimit"))
                         .profitPerLimit(optLong(o, "profitPerLimit")).volume(optLong(o, "volume"))
+                        .marginQuality(optString(o, "marginQuality"))
                         .build());
                 }
             }
@@ -447,6 +450,12 @@ public class IntelligenceClient
     private static int optInt(JsonObject o, String key)
     {
         return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsInt() : 0;
+    }
+
+    /** Optional string field — null when absent/null. */
+    private static String optString(JsonObject o, String key)
+    {
+        return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsString() : null;
     }
 
     @Value
