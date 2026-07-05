@@ -229,14 +229,17 @@ public class GrandFlipOutPanel extends PluginPanel
         footer.setBackground(PANEL_DEEP);
         footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, PANEL_BORDER));
 
-        footer.add(buildFooterLink("Website", "https://grandflipout.com"));
+        footer.add(buildFooterLink("Website", "https://grandflipout.com/?ref=plugin"));
         footer.add(buildFooterDot());
         footer.add(buildFooterLink("Discord", "https://discord.gg/yUhfTJEuMr"));
         footer.add(buildFooterDot());
 
         // Upgrade CTA changes label once the account is unlocked. "Upgrade" only opens the
         // web — payment/account management is server-side per Jagex rules (no in-client pay).
-        upgradeLink = buildFooterLink(isUnlocked() ? "Account" : "Upgrade", "https://grandflipout.com");
+        // URL resolved at CLICK time: the entitlement refresh only re-labels this link
+        // (setText below), so a construction-time URL could say "Account" but open /upgrade.
+        upgradeLink = buildFooterLink(isUnlocked() ? "Account" : "Upgrade",
+            () -> isUnlocked() ? "https://grandflipout.com/account?ref=plugin" : "https://grandflipout.com/upgrade?ref=plugin");
         upgradeLink.setForeground(BRAND_GOLD);
         footer.add(upgradeLink);
 
@@ -252,6 +255,11 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private JLabel buildFooterLink(String text, String url)
     {
+        return buildFooterLink(text, () -> url);
+    }
+
+    private JLabel buildFooterLink(String text, java.util.function.Supplier<String> url)
+    {
         JLabel link = new JLabel(text);
         link.setForeground(TEXT_DIM);
         link.setFont(link.getFont().deriveFont(11f));
@@ -261,7 +269,7 @@ public class GrandFlipOutPanel extends PluginPanel
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e)
             {
-                openDashboardUrl(url);
+                openDashboardUrl(url.get());
             }
         });
         return link;
@@ -302,7 +310,7 @@ public class GrandFlipOutPanel extends PluginPanel
         btn.setBorder(new EmptyBorder(6, 10, 6, 10));
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btn.addActionListener(e -> openDashboardUrl("https://grandflipout.com/signup.html"));
+        btn.addActionListener(e -> openDashboardUrl("https://grandflipout.com/signup?ref=plugin"));
         return btn;
     }
 
