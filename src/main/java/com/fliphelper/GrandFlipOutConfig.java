@@ -433,7 +433,7 @@ public interface GrandFlipOutConfig extends Config
     )
     default boolean enableGePriceFill()
     {
-        return true;
+        return false;
     }
 
     @ConfigItem(

@@ -31,8 +31,8 @@ client.
 - **Margin check helper** — quick "buy 1 at X, sell 1 at Y" workflow
 - **GP-drop animation** on profitable sells
 - **Flipping Utilities import** — one-time import of existing flip history
-- **Keyboard hotkeys** — toggle panel, refresh prices, quick lookup, copy margin/prices,
-  toggle overlay, optional GE price-fill assist
+- **Keyboard hotkeys** — toggle panel, refresh prices, quick lookup, toggle overlay,
+  optional GE price-fill assist
 - **Optional account** — free account (created on the web) unlocks members-item
   suggestions and premium server features; see *Compliance and data handling* below
 
