@@ -26,15 +26,13 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 import java.util.List;
 
 /**
  * The Advisor tab: shows one next-action suggestion at a time (Copilot-style).
  * Pure view — the plugin owns fetching/state and pushes results in via
  * {@link #showSuggestion}/{@link #showMessage}. Skip/Block/Pause are reported back
- * through {@link Listener}; Copy is handled here (one click → clipboard, compliant).
+ * through {@link Listener}.
  */
 public class AdvisorPanel extends JPanel
 {
@@ -192,8 +190,8 @@ public class AdvisorPanel extends JPanel
         buttons.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         buttons.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Fill the suggested price/quantity straight into the GE offer input (clipboard
-        // can't paste into the GE box). Arms the fill; the player opens the offer + confirms.
+        // Fill the suggested price/quantity straight into the GE offer input.
+        // Arms the fill; the player opens the offer + confirms.
         JButton fill = new JButton("Fill offer");
         fill.setFont(fill.getFont().deriveFont(10f));
         fill.setFocusPainted(false);
@@ -575,19 +573,6 @@ public class AdvisorPanel extends JPanel
         p.setAlignmentX(Component.LEFT_ALIGNMENT);
         p.add(c);
         return p;
-    }
-
-    private static void copyToClipboard(String text)
-    {
-        try
-        {
-            Toolkit.getDefaultToolkit().getSystemClipboard()
-                .setContents(new StringSelection(text), null);
-        }
-        catch (Exception ignored)
-        {
-            // clipboard unavailable (headless) — nothing to do
-        }
     }
 
     private static String formatGp(long gp)

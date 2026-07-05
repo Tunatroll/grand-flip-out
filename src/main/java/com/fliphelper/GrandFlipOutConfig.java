@@ -361,19 +361,6 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
-        keyName = "marginAssistPercent",
-        name = "Margin Assist ±%",
-        description = "Percent above/below Wiki buy/sell used for ± margin clipboard strings.",
-        section = intelligenceSection,
-        position = 3
-    )
-    @Range(min = 1, max = 25)
-    default int marginAssistPercent()
-    {
-        return 5;
-    }
-
-    @ConfigItem(
         keyName = "contributeTrades",
         name = "Contribute trades (crowdsourced data)",
         description = "Opt in to share your completed GE trades (item, price, quantity, buy/sell) "
@@ -423,18 +410,6 @@ public interface GrandFlipOutConfig extends Config
     default Keybind quickLookupHotkey()
     {
         return new Keybind(KeyEvent.VK_L, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
-    }
-
-    @ConfigItem(
-        keyName = "copyMarginHotkey",
-        name = "Copy Margin",
-        description = "Copy the current item's margin data to clipboard.",
-        section = hotkeysSection,
-        position = 3
-    )
-    default Keybind copyMarginHotkey()
-    {
-        return new Keybind(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
     }
 
     @ConfigItem(
@@ -543,17 +518,5 @@ public interface GrandFlipOutConfig extends Config
     default Keybind fillCashQuantityHotkey()
     {
         return new Keybind(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
-    }
-
-    @ConfigItem(
-        keyName = "copySlotAssistHotkey",
-        name = "Copy Slot Assist",
-        description = "Copy buy/sell/qty suggestion block for the first active GE slot.",
-        section = hotkeysSection,
-        position = 9
-    )
-    default Keybind copySlotAssistHotkey()
-    {
-        return new Keybind(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
     }
 }

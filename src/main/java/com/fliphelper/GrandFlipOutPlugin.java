@@ -958,12 +958,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             overlay.toggleVisibility();
             e.consume();
         }
-        else if (config.copyMarginHotkey().matches(e))
-        {
-            // Copy margin data for focused item to clipboard
-            clientThread.invokeLater(this::copyCurrentMarginToClipboard);
-            e.consume();
-        }
         else if (config.enableGePriceFill() && config.priceFillHotkey().matches(e))
         {
             clientThread.invokeLater(this::fillGePrice);
@@ -997,11 +991,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         else if (config.fillCashQuantityHotkey().matches(e))
         {
             clientThread.invokeLater(this::fillGeCashQuantity);
-            e.consume();
-        }
-        else if (config.copySlotAssistHotkey().matches(e))
-        {
-            clientThread.invokeLater(this::copyFullSlotAssistToClipboard);
             e.consume();
         }
     }
@@ -1252,29 +1241,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
-    private void copyCurrentMarginToClipboard()
-    {
-        // Copy margin info for the first active flip item
-        if (!flipTracker.getActiveFlips().isEmpty())
-        {
-            var firstFlip = flipTracker.getActiveFlips().values().iterator().next();
-            var agg = priceService.getPrice(firstFlip.getItemId());
-            if (agg != null)
-            {
-                String data = String.format("%s | Buy: %d | Sell: %d | Margin: %d | Vol/1h: %d",
-                    agg.getItemName(),
-                    agg.getBestLowPrice(),
-                    agg.getBestHighPrice(),
-                    agg.getConsensusMargin(),
-                    agg.getTotalVolume1h());
-
-                java.awt.datatransfer.StringSelection selection =
-                    new java.awt.datatransfer.StringSelection(data);
-                java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
-            }
-        }
-    }
-
     private void fillGePrice()
     {
         SlotContext ctx = resolveActiveSlotContext();
@@ -1387,103 +1353,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
-    private void copyPriceFillToClipboard()
-    {
-        SlotContext ctx = resolveActiveSlotContext();
-        if (ctx == null)
-        {
-            return;
-        }
-
-        long estimatedTax = GeTax.tax(ctx.itemId, ctx.sellPrice, 1);
-        long netPerItem = ctx.sellPrice - ctx.buyPrice - estimatedTax;
-
-        String clipboardPayload = String.format(
-            "ITEM: %s%nBUY_PRICE: %s%nSELL_PRICE: %s%nTAX_PER_ITEM: %s%nNET_PER_ITEM: %s%nNOTE: Manual assist only. Paste into GE offer fields and confirm yourself.",
-            ctx.itemName,
-            formatGp(ctx.buyPrice),
-            formatGp(ctx.sellPrice),
-            formatGp(estimatedTax),
-            formatGp(netPerItem)
-        );
-
-        copyToClipboard(clipboardPayload);
-        client.addChatMessage(
-            ChatMessageType.GAMEMESSAGE,
-            "",
-            String.format("Grand Flip Out: copied price-fill for %s (buy %s, sell %s).", ctx.itemName, formatGp(ctx.buyPrice), formatGp(ctx.sellPrice)),
-            null
-        );
-
-        maybeFetchServerAdvisor(ctx.itemId, ctx.itemName);
-    }
-
-    private void copySlotPriceAssist(boolean buySide)
-    {
-        SlotContext ctx = resolveActiveSlotContext();
-        if (ctx == null)
-        {
-            return;
-        }
-
-        int pct = Math.max(1, config.marginAssistPercent());
-        long base = buySide ? ctx.buyPrice : ctx.sellPrice;
-        long minus = Math.max(1, Math.round(base * (100 - pct) / 100.0));
-        long plus = Math.max(1, Math.round(base * (100 + pct) / 100.0));
-
-        String side = buySide ? "BUY" : "SELL";
-        String clipboardPayload = String.format(
-            "ITEM: %s%n%s_BASE: %s%n%s_MINUS_%d%%: %s%n%s_PLUS_%d%%: %s%nNOTE: Manual assist only — paste one value into GE yourself.",
-            ctx.itemName,
-            side, formatGp(base),
-            side, pct, formatGp(minus),
-            side, pct, formatGp(plus)
-        );
-
-        copyToClipboard(clipboardPayload);
-        client.addChatMessage(
-            ChatMessageType.GAMEMESSAGE,
-            "",
-            String.format("Grand Flip Out: copied %s assist for %s (%s).", side.toLowerCase(), ctx.itemName, formatGp(base)),
-            null
-        );
-    }
-
-    private void copyFullSlotAssistToClipboard()
-    {
-        SlotContext ctx = resolveActiveSlotContext();
-        if (ctx == null)
-        {
-            return;
-        }
-
-        int pct = Math.max(1, config.marginAssistPercent());
-        long buyMinus = Math.max(1, Math.round(ctx.buyPrice * (100 - pct) / 100.0));
-        long buyPlus = Math.max(1, Math.round(ctx.buyPrice * (100 + pct) / 100.0));
-        long sellMinus = Math.max(1, Math.round(ctx.sellPrice * (100 - pct) / 100.0));
-        long sellPlus = Math.max(1, Math.round(ctx.sellPrice * (100 + pct) / 100.0));
-        int suggestedQty = ctx.geLimit > 0 ? Math.min(ctx.geLimit, 1000) : 1;
-        long tax = GeTax.tax(ctx.itemId, ctx.sellPrice, 1);
-
-        String clipboardPayload = String.format(
-            "ITEM: %s%nSLOT: %d%nBUY: %s ( -%d%% %s | +%d%% %s )%nSELL: %s ( -%d%% %s | +%d%% %s )%nSUGGESTED_QTY: %d%nTAX_PER_ITEM: %s%nNOTE: Manual assist only.",
-            ctx.itemName,
-            ctx.slot + 1,
-            formatGp(ctx.buyPrice), pct, formatGp(buyMinus), pct, formatGp(buyPlus),
-            formatGp(ctx.sellPrice), pct, formatGp(sellMinus), pct, formatGp(sellPlus),
-            suggestedQty,
-            formatGp(tax)
-        );
-
-        copyToClipboard(clipboardPayload);
-        client.addChatMessage(
-            ChatMessageType.GAMEMESSAGE,
-            "",
-            String.format("Grand Flip Out: copied slot assist for %s (slot %d).", ctx.itemName, ctx.slot + 1),
-            null
-        );
-    }
-
     private void maybeFetchServerAdvisor(int itemId, String itemName)
     {
         if (!config.enableServerFunctionality() || !config.enableServerIntelligence() || intelligenceClient == null)
@@ -1545,7 +1414,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             }
         }
 
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Grand Flip Out: no active GE item for clipboard assist.", null);
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Grand Flip Out: no active GE item to fill.", null);
         return null;
     }
 
@@ -1562,17 +1431,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
         int limit = agg.getMapping() != null ? agg.getMapping().getLimit() : 0;
         return new SlotContext(slot, itemId, itemName, agg.getBestLowPrice(), agg.getBestHighPrice(), limit);
-    }
-
-    private void copyToClipboard(String payload)
-    {
-        // Clipboard is an AWT/Swing resource. The keybind handlers now run on the client thread
-        // (clientThread.invokeLater) for safe game-state reads, so marshal the clipboard write to the EDT.
-        javax.swing.SwingUtilities.invokeLater(() ->
-        {
-            java.awt.datatransfer.StringSelection selection = new java.awt.datatransfer.StringSelection(payload);
-            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
-        });
     }
 
     private static final class SlotContext
