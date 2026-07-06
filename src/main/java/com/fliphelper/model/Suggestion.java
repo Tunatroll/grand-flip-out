@@ -50,6 +50,14 @@ public class Suggestion
      */
     String marginQuality;
 
+    /**
+     * Server price-honesty tier for the quoted prices themselves: "EXECUTABLE"
+     * (fresh two-sided book), "INDICATIVE" (stale book — context, not quotes),
+     * "NO_ESTIMATE"/"NO_DATA" (no defensible live price). Display-only label,
+     * graded server-side (price-quality SSOT) — never re-derived here.
+     */
+    String priceTier;
+
     public List<String> getReasons()
     {
         return reasons != null ? reasons : Collections.emptyList();

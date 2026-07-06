@@ -175,6 +175,21 @@ public class AdvisorPanel extends JPanel
             content.add(meta("Volume (1h)", formatVolume(s.getVolume())));
         }
 
+        // Price-tier badge (label, don't hide): the server grades the QUOTED PRICES
+        // themselves (price-quality SSOT). INDICATIVE = stale book (context, not
+        // executable quotes); NO_ESTIMATE/NO_DATA = no defensible live price. A fresh
+        // EXECUTABLE book renders nothing here (honest default, no badge noise).
+        String tier = s.getPriceTier();
+        if (tier != null && !"EXECUTABLE".equalsIgnoreCase(tier))
+        {
+            boolean noBook = "NO_ESTIMATE".equalsIgnoreCase(tier) || "NO_DATA".equalsIgnoreCase(tier);
+            content.add(metaColored("Price tier", noBook ? "NO LIVE BOOK" : "INDICATIVE", GOLD));
+            content.add(wrapLeft(line("• " + (noBook
+                ? "No recent trades — no defensible live price exists for this item"
+                : "The order book is stale — prices are approximate context, not executable quotes"),
+                DIM, Font.PLAIN, 11f)));
+        }
+
         // Margin-quality badge (label, don't hide): the server grades the quoted
         // round-trip; anything but a fresh two-sided book gets a visible caution.
         String quality = s.getMarginQuality();

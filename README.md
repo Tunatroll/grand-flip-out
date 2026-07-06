@@ -1,97 +1,63 @@
 # Grand Flip Out
 
-**A Grand Exchange flipping assistant for RuneLite.**
+**A comprehensive Grand Exchange flipping assistant for RuneLite.**
 
-Grand Flip Out helps OSRS players identify profitable flips and track their own GE
-performance. Live prices come from the OSRS Wiki Real-Time Prices API; all profit
-math accounts for the 2% GE tax (capped at 5M GP); all flip history is stored
-locally on your machine.
-
-**Information only.** The plugin reads completed offers through RuneLite's event API
-and shows you analysis. It does not automate trades or interact with the game
-client.
+Grand Flip Out helps OSRS players identify profitable flips with real-time market analysis, technical indicators, and intelligent scoring. Get instant alerts for price crashes, track your flip history, and optimize your GE trading.
 
 ## Features
 
-- **Live Wiki pricing** — refreshes from `prices.runescape.wiki` on a configurable
-  interval (default 60s, minimum 60s per Wiki etiquette)
-- **Ranked flip suggestions** — items ranked by realistic 4-hour profit
-  (profit-per-GE-limit), absolute margin, or margin %, volume-floored so only
-  flippable items appear; sortable, category-filterable
-- **Search** — find any item by name; see its current margin, volume, and timeline
-  estimate (free for every item)
-- **Flip tracker** — automatically pairs your buy/sell offers into completed flips,
-  computes per-flip P&L with the GE tax baked in, persists history between sessions,
-  tracked **per in-game account**
-- **Session stats panel** — running profit, ROI %, flip count, tax paid, GP/hr, and
-  session time, over a selectable interval
-- **In-game GE overlay** — margin / volume / profit, per-slot buy/sell targets, slot
-  timers, and remaining 4-hour buy limit while the Grand Exchange is open
-- **Inventory price tooltips** — hover values for items in your inventory
-- **Margin check helper** — quick "buy 1 at X, sell 1 at Y" workflow
-- **GP-drop animation** on profitable sells
-- **Flipping Utilities import** — one-time import of existing flip history
-- **Keyboard hotkeys** — toggle panel, refresh prices, quick lookup, toggle overlay,
-  optional GE price-fill assist
-- **Optional account** — free account (created on the web) unlocks members-item
-  suggestions and premium server features; see *Compliance and data handling* below
+- **Multi-Source Pricing** — Consensus prices from OSRS Wiki and RuneLite APIs
+- **JTI Scoring** — Jagex Trade Index composite rating for flip quality assessment
+- **Technical Analysis** — RSI, EMA, MACD, Bollinger Bands on live GE data
+- **Dump Detection** — Real-time price crash alerts with velocity analysis
+- **SmartAdvisor** — Unified intelligence engine combining all signals into BUY/SELL recommendations
+- **Flip Tracker** — Personal P&L with session management
+- **Recipe Calculator** — Quick profitability checks for herb cleaning, gem cutting, cooking
+- **Risk Management** — Position sizing and portfolio monitoring
+
+All profit calculations include the **2% GE tax** (capped at 5M GP).
 
 ## Installation
 
 1. Install [RuneLite](https://runelite.net)
 2. Open RuneLite and go to **Plugin Hub**
 3. Search for **"Grand Flip Out"** and click **Install**
-4. The Grand Flip Out icon appears in the RuneLite sidebar
+4. The plugin sidebar will appear automatically
 
-## Compliance and data handling
+## Usage
 
-- **Information only** — never automates trades, injects packets/clicks, or interacts
-  with the game client
-- **Default network is Wiki-only** — out of the box the plugin talks only to
-  `prices.runescape.wiki` (plus user-triggered links opened via RuneLite's `LinkBrowser`
-  to public web pages). All `grandflipout.com` communication is **opt-in**, and any opt-in
-  call necessarily carries your IP (as with any web request):
-  - *API key* (empty by default): if you paste an account key, it is sent as a `Bearer`
-    token to `grandflipout.com/api/entitlements` **only** to check whether your account
-    unlocks members-item suggestions / premium features. No key set → this call is never made.
-  - *Server Advisor* (off by default): when enabled, your current GE offers (item, side,
-    price, quantity) and approximate coins are **sent** to `grandflipout.com` to generate
-    flip suggestions for the active item.
-  - *Contribute trades* (off by default): anonymized completed trades (item ID, price,
-    quantity, side, timestamp) are sent for crowd-sourced pricing.
-- **Nothing is sent off-device unless you opt in** — with the Advisor and Contribute-trades
-  both off (the defaults), flip history stays local under `~/.runelite/grand-flip-out/`. No
-  character names or passwords are ever sent; the only credential is the API key you paste.
-- **No reflection, no `Runtime.exec`, no inbound sockets, no game-packet injection**
-- **Uses RuneLite's injected `OkHttpClient`** with a proper User-Agent
-- **All file I/O is sandboxed** to `RUNELITE_DIR/grand-flip-out/`
-- **No in-client payment** — any account/premium gating is server-side; the plugin never
-  takes in-game gold or in-client real-money payment (Jagex rule)
+Once installed, the plugin adds a sidebar panel in RuneLite showing:
+- Current top flips by margin
+- Active price crashes for sniping
+- Your personal flip history and P&L
+- Technical indicators and market regime
+- SmartAdvisor buy/sell recommendations
 
-## Requirements
+## Compliance
 
-- RuneLite (latest stable)
-- Java 11 runtime (already included in RuneLite)
+- **Information only** — no automated trading, no game client interaction
+- **Jagex compliant** — uses only public APIs (OSRS Wiki, RuneLite)
+- **No packet injection** — uses RuneLite's official Client API only
+- **Open source** — BSD 2-Clause License
 
-## Development
+## Tech Stack
 
-```bash
-./gradlew build       # build the plugin jar
-./gradlew test        # run the test suite
-```
-
-The compiled JAR will be in `build/libs/`.
+- Java 11
+- RuneLite API
+- Gradle 7.6.4
+- Lombok
+- Gson
 
 ## Support
 
-- **Bug reports & feature requests:** [GitHub Issues](https://github.com/Tunatroll/grand-flip-out/issues)
-- **RuneLite community:** [RuneLite Discord](https://runelite.net/discord)
+For issues, feature requests, or questions:
+- Check the [GitHub Issues](https://github.com/tunatroll/grand-flip-out/issues)
+- Visit the [RuneLite Discord](https://runelite.net/discord)
 
 ## License
 
-BSD 2-Clause License — see [LICENSE](LICENSE).
+BSD 2-Clause License — See LICENSE file for details.
 
 ---
 
-**Author:** tuna troll (Max) · *Not affiliated with Jagex, RuneLite, or the OSRS
-Wiki. Old School RuneScape is a trademark of Jagex Ltd.*
+*Not affiliated with Jagex, RuneLite, or the OSRS Wiki. Old School RuneScape is a trademark of Jagex Ltd.*

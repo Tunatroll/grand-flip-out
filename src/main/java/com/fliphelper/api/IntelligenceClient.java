@@ -219,6 +219,7 @@ public class IntelligenceClient
                 .marginPer(optLong(root, "marginPer")).geLimit(optInt(root, "geLimit"))
                 .profitPerLimit(optLong(root, "profitPerLimit")).volume(optLong(root, "volume"))
                 .marginQuality(optString(root, "marginQuality"))
+                .priceTier(optString(root, "priceTier"))
                 .build();
         }
     }
@@ -286,6 +287,7 @@ public class IntelligenceClient
                         .marginPer(optLong(o, "marginPer")).geLimit(optInt(o, "geLimit"))
                         .profitPerLimit(optLong(o, "profitPerLimit")).volume(optLong(o, "volume"))
                         .marginQuality(optString(o, "marginQuality"))
+                        .priceTier(optString(o, "priceTier"))
                         .build());
                 }
             }
@@ -375,6 +377,7 @@ public class IntelligenceClient
                         .marginPer(optLong(o, "marginPer")).geLimit(optInt(o, "geLimit"))
                         .profitPerLimit(optLong(o, "profitPerLimit")).volume(optLong(o, "volume"))
                         .marginQuality(optString(o, "marginQuality"))
+                        .priceTier(optString(o, "priceTier"))
                         .build());
                 }
             }
