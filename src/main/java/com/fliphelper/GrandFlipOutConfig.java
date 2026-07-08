@@ -485,51 +485,5 @@ public interface GrandFlipOutConfig extends Config
         return new Keybind(KeyEvent.VK_DOWN, InputEvent.CTRL_DOWN_MASK);
     }
 
-    @ConfigItem(
-        keyName = "fillBuyPriceHotkey",
-        name = "Fill Buy Price",
-        description = "Injects the Wiki buy price directly into the open GE offer field.",
-        section = hotkeysSection,
-        position = 7
-    )
-    default Keybind fillBuyPriceHotkey()
-    {
-        return new Keybind(KeyEvent.VK_B, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
-    }
-
-    @ConfigItem(
-        keyName = "fillSellPriceHotkey",
-        name = "Fill Sell Price",
-        description = "Injects the Wiki sell price directly into the open GE offer field.",
-        section = hotkeysSection,
-        position = 8
-    )
-    default Keybind fillSellPriceHotkey()
-    {
-        return new Keybind(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
-    }
-
-    @ConfigItem(
-        keyName = "fillLimitQuantityHotkey",
-        name = "Fill Limit Quantity",
-        description = "Injects the 4-hour GE limit quantity directly into the open GE offer field.",
-        section = hotkeysSection,
-        position = 9
-    )
-    default Keybind fillLimitQuantityHotkey()
-    {
-        return new Keybind(KeyEvent.VK_L, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
-    }
-
-    @ConfigItem(
-        keyName = "fillCashQuantityHotkey",
-        name = "Fill Cash Quantity",
-        description = "Injects the max affordable quantity based on your cash stack.",
-        section = hotkeysSection,
-        position = 10
-    )
-    default Keybind fillCashQuantityHotkey()
-    {
-        return new Keybind(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
-    }
+}
 }

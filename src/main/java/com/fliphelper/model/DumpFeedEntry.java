@@ -22,6 +22,9 @@ public class DumpFeedEntry
     String itemName;
     boolean members;
     long buyPrice;
+    Long sellTarget;
+    Long netMargin;
+    Double recoveryProb;
     double percentChange;
     String tier;
 }

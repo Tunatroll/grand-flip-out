@@ -88,6 +88,9 @@ public class DumpFeedClient
                         d.has("itemName") ? d.get("itemName").getAsString() : "",
                         d.has("members") && d.get("members").getAsBoolean(),
                         d.has("buyPrice") ? d.get("buyPrice").getAsLong() : 0,
+                        d.has("sellTarget") && !d.get("sellTarget").isJsonNull() ? d.get("sellTarget").getAsLong() : null,
+                        d.has("netMargin") && !d.get("netMargin").isJsonNull() ? d.get("netMargin").getAsLong() : null,
+                        d.has("recoveryProb") && !d.get("recoveryProb").isJsonNull() ? d.get("recoveryProb").getAsDouble() : null,
                         d.has("percentChange") ? d.get("percentChange").getAsDouble() : 0,
                         d.has("tier") ? d.get("tier").getAsString() : "watch"));
                 }

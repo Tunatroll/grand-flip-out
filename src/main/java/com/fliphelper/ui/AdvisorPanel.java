@@ -479,21 +479,49 @@ public class AdvisorPanel extends JPanel
                 {
                     continue;
                 }
-                JPanel row = new JPanel(new BorderLayout());
+                JPanel row = new JPanel();
+                row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
                 row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
                 row.setAlignmentX(Component.LEFT_ALIGNMENT);
-                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+                row.setBorder(new EmptyBorder(0, 0, 4, 0));
 
+                JPanel top = new JPanel(new BorderLayout());
+                top.setBackground(ColorScheme.DARKER_GRAY_COLOR);
                 JLabel name = new JLabel(e.getItemName());
                 name.setForeground(Color.WHITE);
                 name.setFont(name.getFont().deriveFont(11f));
-
                 JLabel chg = new JLabel(formatPct(e.getPercentChange()), SwingConstants.RIGHT);
                 chg.setForeground(e.getPercentChange() < 0 ? RED : DIM);
                 chg.setFont(chg.getFont().deriveFont(Font.BOLD, 11f));
+                top.add(name, BorderLayout.WEST);
+                top.add(chg, BorderLayout.EAST);
+                row.add(top);
 
-                row.add(name, BorderLayout.WEST);
-                row.add(chg, BorderLayout.EAST);
+                boolean enterable = (e.getSellTarget() != null && e.getNetMargin() != null && e.getNetMargin() > 0 &&
+                        (e.getRecoveryProb() == null || e.getRecoveryProb() >= 0.05));
+                if (enterable) {
+                    JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+                    bottom.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+                    
+                    String text = "<html><span style='color:#9A9A9A; font-size:9px'>Buy </span><span style='color:white; font-size:9px'>" 
+                            + formatGp(e.getBuyPrice()) 
+                            + "</span><span style='color:#9A9A9A; font-size:9px'> • Sell </span><span style='color:white; font-size:9px'>" 
+                            + formatGp(e.getSellTarget()) 
+                            + "</span><span style='color:#9A9A9A; font-size:9px'> • Profit </span><span style='color:#00D26A; font-size:9px'>+" 
+                            + formatGp(e.getNetMargin()) + "/ea</span></html>";
+                    
+                    JLabel detail = new JLabel(text);
+                    bottom.add(detail);
+                    row.add(bottom);
+                } else if (e.getSellTarget() != null && e.getRecoveryProb() != null && e.getRecoveryProb() < 0.05) {
+                    JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+                    bottom.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+                    JLabel detail = new JLabel("<html><span style='color:#FF4757; font-size:9px'>No entry</span><span style='color:#9A9A9A; font-size:9px'> — information only</span></html>");
+                    bottom.add(detail);
+                    row.add(bottom);
+                }
+                
                 dumpFeed.add(row);
                 shown++;
             }

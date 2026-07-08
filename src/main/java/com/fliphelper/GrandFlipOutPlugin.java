@@ -1014,26 +1014,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             clientThread.invokeLater(this::skipSuggestion);
             e.consume();
         }
-        else if (config.fillBuyPriceHotkey().matches(e))
-        {
-            clientThread.invokeLater(this::fillGeBuyPrice);
-            e.consume();
-        }
-        else if (config.fillSellPriceHotkey().matches(e))
-        {
-            clientThread.invokeLater(this::fillGeSellPrice);
-            e.consume();
-        }
-        else if (config.fillLimitQuantityHotkey().matches(e))
-        {
-            clientThread.invokeLater(this::fillGeLimitQuantity);
-            e.consume();
-        }
-        else if (config.fillCashQuantityHotkey().matches(e))
-        {
-            clientThread.invokeLater(this::fillGeCashQuantity);
-            e.consume();
-        }
     }
 
     @Override
@@ -1322,44 +1302,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private void fillGeSellPrice()
     {
         SlotContext ctx = resolveActiveSlotContext();
-        if (ctx == null) return;
-        armOrInjectPrice(ctx.sellPrice, ctx.itemName, "sell");
-    }
-
-    private void fillGeLimitQuantity()
-    {
-        SlotContext ctx = resolveActiveSlotContext();
-        if (ctx == null) return;
-        PriceAggregate agg = priceService.getPrice(ctx.itemId);
-        if (agg == null) return;
-        int limit = agg.getBuyLimit();
-        if (limit > 0) armOrInjectQuantity(limit, ctx.itemName, "limit");
-    }
-
-    private void fillGeCashQuantity()
-    {
-        SlotContext ctx = resolveActiveSlotContext();
-        if (ctx == null) return;
-        ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
-        if (inventory == null) return;
-        int cash = inventory.count(ItemID.COINS_995);
-        long price = ctx.buyPrice;
-        if (price <= 0) price = 1;
-        int maxQty = (int) (cash / price);
-        PriceAggregate agg = priceService.getPrice(ctx.itemId);
-        if (agg != null) {
-            int limit = agg.getBuyLimit();
-            if (limit > 0 && maxQty > limit) maxQty = limit;
-        }
-        if (maxQty > 0) armOrInjectQuantity(maxQty, ctx.itemName, "cash max");
-    }
-
-    private void armOrInjectQuantity(int qty, String itemName, String type)
-    {
-        Widget chatboxInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
-        if (chatboxInput != null && chatboxInput.getText() != null && !chatboxInput.isHidden())
-        {
-            injectGeInput(qty, qty + " qty");
         }
         else
         {
