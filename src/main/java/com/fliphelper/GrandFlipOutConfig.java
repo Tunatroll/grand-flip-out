@@ -450,6 +450,18 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
+        keyName = "copilotHotkey",
+        name = "Copilot Next Step (Space)",
+        description = "Context-aware GE hotkey. Opens GE search, arms prices/quantities, and guides you through the next action based on your current GE interface.",
+        section = hotkeysSection,
+        position = 7
+    )
+    default Keybind copilotHotkey()
+    {
+        return new Keybind(KeyEvent.VK_SPACE, InputEvent.CTRL_DOWN_MASK);
+    }
+
+    @ConfigItem(
         keyName = "nextSuggestionHotkey",
         name = "Next Suggestion (Up)",
         description = "Cycles to the next actionable flip suggestion and instantly searches for it in the GE.",

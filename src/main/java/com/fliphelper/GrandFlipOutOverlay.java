@@ -61,6 +61,7 @@ public class GrandFlipOutOverlay extends Overlay
     private final PriceService priceService;
     private final FlipTracker flipTracker;
     private final SessionManager sessionManager;
+    private final GrandFlipOutPlugin plugin;
     private final PanelComponent panelComponent = new PanelComponent();
 
     /** Slot activity timestamps for slot timer display (like Flipping Utilities). */
@@ -78,13 +79,14 @@ public class GrandFlipOutOverlay extends Overlay
     @Inject
     public GrandFlipOutOverlay(Client client, GrandFlipOutConfig config,
                               PriceService priceService, FlipTracker flipTracker,
-                              SessionManager sessionManager)
+                              SessionManager sessionManager, GrandFlipOutPlugin plugin)
     {
         this.client = client;
         this.config = config;
         this.priceService = priceService;
         this.flipTracker = flipTracker;
         this.sessionManager = sessionManager;
+        this.plugin = plugin;
 
         setPosition(OverlayPosition.TOP_LEFT);
         setLayer(OverlayLayer.ABOVE_WIDGETS);
@@ -146,6 +148,8 @@ public class GrandFlipOutOverlay extends Overlay
                 renderSessionStats();
             }
 
+            renderCopilotAction();
+
             if (geOpen && config.enableGeOverlay())
             {
                 renderGEInfo();
@@ -173,6 +177,18 @@ public class GrandFlipOutOverlay extends Overlay
                 // Log only if render took significant time
             }
         }
+    }
+
+    private void renderCopilotAction()
+    {
+        com.fliphelper.model.Suggestion s = plugin.getCopilotSuggestion();
+        if (s == null || s.isWait()) return;
+
+        panelComponent.getChildren().add(LineComponent.builder()
+            .left("Copilot (Space):")
+            .right(s.getAction() + " " + s.getItemName())
+            .rightColor(s.getAction().equals("BUY") ? PROFIT_GREEN : WARNING_AMBER)
+            .build());
     }
 
     private void renderSessionStats()

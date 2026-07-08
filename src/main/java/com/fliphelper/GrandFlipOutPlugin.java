@@ -233,7 +233,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             if (config.enableServerFunctionality()) entitlementService.refresh(config.apiKey());
             javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
         });
-        overlay = new GrandFlipOutOverlay(client, config, priceService, flipTracker, sessionManager);
+        overlay = new GrandFlipOutOverlay(client, config, priceService, flipTracker, sessionManager, this);
         gpDropOverlay = new GpDropOverlay(client, config);
         inventoryTooltipOverlay = new InventoryTooltipOverlay(client, config, priceService, flipTracker, tooltipManager);
 
@@ -882,6 +882,42 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         fillGeSearch(s.getItemId());
     }
 
+    public com.fliphelper.model.Suggestion getCopilotSuggestion()
+    {
+        if (activeSuggestions == null || activeSuggestions.isEmpty()) return null;
+        return activeSuggestions.get(activeSuggestionIndex);
+    }
+
+    private void handleCopilotHotkey()
+    {
+        com.fliphelper.model.Suggestion s = getCopilotSuggestion();
+        if (s == null || s.isWait())
+        {
+            clientThread.invokeLater(() -> client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Copilot: No suggestions ready.", null));
+            return;
+        }
+
+        Widget geWindow = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+        if (geWindow == null || geWindow.isHidden())
+        {
+            clientThread.invokeLater(() -> client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Copilot: Open GE to " + s.getAction() + " " + s.getItemName(), null));
+            return;
+        }
+
+        Widget offerContainer = client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER);
+        if (offerContainer != null && !offerContainer.isHidden())
+        {
+            // Buy or sell screen is open. Arm price and quantity so they fill on click
+            armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
+        }
+        else
+        {
+            // Main GE screen is open. Arm and open the search.
+            armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
+            fillGeSearch(s.getItemId());
+        }
+    }
+
     /**
      * Write a numeric value into the open GE price/quantity input. This is the exact
      * mechanism Flipping Copilot uses (set the chatbox input widget text + the
@@ -961,6 +997,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         else if (config.enableGePriceFill() && config.priceFillHotkey().matches(e))
         {
             clientThread.invokeLater(this::fillGePrice);
+            e.consume();
+        }
+        else if (config.copilotHotkey().matches(e))
+        {
+            clientThread.invokeLater(this::handleCopilotHotkey);
             e.consume();
         }
         else if (config.nextSuggestionHotkey().matches(e))
