@@ -35,7 +35,7 @@ Once installed, the plugin adds a sidebar panel in RuneLite showing:
 
 ## Compliance
 
-- **Information only** — no automated trading, no game client interaction
+- **Information only** — no automated trading or offer submission; the optional GE offer pre-fill (off by default) writes suggested values into open GE inputs and never places or confirms an offer
 - **Jagex compliant** — uses only public APIs (OSRS Wiki, RuneLite)
 - **No packet injection** — uses RuneLite's official Client API only
 - **Open source** — BSD 2-Clause License

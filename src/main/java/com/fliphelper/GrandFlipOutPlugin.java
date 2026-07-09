@@ -150,9 +150,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private volatile long pendingGePrice = -1;
     private volatile int pendingGeQty = -1;
     private volatile int pendingSearchItemId = -1;
-    // Navigation state for Next/Skip hotkeys
-    private final java.util.List<com.fliphelper.model.Suggestion> activeSuggestions = new java.util.ArrayList<>();
-    private int activeSuggestionIndex = -1;
+    // Navigation state for Next/Skip hotkeys. Volatile snapshot swap: the fetch executor
+    // REPLACES the list reference (never mutates in place) because the overlay reads it on
+    // the client thread every frame — in-place clear/addAll raced the render (IOOBE).
+    private volatile java.util.List<com.fliphelper.model.Suggestion> activeSuggestions = java.util.Collections.emptyList();
+    private volatile int activeSuggestionIndex = -1;
     private static final int CHATBOX_INPUT_OPEN_SCRIPT = 108;
     // Per-character data directory
     private String currentDisplayName = null;
@@ -609,10 +611,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                             }
                         }
 
-                        activeSuggestions.clear();
                         if (moves != null && !moves.isEmpty())
                         {
-                            activeSuggestions.addAll(moves);
+                            activeSuggestions = java.util.Collections.unmodifiableList(
+                                new java.util.ArrayList<>(moves));
                             activeSuggestionIndex = -1;
                             final java.util.List<com.fliphelper.model.Suggestion> nextMoves = moves;
                             javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showNextMoves(nextMoves));
@@ -621,7 +623,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                         {
                             java.util.List<com.fliphelper.model.Suggestion> basket =
                                 intelligenceClient.fetchBasket(snapshot, exclude, f2pOnly, config.apiKey());
-                            if (basket != null) activeSuggestions.addAll(basket);
+                            activeSuggestions = (basket != null && !basket.isEmpty())
+                                ? java.util.Collections.unmodifiableList(new java.util.ArrayList<>(basket))
+                                : java.util.Collections.emptyList();
                             activeSuggestionIndex = -1;
                             javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showBasket(basket));
                         }
@@ -630,8 +634,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     {
                         com.fliphelper.model.Suggestion suggestion =
                             intelligenceClient.fetchSuggestion(snapshot, exclude, f2pOnly, config.apiKey());
-                        activeSuggestions.clear();
-                        if (suggestion != null) activeSuggestions.add(suggestion);
+                        activeSuggestions = suggestion != null
+                            ? java.util.Collections.singletonList(suggestion)
+                            : java.util.Collections.emptyList();
                         activeSuggestionIndex = -1;
                         // Point the in-game overlay at the slot this action targets (abort/sell),
                         // or clear the highlight when there's nothing slot-specific to do.
@@ -814,6 +819,19 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      */
     private void armOfferFill(int itemId, long price, int quantity)
     {
+        if (!config.enableGePriceFill())
+        {
+            // Injection opt-in is OFF: arm nothing (stale armed values must never fire if
+            // the toggle is enabled later) and say something TRUE instead of promising an
+            // auto-fill that the injection chokepoints will refuse.
+            clientThread.invokeLater(() -> client.addChatMessage(
+                ChatMessageType.GAMEMESSAGE,
+                "",
+                String.format("Grand Flip Out: suggested %s gp x%,d — enable \"GE offer pre-fill\" in settings to auto-fill.",
+                    formatGp(price), quantity),
+                null));
+            return;
+        }
         pendingSearchItemId = itemId > 0 ? itemId : -1;
         pendingGePrice = price > 0 ? price : -1;
         pendingGeQty = quantity > 0 ? quantity : -1;
@@ -861,31 +879,39 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
     private void nextSuggestion()
     {
-        if (activeSuggestions.isEmpty()) return;
-        activeSuggestionIndex = (activeSuggestionIndex + 1) % activeSuggestions.size();
-        com.fliphelper.model.Suggestion s = activeSuggestions.get(activeSuggestionIndex);
+        final java.util.List<com.fliphelper.model.Suggestion> sugs = activeSuggestions;
+        if (sugs.isEmpty()) return;
+        activeSuggestionIndex = (activeSuggestionIndex + 1) % sugs.size();
+        com.fliphelper.model.Suggestion s = sugs.get(activeSuggestionIndex);
         if (s == null || s.isWait()) return;
-        
+
         armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
         fillGeSearch(s.getItemId());
     }
 
     private void skipSuggestion()
     {
-        if (activeSuggestions.isEmpty()) return;
-        activeSuggestionIndex = activeSuggestionIndex - 1;
-        if (activeSuggestionIndex < 0) activeSuggestionIndex = activeSuggestions.size() - 1;
-        com.fliphelper.model.Suggestion s = activeSuggestions.get(activeSuggestionIndex);
+        final java.util.List<com.fliphelper.model.Suggestion> sugs = activeSuggestions;
+        if (sugs.isEmpty()) return;
+        int idx = activeSuggestionIndex - 1;
+        if (idx < 0 || idx >= sugs.size()) idx = sugs.size() - 1;
+        activeSuggestionIndex = idx;
+        com.fliphelper.model.Suggestion s = sugs.get(idx);
         if (s == null || s.isWait()) return;
-        
+
         armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
         fillGeSearch(s.getItemId());
     }
 
     public com.fliphelper.model.Suggestion getCopilotSuggestion()
     {
-        if (activeSuggestions == null || activeSuggestions.isEmpty()) return null;
-        return activeSuggestions.get(activeSuggestionIndex);
+        // Snapshot ref + clamped index: the fetch resets activeSuggestionIndex to -1 with a
+        // non-empty list, and the overlay calls this every frame (get(-1) threw before).
+        final java.util.List<com.fliphelper.model.Suggestion> sugs = activeSuggestions;
+        if (sugs.isEmpty()) return null;
+        int i = activeSuggestionIndex;
+        if (i < 0 || i >= sugs.size()) i = 0;
+        return sugs.get(i);
     }
 
     private void handleCopilotHotkey()
@@ -1290,29 +1316,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         long price = isBuying ? ctx.buyPrice : ctx.sellPrice;
         armOrInjectPrice(price, ctx.itemName, isBuying ? "buy" : "sell");
         maybeFetchServerAdvisor(ctx.itemId, ctx.itemName);
-    }
-
-    private void fillGeBuyPrice()
-    {
-        SlotContext ctx = resolveActiveSlotContext();
-        if (ctx == null) return;
-        armOrInjectPrice(ctx.buyPrice, ctx.itemName, "buy");
-    }
-
-    private void fillGeSellPrice()
-    {
-        SlotContext ctx = resolveActiveSlotContext();
-        }
-        else
-        {
-            pendingGeQty = qty;
-            client.addChatMessage(
-                ChatMessageType.GAMEMESSAGE,
-                "",
-                String.format("Grand Flip Out: %s quantity x%,d armed — open a GE offer to fill.", type, qty),
-                null
-            );
-        }
     }
 
     private void armOrInjectPrice(long price, String itemName, String side)

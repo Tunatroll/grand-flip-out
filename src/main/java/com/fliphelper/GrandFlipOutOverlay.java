@@ -185,9 +185,9 @@ public class GrandFlipOutOverlay extends Overlay
         if (s == null || s.isWait()) return;
 
         panelComponent.getChildren().add(LineComponent.builder()
-            .left("Copilot (Space):")
+            .left("Copilot (Ctrl+Space):")
             .right(s.getAction() + " " + s.getItemName())
-            .rightColor(s.getAction().equals("BUY") ? PROFIT_GREEN : WARNING_AMBER)
+            .rightColor("BUY".equals(s.getAction()) ? PROFIT_GREEN : WARNING_AMBER)
             .build());
     }
 
