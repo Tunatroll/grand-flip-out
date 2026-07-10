@@ -52,15 +52,16 @@ import java.util.List;
 public class RecipePanel extends JPanel
 {
     // Granary dark theme — mirrors GrandFlipOutPanel.
-    private static final Color BRAND_GOLD = new Color(0xE0, 0xA8, 0x2E);
-    private static final Color PANEL_DEEP = new Color(0x0D, 0x0D, 0x0C);
-    private static final Color PANEL_CARD = new Color(0x1A, 0x18, 0x15);
-    private static final Color TEXT_DIM = new Color(0x7A, 0x71, 0x5C);
-    private static final Color TEXT_LIGHT = new Color(0xD8, 0xCF, 0xBE);
-    private static final Color PROFIT_GREEN = new Color(0x5F, 0xB8, 0x5F);
-    private static final Color LOSS_RED = new Color(0xD4, 0x6A, 0x6A);
-    private static final Color PANEL_BORDER = new Color(0x2A, 0x26, 0x20);
-    private static final Color PANEL_BUTTON = new Color(0x14, 0x13, 0x12);
+    // GFO pastel brand via GfoPalette (granary theme retired 2026-07-10)
+    private static final Color BRAND_GOLD = GfoPalette.ACCENT;
+    private static final Color PANEL_DEEP = GfoPalette.PANEL;
+    private static final Color PANEL_CARD = GfoPalette.CARD;
+    private static final Color TEXT_DIM = GfoPalette.TEXT_MUTED;
+    private static final Color TEXT_LIGHT = GfoPalette.TEXT;
+    private static final Color PROFIT_GREEN = GfoPalette.UP;
+    private static final Color LOSS_RED = GfoPalette.DOWN;
+    private static final Color PANEL_BORDER = GfoPalette.BORDER;
+    private static final Color PANEL_BUTTON = GfoPalette.CARD;
 
     private final transient PriceService priceService;
     private final JPanel listPanel;

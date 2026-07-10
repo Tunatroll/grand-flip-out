@@ -35,10 +35,11 @@ import java.util.List;
  */
 public class PriceChartPanel extends JPanel
 {
-    private static final Color HIGH_COLOR = new Color(0xE0, 0xA8, 0x2E); // sell / wheat-gold
-    private static final Color LOW_COLOR = new Color(0x5F, 0xA8, 0xD4);  // buy / blue
-    private static final Color GRID_COLOR = new Color(0x33, 0x33, 0x33);
-    private static final Color AXIS_TEXT = new Color(0x9A, 0x9A, 0x9A);
+    // GFO pastel brand (GfoPalette SSOT): sell line = lilac accent, buy line = light-blue
+    private static final Color HIGH_COLOR = GfoPalette.ACCENT;   // sell / insta-buy price
+    private static final Color LOW_COLOR = GfoPalette.ACCENT_2;  // buy / insta-sell price
+    private static final Color GRID_COLOR = GfoPalette.BORDER;
+    private static final Color AXIS_TEXT = GfoPalette.TEXT_DIM;
     private static final int PAD_LEFT = 58;
     private static final int PAD_RIGHT = 12;
     private static final int PAD_TOP = 30;

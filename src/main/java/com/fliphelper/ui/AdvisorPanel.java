@@ -48,10 +48,11 @@ public class AdvisorPanel extends JPanel
         void onFillOffer(int itemId, long price, int quantity);
     }
 
-    private static final Color GOLD = new Color(0xFF, 0x98, 0x1F);
-    private static final Color GREEN = new Color(0x00, 0xD2, 0x6A);
-    private static final Color RED = new Color(0xFF, 0x47, 0x57);
-    private static final Color DIM = new Color(0x9A, 0x9A, 0x9A);
+    // GFO pastel brand via GfoPalette (OSRS-gold locals retired 2026-07-10)
+    private static final Color GOLD = GfoPalette.ACCENT;
+    private static final Color GREEN = GfoPalette.UP;
+    private static final Color RED = GfoPalette.DOWN;
+    private static final Color DIM = GfoPalette.TEXT_MUTED;
 
     private final Listener listener;
     private final JPanel content = new JPanel();
@@ -293,7 +294,7 @@ public class AdvisorPanel extends JPanel
 
         content.add(Box.createVerticalStrut(2));
         JPanel sep = new JPanel();
-        sep.setBackground(new Color(0x3A, 0x3A, 0x3A));
+        sep.setBackground(GfoPalette.BORDER);
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         sep.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(sep);
@@ -362,7 +363,7 @@ public class AdvisorPanel extends JPanel
 
         content.add(Box.createVerticalStrut(2));
         JPanel sep = new JPanel();
-        sep.setBackground(new Color(0x3A, 0x3A, 0x3A));
+        sep.setBackground(GfoPalette.BORDER);
         sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
         sep.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(sep);
@@ -550,13 +551,13 @@ public class AdvisorPanel extends JPanel
         }
         if ("SELL".equalsIgnoreCase(action))
         {
-            return new Color(0x00, 0x88, 0xCC);
+            return GfoPalette.ACCENT_2;
         }
         if ("ABORT".equalsIgnoreCase(action))
         {
             return RED.darker();
         }
-        return new Color(0x55, 0x55, 0x55);
+        return GfoPalette.TEXT_DIM;
     }
 
     private JPanel meta(String label, String value)

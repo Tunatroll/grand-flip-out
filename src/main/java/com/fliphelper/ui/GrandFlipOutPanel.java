@@ -71,15 +71,18 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GrandFlipOutPanel extends PluginPanel
 {
-    private static final Color BRAND_GOLD = new Color(0xE0, 0xA8, 0x2E); // granary wheat-gold
-    private static final Color PANEL_DEEP = new Color(0x0D, 0x0D, 0x0C); // warm near-black
-    private static final Color PANEL_CARD = new Color(0x1A, 0x18, 0x15); // granary card
-    private static final Color TEXT_DIM = new Color(0x7A, 0x71, 0x5C); // muted wheat
-    private static final Color PROFIT_GREEN = new Color(0x5F, 0xB8, 0x5F); // granary green
-    private static final Color LOSS_RED = new Color(0xD4, 0x6A, 0x6A); // granary red
-    private static final Color PANEL_BORDER = new Color(0x2A, 0x26, 0x20); // granary border
-    private static final Color PANEL_BUTTON = new Color(0x14, 0x13, 0x12);
-    private static final Color PANEL_BUTTON_ACTIVE = new Color(0x22, 0x1F, 0x1A);
+    // GFO pastel brand via the GfoPalette SSOT (the granary wheat-gold theme was the
+    // WRONG project's identity — owner 2026-07-10). Legacy local names kept this chunk
+    // to hold the diff down; the rename sweep rides the chunk-C file split.
+    private static final Color BRAND_GOLD = GfoPalette.ACCENT;
+    private static final Color PANEL_DEEP = GfoPalette.PANEL;
+    private static final Color PANEL_CARD = GfoPalette.CARD;
+    private static final Color TEXT_DIM = GfoPalette.TEXT_MUTED;
+    private static final Color PROFIT_GREEN = GfoPalette.UP;
+    private static final Color LOSS_RED = GfoPalette.DOWN;
+    private static final Color PANEL_BORDER = GfoPalette.BORDER;
+    private static final Color PANEL_BUTTON = GfoPalette.CARD;
+    private static final Color PANEL_BUTTON_ACTIVE = GfoPalette.ELEVATED;
 
     private static final NumberFormat GP_FORMAT = NumberFormat.getIntegerInstance(Locale.US);
 
@@ -499,7 +502,7 @@ public class GrandFlipOutPanel extends PluginPanel
         countTitle.setFont(countTitle.getFont().deriveFont(Font.BOLD, 9f));
         countCard.add(countTitle, BorderLayout.NORTH);
         sessionFlipCountLabel = new JLabel("0");
-        sessionFlipCountLabel.setForeground(new Color(0x3B, 0x82, 0xF6));
+        sessionFlipCountLabel.setForeground(GfoPalette.ACCENT_2);
         sessionFlipCountLabel.setFont(sessionFlipCountLabel.getFont().deriveFont(Font.BOLD, 12f));
         countCard.add(sessionFlipCountLabel, BorderLayout.CENTER);
         statsRow.add(countCard);
@@ -943,7 +946,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         long avgProfit = (long) flipTracker.getAverageProfitPerFlip();
         avgProfitLabel.setText(formatGpFull(avgProfit) + " gp");
-        avgProfitLabel.setForeground(avgProfit >= 0 ? Color.WHITE : new Color(0xFF, 0x47, 0x57));
+        avgProfitLabel.setForeground(avgProfit >= 0 ? GfoPalette.TEXT : GfoPalette.DOWN);
 
         long gpPerHour = flipTracker.getGpPerHour();
         gpPerHourLabel.setText(gpPerHour > 0 ? formatGpFull(gpPerHour) + " gp/hr" : "—");
@@ -1006,7 +1009,7 @@ public class GrandFlipOutPanel extends PluginPanel
                 if (idx.incrementAndGet() < flipTracker.getActiveFlips().size())
                 {
                     JSeparator sep = new JSeparator();
-                    sep.setForeground(new Color(0x2A, 0x2A, 0x45));
+                    sep.setForeground(GfoPalette.BORDER);
                     sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
                     activeFlipsPanel.add(sep);
                 }
@@ -1055,7 +1058,7 @@ public class GrandFlipOutPanel extends PluginPanel
             if (i > 0)
             {
                 JSeparator sep = new JSeparator();
-                sep.setForeground(new Color(0x2A, 0x2A, 0x45));
+                sep.setForeground(GfoPalette.BORDER);
                 sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
                 historyPanel.add(sep);
             }
@@ -1134,7 +1137,7 @@ public class GrandFlipOutPanel extends PluginPanel
                             {
                                 JLabel itemLabel = new JLabel(
                                     "  " + entry.getKey() + ": " + formatGpFull(entry.getValue()) + " gp");
-                                itemLabel.setForeground(entry.getValue() >= 0 ? Color.GREEN : Color.RED);
+                                itemLabel.setForeground(entry.getValue() >= 0 ? GfoPalette.UP : GfoPalette.DOWN);
                                 itemLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
                                 summaryPanel.add(itemLabel);
                             }
@@ -1200,7 +1203,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private void styleSearchField(JTextField field)
     {
-        field.setBackground(new Color(0x12, 0x12, 0x20));
+        field.setBackground(GfoPalette.PANEL);
         field.setForeground(Color.WHITE);
         field.setCaretColor(BRAND_GOLD);
         field.setBorder(BorderFactory.createCompoundBorder(
@@ -1292,7 +1295,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private JPanel buildFlipCard(com.fliphelper.model.FlipItem flip)
     {
-        Color cardBg = new Color(0x1A, 0x1A, 0x2E);
+        Color cardBg = GfoPalette.CARD;
 
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
@@ -1312,9 +1315,9 @@ public class GrandFlipOutPanel extends PluginPanel
         row1.add(nameLabel, BorderLayout.WEST);
 
         String stateName = flip.getState().getDisplayName();
-        Color stateColor = stateName.contains("Buy") ? new Color(0x00, 0xD2, 0x6A)
-            : stateName.contains("Sell") ? new Color(0xFF, 0xB8, 0x00)
-            : new Color(0x3B, 0x82, 0xF6);
+        Color stateColor = stateName.contains("Buy") ? GfoPalette.UP
+            : stateName.contains("Sell") ? GfoPalette.ACCENT_2
+            : GfoPalette.ACCENT_2;
         JLabel stateLabel = new JLabel(" " + stateName + " ");
         stateLabel.setForeground(Color.WHITE);
         stateLabel.setOpaque(true);
@@ -1346,7 +1349,7 @@ public class GrandFlipOutPanel extends PluginPanel
             profitRow.setOpaque(false);
             JLabel expectedLabel = new JLabel("Expected Profit: " + formatGpFull(expectedProfit) + " gp");
             expectedLabel.setForeground(expectedProfit >= 0
-                ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
+                ? GfoPalette.UP : GfoPalette.DOWN);
             expectedLabel.setFont(expectedLabel.getFont().deriveFont(Font.BOLD, 11f));
             profitRow.add(expectedLabel, BorderLayout.WEST);
             card.add(profitRow);
@@ -1354,7 +1357,7 @@ public class GrandFlipOutPanel extends PluginPanel
         else
         {
             JLabel naLabel = new JLabel("Expected Profit: N/A");
-            naLabel.setForeground(new Color(0x60, 0x60, 0x80));
+            naLabel.setForeground(GfoPalette.TEXT_DIM);
             card.add(naLabel);
         }
 
@@ -1363,7 +1366,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private JPanel buildHistoryCard(com.fliphelper.model.FlipItem flip)
     {
-        Color cardBg = new Color(0x1A, 0x1A, 0x2E);
+        Color cardBg = GfoPalette.CARD;
         long profit = flip.getProfit();
 
         JPanel card = new JPanel();
@@ -1385,7 +1388,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         String profitText = (profit >= 0 ? "+" : "") + formatGpFull(profit) + " gp";
         JLabel profitLabel = new JLabel(profitText);
-        profitLabel.setForeground(profit >= 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
+        profitLabel.setForeground(profit >= 0 ? GfoPalette.UP : GfoPalette.DOWN);
         profitLabel.setFont(profitLabel.getFont().deriveFont(Font.BOLD, 11f));
         row1.add(profitLabel, BorderLayout.EAST);
         card.add(row1);
@@ -1407,12 +1410,12 @@ public class GrandFlipOutPanel extends PluginPanel
         row3.setOpaque(false);
         double roi = flip.getProfitPercent();
         JLabel roiLabel = createCompactLabel(String.format("ROI: %.1f%%", roi));
-        roiLabel.setForeground(roi >= 0 ? new Color(0x00, 0xB0, 0x5A) : new Color(0xCC, 0x40, 0x40));
+        roiLabel.setForeground(roi >= 0 ? GfoPalette.UP : GfoPalette.DOWN);
         row3.add(roiLabel);
         row3.add(createCompactLabel("Tax: " + formatGp(flip.getTax())));
         long gpPerHour = flip.getGpPerHour();
         JLabel gpHrLabel = createCompactLabel(gpPerHour > 0 ? formatGp(gpPerHour) + "/hr" : "-/hr");
-        gpHrLabel.setForeground(gpPerHour > 0 ? new Color(0xFF, 0xB8, 0x00) : new Color(0x60, 0x60, 0x80));
+        gpHrLabel.setForeground(gpPerHour > 0 ? GfoPalette.ACCENT_2 : GfoPalette.TEXT_DIM);
         row3.add(gpHrLabel);
         card.add(row3);
 
@@ -1424,7 +1427,7 @@ public class GrandFlipOutPanel extends PluginPanel
         long profit = entry.getProfit();
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBackground(new Color(0x1A, 0x1A, 0x2E));
+        card.setBackground(GfoPalette.CARD);
         card.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(PANEL_BORDER),
             new EmptyBorder(6, 10, 6, 10)
@@ -1480,7 +1483,7 @@ public class GrandFlipOutPanel extends PluginPanel
     private JLabel createCompactLabel(String text)
     {
         JLabel label = new JLabel(text);
-        label.setForeground(new Color(0x80, 0x80, 0xA0));
+        label.setForeground(GfoPalette.TEXT_MUTED);
         label.setFont(label.getFont().deriveFont(Font.PLAIN, 9f));
         return label;
     }
@@ -1562,7 +1565,7 @@ public class GrandFlipOutPanel extends PluginPanel
             if (categories[i].equals(selectedCategory))
             {
                 btn.setBackground(BRAND_GOLD);
-                btn.setForeground(new Color(0x0F, 0x0F, 0x17));
+                btn.setForeground(GfoPalette.PANEL);
                 btn.setOpaque(true);
                 btn.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(BRAND_GOLD),
@@ -1573,7 +1576,7 @@ public class GrandFlipOutPanel extends PluginPanel
             else
             {
                 btn.setBackground(PANEL_CARD);
-                btn.setForeground(new Color(0x80, 0x80, 0xA0));
+                btn.setForeground(GfoPalette.TEXT_MUTED);
                 btn.setOpaque(true);
                 btn.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(PANEL_BORDER),
@@ -1594,7 +1597,7 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             priceResultsPanel.removeAll();
             JLabel loading = new JLabel("Price data is still loading. Please wait...");
-            loading.setForeground(Color.YELLOW);
+            loading.setForeground(GfoPalette.ACCENT_2);
             loading.setBorder(new EmptyBorder(20, 8, 20, 8));
             priceResultsPanel.add(loading);
             priceResultsPanel.revalidate();
@@ -1659,7 +1662,7 @@ public class GrandFlipOutPanel extends PluginPanel
             if (i < displayCount - 1)
             {
                 JSeparator sep = new JSeparator();
-                sep.setForeground(new Color(0x2A, 0x2A, 0x45));
+                sep.setForeground(GfoPalette.BORDER);
                 sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
                 priceResultsPanel.add(sep);
             }
@@ -1774,7 +1777,7 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             priceResultsPanel.removeAll();
             JLabel loading = new JLabel("Price data is still loading. Please wait...");
-            loading.setForeground(Color.YELLOW);
+            loading.setForeground(GfoPalette.ACCENT_2);
             loading.setBorder(new EmptyBorder(20, 8, 20, 8));
             priceResultsPanel.add(loading);
             priceResultsPanel.revalidate();
@@ -1943,7 +1946,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private JPanel buildPriceCard(PriceAggregate agg)
     {
-        Color cardBg = new Color(0x1A, 0x1A, 0x2E);
+        Color cardBg = GfoPalette.CARD;
         long margin = agg.getConsensusMargin();
 
         JPanel card = new JPanel();
@@ -2027,8 +2030,8 @@ public class GrandFlipOutPanel extends PluginPanel
                 JLabel sigBadge = new JLabel(" " + cached.action + " ");
                 sigBadge.setForeground(Color.WHITE);
                 sigBadge.setOpaque(true);
-                sigBadge.setBackground(cached.action.equals("BUY") ? new Color(0x00, 0xA8, 0x6B)
-                    : cached.action.equals("SELL") ? new Color(0xC0, 0x39, 0x2B) : new Color(0x55, 0x55, 0x55));
+                sigBadge.setBackground(cached.action.equals("BUY") ? GfoPalette.UP
+                    : cached.action.equals("SELL") ? GfoPalette.DOWN : GfoPalette.TEXT_DIM);
                 sigBadge.setFont(sigBadge.getFont().deriveFont(Font.BOLD, 9f));
                 badges.add(sigBadge);
             }
@@ -2044,9 +2047,9 @@ public class GrandFlipOutPanel extends PluginPanel
         }
 
         double marginPct = agg.getConsensusMarginPercent();
-        Color marginColor = marginPct >= 5 ? new Color(0x00, 0xD2, 0x6A)
-            : marginPct >= 2 ? new Color(0xFF, 0xB8, 0x00)
-            : new Color(0xFF, 0x47, 0x57);
+        Color marginColor = marginPct >= 5 ? GfoPalette.UP
+            : marginPct >= 2 ? GfoPalette.ACCENT_2
+            : GfoPalette.DOWN;
         JLabel marginBadge = new JLabel(" " + String.format("%.1f%%", marginPct) + " ");
         marginBadge.setForeground(Color.WHITE);
         marginBadge.setOpaque(true);
@@ -2063,9 +2066,9 @@ public class GrandFlipOutPanel extends PluginPanel
         // N1: data-freshness badge — flag items whose last real trade is old, so a
         // stale (possibly unreliable) price is visible at a glance.
         long ageSec = agg.getDataAgeSeconds();
-        Color freshColor = ageSec < 300 ? new Color(0x00, 0xD2, 0x6A)
-            : ageSec < 3600 ? new Color(0xFF, 0xB8, 0x00)
-            : new Color(0xFF, 0x47, 0x57);
+        Color freshColor = ageSec < 300 ? GfoPalette.UP
+            : ageSec < 3600 ? GfoPalette.ACCENT_2
+            : GfoPalette.DOWN;
         JLabel freshBadge = new JLabel(" " + agg.getFreshnessLabel() + " ");
         freshBadge.setForeground(Color.WHITE);
         freshBadge.setOpaque(true);
@@ -2093,7 +2096,7 @@ public class GrandFlipOutPanel extends PluginPanel
         Component[] mcs = marginMeta.getComponents();
         if (mcs.length > 1 && mcs[1] instanceof JLabel)
         {
-            ((JLabel) mcs[1]).setForeground(netMargin > 0 ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
+            ((JLabel) mcs[1]).setForeground(netMargin > 0 ? GfoPalette.UP : GfoPalette.DOWN);
         }
         row2.add(marginMeta);
         card.add(row2);
@@ -2108,7 +2111,7 @@ public class GrandFlipOutPanel extends PluginPanel
         Component[] pcs = profitMeta.getComponents();
         if (pcs.length > 1 && pcs[1] instanceof JLabel)
         {
-            ((JLabel) pcs[1]).setForeground(new Color(0xFF, 0xB8, 0x00));
+            ((JLabel) pcs[1]).setForeground(GfoPalette.ACCENT_2);
         }
         row3.add(profitMeta);
         card.add(row3);
@@ -2124,9 +2127,9 @@ public class GrandFlipOutPanel extends PluginPanel
             Component[] fcs = fillMeta.getComponents();
             if (fcs.length > 1 && fcs[1] instanceof JLabel)
             {
-                Color fillColor = fillMin < 15 ? new Color(0x00, 0xD2, 0x6A)
-                    : fillMin < 60 ? new Color(0xFF, 0xB8, 0x00)
-                    : new Color(0xFF, 0x47, 0x57);
+                Color fillColor = fillMin < 15 ? GfoPalette.UP
+                    : fillMin < 60 ? GfoPalette.ACCENT_2
+                    : GfoPalette.DOWN;
                 ((JLabel) fcs[1]).setForeground(fillColor);
             }
             card.add(fillMeta);
@@ -2157,7 +2160,7 @@ public class GrandFlipOutPanel extends PluginPanel
                     Component[] acs = alchMeta.getComponents();
                     if (acs.length > 1 && acs[1] instanceof JLabel)
                     {
-                        ((JLabel) acs[1]).setForeground(new Color(0xFF, 0x47, 0x57));
+                        ((JLabel) acs[1]).setForeground(GfoPalette.DOWN);
                         ((JLabel) acs[1]).setText(formatGp(alchFloor) + " (NEAR)");
                     }
                 }
@@ -2168,7 +2171,7 @@ public class GrandFlipOutPanel extends PluginPanel
                 if (apcs.length > 1 && apcs[1] instanceof JLabel)
                 {
                     ((JLabel) apcs[1]).setForeground(alchProfit > 0
-                        ? new Color(0x00, 0xD2, 0x6A) : new Color(0xFF, 0x47, 0x57));
+                        ? GfoPalette.UP : GfoPalette.DOWN);
                 }
                 alchRow.add(alchProfitMeta);
                 card.add(alchRow);

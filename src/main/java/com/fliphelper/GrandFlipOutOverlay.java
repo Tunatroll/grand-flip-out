@@ -8,6 +8,8 @@
 
 package com.fliphelper;
 
+import com.fliphelper.ui.GfoPalette;
+
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.PriceAggregate;
@@ -45,16 +47,16 @@ import java.util.Locale;
  */
 public class GrandFlipOutOverlay extends Overlay
 {
-    private static final Color ACCENT_GOLD = new Color(0xFF, 0xB8, 0x00);
-    private static final Color PROFIT_GREEN = new Color(0x00, 0xD2, 0x6A);
-    private static final Color LOSS_RED = new Color(0xFF, 0x47, 0x57);
-    private static final Color WARNING_AMBER = new Color(0xFF, 0xA5, 0x00);
-    private static final Color META_NEUTRAL = new Color(0xD4, 0xAF, 0x37);
-    private static final Color SLOT_PROFIT = new Color(0x00, 0xB0, 0x5A, 180);
-    private static final Color SLOT_LOSS = new Color(0xCC, 0x40, 0x40, 180);
-    private static final Color SLOT_FLAT = new Color(0xC8, 0x96, 0x00, 180);
-    private static final Color ACT_FILL = new Color(0xFF, 0xB8, 0x00, 60);
-    private static final Color ACT_OUTLINE = new Color(0xFF, 0xB8, 0x00, 220);
+    private static final Color ACCENT_GOLD = GfoPalette.ACCENT_2;
+    private static final Color PROFIT_GREEN = GfoPalette.UP;
+    private static final Color LOSS_RED = GfoPalette.DOWN;
+    private static final Color WARNING_AMBER = GfoPalette.ACCENT_2;
+    private static final Color META_NEUTRAL = GfoPalette.ACCENT;
+    private static final Color SLOT_PROFIT = new Color(GfoPalette.UP.getRed(), GfoPalette.UP.getGreen(), GfoPalette.UP.getBlue(), 180);
+    private static final Color SLOT_LOSS = new Color(GfoPalette.DOWN.getRed(), GfoPalette.DOWN.getGreen(), GfoPalette.DOWN.getBlue(), 180);
+    private static final Color SLOT_FLAT = new Color(GfoPalette.ACCENT.getRed(), GfoPalette.ACCENT.getGreen(), GfoPalette.ACCENT.getBlue(), 180);
+    private static final Color ACT_FILL = new Color(GfoPalette.ACCENT_2.getRed(), GfoPalette.ACCENT_2.getGreen(), GfoPalette.ACCENT_2.getBlue(), 60);
+    private static final Color ACT_OUTLINE = new Color(GfoPalette.ACCENT_2.getRed(), GfoPalette.ACCENT_2.getGreen(), GfoPalette.ACCENT_2.getBlue(), 220);
     private static final NumberFormat GP_FORMAT = NumberFormat.getIntegerInstance(Locale.US);
     private final Client client;
     private final GrandFlipOutConfig config;
