@@ -330,7 +330,7 @@ public interface GrandFlipOutConfig extends Config
         section = intelligenceSection,
         position = 0,
         warning = "This plugin submits your IP address to a 3rd party website not controlled or verified by the RuneLite Developers. "
-            + "When enabled, your Grand Exchange offer and trade data (item, price, quantity, and approximate coins) are sent to grandflipout.com."
+            + "When enabled, your Grand Exchange offer and trade data (item, price, quantity, flip timings, and approximate coins) are sent to grandflipout.com."
     )
     default boolean enableServerFunctionality()
     {
@@ -365,8 +365,9 @@ public interface GrandFlipOutConfig extends Config
         keyName = "contributeTrades",
         name = "Contribute trades (crowdsourced data)",
         description = "Opt in to share your completed GE trades (item, price, quantity, buy/sell) "
+            + "and completed-flip outcomes (paired buy/sell prices with placed-to-filled timings) "
             + "with grandflipout.com to improve crowdsourced flip data. Off by default. "
-            + "Independent of the read-only advisor above.",
+            + "Independent of the read-only advisor above. No account identity is sent.",
         section = intelligenceSection,
         position = 4
     )

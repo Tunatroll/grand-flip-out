@@ -8,6 +8,7 @@
 
 package com.fliphelper.api;
 
+import com.fliphelper.model.FlipItem;
 import com.fliphelper.model.GameStateSnapshot;
 import com.fliphelper.model.Suggestion;
 import com.google.gson.Gson;
@@ -20,6 +21,8 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -422,6 +425,84 @@ public class IntelligenceClient
         {
             log.debug("Trade sync error: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Fire-and-forget: report one COMPLETED (buy-sell paired) flip to the anonymous
+     * flip-outcome telemetry endpoint. The caller gates on the same double opt-in as
+     * {@link #submitTrade} (enableServerFunctionality + contributeTrades). Only live
+     * fills are reported: GE-history imports replay old trades through the same
+     * tracker path, so anything whose sell is not recent is dropped here. Payload is
+     * item/prices/quantity/timings only — never account identity.
+     */
+    public void submitFlipOutcome(FlipItem flip)
+    {
+        try
+        {
+            if (!isRecentFill(flip, Instant.now()))
+            {
+                return;
+            }
+
+            okhttp3.RequestBody body = okhttp3.RequestBody.create(
+                okhttp3.MediaType.parse("application/json"), flipOutcomeJson(flip));
+
+            Request request = new Request.Builder()
+                .url(baseUrl + "/api/flip-outcomes")
+                .post(body)
+                .header("Content-Type", "application/json")
+                .header("User-Agent", "GrandFlipOut-Plugin/1.0")
+                .build();
+
+            httpClient.newCall(request).enqueue(new okhttp3.Callback()
+            {
+                @Override public void onFailure(okhttp3.Call call, IOException e)
+                {
+                    log.debug("Flip outcome sync failed: {}", e.getMessage());
+                }
+                @Override public void onResponse(okhttp3.Call call, Response response)
+                {
+                    response.close();
+                }
+            });
+        }
+        catch (Exception e)
+        {
+            log.debug("Flip outcome sync error: {}", e.getMessage());
+        }
+    }
+
+    /** Live-fill guard: true when the flip's sell completed within the last 10 minutes. */
+    static boolean isRecentFill(FlipItem flip, Instant now)
+    {
+        return flip != null && flip.getSellTime() != null
+            && !flip.getSellTime().isAfter(now.plusSeconds(60))
+            && Duration.between(flip.getSellTime(), now).toMinutes() < 10;
+    }
+
+    /** Build the /api/flip-outcomes payload (matches the server's sanitizeOutcome contract). */
+    static String flipOutcomeJson(FlipItem flip)
+    {
+        StringBuilder sb = new StringBuilder(160);
+        sb.append("{\"itemId\":").append(flip.getItemId())
+            .append(",\"buyPrice\":").append(flip.getBuyPrice())
+            .append(",\"sellPrice\":").append(flip.getSellPrice())
+            .append(",\"qty\":").append(flip.getQuantity())
+            .append(",\"outcome\":\"filled\"");
+        if (flip.getBuyTime() != null)
+        {
+            sb.append(",\"placedAt\":").append(flip.getBuyTime().toEpochMilli());
+        }
+        if (flip.getSellTime() != null)
+        {
+            sb.append(",\"filledAt\":").append(flip.getSellTime().toEpochMilli());
+        }
+        if (flip.getFrozenSellPrice() > 0)
+        {
+            sb.append(",\"hitTarget\":").append(flip.getSellPrice() >= flip.getFrozenSellPrice());
+        }
+        sb.append('}');
+        return sb.toString();
     }
 
     private JsonObject fetchJson(HttpUrl url) throws IOException

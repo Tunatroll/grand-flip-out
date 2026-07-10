@@ -206,6 +206,13 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             {
                 sessionManager.recordFlipToSession(flip);
             }
+            // Contribute the PAIRED outcome (buy-sell prices + timings) to the anonymous
+            // flip-outcome telemetry — same double opt-in as the per-leg trade contribution.
+            // Async fire-and-forget; the client itself drops non-live (history-import) fills.
+            if (config.enableServerFunctionality() && config.contributeTrades() && intelligenceClient != null)
+            {
+                intelligenceClient.submitFlipOutcome(flip);
+            }
             clientThread.invokeLater(() ->
             {
                 WealthSnapshot wealth = WealthSnapshot.capture(client, priceService);
