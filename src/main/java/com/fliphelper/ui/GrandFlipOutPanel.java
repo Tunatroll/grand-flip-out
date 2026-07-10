@@ -412,11 +412,20 @@ public class GrandFlipOutPanel extends PluginPanel
         for (JToggleButton b : new JToggleButton[] { firstBtn, secondBtn })
         {
             styleSecondaryButton(b);
-            // selected segment reads gold so the active card is visible at a glance
-            b.addItemListener(e -> b.setForeground(b.isSelected() ? BRAND_GOLD : Color.LIGHT_GRAY));
+            // kill the LaF's selected fill (painted light-blue over our dark scheme —
+            // caught on the screenshot harness render) so OUR colors are what paints
+            b.setContentAreaFilled(false);
+            b.setOpaque(true);
+            // selected segment: elevated dark + gold text; unselected: flat + gray
+            java.awt.event.ItemListener restyle = e -> {
+                b.setForeground(b.isSelected() ? BRAND_GOLD : Color.LIGHT_GRAY);
+                b.setBackground(b.isSelected() ? PANEL_DEEP : PANEL_BUTTON);
+            };
+            b.addItemListener(restyle);
             toggleRow.add(b);
         }
         firstBtn.setForeground(BRAND_GOLD);
+        firstBtn.setBackground(PANEL_DEEP);
         firstBtn.addActionListener(e -> cards.show(cardHost, key + ".first"));
         secondBtn.addActionListener(e -> cards.show(cardHost, key + ".second"));
 
