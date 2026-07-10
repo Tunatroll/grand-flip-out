@@ -50,6 +50,16 @@ maintainer rules per `.claude/skills/runelite-plugin-dev`.
 - **Chunk A** (after #13341 merges): #5 tier consumption + #6 contrast — pure content honesty,
   small diff, high user value. Includes tests where the repo has them + `./gradlew clean build`.
 - **Chunk B**: #1 tab consolidation + #2/#3 dedupe (UI reorganization, no new features).
+  **✅ BUILT 2026-07-10 on `chunk-b-tabs` (clean build + tests green; local, push owner-gated).**
+  Re-grounded first — the 07-06 state above had rotted: the LIVE plugin showed only 4 tabs
+  (Advisor/Flips/History/Guide) since the Hub-submission slim (91dec5d); pricesTab/intelPanel/
+  recipesTab were BUILT-but-never-added (allocated dark every boot) and buildUnlockCta has ONE
+  call site (no per-tab duplication → #3 was moot, skipped as churn). Shipped shape: 5 tabs —
+  Advisor (default) · Prices (+Recipes as a segmented CardLayout card) · Flips (+History card) ·
+  Intel · Guide; existing builders reused untouched (refresh paths mutate the same instances);
+  dead `openRecipesTab` deleted (its recipesBtn caller was removed in the slim); #2 done via one
+  `emptyStateLabel` (4 drifted copies). ~72+/29− LOC. REMAINING before the Hub PR: owner runs the
+  client for a visual pass (no screenshot harness in this repo) + owner OK to push.
 - **Chunk C+**: #4 file split, one tab per PR (mechanical, reviewer-friendly).
 - **Chunk D**: #7 recovery history line.
 

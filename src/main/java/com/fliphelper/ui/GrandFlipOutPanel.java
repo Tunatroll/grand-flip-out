@@ -20,9 +20,11 @@ import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.QuantityFormatter;
 
+import javax.swing.AbstractButton;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
@@ -32,11 +34,13 @@ import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicTabbedPaneUI;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
@@ -204,8 +208,16 @@ public class GrandFlipOutPanel extends PluginPanel
         GuidePanel guideTab = new GuidePanel();
 
         intelPanel = buildIntelTab();
-        tabbedPane.addTab("Flips", flipsTab);
-        tabbedPane.addTab("History", historyTab);
+        // Chunk B (UX overhaul): the 5-tab bar — Advisor (inserted at index 0 by the
+        // plugin = the default) · Prices (+Recipes card) · Flips (+History card) ·
+        // Intel · Guide. Prices/Intel/Recipes had been BUILT but never added since
+        // the Hub-submission slim (91dec5d) — allocated dark on every boot; History
+        // was a whole tab for one concern (past flips), now a card inside Flips.
+        tabbedPane.addTab("Prices", buildCardPairTab("prices",
+            pricesTab, "Prices", recipesTab, "Recipes"));
+        tabbedPane.addTab("Flips", buildCardPairTab("flips",
+            flipsTab, "Active", historyTab, "History"));
+        tabbedPane.addTab("Intel", intelPanel);
         tabbedPane.addTab("Guide", guideTab);
         styleTabbedPane();
 
@@ -370,19 +382,62 @@ public class GrandFlipOutPanel extends PluginPanel
         this.geHistoryImportAction = action;
     }
 
-    /** Switch to the native Recipes tab and recompute its set-vs-pieces arbitrage. */
-    private void openRecipesTab()
+    /**
+     * Chunk B: two related surfaces share ONE tab — a segmented toggle swaps
+     * CardLayout cards (Prices|Recipes, Active|History). The existing panels are
+     * reused untouched: refresh paths keep mutating the same component instances
+     * regardless of parent, so behavior is identical card-for-card.
+     */
+    private JPanel buildCardPairTab(String key, JPanel first, String firstLabel,
+        JPanel second, String secondLabel)
     {
-        if (tabbedPane == null || recipesTab == null)
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+        CardLayout cards = new CardLayout();
+        JPanel cardHost = new JPanel(cards);
+        cardHost.setOpaque(false);
+        cardHost.add(first, key + ".first");
+        cardHost.add(second, key + ".second");
+
+        JToggleButton firstBtn = new JToggleButton(firstLabel, true);
+        JToggleButton secondBtn = new JToggleButton(secondLabel);
+        ButtonGroup group = new ButtonGroup();
+        group.add(firstBtn);
+        group.add(secondBtn);
+
+        JPanel toggleRow = new JPanel(new GridLayout(1, 2, 4, 0));
+        toggleRow.setOpaque(false);
+        toggleRow.setBorder(new EmptyBorder(6, 8, 2, 8));
+        for (JToggleButton b : new JToggleButton[] { firstBtn, secondBtn })
         {
-            return;
+            styleSecondaryButton(b);
+            // selected segment reads gold so the active card is visible at a glance
+            b.addItemListener(e -> b.setForeground(b.isSelected() ? BRAND_GOLD : Color.LIGHT_GRAY));
+            toggleRow.add(b);
         }
-        recipesTab.refresh();
-        int idx = tabbedPane.indexOfComponent(recipesTab);
-        if (idx >= 0)
-        {
-            tabbedPane.setSelectedIndex(idx);
-        }
+        firstBtn.setForeground(BRAND_GOLD);
+        firstBtn.addActionListener(e -> cards.show(cardHost, key + ".first"));
+        secondBtn.addActionListener(e -> cards.show(cardHost, key + ".second"));
+
+        wrapper.add(toggleRow, BorderLayout.NORTH);
+        wrapper.add(cardHost, BorderLayout.CENTER);
+        return wrapper;
+    }
+
+
+    /**
+     * Chunk B (#2): the ONE empty-state label — four hand-rolled copies had drifted
+     * on color/insets; the restored surfaces make empty states visible, so they
+     * should read identically everywhere.
+     */
+    private JLabel emptyStateLabel(String text)
+    {
+        JLabel empty = new JLabel(text);
+        empty.setForeground(Color.GRAY);
+        empty.setBorder(new EmptyBorder(20, 8, 20, 8));
+        empty.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return empty;
     }
 
     private JPanel buildHeaderPanel()
@@ -931,10 +986,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         if (flipTracker.getActiveFlips().isEmpty())
         {
-            JLabel empty = new JLabel("No active flips. Buy something in the GE!");
-            empty.setForeground(Color.GRAY);
-            empty.setBorder(new EmptyBorder(20, 8, 20, 8));
-            activeFlipsPanel.add(empty);
+            activeFlipsPanel.add(emptyStateLabel("No active flips. Buy something in the GE!"));
         }
         else
         {
@@ -1028,10 +1080,7 @@ public class GrandFlipOutPanel extends PluginPanel
             }
             if (displayCount == 0 && logEntries.isEmpty())
             {
-                JLabel empty = new JLabel("No completed flips yet. trade_log.ndjson fills on GE sells.");
-                empty.setForeground(Color.GRAY);
-                empty.setBorder(new EmptyBorder(20, 8, 20, 8));
-                historyPanel.add(empty);
+                historyPanel.add(emptyStateLabel("No completed flips yet. trade_log.ndjson fills on GE sells."));
             }
         }
 
@@ -1083,10 +1132,7 @@ public class GrandFlipOutPanel extends PluginPanel
                         }
                         else
                         {
-                            JLabel emptyLabel = new JLabel("Complete flips to see top items");
-                            emptyLabel.setForeground(Color.GRAY);
-                            emptyLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                            summaryPanel.add(emptyLabel);
+                            summaryPanel.add(emptyStateLabel("Complete flips to see top items"));
                         }
                     }
                     catch (Exception ex)
@@ -1129,7 +1175,7 @@ public class GrandFlipOutPanel extends PluginPanel
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
-    private void styleSecondaryButton(JButton btn)
+    private void styleSecondaryButton(AbstractButton btn)
     {
         btn.setFont(btn.getFont().deriveFont(Font.BOLD, 11f));
         btn.setBackground(PANEL_BUTTON);
@@ -2364,10 +2410,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
                     if (intelContentPanel.getComponentCount() == 0)
                     {
-                        JLabel empty = new JLabel("No active intelligence signals.");
-                        empty.setForeground(TEXT_DIM);
-                        empty.setBorder(new EmptyBorder(20, 8, 20, 8));
-                        intelContentPanel.add(empty);
+                        intelContentPanel.add(emptyStateLabel("No active intelligence signals."));
                     }
 
                     intelContentPanel.revalidate();
