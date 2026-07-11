@@ -98,6 +98,7 @@ public class GrandFlipOutPanel extends PluginPanel
     private JPanel historyTab;
     private JPanel intelPanel;
     private RecipePanel recipesTab;
+    private GuidePanel guideTab;
     private JPanel intelContentPanel;
     private com.fliphelper.api.IntelligenceClient intelligenceClient;
     private com.fliphelper.api.EntitlementService entitlementService;
@@ -187,6 +188,16 @@ public class GrandFlipOutPanel extends PluginPanel
         buildPanel();
     }
 
+    /** Arm the Guide tab's device-code link section (called by the plugin at startUp). */
+    public void enableDeviceLink(GrandFlipOutConfig cfg, com.fliphelper.api.DeviceLinkService svc,
+                                 java.util.function.Consumer<String> keyWriter)
+    {
+        if (guideTab != null)
+        {
+            guideTab.enableDeviceLink(cfg, svc, keyWriter);
+        }
+    }
+
     private void buildPanel()
     {
         setLayout(new BorderLayout());
@@ -208,7 +219,7 @@ public class GrandFlipOutPanel extends PluginPanel
         historyTab = buildHistoryTab();
 
         recipesTab = new RecipePanel(priceService);
-        GuidePanel guideTab = new GuidePanel();
+        guideTab = new GuidePanel();
 
         intelPanel = buildIntelTab();
         // Chunk B (UX overhaul): the 5-tab bar — Advisor (inserted at index 0 by the

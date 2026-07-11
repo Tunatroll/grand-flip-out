@@ -126,6 +126,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private Gson gson;
 
     @Inject
+    private net.runelite.client.config.ConfigManager configManager;
+
+    @Inject
     private ScheduledExecutorService executor;
 
     @Inject
@@ -137,6 +140,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private SessionManager sessionManager;
     private IntelligenceClient intelligenceClient;
     private com.fliphelper.api.EntitlementService entitlementService;
+    private com.fliphelper.api.DeviceLinkService deviceLinkService;
     private GrandFlipOutPanel panel;
     private GrandFlipOutOverlay overlay;
     private GpDropOverlay gpDropOverlay;
@@ -195,6 +199,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl(), gson);
         dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl(), gson);
         entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl(), gson);
+        deviceLinkService = new com.fliphelper.api.DeviceLinkService(okHttpClient, gson, config.intelligenceBaseUrl(), executor);
         flipTracker = new FlipTracker(config, priceService, DATA_DIR, gson, executor);
         geHistoryImporter = GeHistoryImporter.create(client, flipTracker, DATA_DIR, executor);
 
@@ -232,6 +237,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Create UI — pass sessionManager so the panel has GP/hr data
         panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager, DATA_DIR, intelligenceClient, executor, entitlementService);
+        panel.enableDeviceLink(config, deviceLinkService, key ->
+        {
+            // The one config write in the flow — never logged (device-link contract).
+            configManager.setConfiguration("grandflipout", "apiKey", key);
+            entitlementService.refresh(key);
+        });
         panel.setGeHistoryImportAction(this::importGeHistoryNow);
         // Share the panel's per-character alert targets so refreshPrices() can check them.
         alertStore = panel.getAlertStore();
@@ -298,6 +309,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     protected void shutDown() throws Exception
     {
         log.info("Grand Flip Out shutting down");
+
+        if (deviceLinkService != null)
+        {
+            deviceLinkService.cancel();
+        }
 
         if (refreshFuture != null)
         {
