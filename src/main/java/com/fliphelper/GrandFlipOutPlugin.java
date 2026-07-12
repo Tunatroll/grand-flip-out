@@ -969,10 +969,14 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     }
 
     /**
-     * Auto-fill the GE item-search box with the suggested item, then trigger the search —
-     * the same mechanism 07Flip uses (set MESLAYERINPUT + MESLAYERMODE, then run the search
-     * input's key-listener script). This is the GE item search, NOT the chatbox, so it is not
-     * the (forbidden) chatbox autotyping. Opt-in chokepoint; the player still clicks the item.
+     * Pre-fill the GE item-search box with the suggested item's name. Runs ONLY from the
+     * armed path — onScriptPostFired(GE_ITEM_SEARCH), i.e. the PLAYER just opened the
+     * search themselves — and uses the exact widget-text + client-var mechanism
+     * {@link #injectGeInput} already uses for price/quantity. The plugin never executes a
+     * client script: the old runScript(GE_ITEM_SEARCH) + runScript(2153) popup-and-refresh
+     * was the Hub-forbidden "auto-execute the GE search" pattern (compliance review
+     * 2026-07-12) and was removed — hotkeys now ARM the fill and the search opens by the
+     * player's own click. Opt-in chokepoint; the player still clicks the item.
      */
     private void fillGeSearch(int itemId)
     {
@@ -988,13 +992,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
         try
         {
-            // Instantly open the GE search interface and type the item name (Copilot parity)
-            client.runScript(net.runelite.api.ScriptID.GE_ITEM_SEARCH);
+            Widget searchInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
+            if (searchInput != null)
+            {
+                searchInput.setText(name + "*");
+            }
             client.setVarcStrValue(net.runelite.api.gameval.VarClientID.MESLAYERINPUT, name);
-            client.setVarcIntValue(net.runelite.api.gameval.VarClientID.MESLAYERMODE, 14); // GE search mode
-            
-            // Force the widget to redraw with the new text
-            client.runScript(2153); // CHATBOX_INPUT_REDRAW or similar standard script to update the UI
         }
         catch (Exception e)
         {
@@ -1011,7 +1014,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         if (s == null || s.isWait()) return;
 
         armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
-        fillGeSearch(s.getItemId());
     }
 
     private void skipSuggestion()
@@ -1025,7 +1027,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         if (s == null || s.isWait()) return;
 
         armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
-        fillGeSearch(s.getItemId());
     }
 
     public com.fliphelper.model.Suggestion getCopilotSuggestion()
@@ -1063,9 +1064,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
         else
         {
-            // Main GE screen is open. Arm and open the search.
+            // Main GE screen is open. Arm everything — the item name pre-fills the moment
+            // the player clicks the search box (never popped open programmatically).
             armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
-            fillGeSearch(s.getItemId());
         }
     }
 
