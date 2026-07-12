@@ -158,6 +158,56 @@ public class IntelligenceClient
     }
 
     /**
+     * Raw server watchlist items (id + alert rules) — the push-back leg needs them
+     * VERBATIM so a PUT (which replaces the whole list server-side) never drops the
+     * rules the user configured on the website.
+     */
+    public com.google.gson.JsonArray fetchAccountWatchlistRaw(String apiKey) throws IOException
+    {
+        HttpUrl url = HttpUrl.parse(baseUrl + "/api/account/watchlist").newBuilder().build();
+        Request request = new Request.Builder()
+            .url(url)
+            .get()
+            .header("Accept", "application/json")
+            .header("User-Agent", "GrandFlipOut-Plugin/1.0")
+            .header("Authorization", "Bearer " + apiKey)
+            .build();
+        try (Response response = httpClient.newCall(request).execute())
+        {
+            if (!response.isSuccessful() || response.body() == null)
+            {
+                throw new IOException("HTTP " + response.code());
+            }
+            JsonObject root = gson.fromJson(response.body().string(), JsonObject.class);
+            return (root.has("items") && root.get("items").isJsonArray())
+                ? root.get("items").getAsJsonArray() : new com.google.gson.JsonArray();
+        }
+    }
+
+    /**
+     * Replace the account watchlist (#190 push-back leg). The caller supplies the FULL
+     * merged array (server items verbatim + new local ids), because the server contract
+     * is replace-not-merge ("merge is a client concern" — routes/account.js). Fail-soft
+     * at the call site: a 400/402 (caps) must never break the plugin.
+     */
+    public boolean putAccountWatchlist(String apiKey, com.google.gson.JsonArray items) throws IOException
+    {
+        JsonObject body = new JsonObject();
+        body.add("items", items);
+        Request request = new Request.Builder()
+            .url(HttpUrl.parse(baseUrl + "/api/account/watchlist").newBuilder().build())
+            .put(okhttp3.RequestBody.create(okhttp3.MediaType.parse("application/json"), gson.toJson(body)))
+            .header("Accept", "application/json")
+            .header("User-Agent", "GrandFlipOut-Plugin/1.0")
+            .header("Authorization", "Bearer " + apiKey)
+            .build();
+        try (Response response = httpClient.newCall(request).execute())
+        {
+            return response.isSuccessful();
+        }
+    }
+
+    /**
      * The linked account's server-side watchlist (#190 website↔plugin sync, pull leg):
      * authenticated GET, item ids only — the caller MERGES into the local star store
      * (add-only union; server rules stay server-side, so nothing here can clobber them).

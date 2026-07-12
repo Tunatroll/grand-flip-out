@@ -610,14 +610,49 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             String key = config.apiKey();
             if (!config.enableServerFunctionality() || intelligenceClient == null || panel == null
-                || key == null || key.trim().isEmpty())
+                || key == null || key.trim().isEmpty() || panel.getWatchlist() == null)
             {
                 return;
             }
-            java.util.List<Integer> serverIds = intelligenceClient.fetchAccountWatchlist(key.trim());
-            if (panel.getWatchlist() != null && panel.getWatchlist().mergeFrom(serverIds))
+            // PULL: raw items once (id + rules — the push-back must resend rules verbatim,
+            // the server PUT replaces the whole list).
+            com.google.gson.JsonArray serverItems = intelligenceClient.fetchAccountWatchlistRaw(key.trim());
+            java.util.Set<Integer> serverIds = new java.util.HashSet<>();
+            for (com.google.gson.JsonElement el : serverItems)
+            {
+                if (el.isJsonObject() && el.getAsJsonObject().has("itemId"))
+                {
+                    serverIds.add(el.getAsJsonObject().get("itemId").getAsInt());
+                }
+            }
+            if (panel.getWatchlist().mergeFrom(serverIds))
             {
                 javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
+            }
+            // PUSH-BACK (#190): local stars the site doesn't know about join the account list —
+            // server items ride verbatim (rules intact) + local extras as bare ids. Union-only,
+            // like the site's own first-login merge; fail-soft on caps (400/402 just logs).
+            java.util.List<Integer> localExtras = new java.util.ArrayList<>();
+            for (Integer id : panel.getWatchlist().getAll())
+            {
+                if (id != null && !serverIds.contains(id))
+                {
+                    localExtras.add(id);
+                }
+            }
+            if (!localExtras.isEmpty())
+            {
+                com.google.gson.JsonArray merged = serverItems.deepCopy();
+                for (Integer id : localExtras)
+                {
+                    com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+                    o.addProperty("itemId", id);
+                    merged.add(o);
+                }
+                if (!intelligenceClient.putAccountWatchlist(key.trim(), merged))
+                {
+                    log.debug("watchlist push-back refused (caps?) — {} local extras kept local", localExtras.size());
+                }
             }
         }
         catch (Exception ex)
