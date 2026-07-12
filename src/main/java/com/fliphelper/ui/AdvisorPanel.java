@@ -71,10 +71,10 @@ public class AdvisorPanel extends JPanel
         header.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         JLabel title = new JLabel("Advisor");
         title.setForeground(GOLD);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 12f));
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 13f));
         header.add(title, BorderLayout.WEST);
 
-        pauseBtn.setFont(pauseBtn.getFont().deriveFont(10f));
+        pauseBtn.setFont(pauseBtn.getFont().deriveFont(12f));
         pauseBtn.setFocusPainted(false);
         pauseBtn.addActionListener(e ->
         {
@@ -222,20 +222,20 @@ public class AdvisorPanel extends JPanel
         // Fill the suggested price/quantity straight into the GE offer input.
         // Arms the fill; the player opens the offer + confirms.
         JButton fill = new JButton("Fill offer");
-        fill.setFont(fill.getFont().deriveFont(10f));
+        fill.setFont(fill.getFont().deriveFont(12f));
         fill.setFocusPainted(false);
         fill.setToolTipText("Auto-fill this price & quantity into the GE offer — open the offer to apply, you press Confirm");
         fill.addActionListener(e -> listener.onFillOffer(s.getItemId(), s.getPrice(), s.getQuantity()));
         buttons.add(fill);
 
         JButton skip = new JButton("Skip");
-        skip.setFont(skip.getFont().deriveFont(10f));
+        skip.setFont(skip.getFont().deriveFont(12f));
         skip.setFocusPainted(false);
         skip.addActionListener(e -> listener.onSkip(s.getItemId()));
         buttons.add(skip);
 
         JButton block = new JButton("Block");
-        block.setFont(block.getFont().deriveFont(10f));
+        block.setFont(block.getFont().deriveFont(12f));
         block.setFocusPainted(false);
         block.setToolTipText("Never suggest this item again");
         block.addActionListener(e -> listener.onBlock(s.getItemId()));
@@ -266,14 +266,14 @@ public class AdvisorPanel extends JPanel
 
         JLabel header = new JLabel("Portfolio basket (" + basket.size() + ")");
         header.setForeground(GOLD);
-        header.setFont(header.getFont().deriveFont(Font.BOLD, 12f));
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 13f));
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(wrapLeft(header));
         content.add(Box.createVerticalStrut(2));
 
         JLabel sub = new JLabel("Coins spread across your free slots");
         sub.setForeground(DIM);
-        sub.setFont(sub.getFont().deriveFont(10f));
+        sub.setFont(sub.getFont().deriveFont(12f));
         sub.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(wrapLeft(sub));
         content.add(Box.createVerticalStrut(6));
@@ -326,14 +326,14 @@ public class AdvisorPanel extends JPanel
 
         JLabel header = new JLabel("Next moves (" + moves.size() + ")");
         header.setForeground(GOLD);
-        header.setFont(header.getFont().deriveFont(Font.BOLD, 12f));
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 13f));
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(wrapLeft(header));
         content.add(Box.createVerticalStrut(2));
 
         JLabel sub = new JLabel("Confidence-weighted, reasoned picks — sized to your coins");
         sub.setForeground(DIM);
-        sub.setFont(sub.getFont().deriveFont(10f));
+        sub.setFont(sub.getFont().deriveFont(12f));
         sub.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(wrapLeft(sub));
         content.add(Box.createVerticalStrut(6));
@@ -354,7 +354,7 @@ public class AdvisorPanel extends JPanel
             {
                 JLabel why = new JLabel("<html><div style='width:200px'>" + s.getReasons().get(0) + "</div></html>");
                 why.setForeground(DIM);
-                why.setFont(why.getFont().deriveFont(10f));
+                why.setFont(why.getFont().deriveFont(12f));
                 why.setAlignmentX(Component.LEFT_ALIGNMENT);
                 content.add(wrapLeft(why));
             }
@@ -394,13 +394,13 @@ public class AdvisorPanel extends JPanel
         top.setBackground(ColorScheme.DARK_GRAY_COLOR);
         JLabel name = new JLabel(s.getItemName());
         name.setForeground(Color.WHITE);
-        name.setFont(name.getFont().deriveFont(Font.BOLD, 12f));
+        name.setFont(name.getFont().deriveFont(Font.BOLD, 13f));
         JLabel tag = new JLabel(s.getAction(), SwingConstants.RIGHT);
         tag.setForeground(Color.WHITE);
         tag.setOpaque(true);
         tag.setBackground(actionColor(s.getAction()));
         tag.setBorder(new EmptyBorder(1, 6, 1, 6));
-        tag.setFont(tag.getFont().deriveFont(Font.BOLD, 10f));
+        tag.setFont(tag.getFont().deriveFont(Font.BOLD, 11f));
         top.add(name, BorderLayout.WEST);
         JPanel tagWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         tagWrap.setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -412,7 +412,7 @@ public class AdvisorPanel extends JPanel
         JLabel detail = new JLabel(String.format("%,d @ %s  •  %s",
             s.getQuantity(), formatGp(s.getPrice()), profitText(s.getExpectedProfit())));
         detail.setForeground(profitColor(s.getExpectedProfit()));
-        detail.setFont(detail.getFont().deriveFont(11f));
+        detail.setFont(detail.getFont().deriveFont(12f));
         JPanel detailWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         detailWrap.setBackground(ColorScheme.DARK_GRAY_COLOR);
         detailWrap.add(detail);
@@ -446,7 +446,7 @@ public class AdvisorPanel extends JPanel
         {
             JLabel meta = new JLabel(sub.toString());
             meta.setForeground(DIM);
-            meta.setFont(meta.getFont().deriveFont(10f));
+            meta.setFont(meta.getFont().deriveFont(12f));
             JPanel metaWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
             metaWrap.setBackground(ColorScheme.DARK_GRAY_COLOR);
             metaWrap.add(meta);
@@ -468,7 +468,7 @@ public class AdvisorPanel extends JPanel
         {
             JLabel header = new JLabel("Recent F2P dumps");
             header.setForeground(GOLD);
-            header.setFont(header.getFont().deriveFont(Font.BOLD, 11f));
+            header.setFont(header.getFont().deriveFont(Font.BOLD, 12f));
             header.setAlignmentX(Component.LEFT_ALIGNMENT);
             dumpFeed.add(wrapLeft(header));
             dumpFeed.add(Box.createVerticalStrut(2));
@@ -491,10 +491,10 @@ public class AdvisorPanel extends JPanel
                 top.setBackground(ColorScheme.DARKER_GRAY_COLOR);
                 JLabel name = new JLabel(e.getItemName());
                 name.setForeground(Color.WHITE);
-                name.setFont(name.getFont().deriveFont(11f));
+                name.setFont(name.getFont().deriveFont(12f));
                 JLabel chg = new JLabel(formatPct(e.getPercentChange()), SwingConstants.RIGHT);
                 chg.setForeground(e.getPercentChange() < 0 ? RED : DIM);
-                chg.setFont(chg.getFont().deriveFont(Font.BOLD, 11f));
+                chg.setFont(chg.getFont().deriveFont(Font.BOLD, 12f));
                 top.add(name, BorderLayout.WEST);
                 top.add(chg, BorderLayout.EAST);
                 row.add(top);
@@ -529,7 +529,7 @@ public class AdvisorPanel extends JPanel
 
             JLabel note = new JLabel("Free feed — no account needed");
             note.setForeground(DIM);
-            note.setFont(note.getFont().deriveFont(9f));
+            note.setFont(note.getFont().deriveFont(10f));
             note.setAlignmentX(Component.LEFT_ALIGNMENT);
             dumpFeed.add(Box.createVerticalStrut(2));
             dumpFeed.add(wrapLeft(note));
@@ -568,10 +568,10 @@ public class AdvisorPanel extends JPanel
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
         JLabel l = new JLabel(label);
         l.setForeground(DIM);
-        l.setFont(l.getFont().deriveFont(11f));
+        l.setFont(l.getFont().deriveFont(12f));
         JLabel v = new JLabel(value, SwingConstants.RIGHT);
         v.setForeground(Color.WHITE);
-        v.setFont(v.getFont().deriveFont(Font.BOLD, 11f));
+        v.setFont(v.getFont().deriveFont(Font.BOLD, 12f));
         row.add(l, BorderLayout.WEST);
         row.add(v, BorderLayout.EAST);
         return row;
@@ -586,10 +586,10 @@ public class AdvisorPanel extends JPanel
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
         JLabel l = new JLabel(label);
         l.setForeground(DIM);
-        l.setFont(l.getFont().deriveFont(11f));
+        l.setFont(l.getFont().deriveFont(12f));
         JLabel v = new JLabel(value, SwingConstants.RIGHT);
         v.setForeground(valueColor);
-        v.setFont(v.getFont().deriveFont(Font.BOLD, 11f));
+        v.setFont(v.getFont().deriveFont(Font.BOLD, 12f));
         row.add(l, BorderLayout.WEST);
         row.add(v, BorderLayout.EAST);
         return row;

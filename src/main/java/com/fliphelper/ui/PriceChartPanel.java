@@ -161,7 +161,7 @@ public class PriceChartPanel extends JPanel
             long valRange = max - min;
 
             // Horizontal grid + Y axis labels (4 divisions).
-            g2.setFont(getFont().deriveFont(10f));
+            g2.setFont(getFont().deriveFont(12f));
             FontMetrics fm = g2.getFontMetrics();
             int divisions = 4;
             for (int i = 0; i <= divisions; i++)
@@ -233,7 +233,7 @@ public class PriceChartPanel extends JPanel
 
     private void drawLegend(Graphics2D g2, int x, int y)
     {
-        g2.setFont(getFont().deriveFont(10f));
+        g2.setFont(getFont().deriveFont(12f));
         FontMetrics fm = g2.getFontMetrics();
         int cx = x + 130;
         g2.setColor(HIGH_COLOR);
@@ -249,7 +249,7 @@ public class PriceChartPanel extends JPanel
 
     private void drawCenteredMessage(Graphics2D g2, String msg, int w, int h)
     {
-        g2.setFont(getFont().deriveFont(12f));
+        g2.setFont(getFont().deriveFont(13f));
         g2.setColor(AXIS_TEXT);
         FontMetrics fm = g2.getFontMetrics();
         g2.drawString(msg, (w - fm.stringWidth(msg)) / 2, h / 2);

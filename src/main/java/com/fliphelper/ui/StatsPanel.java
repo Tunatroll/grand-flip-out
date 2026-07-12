@@ -99,7 +99,7 @@ public class StatsPanel extends JPanel
 
         intervalSelector = new JComboBox<>(INTERVALS);
         intervalSelector.setSelectedItem("Session");
-        intervalSelector.setFont(intervalSelector.getFont().deriveFont(11f));
+        intervalSelector.setFont(intervalSelector.getFont().deriveFont(12f));
         intervalSelector.setBackground(PANEL_CARD);
         intervalSelector.setForeground(Color.LIGHT_GRAY);
         intervalSelector.setFocusable(false);
@@ -109,7 +109,7 @@ public class StatsPanel extends JPanel
         // Per-account selector: "All accounts" + each distinct RSN in history.
         accountSelector = new JComboBox<>();
         accountSelector.addItem(ALL_ACCOUNTS);
-        accountSelector.setFont(accountSelector.getFont().deriveFont(11f));
+        accountSelector.setFont(accountSelector.getFont().deriveFont(12f));
         accountSelector.setBackground(PANEL_CARD);
         accountSelector.setForeground(Color.LIGHT_GRAY);
         accountSelector.setFocusable(false);
@@ -119,7 +119,7 @@ public class StatsPanel extends JPanel
         accountRow.setBorder(new EmptyBorder(4, 0, 0, 0));
         JLabel accountLabel = new JLabel("Account");
         accountLabel.setForeground(TEXT_DIM);
-        accountLabel.setFont(accountLabel.getFont().deriveFont(11f));
+        accountLabel.setFont(accountLabel.getFont().deriveFont(12f));
         accountRow.add(accountLabel, BorderLayout.WEST);
         accountRow.add(accountSelector, BorderLayout.EAST);
 
@@ -164,7 +164,7 @@ public class StatsPanel extends JPanel
     {
         JLabel t = new JLabel(text);
         t.setForeground(TEXT_DIM);
-        t.setFont(t.getFont().deriveFont(11f));
+        t.setFont(t.getFont().deriveFont(12f));
         return t;
     }
 
@@ -172,7 +172,7 @@ public class StatsPanel extends JPanel
     {
         JLabel v = new JLabel(text);
         v.setForeground(Color.LIGHT_GRAY);
-        v.setFont(v.getFont().deriveFont(Font.BOLD, 11f));
+        v.setFont(v.getFont().deriveFont(Font.BOLD, 12f));
         v.setHorizontalAlignment(JLabel.RIGHT);
         return v;
     }
