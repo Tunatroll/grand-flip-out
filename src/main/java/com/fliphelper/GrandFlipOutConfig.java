@@ -15,90 +15,137 @@ import net.runelite.client.config.ConfigSection;
 import net.runelite.client.config.Keybind;
 import net.runelite.client.config.Range;
 
-import java.awt.event.InputEvent;
-import java.awt.event.KeyEvent;
-
 @ConfigGroup("grandflipout")
 public interface GrandFlipOutConfig extends Config
 {
     // ==================== SECTIONS ====================
+    // Order: the network opt-ins first (the decisions that matter), then the
+    // local features, then hotkeys, then the rarely-touched knobs collapsed
+    // under Advanced. Section constants keep their original string keys so no
+    // user's saved values move.
 
     @ConfigSection(
-        name = "Data Source",
-        description = "OSRS Wiki price API configuration",
+        name = "grandflipout.com features",
+        description = "The one master switch plus the opt-ins. Everything network lives here; "
+            + "all of it is off by default and the plugin runs fully on local Wiki prices without it. "
+            + "The Guide tab can enable these for you with the same disclosure.",
         position = 0
     )
-    String dataSourcesSection = "dataSources";
+    String intelligenceSection = "intelligence";
+
+    @ConfigSection(
+        name = "Advisor",
+        description = "Suggests your next flip (item, price, quantity). Off by default — when on, "
+            + "your current GE offers and approximate coins are sent to grandflipout.com to generate suggestions.",
+        position = 1
+    )
+    String advisorSection = "advisor";
 
     @ConfigSection(
         name = "Flip Tracker",
         description = "Local flip tracking and P&L",
-        position = 1
+        position = 2
     )
     String flipTrackerSection = "flipTracker";
 
     @ConfigSection(
         name = "Overlay",
         description = "In-game GE overlay",
-        position = 2
+        position = 3
     )
     String overlaySection = "overlay";
 
     @ConfigSection(
-        name = "GFO Account & API",
-        description = "Free Grand Flip Out account — unlocks all members items + premium features",
-        position = 3
-    )
-    String accountSection = "account";
-
-    @ConfigSection(
-        name = "Advisor",
-        description = "Suggests your next flip (item, price, quantity). Off by default — when on, "
-            + "your current GE offers and approximate coins are sent to grandflipout.com to generate suggestions.",
-        position = 4
-    )
-    String advisorSection = "advisor";
-
-    @ConfigSection(
-        name = "Server Intelligence",
-        description = "Optional read-only calls to grandflipout.com (off by default for Plugin Hub)",
-        position = 5
-    )
-    String intelligenceSection = "intelligence";
-
-    @ConfigSection(
         name = "Hotkeys",
-        description = "Keyboard shortcuts",
-        position = 6
+        description = "All optional and unbound by default — every action is also reachable from "
+            + "the panel. Bind only what you actually use.",
+        position = 4
     )
     String hotkeysSection = "hotkeys";
 
-    // ==================== DATA SOURCE ====================
+    @ConfigSection(
+        name = "Advanced",
+        description = "Developer / rarely-needed knobs. The defaults are correct for normal use.",
+        position = 5,
+        closedByDefault = true
+    )
+    String advancedSection = "advanced";
+
+    // ==================== GRANDFLIPOUT.COM FEATURES ====================
 
     @ConfigItem(
-        keyName = "priceRefreshInterval",
-        name = "Refresh Interval (seconds)",
-        description = "How often to refresh price data from the OSRS Wiki API (minimum 60s per Wiki etiquette). Live intelligence (dumps/VPIN) is computed server-side at 8-10s and fetched here.",
-        section = dataSourcesSection,
-        position = 0
+        keyName = "enableServerFunctionality",
+        name = "Enable grandflipout.com functionality",
+        description = "Master switch for ALL grandflipout.com network features (Advisor suggestions, "
+            + "Server Intelligence signals, trade contribution, and the account/entitlement check). "
+            + "Off by default — while off, the plugin runs entirely on local OSRS Wiki prices and makes "
+            + "no requests to grandflipout.com. The individual feature toggles below only take effect "
+            + "once this is enabled.",
+        section = intelligenceSection,
+        position = 0,
+        warning = "This plugin submits your IP address to a 3rd party website not controlled or verified by the RuneLite Developers. "
+            + "When enabled, your Grand Exchange offer and trade data (item, price, quantity, flip timings, and approximate coins) are sent to grandflipout.com."
     )
-    @Range(min = 60, max = 600)
-    default int priceRefreshInterval()
+    default boolean enableServerFunctionality()
     {
-        return 60;
+        return false;
     }
 
     @ConfigItem(
-        keyName = "userAgent",
-        name = "Wiki API User-Agent",
-        description = "Identifying user-agent for the OSRS Wiki API (required by Wiki policy). "
-            + "Format: PluginName - ContactInfo",
-        section = dataSourcesSection,
+        keyName = "enableServerIntelligence",
+        name = "Live intelligence (dumps, signals)",
+        description = "Off by default. When enabled, fetch BUY/SELL/HOLD signals, VPIN alerts, dump predictions, and screener data from grandflipout.com. Read-only — your trades are not sent unless you also enable 'Contribute trades'.",
+        section = intelligenceSection,
         position = 1
     )
-    default String userAgent()
+    default boolean enableServerIntelligence()
     {
-        return "GrandFlipOutPlugin - contact@grandflipout.com";
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "contributeTrades",
+        name = "Contribute trades (crowdsourced data)",
+        description = "Opt in to share your completed GE trades (item, price, quantity, buy/sell) "
+            + "and completed-flip outcomes (paired buy/sell prices with placed-to-filled timings) "
+            + "with grandflipout.com to improve crowdsourced flip data. Off by default. "
+            + "Independent of the read-only intelligence above. No account identity is sent.",
+        section = intelligenceSection,
+        position = 2
+    )
+    default boolean contributeTrades()
+    {
+        return false;
+    }
+
+    // ==================== ADVISOR ====================
+
+    @ConfigItem(
+        keyName = "enableAdvisor",
+        name = "Enable Advisor",
+        description = "Off by default. When on, the Advisor tab suggests your next flip "
+            + "(item, buy/sell price, quantity) based on your coins and free GE slots. Anonymous "
+            + "users get free-to-play suggestions; link your account to unlock all items. "
+            + "Your current GE offers and approximate coin total are sent to grandflipout.com "
+            + "to generate suggestions; nothing is submitted to the GE automatically.",
+        section = advisorSection,
+        position = 0
+    )
+    default boolean enableAdvisor()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+        keyName = "enableGePriceFill",
+        name = "GE offer auto-fill",
+        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input when you open it — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
+        section = advisorSection,
+        position = 1
+    )
+    default boolean enableGePriceFill()
+    {
+        return false;
     }
 
     // ==================== FLIP TRACKER ====================
@@ -137,19 +184,6 @@ public interface GrandFlipOutConfig extends Config
     default boolean showWealthInOverlay()
     {
         return true;
-    }
-
-    @ConfigItem(
-        keyName = "maxHistoryEntries",
-        name = "Max History Entries",
-        description = "Maximum number of flip records to retain in local history.",
-        section = flipTrackerSection,
-        position = 4
-    )
-    @Range(min = 50, max = 10000)
-    default int maxHistoryEntries()
-    {
-        return 1000;
     }
 
     @ConfigItem(
@@ -282,101 +316,7 @@ public interface GrandFlipOutConfig extends Config
         return true;
     }
 
-    // ==================== ACCOUNT ====================
-
-    @ConfigItem(
-        keyName = "apiKey",
-        name = "GFO Account Token",
-        description = "Paste your free Grand Flip Out account key (create one at grandflipout.com) to "
-            + "unlock all members items and premium features. Leave blank to keep using the free "
-            + "F2P suggestions. Stored locally; only sent to grandflipout.com to check your account.",
-        section = accountSection,
-        position = 0,
-        secret = true
-    )
-    default String apiKey()
-    {
-        return "";
-    }
-
-    // ==================== ADVISOR ====================
-
-    @ConfigItem(
-        keyName = "enableAdvisor",
-        name = "Enable Advisor",
-        description = "Off by default. When on, the Advisor tab suggests your next flip "
-            + "(item, buy/sell price, quantity) based on your coins and free GE slots. Anonymous "
-            + "users get free-to-play suggestions; paste an account key to unlock all items. "
-            + "Your current GE offers and approximate coin total are sent to grandflipout.com "
-            + "to generate suggestions; nothing is submitted to the GE automatically.",
-        section = advisorSection,
-        position = 0
-    )
-    default boolean enableAdvisor()
-    {
-        return false;
-    }
-
-    // ==================== SERVER INTELLIGENCE ====================
-
-    @ConfigItem(
-        keyName = "enableServerFunctionality",
-        name = "Enable grandflipout.com functionality",
-        description = "Master switch for ALL grandflipout.com network features (Advisor suggestions, "
-            + "Server Intelligence signals, trade contribution, and the account/entitlement check). "
-            + "Off by default — while off, the plugin runs entirely on local OSRS Wiki prices and makes "
-            + "no requests to grandflipout.com. The individual feature toggles below only take effect "
-            + "once this is enabled.",
-        section = intelligenceSection,
-        position = 0,
-        warning = "This plugin submits your IP address to a 3rd party website not controlled or verified by the RuneLite Developers. "
-            + "When enabled, your Grand Exchange offer and trade data (item, price, quantity, flip timings, and approximate coins) are sent to grandflipout.com."
-    )
-    default boolean enableServerFunctionality()
-    {
-        return false;
-    }
-
-    @ConfigItem(
-        keyName = "enableServerIntelligence",
-        name = "Enable Server Advisor",
-        description = "Off by default. When enabled, fetch BUY/SELL/HOLD signals, VPIN alerts, dump predictions, and screener data from grandflipout.com. Read-only — your trades are not sent unless you also enable 'Contribute trades'.",
-        section = intelligenceSection,
-        position = 1
-    )
-    default boolean enableServerIntelligence()
-    {
-        return false;
-    }
-
-    @ConfigItem(
-        keyName = "intelligenceBaseUrl",
-        name = "Intelligence API URL",
-        description = "Base URL for Grand Flip Out intelligence API (no trailing slash).",
-        section = intelligenceSection,
-        position = 2
-    )
-    default String intelligenceBaseUrl()
-    {
-        return "https://grandflipout.com";
-    }
-
-    @ConfigItem(
-        keyName = "contributeTrades",
-        name = "Contribute trades (crowdsourced data)",
-        description = "Opt in to share your completed GE trades (item, price, quantity, buy/sell) "
-            + "and completed-flip outcomes (paired buy/sell prices with placed-to-filled timings) "
-            + "with grandflipout.com to improve crowdsourced flip data. Off by default. "
-            + "Independent of the read-only advisor above. No account identity is sent.",
-        section = intelligenceSection,
-        position = 4
-    )
-    default boolean contributeTrades()
-    {
-        return false;
-    }
-
-    // ==================== HOTKEYS ====================
+    // ==================== HOTKEYS (all unbound by default) ====================
 
     @ConfigItem(
         keyName = "togglePanelHotkey",
@@ -387,7 +327,7 @@ public interface GrandFlipOutConfig extends Config
     )
     default Keybind togglePanelHotkey()
     {
-        return new Keybind(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+        return Keybind.NOT_SET;
     }
 
     @ConfigItem(
@@ -399,7 +339,7 @@ public interface GrandFlipOutConfig extends Config
     )
     default Keybind refreshPricesHotkey()
     {
-        return new Keybind(KeyEvent.VK_R, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+        return Keybind.NOT_SET;
     }
 
     @ConfigItem(
@@ -411,7 +351,7 @@ public interface GrandFlipOutConfig extends Config
     )
     default Keybind quickLookupHotkey()
     {
-        return new Keybind(KeyEvent.VK_L, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+        return Keybind.NOT_SET;
     }
 
     @ConfigItem(
@@ -423,67 +363,123 @@ public interface GrandFlipOutConfig extends Config
     )
     default Keybind toggleOverlayHotkey()
     {
-        return new Keybind(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
-    }
-
-    @ConfigItem(
-        keyName = "enableGePriceFill",
-        name = "GE offer auto-fill",
-        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input when you open it — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
-        section = hotkeysSection,
-        position = 5
-    )
-    default boolean enableGePriceFill()
-    {
-        return false;
+        return Keybind.NOT_SET;
     }
 
     @ConfigItem(
         keyName = "priceFillHotkey",
         name = "Price-Fill Assist",
-        description = "Hotkey that fills the recommended price into the open GE offer field (requires 'GE price-fill assist' enabled). You press Confirm yourself.",
+        description = "Hotkey that fills the recommended price into the open GE offer field (requires 'GE offer auto-fill' enabled). You press Confirm yourself.",
         section = hotkeysSection,
         position = 6
     )
     default Keybind priceFillHotkey()
     {
-        return new Keybind(KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK);
+        return Keybind.NOT_SET;
     }
 
     @ConfigItem(
         keyName = "copilotHotkey",
-        name = "Copilot Next Step (Ctrl+Space)",
+        name = "Copilot next step",
         description = "Context-aware GE hotkey. Opens GE search, arms prices/quantities, and guides you through the next action based on your current GE interface.",
         section = hotkeysSection,
         position = 7
     )
     default Keybind copilotHotkey()
     {
-        return new Keybind(KeyEvent.VK_SPACE, InputEvent.CTRL_DOWN_MASK);
+        return Keybind.NOT_SET;
     }
 
     @ConfigItem(
         keyName = "nextSuggestionHotkey",
-        name = "Next Suggestion (Up)",
+        name = "Next suggestion",
         description = "Cycles to the next actionable flip suggestion and instantly searches for it in the GE.",
         section = hotkeysSection,
         position = 8
     )
     default Keybind nextSuggestionHotkey()
     {
-        return new Keybind(KeyEvent.VK_UP, InputEvent.CTRL_DOWN_MASK);
+        return Keybind.NOT_SET;
     }
 
     @ConfigItem(
         keyName = "skipSuggestionHotkey",
-        name = "Skip Suggestion (Down)",
+        name = "Skip suggestion",
         description = "Skips the current flip suggestion and instantly searches the next one in the GE.",
         section = hotkeysSection,
         position = 9
     )
     default Keybind skipSuggestionHotkey()
     {
-        return new Keybind(KeyEvent.VK_DOWN, InputEvent.CTRL_DOWN_MASK);
+        return Keybind.NOT_SET;
+    }
+
+    // ==================== ADVANCED ====================
+
+    @ConfigItem(
+        keyName = "priceRefreshInterval",
+        name = "Refresh Interval (seconds)",
+        description = "How often to refresh price data from the OSRS Wiki API (minimum 60s per Wiki etiquette). Live intelligence (dumps/VPIN) is computed server-side at 8-10s and fetched here.",
+        section = advancedSection,
+        position = 0
+    )
+    @Range(min = 60, max = 600)
+    default int priceRefreshInterval()
+    {
+        return 60;
+    }
+
+    @ConfigItem(
+        keyName = "userAgent",
+        name = "Wiki API User-Agent",
+        description = "Identifying user-agent for the OSRS Wiki API (required by Wiki policy). "
+            + "Format: PluginName - ContactInfo",
+        section = advancedSection,
+        position = 1
+    )
+    default String userAgent()
+    {
+        return "GrandFlipOutPlugin - contact@grandflipout.com";
+    }
+
+    @ConfigItem(
+        keyName = "intelligenceBaseUrl",
+        name = "Intelligence API URL",
+        description = "Base URL for Grand Flip Out intelligence API (no trailing slash).",
+        section = advancedSection,
+        position = 2
+    )
+    default String intelligenceBaseUrl()
+    {
+        return "https://grandflipout.com";
+    }
+
+    @ConfigItem(
+        keyName = "apiKey",
+        name = "GFO Account Token",
+        description = "Normally set for you by the Guide tab's one-click \"Link account\" flow — "
+            + "you should not need to touch this. Manual fallback: paste your account key from "
+            + "grandflipout.com. Stored locally; only sent to grandflipout.com to check your account.",
+        section = advancedSection,
+        position = 3,
+        secret = true
+    )
+    default String apiKey()
+    {
+        return "";
+    }
+
+    @ConfigItem(
+        keyName = "maxHistoryEntries",
+        name = "Max History Entries",
+        description = "Maximum number of flip records to retain in local history.",
+        section = advancedSection,
+        position = 4
+    )
+    @Range(min = 50, max = 10000)
+    default int maxHistoryEntries()
+    {
+        return 1000;
     }
 
 }

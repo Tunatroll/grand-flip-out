@@ -244,6 +244,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             entitlementService.refresh(key);
         });
         panel.setGeHistoryImportAction(this::importGeHistoryNow);
+        // Guide-tab one-click opt-ins (chunk C): the buttons present the SAME disclosure
+        // the config warning shows and only run these on an explicit accept.
+        panel.enableServerControls(
+            () -> configManager.setConfiguration("grandflipout", "enableServerFunctionality", true),
+            () -> configManager.setConfiguration("grandflipout", "contributeTrades", !config.contributeTrades()));
         // Share the panel's per-character alert targets so refreshPrices() can check them.
         alertStore = panel.getAlertStore();
 
@@ -559,6 +564,21 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
                 }
             });
+        }
+
+        // Master switch / contribute flipped (settings OR the Guide buttons) — reflect it
+        // in the Guide cards; on enable, re-check entitlement with any already-saved key.
+        if ("enableServerFunctionality".equals(event.getKey()) || "contributeTrades".equals(event.getKey()))
+        {
+            if ("enableServerFunctionality".equals(event.getKey()) && config.enableServerFunctionality()
+                && entitlementService != null)
+            {
+                executor.execute(() -> entitlementService.refresh(config.apiKey()));
+            }
+            if (panel != null)
+            {
+                javax.swing.SwingUtilities.invokeLater(panel::refreshGuideState);
+            }
         }
     }
 

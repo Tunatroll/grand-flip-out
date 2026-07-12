@@ -175,8 +175,59 @@ public final class ScreenshotHarness
                 ImageIO.write(ti, "png", tabOut);
                 System.out.println("saved " + tabOut.getAbsolutePath());
             }
+
+            // Chunk C: the Flips tab's HISTORY substate — the surface the tab loop never
+            // reached, where the six-button header overlapped in the live build. Flip the
+            // card toggle exactly like a user would and paint the result.
+            for (int i = 0; i < tabs.getTabCount(); i++)
+            {
+                if (!"Flips".equals(tabs.getTitleAt(i)))
+                {
+                    continue;
+                }
+                final int idx = i;
+                SwingUtilities.invokeAndWait(() -> {
+                    tabs.setSelectedIndex(idx);
+                    javax.swing.AbstractButton historyToggle = findButton(tabs.getComponentAt(idx), "History");
+                    if (historyToggle != null)
+                    {
+                        historyToggle.doClick();
+                    }
+                    panel.doLayout();
+                    layoutRecursively(panel);
+                });
+                BufferedImage hi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D hg = hi.createGraphics();
+                SwingUtilities.invokeAndWait(() -> panel.printAll(hg));
+                hg.dispose();
+                File histOut = new File(out.getParentFile(), "tab-" + idx + "-flips-history.png");
+                ImageIO.write(hi, "png", histOut);
+                System.out.println("saved " + histOut.getAbsolutePath());
+            }
         }
         System.exit(0);
+    }
+
+    /** Depth-first search for a button by its exact label (the card-pair toggles). */
+    private static javax.swing.AbstractButton findButton(java.awt.Component root, String text)
+    {
+        if (root instanceof javax.swing.AbstractButton
+            && text.equals(((javax.swing.AbstractButton) root).getText()))
+        {
+            return (javax.swing.AbstractButton) root;
+        }
+        if (root instanceof java.awt.Container)
+        {
+            for (java.awt.Component child : ((java.awt.Container) root).getComponents())
+            {
+                javax.swing.AbstractButton hit = findButton(child, text);
+                if (hit != null)
+                {
+                    return hit;
+                }
+            }
+        }
+        return null;
     }
 
     /**

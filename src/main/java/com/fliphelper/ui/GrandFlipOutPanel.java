@@ -198,6 +198,24 @@ public class GrandFlipOutPanel extends PluginPanel
         }
     }
 
+    /** Arm the Guide tab's one-click opt-in buttons (called by the plugin at startUp). */
+    public void enableServerControls(Runnable enableServerAction, Runnable contributeToggleAction)
+    {
+        if (guideTab != null)
+        {
+            guideTab.enableServerControls(enableServerAction, contributeToggleAction);
+        }
+    }
+
+    /** Re-render the Guide tab's opt-in state (plugin calls this on relevant ConfigChanged). */
+    public void refreshGuideState()
+    {
+        if (guideTab != null)
+        {
+            guideTab.refreshServerState();
+        }
+    }
+
     private void buildPanel()
     {
         setLayout(new BorderLayout());
@@ -855,13 +873,18 @@ public class GrandFlipOutPanel extends PluginPanel
 
         JPanel headerPanel = buildSectionHeader("Flip History");
 
-        JPanel historyActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        historyActions.setOpaque(false);
+        // Controls live in two compact rows UNDER the title: six of them can never fit
+        // beside it in a ~240px sidebar (BorderLayout.EAST honored the row's ~500px
+        // preferred width, planting it at negative-x OVER the title — the
+        // overlapping-buttons bug in the live build's History tab).
+        JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+        filterRow.setOpaque(false);
 
         JButton filterAllBtn = new JButton("All");
         JButton filterProfitBtn = new JButton("Profit");
         JButton filterLossBtn = new JButton("Loss");
-        for (JButton b : new JButton[] { filterAllBtn, filterProfitBtn, filterLossBtn })
+        JButton refreshLogBtn = new JButton("Refresh");
+        for (JButton b : new JButton[] { filterAllBtn, filterProfitBtn, filterLossBtn, refreshLogBtn })
         {
             styleSecondaryButton(b);
             b.setFont(b.getFont().deriveFont(10f));
@@ -869,17 +892,18 @@ public class GrandFlipOutPanel extends PluginPanel
         filterAllBtn.addActionListener(e -> { historyFilter = "all"; updateHistoryTab(); });
         filterProfitBtn.addActionListener(e -> { historyFilter = "profit"; updateHistoryTab(); });
         filterLossBtn.addActionListener(e -> { historyFilter = "loss"; updateHistoryTab(); });
-        historyActions.add(filterAllBtn);
-        historyActions.add(filterProfitBtn);
-        historyActions.add(filterLossBtn);
-
-        JButton refreshLogBtn = new JButton("Refresh Log");
-        styleSecondaryButton(refreshLogBtn);
         refreshLogBtn.addActionListener(e -> updateHistoryTab());
-        historyActions.add(refreshLogBtn);
+        filterRow.add(filterAllBtn);
+        filterRow.add(filterProfitBtn);
+        filterRow.add(filterLossBtn);
+        filterRow.add(refreshLogBtn);
+
+        JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+        actionRow.setOpaque(false);
 
         JButton importGeHistoryBtn = new JButton("Import GE history");
         styleSecondaryButton(importGeHistoryBtn);
+        importGeHistoryBtn.setFont(importGeHistoryBtn.getFont().deriveFont(10f));
         importGeHistoryBtn.setToolTipText("Open the in-game Grand Exchange History tab, then click "
             + "to back-fill any mobile/untracked trades it shows (deduplicated).");
         importGeHistoryBtn.addActionListener(e ->
@@ -889,15 +913,14 @@ public class GrandFlipOutPanel extends PluginPanel
                 geHistoryImportAction.run();
             }
         });
-        historyActions.add(importGeHistoryBtn);
+        actionRow.add(importGeHistoryBtn);
 
         JButton exportCsvBtn = new JButton("Export CSV");
         stylePrimaryButton(exportCsvBtn);
+        exportCsvBtn.setFont(exportCsvBtn.getFont().deriveFont(10f));
         exportCsvBtn.setToolTipText("Export completed flips to CSV for advanced trade-log analysis");
         exportCsvBtn.addActionListener(e -> exportHistoryCsv());
-        historyActions.add(exportCsvBtn);
-
-        headerPanel.add(historyActions, BorderLayout.EAST);
+        actionRow.add(exportCsvBtn);
 
         // Stack the section header above the numbers-only Stats block (both NORTH).
         JPanel northStack = new JPanel();
@@ -905,6 +928,10 @@ public class GrandFlipOutPanel extends PluginPanel
         northStack.setOpaque(false);
         headerPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         northStack.add(headerPanel);
+        filterRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        northStack.add(filterRow);
+        actionRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        northStack.add(actionRow);
         statsPanel = new StatsPanel(flipTracker, sessionManager);
         statsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         // Re-render the history list whenever the account/interval selection changes.
