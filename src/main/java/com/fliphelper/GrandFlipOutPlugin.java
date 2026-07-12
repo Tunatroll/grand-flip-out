@@ -596,17 +596,13 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     // ==================== ADVISOR ====================
 
     /**
-     * Ask the server for the next flip and render it. Throttled (≥3s) and a no-op when
-     * the Advisor is disabled, paused, or the player isn't logged in. The snapshot is
-     * captured on the client thread; the network call and UI update run off it.
-     */
-    /**
      * Advisor OFF → first-run teaser instead of the old dead-end config-pointer message.
      * Two states, honoring the disclosed network gate: enableServerFunctionality OFF
-     * (fresh install) → the STATIC pitch, ZERO requests leave the client; ON → fetch the
-     * server's PUBLIC top flips (no account, no game state — see
-     * {@link IntelligenceClient#fetchPublicTopFlips}). Each button is a one-tap config
-     * flip (same effect as the config panel). Fail-soft to the plain message.
+     * (fresh install) → the STATIC pitch, ZERO requests leave the client and the enable
+     * button presents the SERVER_DISCLOSURE consent (GuidePanel lockstep rule) before
+     * flipping the warned switch; ON → fetch the server's PUBLIC top flips (no account,
+     * no game state — see {@link IntelligenceClient#fetchPublicTopFlips}) with a one-tap
+     * Advisor enable (its egress disclosure is on-panel). Fail-soft to the plain message.
      */
     private void showAdvisorFirstRun()
     {
@@ -620,7 +616,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 () -> configManager.setConfiguration("grandflipout", "enableServerFunctionality", true)));
             return;
         }
-        advisorPanel.showMessage("Loading today's top public flips...");
+        javax.swing.SwingUtilities.invokeLater(() ->
+            advisorPanel.showMessage("Loading today's top public flips..."));
         executor.execute(() ->
         {
             try
@@ -638,6 +635,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         });
     }
 
+    /**
+     * Ask the server for the next flip and render it. Throttled (≥3s) and a no-op when
+     * the Advisor is disabled, paused, or the player isn't logged in. The snapshot is
+     * captured on the client thread; the network call and UI update run off it.
+     */
     private void requestSuggestion()
     {
         if (!config.enableServerFunctionality() || !config.enableAdvisor() || advisorPanel == null || advisorPanel.isPaused()

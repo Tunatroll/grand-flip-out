@@ -110,7 +110,12 @@ public class IntelligenceClient
             .addQueryParameter("limit", String.valueOf(limit))
             .addQueryParameter("budget", "10000000")
             .build();
-        Request request = new Request.Builder().url(url).get().build();
+        Request request = new Request.Builder()
+            .url(url)
+            .get()
+            .header("Accept", "application/json")
+            .header("User-Agent", "GrandFlipOut-Plugin/1.0")
+            .build();
         try (Response response = httpClient.newCall(request).execute())
         {
             if (!response.isSuccessful() || response.body() == null)

@@ -36,7 +36,7 @@ Once installed, the plugin adds a sidebar panel in RuneLite showing:
 ## Compliance
 
 - **Information only** — no automated trading or offer submission; the optional GE offer pre-fill (off by default) writes suggested values into open GE inputs and never places or confirms an offer
-- **Jagex compliant** — uses only public APIs (OSRS Wiki, RuneLite)
+- **Jagex compliant** — uses public APIs (OSRS Wiki, RuneLite); the optional grandflipout.com features (off by default, consent-gated) send your IP, GE offers and approximate coins to grandflipout.com — see the in-client disclosure
 - **No packet injection** — uses RuneLite's official Client API only
 - **Open source** — BSD 2-Clause License
 

@@ -12,11 +12,12 @@ public class GuidePanel extends JPanel {
 
     /**
      * KEEP IN LOCKSTEP with the enableServerFunctionality @ConfigItem warning in
-     * GrandFlipOutConfig — the in-panel enable path must present the exact same
-     * disclosure the RuneLite config panel shows, so consent is equivalent
-     * whichever surface the player uses.
+     * GrandFlipOutConfig — EVERY in-panel enable path (this Guide step AND the
+     * Advisor first-run teaser) must present the exact same disclosure the RuneLite
+     * config panel shows, so consent is equivalent whichever surface the player uses.
+     * Package-visible for that reason — new enable surfaces reuse THIS string.
      */
-    private static final String SERVER_DISCLOSURE =
+    static final String SERVER_DISCLOSURE =
         "This plugin submits your IP address to a 3rd party website not controlled "
         + "or verified by the RuneLite Developers.\n\n"
         + "When enabled, your Grand Exchange offer and trade data (item, price, "

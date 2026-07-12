@@ -381,7 +381,27 @@ public class AdvisorPanel extends JPanel
         JButton enable = new JButton(serverEnabled ? "Enable Advisor" : "Enable grandflipout.com features");
         enable.setFont(enable.getFont().deriveFont(Font.BOLD, 12f));
         enable.setFocusPainted(false);
-        enable.addActionListener(e -> onEnable.run());
+        enable.addActionListener(e ->
+        {
+            if (serverEnabled)
+            {
+                // Advisor enable: the egress disclosure is the pitch text directly above,
+                // and the WARNED master switch was already consented when it was turned on.
+                onEnable.run();
+                return;
+            }
+            // Fresh-install path flips the WARNED master switch — present the SAME
+            // disclosure the RuneLite config panel and the Guide tab show, so consent
+            // is equivalent whichever surface the player uses (GuidePanel lockstep rule;
+            // programmatic setConfiguration bypasses ConfigPanel's warning dialog).
+            int choice = javax.swing.JOptionPane.showConfirmDialog(this, GuidePanel.SERVER_DISCLOSURE,
+                "Enable grandflipout.com features", javax.swing.JOptionPane.OK_CANCEL_OPTION,
+                javax.swing.JOptionPane.WARNING_MESSAGE);
+            if (choice == javax.swing.JOptionPane.OK_OPTION)
+            {
+                onEnable.run();
+            }
+        });
         content.add(wrapLeft(enable));
 
         content.revalidate();
