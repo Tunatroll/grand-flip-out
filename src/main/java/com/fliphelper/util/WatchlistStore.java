@@ -74,6 +74,33 @@ public class WatchlistStore
         return new ArrayList<>(ids);
     }
 
+    /**
+     * Merge the account watchlist pulled from grandflipout.com into the local stars
+     * (ADD-only union — local stars the site doesn't know about are kept; the server
+     * copy is never treated as authoritative deletion). Returns true when anything
+     * new was added, so the caller knows to refresh the browse list.
+     */
+    public boolean mergeFrom(java.util.Collection<Integer> serverIds)
+    {
+        if (serverIds == null || serverIds.isEmpty())
+        {
+            return false;
+        }
+        boolean changed = false;
+        for (Integer id : serverIds)
+        {
+            if (id != null && ids.add(id))
+            {
+                changed = true;
+            }
+        }
+        if (changed)
+        {
+            save();
+        }
+        return changed;
+    }
+
     private void load()
     {
         if (file == null || !Files.exists(file))

@@ -257,6 +257,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             if (config.enableServerFunctionality()) entitlementService.refresh(config.apiKey());
             javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
+            syncAccountWatchlist();
         });
         overlay = new GrandFlipOutOverlay(client, config, priceService, flipTracker, sessionManager, this);
         gpDropOverlay = new GpDropOverlay(client, config);
@@ -570,6 +571,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             executor.execute(() ->
             {
                 if (config.enableServerFunctionality()) entitlementService.refresh(config.apiKey());
+                syncAccountWatchlist();
                 if (panel != null)
                 {
                     javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
@@ -594,6 +596,35 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     }
 
     // ==================== ADVISOR ====================
+
+    /**
+     * #190 website↔plugin watchlist sync, PULL leg: merge the linked account's
+     * server-side watchlist into the local stars (add-only union — never deletes a
+     * local star, never touches server-side alert rules). Runs off-thread, only when
+     * the master network switch is on AND an account key is linked; fail-soft.
+     * Called from the same executor tasks as the entitlement refresh — never the EDT.
+     */
+    private void syncAccountWatchlist()
+    {
+        try
+        {
+            String key = config.apiKey();
+            if (!config.enableServerFunctionality() || intelligenceClient == null || panel == null
+                || key == null || key.trim().isEmpty())
+            {
+                return;
+            }
+            java.util.List<Integer> serverIds = intelligenceClient.fetchAccountWatchlist(key.trim());
+            if (panel.getWatchlist() != null && panel.getWatchlist().mergeFrom(serverIds))
+            {
+                javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            log.debug("account watchlist sync failed", ex);
+        }
+    }
 
     /**
      * Advisor OFF → first-run teaser instead of the old dead-end config-pointer message.
