@@ -79,4 +79,10 @@ tasks.register('screenshot', JavaExec) {
     if (project.findProperty('basket')) {
         systemProperty 'gfo.basket', project.findProperty('basket').toString()
     }
+    if (project.findProperty('firstrun')) {
+        systemProperty 'gfo.firstrun', project.findProperty('firstrun').toString()
+    }
+    if (project.findProperty('firstrun0')) {
+        systemProperty 'gfo.firstrun0', project.findProperty('firstrun0').toString()
+    }
 }

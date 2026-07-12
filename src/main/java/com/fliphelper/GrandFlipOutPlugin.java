@@ -285,6 +285,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             advisorPanel.showMessage("Loading your next flip...");
         }
+        else
+        {
+            showAdvisorFirstRun();
+        }
 
         clientToolbar.addNavigation(navButton);
         overlayManager.add(overlay);
@@ -549,8 +553,15 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             }
             else
             {
-                advisorPanel.showMessage("Enable the Advisor in plugin config to get next-flip suggestions.");
+                showAdvisorFirstRun();
             }
+        }
+
+        // Master network switch toggled while the Advisor is off — refresh the first-run
+        // teaser between its two states (static pitch ↔ public top flips).
+        if ("enableServerFunctionality".equals(event.getKey()) && advisorPanel != null && !config.enableAdvisor())
+        {
+            showAdvisorFirstRun();
         }
 
         // Re-check account entitlement when the API key changes (off-thread; no call when blank).
@@ -589,6 +600,44 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      * the Advisor is disabled, paused, or the player isn't logged in. The snapshot is
      * captured on the client thread; the network call and UI update run off it.
      */
+    /**
+     * Advisor OFF → first-run teaser instead of the old dead-end config-pointer message.
+     * Two states, honoring the disclosed network gate: enableServerFunctionality OFF
+     * (fresh install) → the STATIC pitch, ZERO requests leave the client; ON → fetch the
+     * server's PUBLIC top flips (no account, no game state — see
+     * {@link IntelligenceClient#fetchPublicTopFlips}). Each button is a one-tap config
+     * flip (same effect as the config panel). Fail-soft to the plain message.
+     */
+    private void showAdvisorFirstRun()
+    {
+        if (advisorPanel == null)
+        {
+            return;
+        }
+        if (!config.enableServerFunctionality() || intelligenceClient == null)
+        {
+            javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showFirstRun(null, false,
+                () -> configManager.setConfiguration("grandflipout", "enableServerFunctionality", true)));
+            return;
+        }
+        advisorPanel.showMessage("Loading today's top public flips...");
+        executor.execute(() ->
+        {
+            try
+            {
+                java.util.List<com.fliphelper.model.Suggestion> flips = intelligenceClient.fetchPublicTopFlips(5);
+                javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showFirstRun(flips, true,
+                    () -> configManager.setConfiguration("grandflipout", "enableAdvisor", true)));
+            }
+            catch (Exception ex)
+            {
+                log.debug("first-run public top-flips fetch failed", ex);
+                javax.swing.SwingUtilities.invokeLater(() ->
+                    advisorPanel.showMessage("Enable the Advisor in plugin config to get next-flip suggestions."));
+            }
+        });
+    }
+
     private void requestSuggestion()
     {
         if (!config.enableServerFunctionality() || !config.enableAdvisor() || advisorPanel == null || advisorPanel.isPaused()

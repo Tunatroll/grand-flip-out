@@ -96,6 +96,8 @@ public final class ScreenshotHarness
         final boolean sample = Boolean.getBoolean("gfo.sample");
         final boolean advisor = Boolean.getBoolean("gfo.advisor"); // render the Advisor tab standalone
         final boolean basket = Boolean.getBoolean("gfo.basket");   // render the Advisor 8-slot basket
+        final boolean firstRun = Boolean.getBoolean("gfo.firstrun");   // Advisor first-run teaser (public flips + enable)
+        final boolean firstRun0 = Boolean.getBoolean("gfo.firstrun0"); // first-run STATIC pitch (network switch off)
         PriceService priceService = new PriceService(http, config, gson);
         if (sample)
         {
@@ -106,7 +108,7 @@ public final class ScreenshotHarness
         final JComponent[] panelRef = new JComponent[1];
         SwingUtilities.invokeAndWait(() -> {
             JComponent target;
-            if (advisor || basket)
+            if (advisor || basket || firstRun || firstRun0)
             {
                 com.fliphelper.ui.AdvisorPanel ap = new com.fliphelper.ui.AdvisorPanel(
                     new com.fliphelper.ui.AdvisorPanel.Listener()
@@ -116,15 +118,25 @@ public final class ScreenshotHarness
                         public void onPauseToggled(boolean p) { }
                         public void onFillOffer(int id, long price, int quantity) { }
                     });
-                if (basket)
+                if (firstRun0)
+                {
+                    // Fresh install: master network switch off — static pitch, zero fetches.
+                    ap.showFirstRun(null, false, () -> { });
+                }
+                else if (firstRun)
+                {
+                    ap.showFirstRun(sampleFirstRunFlips(), true, () -> { });
+                }
+                else if (basket)
                 {
                     ap.showBasket(sampleBasket());
+                    ap.showDumpFeed(sampleDumpFeed());
                 }
                 else
                 {
                     ap.showSuggestion(sampleSuggestion());
+                    ap.showDumpFeed(sampleDumpFeed());
                 }
-                ap.showDumpFeed(sampleDumpFeed());
                 target = ap;
             }
             else
@@ -283,6 +295,29 @@ public final class ScreenshotHarness
             sampleSuggestion("BUY", 1127, "Rune platebody", 37500, 13, 9100, 0.71, r),
             sampleSuggestion("BUY", 1079, "Rune platelegs", 37300, 13, 7800, 0.66, r),
             sampleSuggestion("BUY", 1333, "Rune scimitar", 15200, 32, 6400, 0.74, r));
+    }
+
+    private static java.util.List<com.fliphelper.model.Suggestion> sampleFirstRunFlips()
+    {
+        // Mirrors the /api/plugin/suggestions parse in IntelligenceClient#fetchPublicTopFlips:
+        // reasons[0] = the served "Buy at X -> Sell at Y" display line, marginPer = net/ea.
+        return java.util.Arrays.asList(
+            firstRunFlip(21948, "Dragonstone dragon bolts (e)", 2392, "Buy at 2,392 -> Sell at 2,564", 121),
+            firstRunFlip(25578, "Soaked page", 3026, "Buy at 3,026 -> Sell at 3,206", 116),
+            firstRunFlip(2577, "Ranger boots", 31409340, "Buy at 31,409,340 -> Sell at 33,200,000", 1126660),
+            firstRunFlip(560, "Death rune", 205, "Buy at 205 -> Sell at 218", 9),
+            firstRunFlip(32892, "Cupronickel bar", 2974, "Buy at 2,974 -> Sell at 3,325", 283));
+    }
+
+    private static com.fliphelper.model.Suggestion firstRunFlip(
+        int itemId, String name, long buyPrice, String actionLine, long netPer)
+    {
+        return com.fliphelper.model.Suggestion.builder()
+            .action("BUY").itemId(itemId).itemName(name).price(buyPrice).quantity(0)
+            .expectedProfit(0).confidence(50)
+            .reasons(java.util.Collections.singletonList(actionLine))
+            .targetSlot(-1).marginPer(netPer)
+            .build();
     }
 
     private static java.util.List<com.fliphelper.model.DumpFeedEntry> sampleDumpFeed()

@@ -308,6 +308,87 @@ public class AdvisorPanel extends JPanel
     }
 
     /**
+     * First-run teaser (Advisor OFF): turn the old dead-end "enable it in config" message
+     * into the value the tab exists for. Two states, chosen by the PLUGIN (this stays a
+     * pure view): {@code flips == null} → the STATIC pitch (fresh install — the
+     * enableServerFunctionality master switch is off, so NOTHING may be fetched; the
+     * button flips that disclosed switch); non-null → the server's PUBLIC top flips
+     * (fetched with no account and no game state) and the button enables the Advisor.
+     */
+    public void showFirstRun(List<Suggestion> flips, boolean serverEnabled, Runnable onEnable)
+    {
+        content.removeAll();
+
+        JLabel header = new JLabel(serverEnabled ? "Top public flips right now" : "Your next flip, suggested");
+        header.setForeground(GOLD);
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 13f));
+        content.add(wrapLeft(header));
+        content.add(Box.createVerticalStrut(2));
+
+        if (serverEnabled && flips != null && !flips.isEmpty())
+        {
+            JLabel sub = new JLabel("For a 10M stack · no account");
+            sub.setForeground(DIM);
+            sub.setFont(sub.getFont().deriveFont(12f));
+            content.add(wrapLeft(sub));
+            content.add(Box.createVerticalStrut(6));
+
+            for (Suggestion s : flips)
+            {
+                if (s == null)
+                {
+                    continue;
+                }
+                JLabel name = new JLabel(s.getItemName());
+                name.setForeground(Color.WHITE);
+                name.setFont(name.getFont().deriveFont(Font.BOLD, 12f));
+                content.add(wrapLeft(name));
+                String line = !s.getReasons().isEmpty()
+                    ? s.getReasons().get(0)
+                    : ("Buy at " + formatGp(s.getPrice()));
+                // HTML so long price lines WRAP inside the 240px sidebar instead of clipping
+                // (a 31M item's "Buy at 31,409,340 -> Sell at 33,200,000" overflows a plain label).
+                JLabel detail = new JLabel("<html><body style='width:185px'>" + line
+                    + "  ·  " + profitText(s.getMarginPer()) + "/ea</body></html>");
+                detail.setForeground(DIM);
+                detail.setFont(detail.getFont().deriveFont(12f));
+                content.add(wrapLeft(detail));
+                content.add(Box.createVerticalStrut(4));
+            }
+
+            content.add(Box.createVerticalStrut(2));
+            JPanel sep = new JPanel();
+            sep.setBackground(GfoPalette.BORDER);
+            sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+            sep.setAlignmentX(Component.LEFT_ALIGNMENT);
+            content.add(sep);
+            content.add(Box.createVerticalStrut(6));
+        }
+
+        String pitch = serverEnabled
+            ? "<html><body style='width:180px'>Enable the Advisor for picks sized to <b>your</b> coins and free GE"
+                + " slots. It sends your GE offers + approximate coin total to grandflipout.com —"
+                + " nothing is ever placed for you.</body></html>"
+            : "<html><body style='width:180px'>The Advisor suggests your next flip — item, buy/sell price,"
+                + " quantity — sized to your coins and free GE slots. Turn on grandflipout.com"
+                + " features to see today's top public flips (no account needed).</body></html>";
+        JLabel pitchLabel = new JLabel(pitch);
+        pitchLabel.setForeground(DIM);
+        pitchLabel.setFont(pitchLabel.getFont().deriveFont(12f));
+        content.add(wrapLeft(pitchLabel));
+        content.add(Box.createVerticalStrut(6));
+
+        JButton enable = new JButton(serverEnabled ? "Enable Advisor" : "Enable grandflipout.com features");
+        enable.setFont(enable.getFont().deriveFont(Font.BOLD, 12f));
+        enable.setFocusPainted(false);
+        enable.addActionListener(e -> onEnable.run());
+        content.add(wrapLeft(enable));
+
+        content.revalidate();
+        content.repaint();
+    }
+
+    /**
      * Render the agentic "Next moves" (PRO): a confidence-weighted, reasoned buy plan from
      * the honesty-calibrated reasoning layer. Same compact rows as {@link #showBasket} plus
      * the lead reason per pick and a confidence-weighted footer note, under a distinct header

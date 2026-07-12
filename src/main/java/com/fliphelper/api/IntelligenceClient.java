@@ -96,6 +96,62 @@ public class IntelligenceClient
         return fetchJson(url);
     }
 
+    /**
+     * Public top flips for the FIRST-RUN Advisor teaser: a plain GET on the public
+     * plugin-suggestions feed with a generic 10M bankroll. Sends NOTHING about the
+     * player (contrast {@link #fetchBasket}, which posts the game-state snapshot) —
+     * but it is still a network call, so callers must keep it behind the
+     * enableServerFunctionality master switch like every other request here.
+     */
+    public List<Suggestion> fetchPublicTopFlips(int limit) throws IOException
+    {
+        HttpUrl url = HttpUrl.parse(baseUrl + "/api/plugin/suggestions")
+            .newBuilder()
+            .addQueryParameter("limit", String.valueOf(limit))
+            .addQueryParameter("budget", "10000000")
+            .build();
+        Request request = new Request.Builder().url(url).get().build();
+        try (Response response = httpClient.newCall(request).execute())
+        {
+            if (!response.isSuccessful() || response.body() == null)
+            {
+                throw new IOException("HTTP " + response.code());
+            }
+            JsonObject root = gson.fromJson(response.body().string(), JsonObject.class);
+            List<Suggestion> flips = new ArrayList<>();
+            if (root.has("suggestions") && root.get("suggestions").isJsonArray())
+            {
+                for (com.google.gson.JsonElement el : root.get("suggestions").getAsJsonArray())
+                {
+                    if (!el.isJsonObject())
+                    {
+                        continue;
+                    }
+                    JsonObject o = el.getAsJsonObject();
+                    // Feed shape (server routes/plugin.js): itemId, name, buyPrice, sellPrice,
+                    // netProfit (per item, after tax), limit, expectedProfit (4h realizable),
+                    // action ("Buy at X -> Sell at Y" display line), confidence (0-100).
+                    String actionLine = o.has("action") ? o.get("action").getAsString() : "";
+                    flips.add(Suggestion.builder()
+                        .action("BUY")
+                        .itemId(o.has("itemId") ? o.get("itemId").getAsInt() : 0)
+                        .itemName(o.has("name") ? o.get("name").getAsString() : "")
+                        .price(o.has("buyPrice") ? o.get("buyPrice").getAsLong() : 0)
+                        .quantity(0)
+                        .expectedProfit(o.has("expectedProfit") ? o.get("expectedProfit").getAsLong() : 0)
+                        .confidence(o.has("confidence") ? o.get("confidence").getAsDouble() : 0)
+                        .reasons(actionLine.isEmpty()
+                            ? Collections.emptyList() : Collections.singletonList(actionLine))
+                        .targetSlot(-1)
+                        .marginPer(o.has("netProfit") ? o.get("netProfit").getAsLong() : 0)
+                        .geLimit(o.has("limit") ? o.get("limit").getAsInt() : 0)
+                        .build());
+                }
+            }
+            return flips;
+        }
+    }
+
     public JsonObject fetchHighAlch(int limit, boolean bryoStaff) throws IOException
     {
         HttpUrl url = HttpUrl.parse(baseUrl + "/api/intelligence/high-alch")
