@@ -209,6 +209,73 @@ public class IntelligenceClient
         }
     }
 
+    /**
+     * Item ids present in a raw server watchlist array. Malformed entries (non-objects,
+     * missing or non-numeric itemId) are SKIPPED, never thrown on — a single junk row
+     * must not abort the whole pull+push sync cycle.
+     */
+    public static java.util.Set<Integer> watchlistIds(com.google.gson.JsonArray serverItems)
+    {
+        java.util.Set<Integer> ids = new java.util.HashSet<>();
+        if (serverItems == null)
+        {
+            return ids;
+        }
+        for (com.google.gson.JsonElement el : serverItems)
+        {
+            try
+            {
+                if (el.isJsonObject() && el.getAsJsonObject().has("itemId"))
+                {
+                    com.google.gson.JsonElement id = el.getAsJsonObject().get("itemId");
+                    if (id.isJsonPrimitive() && id.getAsJsonPrimitive().isNumber())
+                    {
+                        ids.add(id.getAsInt());
+                    }
+                }
+            }
+            catch (Exception ignored)
+            {
+                // skip the malformed entry, keep the rest
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * The #190 push-back union: server entries ride VERBATIM (the PUT replaces the whole
+     * list server-side — resending them untouched is what preserves the alert rules the
+     * user configured on the website, and the client never filters entries it doesn't
+     * understand, because a filtered PUT would DELETE them) + local-only stars appended
+     * as bare {itemId} rows, deduped. Returns null when the server already knows every
+     * local star — the caller skips the PUT entirely.
+     */
+    public static com.google.gson.JsonArray mergeWatchlistForPushBack(
+        com.google.gson.JsonArray serverItems, java.util.Collection<Integer> localStars)
+    {
+        java.util.Set<Integer> known = watchlistIds(serverItems);
+        com.google.gson.JsonArray merged = null;
+        if (localStars != null)
+        {
+            for (Integer id : localStars)
+            {
+                if (id == null || known.contains(id))
+                {
+                    continue;
+                }
+                if (merged == null)
+                {
+                    merged = serverItems == null ? new com.google.gson.JsonArray() : serverItems.deepCopy();
+                }
+                com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+                o.addProperty("itemId", id);
+                merged.add(o);
+                known.add(id);
+            }
+        }
+        return merged;
+    }
+
     public JsonObject fetchHighAlch(int limit, boolean bryoStaff) throws IOException
     {
         HttpUrl url = HttpUrl.parse(baseUrl + "/api/intelligence/high-alch")
