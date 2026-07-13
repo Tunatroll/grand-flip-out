@@ -619,7 +619,7 @@ public class IntelligenceClient
     {
         try
         {
-            if (!isRecentFill(flip, Instant.now()))
+            if (!shouldSubmitOutcome(flip, Instant.now()))
             {
                 return;
             }
@@ -658,6 +658,17 @@ public class IntelligenceClient
         return flip != null && flip.getSellTime() != null
             && !flip.getSellTime().isAfter(now.plusSeconds(60))
             && Duration.between(flip.getSellTime(), now).toMinutes() < 10;
+    }
+
+    /**
+     * Telemetry gate: recency alone is NOT enough — GeHistoryImporter stamps its whole
+     * batch with one shared `now` (buy==sell, geSlot -1), so imported pairs passed the
+     * recency guard and fabricated 0-minute fill durations (every captured row to
+     * 2026-07-13). Only pairs whose BOTH legs were live-witnessed GE events submit.
+     */
+    static boolean shouldSubmitOutcome(FlipItem flip, Instant now)
+    {
+        return flip != null && flip.isLiveWitnessed() && isRecentFill(flip, now);
     }
 
     /** Build the /api/flip-outcomes payload (matches the server's sanitizeOutcome contract). */

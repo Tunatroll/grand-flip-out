@@ -26,6 +26,13 @@ public class FlipItem
     private Instant sellTime;
     private FlipState state;
     private int geSlot;
+    /**
+     * True only when BOTH legs were witnessed as live GE offer events this session
+     * (never true for history/FU imports, which pair buy==sell at import time —
+     * geSlot -1 — and would fabricate 0-minute fill durations in telemetry).
+     * Gson leaves it {@code false} on rows from older history files: fail-closed.
+     */
+    private boolean liveWitnessed;
     /** Wealth snapshot at sell completion (optional, local-only). */
     /** Market sell price at the time the buy was placed (for frozen sell tracking). */
     private long frozenSellPrice;

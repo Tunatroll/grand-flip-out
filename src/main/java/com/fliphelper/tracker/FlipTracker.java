@@ -201,6 +201,8 @@ public class FlipTracker
                         .sellTime(trade.getTimestamp())
                         .state(FlipState.COMPLETE)
                         .geSlot(trade.getGeSlot())
+                        // live GE events carry a real slot; importers stamp geSlot -1
+                        .liveWitnessed(matchedBuy.getGeSlot() >= 0 && trade.getGeSlot() >= 0)
                         .sellCoinGp(trade.getCoinGp())
                         .sellInventoryGp(trade.getInventoryGp())
                         .sellBankGp(trade.getBankGp())

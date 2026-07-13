@@ -85,4 +85,17 @@ public class IntelligenceClientTest
         assertFalse(IntelligenceClient.isRecentFill(baseFlip().sellTime(null).build(), now));
         assertFalse(IntelligenceClient.isRecentFill(null, now));
     }
+
+    @Test
+    public void outcomeSubmitRequiresALiveWitnessedPair()
+    {
+        Instant now = SELL.plusSeconds(30);
+        // GeHistoryImporter pairs stamp buy==sell at import time (geSlot -1 → liveWitnessed
+        // false) and previously sailed through the recency guard — the 0-minute fill factory.
+        assertFalse(IntelligenceClient.shouldSubmitOutcome(baseFlip().build(), now));
+        assertTrue(IntelligenceClient.shouldSubmitOutcome(baseFlip().liveWitnessed(true).build(), now));
+        // the live flag alone is not enough — recency still applies
+        assertFalse(IntelligenceClient.shouldSubmitOutcome(baseFlip().liveWitnessed(true).build(), SELL.plusSeconds(3600)));
+        assertFalse(IntelligenceClient.shouldSubmitOutcome(null, now));
+    }
 }
