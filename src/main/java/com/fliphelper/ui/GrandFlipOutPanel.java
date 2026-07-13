@@ -283,7 +283,7 @@ public class GrandFlipOutPanel extends PluginPanel
         // URL resolved at CLICK time: the entitlement refresh only re-labels this link
         // (setText below), so a construction-time URL could say "Account" but open /upgrade.
         upgradeLink = buildFooterLink(isUnlocked() ? "Account" : "Upgrade",
-            () -> isUnlocked() ? "https://grandflipout.com/account?ref=plugin" : "https://grandflipout.com/upgrade?ref=plugin");
+            () -> isUnlocked() ? "https://grandflipout.com/dashboard?ref=plugin" : "https://grandflipout.com/upgrade?ref=plugin");
         upgradeLink.setForeground(BRAND_GOLD);
         footer.add(upgradeLink);
 
