@@ -565,6 +565,14 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             showAdvisorFirstRun();
         }
 
+        // Master switch turned ON with a key already saved — run the account sync that
+        // startup/key-change would have run (reviewer-flagged behavior gap: the watchlist
+        // otherwise waited for the next client restart).
+        if ("enableServerFunctionality".equals(event.getKey()) && config.enableServerFunctionality())
+        {
+            executor.execute(this::syncAccountWatchlist);
+        }
+
         // Re-check account entitlement when the API key changes (off-thread; no call when blank).
         if ("apiKey".equals(event.getKey()) && entitlementService != null)
         {
@@ -878,8 +886,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     @Subscribe
     public void onScriptPostFired(ScriptPostFired event)
     {
-        // When the GE item-search box opens, surface the player's starred favourites + their
-        // margins as a chat message (read-only quick-look — we never write into the search box).
+        // When the GE item-search box opens: (a) surface the starred favourites + margins as a
+        // chat message (the quick-look itself never writes), and (b) if a suggestion was ARMED,
+        // pre-fill the search text below — the opt-in, player-initiated fill path.
         if (event.getScriptId() == ScriptID.GE_ITEM_SEARCH)
         {
             showFavouriteQuickLook();
@@ -1091,18 +1100,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             return;
         }
 
-        Widget offerContainer = client.getWidget(ComponentID.GRAND_EXCHANGE_OFFER_CONTAINER);
-        if (offerContainer != null && !offerContainer.isHidden())
-        {
-            // Buy or sell screen is open. Arm price and quantity so they fill on click
-            armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
-        }
-        else
-        {
-            // Main GE screen is open. Arm everything — the item name pre-fills the moment
-            // the player clicks the search box (never popped open programmatically).
-            armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
-        }
+        // Whatever GE screen is up, arm everything — the item name pre-fills the moment the
+        // player clicks the search box, price/qty when they open the offer inputs (nothing
+        // is ever popped open programmatically).
+        armOfferFill(s.getItemId(), s.getPrice(), s.getQuantity());
     }
 
     /**

@@ -28,7 +28,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Thin read-only client for Grand Flip Out server intelligence (optional, off by default).
+ * Thin client for Grand Flip Out server intelligence (optional, off by default).
+ * Read-mostly; the only writes are the opt-in trade contribution and the linked
+ * account's watchlist union (putAccountWatchlist).
  */
 @Slf4j
 public class IntelligenceClient
@@ -204,43 +206,6 @@ public class IntelligenceClient
         try (Response response = httpClient.newCall(request).execute())
         {
             return response.isSuccessful();
-        }
-    }
-
-    /**
-     * The linked account's server-side watchlist (#190 website↔plugin sync, pull leg):
-     * authenticated GET, item ids only — the caller MERGES into the local star store
-     * (add-only union; server rules stay server-side, so nothing here can clobber them).
-     */
-    public List<Integer> fetchAccountWatchlist(String apiKey) throws IOException
-    {
-        HttpUrl url = HttpUrl.parse(baseUrl + "/api/account/watchlist").newBuilder().build();
-        Request request = new Request.Builder()
-            .url(url)
-            .get()
-            .header("Accept", "application/json")
-            .header("User-Agent", "GrandFlipOut-Plugin/1.0")
-            .header("Authorization", "Bearer " + apiKey)
-            .build();
-        try (Response response = httpClient.newCall(request).execute())
-        {
-            if (!response.isSuccessful() || response.body() == null)
-            {
-                throw new IOException("HTTP " + response.code());
-            }
-            JsonObject root = gson.fromJson(response.body().string(), JsonObject.class);
-            List<Integer> ids = new ArrayList<>();
-            if (root.has("items") && root.get("items").isJsonArray())
-            {
-                for (com.google.gson.JsonElement el : root.get("items").getAsJsonArray())
-                {
-                    if (el.isJsonObject() && el.getAsJsonObject().has("itemId"))
-                    {
-                        ids.add(el.getAsJsonObject().get("itemId").getAsInt());
-                    }
-                }
-            }
-            return ids;
         }
     }
 

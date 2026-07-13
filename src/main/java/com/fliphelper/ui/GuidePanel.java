@@ -21,7 +21,8 @@ public class GuidePanel extends JPanel {
         "This plugin submits your IP address to a 3rd party website not controlled "
         + "or verified by the RuneLite Developers.\n\n"
         + "When enabled, your Grand Exchange offer and trade data (item, price, "
-        + "quantity, flip timings, and approximate coins) are sent to grandflipout.com.\n\n"
+        + "quantity, flip timings, and approximate coins) are sent to grandflipout.com. "
+        + "If you link an account, your starred watchlist items sync to it (both directions).\n\n"
         + "Enable grandflipout.com features?";
 
     /** Mirrors the contributeTrades @ConfigItem description — same lockstep rule. */

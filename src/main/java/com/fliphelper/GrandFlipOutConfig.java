@@ -84,7 +84,8 @@ public interface GrandFlipOutConfig extends Config
         section = intelligenceSection,
         position = 0,
         warning = "This plugin submits your IP address to a 3rd party website not controlled or verified by the RuneLite Developers. "
-            + "When enabled, your Grand Exchange offer and trade data (item, price, quantity, flip timings, and approximate coins) are sent to grandflipout.com."
+            + "When enabled, your Grand Exchange offer and trade data (item, price, quantity, flip timings, and approximate coins) are sent to grandflipout.com. "
+            + "If you link an account, your starred watchlist items sync to it (both directions)."
     )
     default boolean enableServerFunctionality()
     {
@@ -139,7 +140,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "enableGePriceFill",
         name = "GE offer auto-fill",
-        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into the Grand Exchange offer's input when you open it — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
+        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested item name into the GE item search and the suggested price/quantity into the offer's input when you open them — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
         section = advisorSection,
         position = 1
     )
@@ -381,7 +382,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "copilotHotkey",
         name = "Copilot next step",
-        description = "Context-aware GE hotkey. Opens GE search, arms prices/quantities, and guides you through the next action based on your current GE interface.",
+        description = "Context-aware GE hotkey. Arms the suggested item, price and quantity — they pre-fill as you open the GE search or offer input yourself (requires \"GE offer auto-fill\").",
         section = hotkeysSection,
         position = 7
     )
@@ -393,7 +394,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "nextSuggestionHotkey",
         name = "Next suggestion",
-        description = "Cycles to the next actionable flip suggestion and instantly searches for it in the GE.",
+        description = "Cycles to the next actionable flip suggestion and arms it — the item name pre-fills when you open the GE item search yourself.",
         section = hotkeysSection,
         position = 8
     )
@@ -405,7 +406,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "skipSuggestionHotkey",
         name = "Skip suggestion",
-        description = "Skips the current flip suggestion and instantly searches the next one in the GE.",
+        description = "Skips the current flip suggestion and arms the next one — it pre-fills when you open the GE item search yourself.",
         section = hotkeysSection,
         position = 9
     )

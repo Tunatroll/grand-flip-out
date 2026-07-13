@@ -40,18 +40,18 @@ public class WatchlistStore
         load();
     }
 
-    public boolean contains(int itemId)
+    public synchronized boolean contains(int itemId)
     {
         return ids.contains(itemId);
     }
 
-    public boolean isEmpty()
+    public synchronized boolean isEmpty()
     {
         return ids.isEmpty();
     }
 
     /** Star/unstar an item. Returns true if it is now watched. */
-    public boolean toggle(int itemId)
+    public synchronized boolean toggle(int itemId)
     {
         boolean nowWatched;
         if (ids.contains(itemId))
@@ -69,7 +69,7 @@ public class WatchlistStore
     }
 
     /** Watched item IDs in the order they were starred. */
-    public List<Integer> getAll()
+    public synchronized List<Integer> getAll()
     {
         return new ArrayList<>(ids);
     }
@@ -80,7 +80,7 @@ public class WatchlistStore
      * copy is never treated as authoritative deletion). Returns true when anything
      * new was added, so the caller knows to refresh the browse list.
      */
-    public boolean mergeFrom(java.util.Collection<Integer> serverIds)
+    public synchronized boolean mergeFrom(java.util.Collection<Integer> serverIds)
     {
         if (serverIds == null || serverIds.isEmpty())
         {
