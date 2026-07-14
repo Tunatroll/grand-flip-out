@@ -25,13 +25,21 @@ public class GuidePanel extends JPanel {
         + "If you link an account, your starred watchlist items sync to it (both directions).\n\n"
         + "Enable grandflipout.com features?";
 
-    /** Mirrors the contributeTrades @ConfigItem description — same lockstep rule. */
+    /** Mirrors the contributeTrades @ConfigItem description — same lockstep rule.
+     *  M58 value-exchange framing (owner GO 2026-07-13): name what the player GETS,
+     *  not just what they give — and every named benefit must be REAL (the linked-key
+     *  flip-log sync ships in the same change as this string). */
     private static final String CONTRIBUTE_DISCLOSURE =
-        "Share your completed GE trades (item, price, quantity, buy/sell) and "
-        + "completed-flip outcomes (paired buy/sell prices with placed-to-filled "
-        + "timings) with grandflipout.com to improve crowdsourced flip data.\n\n"
-        + "No account identity is sent. You can turn this off at any time.\n\n"
-        + "Contribute your flips?";
+        "Share your completed GE trades and flip outcomes (item, price, quantity, "
+        + "buy/sell timings) with grandflipout.com.\n\n"
+        + "What you get back: the fill-time and recovery predictions this plugin "
+        + "shows you are trained on this data — contributing makes them sharper, "
+        + "for you too. With a linked account your flips ALSO sync to your own "
+        + "flip history + P&L on grandflipout.com and count toward the opt-in "
+        + "leaderboard.\n\n"
+        + "Anonymous when unlinked; synced to your own account when linked. "
+        + "Off by default — turn it off any time.\n\n"
+        + "Sync your flips?";
 
     private static String hex(Color c)
     {
@@ -74,8 +82,9 @@ public class GuidePanel extends JPanel {
             + "<li><b>Enable grandflipout.com features</b> (button above) — unlocks the Advisor, "
             + "live dump/signal intelligence, and account features.</li>"
             + "<li><b>Link account</b> — free; a short code, no key-pasting.</li>"
-            + "<li><b>Contribute your flips</b> (optional) — anonymous crowdsourced data that "
-            + "makes fill-time and recovery predictions better for you.</li>"
+            + "<li><b>Sync your flips</b> (optional) — the crowdsourced data that makes "
+            + "fill-time and recovery predictions sharper for you; linked accounts also get "
+            + "their flip history + P&L on the website.</li>"
             + "</ol>"
 
             + "<h3 style='color: white; margin-bottom: 2px;'>🖱️ GE Price Fill</h3>"
@@ -179,15 +188,15 @@ public class GuidePanel extends JPanel {
     private JPanel buildContributeBox()
     {
         JPanel box = cardBox();
-        contributeStatus = new JLabel("Contribute flips: off");
+        contributeStatus = new JLabel("Flip sync: off");
         contributeStatus.setForeground(Color.LIGHT_GRAY);
 
-        contributeButton = new JButton("Contribute your flips…");
+        contributeButton = new JButton("Sync your flips…");
         contributeButton.setFocusPainted(false);
         contributeButton.addActionListener(e -> onContributePressed());
         contributeButton.setEnabled(false);
 
-        box.add(cardTitle("Crowdsourced data"));
+        box.add(cardTitle("Sync your flips"));
         box.add(contributeStatus);
         box.add(contributeButton);
         return box;
@@ -230,10 +239,10 @@ public class GuidePanel extends JPanel {
 
         boolean contributing = config.contributeTrades();
         contributeStatus.setText(contributing
-            ? "Contribute flips: on ✓ — thank you!"
+            ? "Flip sync: on ✓ — sharper predictions + website history"
             : "Off — your flips stay local");
         contributeStatus.setForeground(contributing ? GfoPalette.UP : Color.LIGHT_GRAY);
-        contributeButton.setText(contributing ? "Stop contributing" : "Contribute your flips…");
+        contributeButton.setText(contributing ? "Stop syncing" : "Sync your flips…");
         contributeButton.setEnabled(contributeToggleAction != null && (on || contributing));
         revalidate();
         repaint();
@@ -295,7 +304,7 @@ public class GuidePanel extends JPanel {
                 enableServerAction.run();
             }
             int choice = JOptionPane.showConfirmDialog(this, CONTRIBUTE_DISCLOSURE,
-                "Contribute your flips", JOptionPane.OK_CANCEL_OPTION,
+                "Sync your flips", JOptionPane.OK_CANCEL_OPTION,
                 JOptionPane.QUESTION_MESSAGE);
             if (choice != JOptionPane.OK_OPTION)
             {

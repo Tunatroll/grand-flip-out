@@ -106,11 +106,13 @@ public interface GrandFlipOutConfig extends Config
 
     @ConfigItem(
         keyName = "contributeTrades",
-        name = "Contribute trades (crowdsourced data)",
-        description = "Opt in to share your completed GE trades (item, price, quantity, buy/sell) "
+        name = "Sync flips (crowdsourced data)",
+        description = "Off by default. Share your completed GE trades (item, price, quantity, buy/sell) "
             + "and completed-flip outcomes (paired buy/sell prices with placed-to-filled timings) "
-            + "with grandflipout.com to improve crowdsourced flip data. Off by default. "
-            + "Independent of the read-only intelligence above. No account identity is sent.",
+            + "with grandflipout.com — this data trains the fill-time and recovery predictions the "
+            + "plugin shows you. With a linked account your flips also sync to your own website "
+            + "flip history + P&L and count toward the opt-in leaderboard; anonymous when unlinked. "
+            + "Independent of the read-only intelligence above.",
         section = intelligenceSection,
         position = 2
     )

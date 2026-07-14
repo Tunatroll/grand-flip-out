@@ -217,6 +217,16 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             if (config.enableServerFunctionality() && config.contributeTrades() && intelligenceClient != null)
             {
                 intelligenceClient.submitFlipOutcome(flip);
+
+                // Flip-sync value exchange, return leg (M58): with a LINKED account the same
+                // opt-in also logs the flip to the player's own website flip history + P&L
+                // (and opt-in leaderboard). Same live-witnessed guard inside the client;
+                // the server computes tax/profit (ge-tax SSOT).
+                String linkedKey = config.apiKey();
+                if (linkedKey != null && !linkedKey.trim().isEmpty())
+                {
+                    intelligenceClient.logProfileFlip(flip, linkedKey);
+                }
             }
             clientThread.invokeLater(() ->
             {

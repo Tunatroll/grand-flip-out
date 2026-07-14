@@ -652,6 +652,62 @@ public class IntelligenceClient
         }
     }
 
+    /**
+     * Fire-and-forget: log one completed flip to the player's OWN website flip log
+     * (POST /api/profile/flips, X-API-Key). This is the return leg of the flip-sync
+     * value exchange (M58, owner GO 2026-07-13): the anonymous telemetry above improves
+     * the shared fill-time data; THIS gives the contributor their synced flip history +
+     * P&L on grandflipout.com and opt-in leaderboard eligibility. The caller gates on
+     * the same double opt-in (enableServerFunctionality + contributeTrades) AND a
+     * linked key; the same live-witnessed guard applies here, so GE-history imports
+     * never sync. The server computes tax/profit (ge-tax SSOT) — no client math.
+     */
+    public void logProfileFlip(FlipItem flip, String apiKey)
+    {
+        try
+        {
+            if (apiKey == null || apiKey.trim().isEmpty() || !shouldSubmitOutcome(flip, Instant.now()))
+            {
+                return;
+            }
+
+            com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+            o.addProperty("itemId", flip.getItemId());
+            o.addProperty("itemName", flip.getItemName());
+            o.addProperty("buyPrice", flip.getBuyPrice());
+            o.addProperty("sellPrice", flip.getSellPrice());
+            o.addProperty("quantity", flip.getQuantity());
+            o.addProperty("source", "plugin");
+
+            okhttp3.RequestBody body = okhttp3.RequestBody.create(
+                okhttp3.MediaType.parse("application/json"), o.toString());
+
+            Request request = new Request.Builder()
+                .url(baseUrl + "/api/profile/flips")
+                .post(body)
+                .header("Content-Type", "application/json")
+                .header("X-API-Key", apiKey.trim())
+                .header("User-Agent", "GrandFlipOut-Plugin/1.0")
+                .build();
+
+            httpClient.newCall(request).enqueue(new okhttp3.Callback()
+            {
+                @Override public void onFailure(okhttp3.Call call, IOException e)
+                {
+                    log.debug("Profile flip sync failed: {}", e.getMessage());
+                }
+                @Override public void onResponse(okhttp3.Call call, Response response)
+                {
+                    response.close();
+                }
+            });
+        }
+        catch (Exception e)
+        {
+            log.debug("Profile flip sync error: {}", e.getMessage());
+        }
+    }
+
     /** Live-fill guard: true when the flip's sell completed within the last 10 minutes. */
     static boolean isRecentFill(FlipItem flip, Instant now)
     {
