@@ -275,7 +275,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         footer.add(buildFooterLink("Website", "https://grandflipout.com/?ref=plugin"));
         footer.add(buildFooterDot());
-        footer.add(buildFooterLink("Discord", "https://discord.gg/yUhfTJEuMr"));
+        footer.add(buildFooterLink("Discord", "https://discord.gg/5bGJbdHFSv"));
         footer.add(buildFooterDot());
 
         // Upgrade CTA changes label once the account is unlocked. "Upgrade" only opens the
