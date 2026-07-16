@@ -150,6 +150,11 @@ public final class ScreenshotHarness
             }
             int w = Integer.getInteger("gfo.width", 240);  // RuneLite sidebar width (override for inspection)
             Dimension pref = target.getPreferredSize();
+            // Width diagnostic: PluginPanel.getPreferredSize() hard-caps panels at 242px
+            // (bytecode-verified 2026-07-16 investigating "client stretches without consent"
+            // — the plugin CANNOT widen the sidebar; PanelWidthTest pins the contract).
+            System.out.println("panel preferredSize=" + (pref != null ? pref.width + "x" + pref.height : "null")
+                + (pref != null && pref.width > 242 ? "  ⚠ exceeds the 242px PluginPanel cap — should be impossible, investigate" : ""));
             int h = Math.max(700, pref != null ? pref.height : 700);
             target.setSize(w, h);
             target.doLayout();
