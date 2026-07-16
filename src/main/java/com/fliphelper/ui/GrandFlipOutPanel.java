@@ -357,6 +357,12 @@ public class GrandFlipOutPanel extends PluginPanel
     /** Shared gold "create account" button that opens the web signup (no in-client payment). */
     private JButton buildUnlockButton(String label)
     {
+        return buildLinkButton(label, "https://grandflipout.com/signup?ref=plugin");
+    }
+
+    /** Shared gold CTA button that opens a grandflipout.com page (no in-client payment). */
+    private JButton buildLinkButton(String label, String url)
+    {
         JButton btn = new JButton(label);
         btn.setFont(btn.getFont().deriveFont(Font.BOLD, 12f));
         btn.setForeground(PANEL_DEEP);
@@ -365,7 +371,7 @@ public class GrandFlipOutPanel extends PluginPanel
         btn.setBorder(new EmptyBorder(6, 10, 6, 10));
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btn.addActionListener(e -> openDashboardUrl("https://grandflipout.com/signup?ref=plugin"));
+        btn.addActionListener(e -> openDashboardUrl(url));
         return btn;
     }
 
@@ -2325,7 +2331,9 @@ public class GrandFlipOutPanel extends PluginPanel
         JPanel top = new JPanel(new BorderLayout());
         top.setOpaque(false);
         top.setBorder(new EmptyBorder(8, 8, 4, 8));
-        JLabel title = new JLabel("Server Intelligence (opt-in)");
+        // "(opt-in)" was cut from the title: at 242px it ran under the Refresh button
+        // (seen in the screenshot harness); the opt-in nature is stated by the gate copy.
+        JLabel title = new JLabel("Server Intelligence");
         title.setForeground(BRAND_GOLD);
         title.setFont(title.getFont().deriveFont(Font.BOLD, 13f));
         top.add(title, BorderLayout.WEST);
@@ -2359,6 +2367,75 @@ public class GrandFlipOutPanel extends PluginPanel
     }
 
     /**
+     * #62 gate: the PRO teaser shows for everyone EXCEPT a resolved pro account — anonymous
+     * (a null entitlement included: the panel constructs before the service resolves) and
+     * free accounts both see what Pro gates. Pure + static so the contract is unit-testable
+     * (ProTeaserGateTest). Tier strings mirror the server contract (anonymous/free/pro);
+     * matched case-insensitively so a server case change can't flash an upsell at a payer.
+     */
+    static boolean showProTeaser(com.fliphelper.api.EntitlementService.Entitlement e)
+    {
+        return e == null || !"pro".equalsIgnoreCase(e.getTier());
+    }
+
+    private void maybeAddProTeaser()
+    {
+        com.fliphelper.api.EntitlementService.Entitlement ent =
+            entitlementService != null ? entitlementService.get() : null;
+        if (showProTeaser(ent))
+        {
+            intelContentPanel.add(buildProTeaser());
+        }
+    }
+
+    /**
+     * The locked PRO preview (#62): the server 403-gates these modules for free keys
+     * (optimize/kelly/barometer/export), so their absence in this tab was invisible —
+     * free users never learned Pro exists. Honest copy only (real feature names + the
+     * real price, no invented numbers); the CTA opens the web upgrade page — no
+     * in-client payment. The html label pins an inner width well under the 242px
+     * PluginPanel cap (the advisor-stretch lesson).
+     */
+    private JPanel buildProTeaser()
+    {
+        JPanel teaser = new JPanel();
+        teaser.setLayout(new BoxLayout(teaser, BoxLayout.Y_AXIS));
+        teaser.setBackground(PANEL_DEEP);
+        teaser.setAlignmentX(Component.LEFT_ALIGNMENT);
+        teaser.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 0, 0, 0, TEXT_DIM.darker()),
+            new EmptyBorder(10, 0, 4, 0)));
+
+        JLabel header = new JLabel("PRO — the power layer");
+        header.setForeground(BRAND_GOLD);
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 12f));
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
+        teaser.add(header);
+
+        JLabel rows = new JLabel("<html><div style='width:170px'>Locked on your current plan:<br>"
+            + "&bull; <b>Slot Optimizer Pro</b> — Kelly-sized slot plan for your bankroll<br>"
+            + "&bull; <b>Live BUY/SELL signals</b> — on dump &amp; recovery detection<br>"
+            + "&bull; <b>Nature Rune Barometer</b> — market-wide alch signal<br>"
+            + "&bull; <b>Every watchlist alert</b> + full CSV export</div></html>");
+        rows.setForeground(TEXT_DIM);
+        rows.setFont(rows.getFont().deriveFont(11f));
+        rows.setBorder(new EmptyBorder(4, 0, 8, 0));
+        rows.setAlignmentX(Component.LEFT_ALIGNMENT);
+        teaser.add(rows);
+
+        teaser.add(buildLinkButton("See Pro — $4.99/mo", "https://grandflipout.com/upgrade?ref=plugin"));
+
+        JLabel trial = new JLabel("7-day free trial · cancel anytime");
+        trial.setForeground(TEXT_DIM);
+        trial.setFont(trial.getFont().deriveFont(10f));
+        trial.setBorder(new EmptyBorder(3, 0, 0, 0));
+        trial.setAlignmentX(Component.LEFT_ALIGNMENT);
+        teaser.add(trial);
+
+        return teaser;
+    }
+
+    /**
      * Decide what the Intel tab shows: a premium unlock CTA for anonymous users, the
      * "server intelligence is off" hint when the account is unlocked but the toggle is off,
      * or the live intelligence (with a 60s auto-refresh started once).
@@ -2382,6 +2459,7 @@ public class GrandFlipOutPanel extends PluginPanel
             intelContentPanel.add(msg);
 
             intelContentPanel.add(buildUnlockButton("Create free account"));
+            maybeAddProTeaser();
         }
         else if (!config.enableServerIntelligence())
         {
@@ -2389,6 +2467,7 @@ public class GrandFlipOutPanel extends PluginPanel
             offLabel.setForeground(TEXT_DIM);
             offLabel.setBorder(new EmptyBorder(20, 8, 20, 8));
             intelContentPanel.add(offLabel);
+            maybeAddProTeaser();
         }
         else
         {
@@ -2543,6 +2622,11 @@ public class GrandFlipOutPanel extends PluginPanel
                     {
                         intelContentPanel.add(emptyStateLabel("No active intelligence signals."));
                     }
+
+                    // #62: free accounts get 403s (nulls) for the Pro modules above — show
+                    // them what they're not seeing. AFTER the empty-state guard on purpose:
+                    // a teaser must never suppress the honest "no signals" line.
+                    maybeAddProTeaser();
 
                     intelContentPanel.revalidate();
                     intelContentPanel.repaint();
