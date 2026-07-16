@@ -154,6 +154,21 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private volatile long pendingGePrice = -1;
     private volatile int pendingGeQty = -1;
     private volatile int pendingSearchItemId = -1;
+    // Armed fills expire (the "haunted input" fix, 2026-07-16): without a TTL an armed
+    // price could fire into a numeric prompt MINUTES later — and script 108 is the
+    // generic numeric-input script (bank Withdraw-X, trades...), so fills are also
+    // gated on the GE window actually being open (see geFillAllowed()).
+    private static final long GE_FILL_ARM_TTL_MS = 90_000;
+    private volatile long geFillArmedAtMs = -1;
+
+    // Watchlist sync triggers (#190 flakiness fix, 2026-07-16): the boot-only sync meant
+    // in-session stars never reached the website until the next client restart. A star
+    // toggle now schedules a DEBOUNCED push (coalesces a starring spree into one PUT)
+    // and a periodic pull keeps website-side stars arriving mid-session.
+    private static final long WATCHLIST_PUSH_DEBOUNCE_S = 5;
+    private static final long WATCHLIST_PERIODIC_SYNC_S = 600;
+    private java.util.concurrent.ScheduledFuture<?> watchlistPushFuture;
+    private java.util.concurrent.ScheduledFuture<?> watchlistSyncFuture;
     // Navigation state for Next/Skip hotkeys. Volatile snapshot swap: the fetch executor
     // REPLACES the list reference (never mutates in place) because the overlay reads it on
     // the client thread every frame — in-place clear/addAll raced the render (IOOBE).
@@ -322,6 +337,15 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             TimeUnit.SECONDS
         );
 
+        // Star toggles push (debounced); website-side stars arrive on a slow pull.
+        panel.setWatchlistChangedListener(this::scheduleWatchlistPush);
+        watchlistSyncFuture = executor.scheduleAtFixedRate(
+            this::syncAccountWatchlist,
+            WATCHLIST_PERIODIC_SYNC_S,
+            WATCHLIST_PERIODIC_SYNC_S,
+            TimeUnit.SECONDS
+        );
+
         log.info("Grand Flip Out started successfully");
     }
 
@@ -339,6 +363,18 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             refreshFuture.cancel(false);
             refreshFuture = null;
+        }
+
+        if (watchlistPushFuture != null)
+        {
+            watchlistPushFuture.cancel(false);
+            watchlistPushFuture = null;
+        }
+
+        if (watchlistSyncFuture != null)
+        {
+            watchlistSyncFuture.cancel(false);
+            watchlistSyncFuture = null;
         }
 
         if (priceService != null)
@@ -622,6 +658,24 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      * the master network switch is on AND an account key is linked; fail-soft.
      * Called from the same executor tasks as the entitlement refresh — never the EDT.
      */
+    /**
+     * Debounced star-toggle push: a starring spree coalesces into ONE sync a few
+     * seconds after the last click (each toggle cancels + reschedules the one-shot).
+     */
+    private synchronized void scheduleWatchlistPush()
+    {
+        if (executor == null)
+        {
+            return;
+        }
+        if (watchlistPushFuture != null)
+        {
+            watchlistPushFuture.cancel(false);
+        }
+        watchlistPushFuture = executor.schedule(
+            this::syncAccountWatchlist, WATCHLIST_PUSH_DEBOUNCE_S, TimeUnit.SECONDS);
+    }
+
     private void syncAccountWatchlist()
     {
         try
@@ -881,6 +935,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             showFavouriteQuickLook();
             if (pendingSearchItemId > 0)
             {
+                if (geFillArmedAtMs > 0 && System.currentTimeMillis() - geFillArmedAtMs > GE_FILL_ARM_TTL_MS)
+                {
+                    clearGeFillArm();
+                    return;
+                }
                 int id = pendingSearchItemId;
                 pendingSearchItemId = -1;
                 fillGeSearch(id);
@@ -890,6 +949,17 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         if (event.getScriptId() != CHATBOX_INPUT_OPEN_SCRIPT)
         {
+            return;
+        }
+
+        // Script 108 fires for ANY numeric chatbox input in the game (bank Withdraw-X,
+        // trade amounts...), not just GE offers — an armed value may only ever land
+        // while the GE window is actually open, and only within its arm TTL. Outside
+        // either bound the arm is dropped entirely (never deferred: a stale fill firing
+        // later is exactly the "haunted input" glitch this guards against).
+        if ((pendingGeQty > 0 || pendingGePrice > 0) && !geFillAllowed())
+        {
+            clearGeFillArm();
             return;
         }
 
@@ -913,6 +983,25 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             pendingGePrice = -1;
             injectGeInput(price, formatGp(price) + " gp");
         }
+    }
+
+    /** An armed GE fill may fire only while the GE window is open and the arm is fresh. */
+    private boolean geFillAllowed()
+    {
+        if (geFillArmedAtMs > 0 && System.currentTimeMillis() - geFillArmedAtMs > GE_FILL_ARM_TTL_MS)
+        {
+            return false;
+        }
+        Widget geWindow = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+        return geWindow != null && !geWindow.isHidden();
+    }
+
+    private void clearGeFillArm()
+    {
+        pendingSearchItemId = -1;
+        pendingGePrice = -1;
+        pendingGeQty = -1;
+        geFillArmedAtMs = -1;
     }
 
     /**
@@ -991,6 +1080,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         pendingSearchItemId = itemId > 0 ? itemId : -1;
         pendingGePrice = price > 0 ? price : -1;
         pendingGeQty = quantity > 0 ? quantity : -1;
+        geFillArmedAtMs = System.currentTimeMillis();
         clientThread.invokeLater(() -> client.addChatMessage(
             ChatMessageType.GAMEMESSAGE,
             "",
@@ -1479,6 +1569,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             // Arm for injection when chatbox opens (script 108)
             pendingGePrice = price;
+            geFillArmedAtMs = System.currentTimeMillis();
             client.addChatMessage(
                 ChatMessageType.GAMEMESSAGE,
                 "",

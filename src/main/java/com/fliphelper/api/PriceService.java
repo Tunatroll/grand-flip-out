@@ -48,9 +48,15 @@ public class PriceService
 
     public PriceService(OkHttpClient httpClient, GrandFlipOutConfig config, Gson gson)
     {
+        this(new WikiPriceClient(httpClient, config.userAgent(), gson), config, gson);
+    }
+
+    /** Test seam: inject a scripted WikiPriceClient (PriceServiceLastGoodTest). */
+    PriceService(WikiPriceClient wikiClient, GrandFlipOutConfig config, Gson gson)
+    {
         this.config = config;
         this.gson = gson;
-        this.wikiClient = new WikiPriceClient(httpClient, config.userAgent(), gson);
+        this.wikiClient = wikiClient;
     }
 
     /** The shared injected Gson, exposed so static helpers (e.g. TradeLogReader) reuse it, never new Gson(). */
@@ -99,6 +105,16 @@ public class PriceService
         {
             long wikiDuration = System.currentTimeMillis() - wikiStart;
             log.warn("Failed to fetch Wiki prices: {}", e.getMessage());
+        }
+
+        // A failed/empty fetch must never blank the panel: keep the last-good snapshot
+        // and leave lastRefresh alone so the header's staleness label tells the truth
+        // (the old behavior swapped in an EMPTY map and stamped "fresh" over it).
+        if (wikiLatest.isEmpty() && !aggregatedPrices.isEmpty())
+        {
+            log.warn("Wiki refresh returned no items — keeping last-good prices ({} items)",
+                aggregatedPrices.size());
+            return;
         }
 
         // Build new map atomically, then swap — avoids readers seeing partial data

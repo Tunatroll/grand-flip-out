@@ -122,6 +122,17 @@ public class GrandFlipOutPanel extends PluginPanel
     private JLabel wealthDeltaLabel;
     private JLabel lastRefreshLabel;
     private String historyFilter = "all";
+    // History rebuild change-gate (EDT-thrash fix): skip identical rebuilds entirely.
+    private long lastHistoryLogStamp = -1;
+    private String lastHistoryStateKey = "";
+    // Fired on every star toggle so the plugin can schedule a debounced account sync
+    // (#190: stars used to sit local until the next client restart).
+    private Runnable watchlistChangedListener;
+
+    public void setWatchlistChangedListener(Runnable listener)
+    {
+        this.watchlistChangedListener = listener;
+    }
     /** Optional callback to trigger a manual GE-history-tab import (wired by the plugin). */
     private Runnable geHistoryImportAction;
 
@@ -892,7 +903,7 @@ public class GrandFlipOutPanel extends PluginPanel
         filterAllBtn.addActionListener(e -> { historyFilter = "all"; updateHistoryTab(); });
         filterProfitBtn.addActionListener(e -> { historyFilter = "profit"; updateHistoryTab(); });
         filterLossBtn.addActionListener(e -> { historyFilter = "loss"; updateHistoryTab(); });
-        refreshLogBtn.addActionListener(e -> updateHistoryTab());
+        refreshLogBtn.addActionListener(e -> updateHistoryTab(true));
         filterRow.add(filterAllBtn);
         filterRow.add(filterProfitBtn);
         filterRow.add(filterLossBtn);
@@ -1032,6 +1043,9 @@ public class GrandFlipOutPanel extends PluginPanel
     }
     public void updateFlipsTab()
     {
+        // Cards render live prices, so the rebuild itself stays — but the viewport must
+        // not jump on the 60s refresh tick (the "list snaps to the top" glitch).
+        final java.awt.Rectangle viewport = activeFlipsPanel.getVisibleRect();
         activeFlipsPanel.removeAll();
 
         if (flipTracker.getActiveFlips().isEmpty())
@@ -1056,18 +1070,77 @@ public class GrandFlipOutPanel extends PluginPanel
 
         activeFlipsPanel.revalidate();
         activeFlipsPanel.repaint();
+        if (viewport.y > 0)
+        {
+            SwingUtilities.invokeLater(() -> activeFlipsPanel.scrollRectToVisible(viewport));
+        }
     }
 
     public void updateHistoryTab()
     {
-        historyPanel.removeAll();
+        updateHistoryTab(false);
+    }
 
-        List<TradeLogEntry> logEntries = dataDir != null
-            ? TradeLogReader.readRecent(dataDir, 40, priceService.getGson())
-            : new ArrayList<>();
-
-        String selectedAccount = statsPanel != null
+    /**
+     * History rebuild, EDT-thrash-proofed (the 2026-07-16 glitch diagnosis): the trade
+     * log is stat-gated — when trade_log.ndjson, the filter, the account AND the
+     * in-memory completed-flip count are all unchanged, the rebuild is skipped
+     * entirely; when a re-read is due it runs on the executor, never the EDT (the old
+     * body did file I/O + JSON parsing inside every updateAll tick).
+     *
+     * @param force user pressed the refresh button — always re-read.
+     */
+    public void updateHistoryTab(boolean force)
+    {
+        final String selectedAccount = statsPanel != null
             ? statsPanel.getSelectedAccount() : StatsPanel.ALL_ACCOUNTS;
+        final String stateKey = historyFilter + "|" + selectedAccount + "|"
+            + (flipTracker != null ? flipTracker.getCompletedFlips().size() : 0);
+        final long logStamp = historyLogStamp();
+        if (!force && logStamp == lastHistoryLogStamp && stateKey.equals(lastHistoryStateKey)
+            && historyPanel.getComponentCount() > 0)
+        {
+            return;
+        }
+
+        if (executor != null)
+        {
+            executor.execute(() ->
+            {
+                final List<TradeLogEntry> logEntries = dataDir != null
+                    ? TradeLogReader.readRecent(dataDir, 40, priceService.getGson())
+                    : new ArrayList<>();
+                SwingUtilities.invokeLater(() ->
+                    renderHistoryTab(logEntries, selectedAccount, logStamp, stateKey));
+            });
+        }
+        else
+        {
+            List<TradeLogEntry> logEntries = dataDir != null
+                ? TradeLogReader.readRecent(dataDir, 40, priceService.getGson())
+                : new ArrayList<>();
+            renderHistoryTab(logEntries, selectedAccount, logStamp, stateKey);
+        }
+    }
+
+    /** Change-stamp of trade_log.ndjson (mtime + length) — 0 when absent. */
+    private long historyLogStamp()
+    {
+        if (dataDir == null)
+        {
+            return 0L;
+        }
+        java.io.File logFile = new java.io.File(dataDir, "trade_log.ndjson");
+        return logFile.lastModified() * 31 + logFile.length();
+    }
+
+    private void renderHistoryTab(List<TradeLogEntry> logEntries, String selectedAccount,
+                                  long logStamp, String stateKey)
+    {
+        lastHistoryLogStamp = logStamp;
+        lastHistoryStateKey = stateKey;
+        final java.awt.Rectangle viewport = historyPanel.getVisibleRect();
+        historyPanel.removeAll();
 
         List<TradeLogEntry> filteredLog = new ArrayList<>();
         for (TradeLogEntry entry : logEntries)
@@ -1136,6 +1209,10 @@ public class GrandFlipOutPanel extends PluginPanel
 
         historyPanel.revalidate();
         historyPanel.repaint();
+        if (viewport.y > 0)
+        {
+            SwingUtilities.invokeLater(() -> historyPanel.scrollRectToVisible(viewport));
+        }
 
         // Refresh the numbers-only Stats block for the selected interval.
         if (statsPanel != null)
@@ -2017,6 +2094,10 @@ public class GrandFlipOutPanel extends PluginPanel
                 boolean nowWatched = watchlist.toggle(watchItemId);
                 star.setText(nowWatched ? "★" : "☆");
                 star.setForeground(nowWatched ? BRAND_GOLD : TEXT_DIM);
+                if (watchlistChangedListener != null)
+                {
+                    watchlistChangedListener.run();
+                }
                 // When viewing the watch list, un-starring should drop the card immediately.
                 if (CAT_WATCH.equals(selectedCategory))
                 {
