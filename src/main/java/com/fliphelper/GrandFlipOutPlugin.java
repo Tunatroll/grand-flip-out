@@ -495,7 +495,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             if (lastOfferState[slot] == GrandExchangeOfferState.BUYING)
             {
                 flipTracker.cancelFlip(itemId);
-                panel.updateFlipsTab();
+                // GE events arrive on the client thread — Swing work must hop to the EDT
+                // (this bare call was the one panel mutation running off-EDT).
+                javax.swing.SwingUtilities.invokeLater(panel::updateFlipsTab);
             }
         }
 
@@ -658,24 +660,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      * the master network switch is on AND an account key is linked; fail-soft.
      * Called from the same executor tasks as the entitlement refresh — never the EDT.
      */
-    /**
-     * Debounced star-toggle push: a starring spree coalesces into ONE sync a few
-     * seconds after the last click (each toggle cancels + reschedules the one-shot).
-     */
-    private synchronized void scheduleWatchlistPush()
-    {
-        if (executor == null)
-        {
-            return;
-        }
-        if (watchlistPushFuture != null)
-        {
-            watchlistPushFuture.cancel(false);
-        }
-        watchlistPushFuture = executor.schedule(
-            this::syncAccountWatchlist, WATCHLIST_PUSH_DEBOUNCE_S, TimeUnit.SECONDS);
-    }
-
     private void syncAccountWatchlist()
     {
         try
@@ -708,6 +692,24 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             log.debug("account watchlist sync failed", ex);
         }
+    }
+
+    /**
+     * Debounced star-toggle push: a starring spree coalesces into ONE sync a few
+     * seconds after the last click (each toggle cancels + reschedules the one-shot).
+     */
+    private synchronized void scheduleWatchlistPush()
+    {
+        if (executor == null)
+        {
+            return;
+        }
+        if (watchlistPushFuture != null)
+        {
+            watchlistPushFuture.cancel(false);
+        }
+        watchlistPushFuture = executor.schedule(
+            this::syncAccountWatchlist, WATCHLIST_PUSH_DEBOUNCE_S, TimeUnit.SECONDS);
     }
 
     /**
@@ -1559,9 +1561,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
     private void armOrInjectPrice(long price, String itemName, String side)
     {
-        // Try direct injection if chatbox is already open
+        // Try direct injection if chatbox is already open — but only when the open input
+        // belongs to the GE (same hazard as the armed path: a hotkey pressed over a bank
+        // Withdraw-X prompt must not land a price there).
         Widget chatboxInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
-        if (chatboxInput != null && chatboxInput.getText() != null && !chatboxInput.isHidden())
+        if (chatboxInput != null && chatboxInput.getText() != null && !chatboxInput.isHidden()
+            && geFillAllowed())
         {
             injectGePrice(price);
         }
