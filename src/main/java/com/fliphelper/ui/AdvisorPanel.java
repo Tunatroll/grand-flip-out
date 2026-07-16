@@ -47,6 +47,9 @@ public class AdvisorPanel extends JPanel
 
         /** Arm the GE price/quantity auto-fill for the suggested flip (user opens the offer to apply). */
         void onFillOffer(int itemId, long price, int quantity);
+
+        /** #215: a band/fast-fill chip changed — refetch the suggestion under the new filters. */
+        void onFiltersChanged();
     }
 
     // GFO pastel brand via GfoPalette (OSRS-gold locals retired 2026-07-10)
@@ -60,6 +63,14 @@ public class AdvisorPanel extends JPanel
     private final JPanel dumpFeed = new JPanel();
     private final JButton pauseBtn = new JButton("Pause");
     private boolean paused;
+
+    // #215 band chips — wire values are the flip-bands taxonomy keys (null = All).
+    // Volatile: the EDT writes on chip clicks, the fetch executor reads.
+    private volatile String selectedBand;
+    private volatile boolean fastFillsOnly;
+    private static final String[] BAND_VALUES = {null, "throughput", "patient_whale"};
+    private final JButton[] bandChips = new JButton[BAND_VALUES.length];
+    private JButton fastChip;
 
     public AdvisorPanel(Listener listener)
     {
@@ -84,7 +95,59 @@ public class AdvisorPanel extends JPanel
             listener.onPauseToggled(paused);
         });
         header.add(pauseBtn, BorderLayout.EAST);
-        add(header, BorderLayout.NORTH);
+
+        // #215 (user ask, verbatim: "a high volume advisor tab and a tab for like a high
+        // ticket advisor" + fill-time buckets): band chips narrow the SERVER-side pick.
+        // Plain JButtons with explicit borders — the LAF's default JToggleButton chrome
+        // ellipsized labels at this width (the Prices category row is the proven pattern).
+        JPanel chips = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+        chips.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        chips.setBorder(new EmptyBorder(2, 6, 4, 6));
+        String[] chipLabels = {"All", "Volume", "Whales"};
+        String[] chipTips = {
+            "Every profitable flip, best score first",
+            "Liquid quantity plays — small margin, fills the GE limit fast",
+            "Patient whales — one fill nets 1M+; thin by nature",
+        };
+        for (int i = 0; i < chipLabels.length; i++)
+        {
+            final int idx = i;
+            JButton chip = new JButton(chipLabels[i]);
+            chip.setFont(chip.getFont().deriveFont(11f));
+            chip.setFocusPainted(false);
+            chip.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+            chip.setToolTipText(chipTips[i]);
+            chip.addActionListener(e ->
+            {
+                selectedBand = BAND_VALUES[idx];
+                syncChipStyles();
+                listener.onFiltersChanged();
+            });
+            bandChips[i] = chip;
+            chips.add(chip);
+        }
+        fastChip = new JButton("≤2h");
+        fastChip.setFont(fastChip.getFont().deriveFont(11f));
+        fastChip.setFocusPainted(false);
+        fastChip.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        fastChip.setToolTipText("Only flips estimated to fill within ~2 hours");
+        fastChip.addActionListener(e ->
+        {
+            fastFillsOnly = !fastFillsOnly;
+            syncChipStyles();
+            listener.onFiltersChanged();
+        });
+        chips.add(fastChip);
+        syncChipStyles();
+
+        JPanel north = new JPanel();
+        north.setLayout(new BoxLayout(north, BoxLayout.Y_AXIS));
+        north.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        header.setAlignmentX(Component.LEFT_ALIGNMENT);
+        chips.setAlignmentX(Component.LEFT_ALIGNMENT);
+        north.add(header);
+        north.add(chips);
+        add(north, BorderLayout.NORTH);
 
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBackground(ColorScheme.DARKER_GRAY_COLOR);
@@ -120,6 +183,58 @@ public class AdvisorPanel extends JPanel
     public boolean isPaused()
     {
         return paused;
+    }
+
+    /** #215: the selected band chip — flip-bands key (throughput | patient_whale) or null for All. */
+    public String getSelectedBand()
+    {
+        return selectedBand;
+    }
+
+    /** #215: 0 = no fill cap; the ≤2h chip caps the server pick at 120 estimated minutes. */
+    public int getMaxFillMin()
+    {
+        return fastFillsOnly ? 120 : 0;
+    }
+
+    /** Selected chip = gold on panel; unselected = dim outline (mirrors the Prices category row). */
+    private void syncChipStyles()
+    {
+        for (int i = 0; i < bandChips.length; i++)
+        {
+            if (bandChips[i] == null)
+            {
+                continue;
+            }
+            boolean sel = (BAND_VALUES[i] == null && selectedBand == null)
+                || (BAND_VALUES[i] != null && BAND_VALUES[i].equals(selectedBand));
+            applyChipStyle(bandChips[i], sel);
+        }
+        if (fastChip != null)
+        {
+            applyChipStyle(fastChip, fastFillsOnly);
+        }
+    }
+
+    private static void applyChipStyle(JButton chip, boolean selected)
+    {
+        chip.setOpaque(true);
+        if (selected)
+        {
+            chip.setBackground(GOLD);
+            chip.setForeground(GfoPalette.PANEL);
+            chip.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(GOLD),
+                BorderFactory.createEmptyBorder(2, 7, 2, 7)));
+        }
+        else
+        {
+            chip.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+            chip.setForeground(Color.LIGHT_GRAY);
+            chip.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(DIM.darker()),
+                BorderFactory.createEmptyBorder(2, 7, 2, 7)));
+        }
     }
 
     /** Render a simple centered status message (disabled / loading / offline / no-flip). */

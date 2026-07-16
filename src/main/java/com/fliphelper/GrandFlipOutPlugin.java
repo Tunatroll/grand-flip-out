@@ -305,6 +305,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             @Override public void onBlock(int itemId) { advisorBlacklist.add(itemId); lastSuggestAt = 0; requestSuggestion(); }
             @Override public void onPauseToggled(boolean paused) { if (!paused) { lastSuggestAt = 0; requestSuggestion(); } }
             @Override public void onFillOffer(int itemId, long price, int quantity) { armOfferFill(itemId, price, quantity); }
+            @Override public void onFiltersChanged() { lastSuggestAt = 0; requestSuggestion(); }
         });
         panel.insertTab("Advisor", advisorPanel, 0);
         if (config.enableAdvisor())
@@ -833,7 +834,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                         else
                         {
                             java.util.List<com.fliphelper.model.Suggestion> basket =
-                                intelligenceClient.fetchBasket(snapshot, exclude, f2pOnly, config.apiKey());
+                                intelligenceClient.fetchBasket(snapshot, exclude, f2pOnly, config.apiKey(),
+                                    advisorPanel.getSelectedBand(), advisorPanel.getMaxFillMin());
                             activeSuggestions = (basket != null && !basket.isEmpty())
                                 ? java.util.Collections.unmodifiableList(new java.util.ArrayList<>(basket))
                                 : java.util.Collections.emptyList();
@@ -844,7 +846,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     else
                     {
                         com.fliphelper.model.Suggestion suggestion =
-                            intelligenceClient.fetchSuggestion(snapshot, exclude, f2pOnly, config.apiKey());
+                            intelligenceClient.fetchSuggestion(snapshot, exclude, f2pOnly, config.apiKey(),
+                                advisorPanel.getSelectedBand(), advisorPanel.getMaxFillMin());
                         activeSuggestions = suggestion != null
                             ? java.util.Collections.singletonList(suggestion)
                             : java.util.Collections.emptyList();

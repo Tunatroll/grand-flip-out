@@ -88,11 +88,30 @@ public class GameStateSnapshot
     /** Serialize this snapshot to the JSON request body for POST /api/intelligence/suggest. */
     public String toRequestJson(List<Integer> excludeIds, boolean f2pOnly)
     {
+        return toRequestJson(excludeIds, f2pOnly, null, 0);
+    }
+
+    /**
+     * #215 advisor filters: {@code band} ∈ {throughput, patient_whale} narrows the
+     * server-side pick to that flip-bands lane (null = all); {@code maxFillMin} > 0
+     * caps the estimated fill time. Band values come from the panel's fixed chip
+     * vocabulary — never free text — so the hand-built JSON stays escape-safe.
+     */
+    public String toRequestJson(List<Integer> excludeIds, boolean f2pOnly, String band, int maxFillMin)
+    {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
         sb.append("\"gold\":").append(gold);
         sb.append(",\"freeSlots\":").append(freeSlots);
         sb.append(",\"f2pOnly\":").append(f2pOnly);
+        if (band != null && !band.isEmpty())
+        {
+            sb.append(",\"band\":\"").append(band).append('"');
+        }
+        if (maxFillMin > 0)
+        {
+            sb.append(",\"maxFillMin\":").append(maxFillMin);
+        }
 
         sb.append(",\"activeOffers\":[");
         for (int i = 0; i < activeOffers.size(); i++)

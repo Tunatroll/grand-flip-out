@@ -58,6 +58,12 @@ public class Suggestion
      */
     String priceTier;
 
+    /** flip-bands taxonomy from the server (#215): throughput | patient_whale | standard; null on old servers. */
+    String band;
+    String bandLabel;
+    /** Rough minutes to acquire the sized quantity at current volume; 0 when the server didn't say. */
+    int estFillMin;
+
     public List<String> getReasons()
     {
         return reasons != null ? reasons : Collections.emptyList();

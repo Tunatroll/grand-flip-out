@@ -358,7 +358,14 @@ public class IntelligenceClient
     public Suggestion fetchSuggestion(GameStateSnapshot snapshot, List<Integer> excludeIds,
                                       boolean f2pOnly, String apiKey) throws IOException
     {
-        String json = snapshot.toRequestJson(excludeIds, f2pOnly);
+        return fetchSuggestion(snapshot, excludeIds, f2pOnly, apiKey, null, 0);
+    }
+
+    /** #215: {@code band} + {@code maxFillMin} narrow the server-side pick (see GameStateSnapshot). */
+    public Suggestion fetchSuggestion(GameStateSnapshot snapshot, List<Integer> excludeIds,
+                                      boolean f2pOnly, String apiKey, String band, int maxFillMin) throws IOException
+    {
+        String json = snapshot.toRequestJson(excludeIds, f2pOnly, band, maxFillMin);
         okhttp3.RequestBody body = okhttp3.RequestBody.create(
             okhttp3.MediaType.parse("application/json"), json);
 
@@ -403,6 +410,8 @@ public class IntelligenceClient
                 .profitPerLimit(optLong(root, "profitPerLimit")).volume(optLong(root, "volume"))
                 .marginQuality(optString(root, "marginQuality"))
                 .priceTier(optString(root, "priceTier"))
+                .band(optString(root, "band")).bandLabel(optString(root, "bandLabel"))
+                .estFillMin(optInt(root, "estFillMin"))
                 .build();
         }
     }
@@ -417,7 +426,14 @@ public class IntelligenceClient
     public List<Suggestion> fetchBasket(GameStateSnapshot snapshot, List<Integer> excludeIds,
                                         boolean f2pOnly, String apiKey) throws IOException
     {
-        String json = snapshot.toRequestJson(excludeIds, f2pOnly);
+        return fetchBasket(snapshot, excludeIds, f2pOnly, apiKey, null, 0);
+    }
+
+    /** #215: {@code band} + {@code maxFillMin} narrow every basket pick (see GameStateSnapshot). */
+    public List<Suggestion> fetchBasket(GameStateSnapshot snapshot, List<Integer> excludeIds,
+                                        boolean f2pOnly, String apiKey, String band, int maxFillMin) throws IOException
+    {
+        String json = snapshot.toRequestJson(excludeIds, f2pOnly, band, maxFillMin);
         okhttp3.RequestBody body = okhttp3.RequestBody.create(
             okhttp3.MediaType.parse("application/json"), json);
 
@@ -471,6 +487,8 @@ public class IntelligenceClient
                         .profitPerLimit(optLong(o, "profitPerLimit")).volume(optLong(o, "volume"))
                         .marginQuality(optString(o, "marginQuality"))
                         .priceTier(optString(o, "priceTier"))
+                        .band(optString(o, "band")).bandLabel(optString(o, "bandLabel"))
+                        .estFillMin(optInt(o, "estFillMin"))
                         .build());
                 }
             }
@@ -561,6 +579,8 @@ public class IntelligenceClient
                         .profitPerLimit(optLong(o, "profitPerLimit")).volume(optLong(o, "volume"))
                         .marginQuality(optString(o, "marginQuality"))
                         .priceTier(optString(o, "priceTier"))
+                        .band(optString(o, "band")).bandLabel(optString(o, "bandLabel"))
+                        .estFillMin(optInt(o, "estFillMin"))
                         .build());
                 }
             }

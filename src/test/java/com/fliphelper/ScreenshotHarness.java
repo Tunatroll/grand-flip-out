@@ -117,6 +117,7 @@ public final class ScreenshotHarness
                         public void onBlock(int id) { }
                         public void onPauseToggled(boolean p) { }
                         public void onFillOffer(int id, long price, int quantity) { }
+                        public void onFiltersChanged() { }
                     });
                 if (firstRun0)
                 {
