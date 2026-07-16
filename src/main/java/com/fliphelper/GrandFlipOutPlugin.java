@@ -1131,7 +1131,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private void nextSuggestion()
     {
         final java.util.List<com.fliphelper.model.Suggestion> sugs = activeSuggestions;
-        if (sugs.isEmpty()) return;
+        if (sugs.isEmpty())
+        {
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "",
+                "Grand Flip Out: no suggestions loaded yet — open the Advisor tab (or enable the Advisor in settings).", null);
+            return;
+        }
         activeSuggestionIndex = (activeSuggestionIndex + 1) % sugs.size();
         com.fliphelper.model.Suggestion s = sugs.get(activeSuggestionIndex);
         if (s == null || s.isWait()) return;
@@ -1142,7 +1147,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private void skipSuggestion()
     {
         final java.util.List<com.fliphelper.model.Suggestion> sugs = activeSuggestions;
-        if (sugs.isEmpty()) return;
+        if (sugs.isEmpty())
+        {
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "",
+                "Grand Flip Out: no suggestions loaded yet — open the Advisor tab (or enable the Advisor in settings).", null);
+            return;
+        }
         int idx = activeSuggestionIndex - 1;
         if (idx < 0 || idx >= sugs.size()) idx = sugs.size() - 1;
         activeSuggestionIndex = idx;
@@ -1235,11 +1245,23 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     {
         if (config.togglePanelHotkey().matches(e))
         {
-            // Toggle panel visibility
+            // TOGGLE the panel. The old remove+re-add "toggle" could only ever close an
+            // open panel (re-adding never opens it) — pressed with the panel closed it
+            // just flashed the sidebar button, the "dead hotkey" feel (owner 2026-07-16).
             if (navButton != null)
             {
-                clientToolbar.removeNavigation(navButton);
-                clientToolbar.addNavigation(navButton);
+                javax.swing.SwingUtilities.invokeLater(() ->
+                {
+                    if (panel != null && panel.isShowing())
+                    {
+                        clientToolbar.removeNavigation(navButton);
+                        clientToolbar.addNavigation(navButton);
+                    }
+                    else
+                    {
+                        clientToolbar.openPanel(navButton);
+                    }
+                });
             }
             e.consume();
         }
@@ -1532,7 +1554,13 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private void fillGePrice()
     {
         SlotContext ctx = resolveActiveSlotContext();
-        if (ctx == null) return;
+        if (ctx == null)
+        {
+            // Silent no-op felt like a dead key — say WHY nothing happened.
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "",
+                "Grand Flip Out: no active GE offer to price — open or start an offer first.", null);
+            return;
+        }
 
         // Determine if we're buying or selling based on GE state
         boolean isBuying = true;
