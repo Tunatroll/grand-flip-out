@@ -18,6 +18,7 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 import java.awt.BorderLayout;
@@ -88,12 +89,30 @@ public class AdvisorPanel extends JPanel
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         content.setBorder(new EmptyBorder(4, 8, 8, 8));
-        add(content, BorderLayout.CENTER);
+        content.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         dumpFeed.setLayout(new BoxLayout(dumpFeed, BoxLayout.Y_AXIS));
         dumpFeed.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         dumpFeed.setBorder(new EmptyBorder(4, 8, 8, 8));
-        add(dumpFeed, BorderLayout.SOUTH);
+        dumpFeed.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        // User report 2026-07-16 ("plugin seems to not scroll so it just forces the client
+        // to expand"): this tab had NO viewport — a tall suggestion card plus dump-feed rows
+        // grew the panel's preferred height unbounded. Same class as the width clamp shipped
+        // the same morning: the PANEL scrolls, the client never resizes to fit us. The body
+        // must be Scrollable — a plain JPanel view makes the scroll pane PREFER the full
+        // content height, which is exactly the pathology (AdvisorScrollTest pins invariance).
+        JPanel body = new ScrollBody();
+        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+        body.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        body.add(content);
+        body.add(dumpFeed);
+        JScrollPane scroll = new JScrollPane(body);
+        scroll.setBorder(null);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+        scroll.getViewport().setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        add(scroll, BorderLayout.CENTER);
 
         showMessage("Enable the Advisor in plugin config to get next-flip suggestions.");
     }
@@ -788,5 +807,47 @@ public class AdvisorPanel extends JPanel
     {
         String s = String.format("%.1f", v);
         return s.endsWith(".0") ? s.substring(0, s.length() - 2) : s;
+    }
+
+    /**
+     * The scroll body: Scrollable so the viewport PREFERENCE is fixed regardless of how
+     * many rows the card + dump feed hold — a plain JPanel view makes JScrollPane (and
+     * therefore this whole tab, and therefore the CLIENT WINDOW) prefer the full content
+     * height. Tracks viewport width (no horizontal scroll at 242px), never the height.
+     */
+    private static final class ScrollBody extends JPanel implements javax.swing.Scrollable
+    {
+        @Override
+        public Dimension getPreferredScrollableViewportSize()
+        {
+            // Width is moot (getScrollableTracksViewportWidth pins it to the viewport);
+            // the FIXED height is the whole point — content depth must never leak into
+            // the tab's preferred size.
+            return new Dimension(0, 420);
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(java.awt.Rectangle visibleRect, int orientation, int direction)
+        {
+            return 16;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(java.awt.Rectangle visibleRect, int orientation, int direction)
+        {
+            return 64;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth()
+        {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight()
+        {
+            return false;
+        }
     }
 }
