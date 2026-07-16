@@ -134,7 +134,7 @@ public class AdvisorPanel extends JPanel
             actionText += "<span style='color:" + colorHex + "; font-size:14px; font-weight:bold;'>" + s.getAction() + "</span> " 
                        + "<b>" + s.getQuantity() + "</b><br>"
                        + "<b style='font-size:15px; color:white;'>" + s.getItemName() + "</b><br>"
-                       + "<span style='color:#9A9A9A;'>for</span> <b style='color:white;'>" + formatGp(s.getPrice()) + "</b> <span style='color:#9A9A9A;'>gp</span>";
+                       + "<span style='color:#9A9A9A;'>for</span> <b style='color:white;'>" + formatGp(s.getPrice()) + "</b>";
         } else {
             actionText += "<b>" + s.getAction() + "</b><br><b style='font-size:15px; color:white;'>" + s.getItemName() + "</b>";
         }
@@ -606,12 +606,15 @@ public class AdvisorPanel extends JPanel
                     JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
                     bottom.setBackground(ColorScheme.DARKER_GRAY_COLOR);
                     
-                    String text = "<html><span style='color:#9A9A9A; font-size:9px'>Buy </span><span style='color:white; font-size:9px'>" 
-                            + formatGp(e.getBuyPrice()) 
-                            + "</span><span style='color:#9A9A9A; font-size:9px'> • Sell </span><span style='color:white; font-size:9px'>" 
-                            + formatGp(e.getSellTarget()) 
-                            + "</span><span style='color:#9A9A9A; font-size:9px'> • Profit </span><span style='color:#00D26A; font-size:9px'>+" 
-                            + formatGp(e.getNetMargin()) + "/ea</span></html>";
+                    // Compact figures — the full "Buy 20,500 gp • Sell 22,400 gp • Profit
+                    // +1,600 gp/ea" line demanded ~310px inside the 242px sidebar, so the
+                    // row overflowed/clipped ("the advisor stretches the client", 2026-07-16).
+                    String text = "<html><span style='color:#9A9A9A; font-size:9px'>Buy </span><span style='color:white; font-size:9px'>"
+                            + shortGp(e.getBuyPrice())
+                            + "</span><span style='color:#9A9A9A; font-size:9px'> → sell </span><span style='color:white; font-size:9px'>"
+                            + shortGp(e.getSellTarget())
+                            + "</span><span style='color:#00D26A; font-size:9px'> · +"
+                            + shortGp(e.getNetMargin()) + "/ea</span></html>";
                     
                     JLabel detail = new JLabel(text);
                     bottom.add(detail);
@@ -742,8 +745,48 @@ public class AdvisorPanel extends JPanel
         return p;
     }
 
+    /**
+     * The advisor lives inside the 242px-capped sidebar panel (RuneLite's
+     * PluginPanel.getPreferredSize hard-caps the outer panel). Demanding more —
+     * 310px measured with a live suggestion — made the tab lay out wider than the
+     * visible area, so rows clipped/overlapped: the "advisor stretches the client"
+     * reports (2026-07-16). Clamp the demand to what the sidebar can actually give;
+     * inner rows then wrap/ellipsize instead of painting past the edge.
+     */
+    @Override
+    public java.awt.Dimension getPreferredSize()
+    {
+        java.awt.Dimension d = super.getPreferredSize();
+        return new java.awt.Dimension(
+            Math.min(d.width, net.runelite.client.ui.PluginPanel.PANEL_WIDTH), d.height);
+    }
+
+    @Override
+    public java.awt.Dimension getMinimumSize()
+    {
+        java.awt.Dimension d = super.getMinimumSize();
+        return new java.awt.Dimension(
+            Math.min(d.width, net.runelite.client.ui.PluginPanel.PANEL_WIDTH), d.height);
+    }
+
     private static String formatGp(long gp)
     {
         return String.format("%,d gp", gp);
+    }
+
+    /** Compact gp for tight rows (the 242px sidebar): 999 · 20.5k · 1.2M · 2.1B. */
+    private static String shortGp(long gp)
+    {
+        long abs = Math.abs(gp);
+        if (abs >= 1_000_000_000L) return trimZero(gp / 1_000_000_000.0) + "B";
+        if (abs >= 1_000_000L) return trimZero(gp / 1_000_000.0) + "M";
+        if (abs >= 1_000L) return trimZero(gp / 1_000.0) + "k";
+        return String.valueOf(gp);
+    }
+
+    private static String trimZero(double v)
+    {
+        String s = String.format("%.1f", v);
+        return s.endsWith(".0") ? s.substring(0, s.length() - 2) : s;
     }
 }

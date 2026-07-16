@@ -154,7 +154,11 @@ public final class ScreenshotHarness
             // (bytecode-verified 2026-07-16 investigating "client stretches without consent"
             // — the plugin CANNOT widen the sidebar; PanelWidthTest pins the contract).
             System.out.println("panel preferredSize=" + (pref != null ? pref.width + "x" + pref.height : "null")
-                + (pref != null && pref.width > 242 ? "  ⚠ exceeds the 242px PluginPanel cap — should be impossible, investigate" : ""));
+                + (pref != null && pref.width > 242 ? "  ⚠ exceeds the 242px PluginPanel cap — offenders below" : ""));
+            if (pref != null && pref.width > 242)
+            {
+                dumpWideComponents(target, "", 242);
+            }
             int h = Math.max(700, pref != null ? pref.height : 700);
             target.setSize(w, h);
             target.doLayout();
@@ -368,6 +372,45 @@ public final class ScreenshotHarness
             }
         }
         return null;
+    }
+
+    /** Name every component whose preferred width exceeds the sidebar cap (leafmost wins). */
+    private static void dumpWideComponents(java.awt.Component c, String indent, int cap)
+    {
+        Dimension p = c.getPreferredSize();
+        if (p != null && p.width > cap)
+        {
+            String label = c.getClass().getSimpleName();
+            if (c instanceof javax.swing.JLabel)
+            {
+                String t = ((javax.swing.JLabel) c).getText();
+                label += " \"" + (t != null && t.length() > 60 ? t.substring(0, 60) + "…" : t) + "\"";
+            }
+            System.out.println("  wide> " + indent + label + " pref=" + p.width
+                + " layout=" + (c instanceof java.awt.Container && ((java.awt.Container) c).getLayout() != null
+                    ? ((java.awt.Container) c).getLayout().getClass().getSimpleName() : "-"));
+            if (c instanceof java.awt.Container)
+            {
+                for (java.awt.Component child : ((java.awt.Container) c).getComponents())
+                {
+                    Dimension cp = child.getPreferredSize();
+                    String cl = child.getClass().getSimpleName();
+                    if (child instanceof javax.swing.JLabel)
+                    {
+                        String t = ((javax.swing.JLabel) child).getText();
+                        cl += " \"" + (t != null && t.length() > 40 ? t.substring(0, 40) + "…" : t) + "\"";
+                    }
+                    System.out.println("  wide> " + indent + "  child " + cl + " pref=" + (cp != null ? cp.width : -1));
+                }
+            }
+        }
+        if (c instanceof java.awt.Container)
+        {
+            for (java.awt.Component child : ((java.awt.Container) c).getComponents())
+            {
+                dumpWideComponents(child, indent + "  ", cap);
+            }
+        }
     }
 
     private static void layoutRecursively(java.awt.Component c)

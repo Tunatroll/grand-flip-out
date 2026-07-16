@@ -95,4 +95,42 @@ public class PanelWidthTest
                 + " — opening/updating the panel would physically widen the client window",
             width[0] <= cap);
     }
+
+    @Test
+    public void advisorContentNeverDemandsMoreThanTheSidebar() throws Exception
+    {
+        // The live report ("the advisor stretches the client", 2026-07-16): a rendered
+        // suggestion + dump feed demanded 310px inside the 242px sidebar, so the tab
+        // laid out past the visible edge (clipped/overlapping rows). AdvisorPanel now
+        // clamps its preferred/minimum width to PluginPanel.PANEL_WIDTH.
+        final int[] width = new int[2];
+        SwingUtilities.invokeAndWait(() -> {
+            AdvisorPanel ap = new AdvisorPanel(new AdvisorPanel.Listener()
+            {
+                public void onSkip(int id) { }
+                public void onBlock(int id) { }
+                public void onPauseToggled(boolean p) { }
+                public void onFillOffer(int id, long price, int quantity) { }
+            });
+            ap.showSuggestion(com.fliphelper.model.Suggestion.builder()
+                .action("BUY").itemId(1163).itemName("Extremely long advisor item name for width purposes")
+                .price(20_500_000L).quantity(70).expectedProfit(5_600_000L).confidence(0.78)
+                .reasons(java.util.Arrays.asList(
+                    "Margin clears the 2% tax", "Strong 1h volume", "Fresh price data"))
+                .targetSlot(-1)
+                .build());
+            ap.showDumpFeed(java.util.Arrays.asList(
+                new com.fliphelper.model.DumpFeedEntry(1163, "Rune full helm ornamented extra long",
+                    false, 20_500_000L, 22_400_000L, 1_600_000L, 0.8, -9.1, "f2p"),
+                new com.fliphelper.model.DumpFeedEntry(1127, "Rune platebody", false,
+                    37_500_000L, 39_900_000L, 1_600_000L, 0.7, -6.4, "f2p")));
+            width[0] = ap.getPreferredSize().width;
+            width[1] = ap.getMinimumSize().width;
+        });
+        assertTrue("advisor preferred width " + width[0] + " exceeds PANEL_WIDTH "
+            + PluginPanel.PANEL_WIDTH + " — the tab would lay out past the sidebar edge",
+            width[0] <= PluginPanel.PANEL_WIDTH);
+        assertTrue("advisor minimum width " + width[1] + " exceeds PANEL_WIDTH",
+            width[1] <= PluginPanel.PANEL_WIDTH);
+    }
 }

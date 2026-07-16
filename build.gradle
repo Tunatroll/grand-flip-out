@@ -86,3 +86,13 @@ tasks.register('screenshot', JavaExec) {
         systemProperty 'gfo.firstrun0', project.findProperty('firstrun0').toString()
     }
 }
+
+// Swing tests run HEADLESS + hard-capped: against a live X display the test worker
+// JVM can hard-wedge (jstack attach itself times out) — the #170 hang class,
+// reproduced locally 2026-07-16 building the AdvisorPanel width tests. Panel
+// construction needs no display; headless removes the X11 wedge entirely, and the
+// timeout turns any future wedge into a red test instead of a stuck runner.
+tasks.withType(Test).configureEach {
+    systemProperty 'java.awt.headless', 'true'
+    timeout = java.time.Duration.ofMinutes(10)
+}
