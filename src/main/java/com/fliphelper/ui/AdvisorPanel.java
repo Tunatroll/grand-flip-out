@@ -72,6 +72,12 @@ public class AdvisorPanel extends JPanel
     private final JButton[] bandChips = new JButton[BAND_VALUES.length];
     private JButton fastChip;
 
+    // #215 item 4: Mix mode — the plugin sends the configured slot plan instead of
+    // one global filter. Exclusive with the band/fast chips (either side selected
+    // clears the other, one mental model at 242px).
+    private boolean mixMode;
+    private JButton mixChip;
+
     // #215 items 5+6 (power-user batch): basket/next-moves rows render COMPACT
     // (two lines) by default and expand IN PLACE on click to the full detail +
     // per-item Fill/Skip/Block. One row open at a time — vertical space is the
@@ -80,6 +86,8 @@ public class AdvisorPanel extends JPanel
     private int expandedItemId = -1;
     private List<Suggestion> listRows;
     private boolean listIsNextMoves;
+    /** #215 item 4: per-row lane tags for the mix render (null = plain list). */
+    private java.util.List<LaneTag> listTags;
 
     public AdvisorPanel(Listener listener)
     {
@@ -129,6 +137,7 @@ public class AdvisorPanel extends JPanel
             chip.addActionListener(e ->
             {
                 selectedBand = BAND_VALUES[idx];
+                mixMode = false;
                 syncChipStyles();
                 listener.onFiltersChanged();
             });
@@ -143,10 +152,28 @@ public class AdvisorPanel extends JPanel
         fastChip.addActionListener(e ->
         {
             fastFillsOnly = !fastFillsOnly;
+            mixMode = false;
             syncChipStyles();
             listener.onFiltersChanged();
         });
         chips.add(fastChip);
+        mixChip = new JButton("Mix");
+        mixChip.setFont(mixChip.getFont().deriveFont(11f));
+        mixChip.setFocusPainted(false);
+        mixChip.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        mixChip.setToolTipText("Split your free slots across strategies — set the mix (volume / fast-fill / high-ticket) in the plugin settings");
+        mixChip.addActionListener(e ->
+        {
+            mixMode = !mixMode;
+            if (mixMode)
+            {
+                selectedBand = null;
+                fastFillsOnly = false;
+            }
+            syncChipStyles();
+            listener.onFiltersChanged();
+        });
+        chips.add(mixChip);
         syncChipStyles();
 
         JPanel north = new JPanel();
@@ -200,6 +227,80 @@ public class AdvisorPanel extends JPanel
         return selectedBand;
     }
 
+    /** #215 item 4: true when the Mix chip is selected — the plugin then sends the configured slot plan. */
+    public boolean isMixMode()
+    {
+        return mixMode;
+    }
+
+    /** One render tag per basket row: a non-null header starts a lane group; fallback marks a best-overall substitute. */
+    public static final class LaneTag
+    {
+        public final String header;
+        public final boolean fallback;
+
+        public LaneTag(String header, boolean fallback)
+        {
+            this.header = header;
+            this.fallback = fallback;
+        }
+    }
+
+    /**
+     * #215 item 4: zip the requested plan over the returned rows — a header where
+     * each lane starts ("Best overall" for unplanned remainder rows), a fallback
+     * flag where a banded lane got a different-band substitute (honest labeling).
+     */
+    public static java.util.List<LaneTag> laneTagsFor(java.util.List<com.fliphelper.model.SlotLane> plan,
+                                                      java.util.List<Suggestion> rows)
+    {
+        java.util.List<LaneTag> tags = new java.util.ArrayList<>();
+        if (rows == null)
+        {
+            return tags;
+        }
+        java.util.List<com.fliphelper.model.SlotLane> perRow = new java.util.ArrayList<>();
+        if (plan != null)
+        {
+            for (com.fliphelper.model.SlotLane lane : plan)
+            {
+                for (int i = 0; i < lane.getSlots(); i++)
+                {
+                    perRow.add(lane);
+                }
+            }
+        }
+        String prev = null;
+        for (int i = 0; i < rows.size(); i++)
+        {
+            com.fliphelper.model.SlotLane lane = i < perRow.size() ? perRow.get(i) : null;
+            String label = lane != null ? lane.getLabel() : "Best overall";
+            Suggestion row = rows.get(i);
+            boolean fallback = lane != null && lane.getBand() != null && row != null
+                && row.getBand() != null && !lane.getBand().equals(row.getBand());
+            tags.add(new LaneTag(label.equals(prev) ? null : label, fallback));
+            prev = label;
+        }
+        return tags;
+    }
+
+    /** #215 item 4: basket render with lane-group tags (null tags = plain render). */
+    public void showBasket(List<Suggestion> basket, java.util.List<LaneTag> tags)
+    {
+        if (basket == null || basket.isEmpty())
+        {
+            listRows = null;
+            listTags = null;
+            showMessage("No basket right now — your slots are full or capital is low. "
+                + "Collect a finished offer and check back.");
+            return;
+        }
+        listRows = basket;
+        listTags = tags;
+        listIsNextMoves = false;
+        renderRows();
+    }
+
     /** #215: 0 = no fill cap; the ≤2h chip caps the server pick at 120 estimated minutes. */
     public int getMaxFillMin()
     {
@@ -215,13 +316,17 @@ public class AdvisorPanel extends JPanel
             {
                 continue;
             }
-            boolean sel = (BAND_VALUES[i] == null && selectedBand == null)
-                || (BAND_VALUES[i] != null && BAND_VALUES[i].equals(selectedBand));
+            boolean sel = !mixMode && ((BAND_VALUES[i] == null && selectedBand == null)
+                || (BAND_VALUES[i] != null && BAND_VALUES[i].equals(selectedBand)));
             applyChipStyle(bandChips[i], sel);
         }
         if (fastChip != null)
         {
-            applyChipStyle(fastChip, fastFillsOnly);
+            applyChipStyle(fastChip, fastFillsOnly && !mixMode);
+        }
+        if (mixChip != null)
+        {
+            applyChipStyle(mixChip, mixMode);
         }
     }
 
@@ -398,16 +503,7 @@ public class AdvisorPanel extends JPanel
      */
     public void showBasket(List<Suggestion> basket)
     {
-        if (basket == null || basket.isEmpty())
-        {
-            listRows = null;
-            showMessage("No basket right now — your slots are full or capital is low. "
-                + "Collect a finished offer and check back.");
-            return;
-        }
-        listRows = basket;
-        listIsNextMoves = false;
-        renderRows();
+        showBasket(basket, null);
     }
 
     /**
@@ -447,15 +543,31 @@ public class AdvisorPanel extends JPanel
 
         long totalSpend = 0;
         long totalProfit = 0;
-        for (Suggestion s : rows)
+        for (int i = 0; i < rows.size(); i++)
         {
+            Suggestion s = rows.get(i);
             if (s == null)
             {
                 continue;
             }
+            // #215 item 4: lane headers + honest fallback markers from the mix tags.
+            LaneTag tag = (listTags != null && i < listTags.size()) ? listTags.get(i) : null;
+            if (tag != null && tag.header != null)
+            {
+                JLabel lane = new JLabel(tag.header);
+                lane.setForeground(GOLD);
+                lane.setFont(lane.getFont().deriveFont(Font.BOLD, 11f));
+                content.add(wrapLeft(lane));
+                content.add(Box.createVerticalStrut(2));
+            }
             totalSpend += s.getPrice() * (long) s.getQuantity();
             totalProfit += s.getExpectedProfit();
             content.add(s.getItemId() == expandedItemId ? expandedRow(s) : compactRow(s));
+            if (tag != null && tag.fallback)
+            {
+                content.add(wrapLeft(line("↳ best-overall fallback — no lane pick fit your coins",
+                    DIM, Font.ITALIC, 10f)));
+            }
             content.add(Box.createVerticalStrut(4));
         }
 
@@ -593,12 +705,14 @@ public class AdvisorPanel extends JPanel
         if (moves == null || moves.isEmpty())
         {
             listRows = null;
+            listTags = null;
             showMessage("No confident next move right now — capital is low, slots are full, or "
                 + "the reasoner is holding back on weak signals. Check back after your next GE action.");
             return;
         }
         listRows = moves;
         listIsNextMoves = true;
+        listTags = null;
         renderRows();
     }
 

@@ -99,6 +99,18 @@ public class GameStateSnapshot
      */
     public String toRequestJson(List<Integer> excludeIds, boolean f2pOnly, String band, int maxFillMin)
     {
+        return toRequestJson(excludeIds, f2pOnly, band, maxFillMin, null);
+    }
+
+    /**
+     * #215 item 4: {@code slotPlan} (nullable) rides the body additively — an
+     * absent plan produces a byte-identical body to the 4-arg overload, so old
+     * servers and unmixed clients see no contract change. Lane values come from
+     * config ints + the fixed band vocabulary — escape-safe by construction.
+     */
+    public String toRequestJson(List<Integer> excludeIds, boolean f2pOnly, String band, int maxFillMin,
+                                List<SlotLane> slotPlan)
+    {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
         sb.append("\"gold\":").append(gold);
@@ -111,6 +123,29 @@ public class GameStateSnapshot
         if (maxFillMin > 0)
         {
             sb.append(",\"maxFillMin\":").append(maxFillMin);
+        }
+        if (slotPlan != null && !slotPlan.isEmpty())
+        {
+            sb.append(",\"slotPlan\":[");
+            for (int i = 0; i < slotPlan.size(); i++)
+            {
+                SlotLane lane = slotPlan.get(i);
+                if (i > 0)
+                {
+                    sb.append(',');
+                }
+                sb.append("{\"slots\":").append(lane.getSlots());
+                if (lane.getBand() != null)
+                {
+                    sb.append(",\"band\":\"").append(lane.getBand()).append('"');
+                }
+                if (lane.getMaxFillMin() > 0)
+                {
+                    sb.append(",\"maxFillMin\":").append(lane.getMaxFillMin());
+                }
+                sb.append('}');
+            }
+            sb.append(']');
         }
 
         sb.append(",\"activeOffers\":[");

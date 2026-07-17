@@ -433,7 +433,19 @@ public class IntelligenceClient
     public List<Suggestion> fetchBasket(GameStateSnapshot snapshot, List<Integer> excludeIds,
                                         boolean f2pOnly, String apiKey, String band, int maxFillMin) throws IOException
     {
-        String json = snapshot.toRequestJson(excludeIds, f2pOnly, band, maxFillMin);
+        return postBasket(snapshot.toRequestJson(excludeIds, f2pOnly, band, maxFillMin), apiKey);
+    }
+
+    /** #215 item 4: slot-mix basket — the plan rides the snapshot JSON additively (see SlotLane). */
+    public List<Suggestion> fetchBasket(GameStateSnapshot snapshot, List<Integer> excludeIds,
+                                        boolean f2pOnly, String apiKey,
+                                        List<com.fliphelper.model.SlotLane> slotPlan) throws IOException
+    {
+        return postBasket(snapshot.toRequestJson(excludeIds, f2pOnly, null, 0, slotPlan), apiKey);
+    }
+
+    private List<Suggestion> postBasket(String json, String apiKey) throws IOException
+    {
         okhttp3.RequestBody body = okhttp3.RequestBody.create(
             okhttp3.MediaType.parse("application/json"), json);
 

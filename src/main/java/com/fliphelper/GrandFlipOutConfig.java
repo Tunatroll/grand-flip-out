@@ -151,6 +151,45 @@ public interface GrandFlipOutConfig extends Config
         return false;
     }
 
+    @Range(min = 0, max = 8)
+    @ConfigItem(
+        keyName = "mixVolumeSlots",
+        name = "Mix: high-volume slots",
+        description = "GE slots the Advisor's Mix chip gives to high-volume flips (small margin, fills fast in quantity). Unassigned slots get the best overall pick.",
+        section = advisorSection,
+        position = 2
+    )
+    default int mixVolumeSlots()
+    {
+        return 2;
+    }
+
+    @Range(min = 0, max = 8)
+    @ConfigItem(
+        keyName = "mixFastSlots",
+        name = "Mix: fast-fill slots",
+        description = "GE slots the Mix chip gives to flips estimated to fill within ~2 hours (any band).",
+        section = advisorSection,
+        position = 3
+    )
+    default int mixFastSlots()
+    {
+        return 3;
+    }
+
+    @Range(min = 0, max = 8)
+    @ConfigItem(
+        keyName = "mixWhaleSlots",
+        name = "Mix: high-ticket slots",
+        description = "GE slots the Mix chip gives to high-ticket flips (1M+ per fill, patient by nature).",
+        section = advisorSection,
+        position = 4
+    )
+    default int mixWhaleSlots()
+    {
+        return 3;
+    }
+
     // ==================== FLIP TRACKER ====================
 
     @ConfigItem(

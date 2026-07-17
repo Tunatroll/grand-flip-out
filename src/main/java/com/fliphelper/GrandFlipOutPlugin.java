@@ -807,9 +807,17 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                         // plan from the honesty-calibrated reasoning layer (PRO-gated server-side).
                         // Fall back to the deterministic basket on 403 / empty / any error so
                         // anon + FREE users (and outages) still get a coordinated basket.
+                        // #215 item 4: Mix mode sends the configured slot plan and takes
+                        // precedence over the PRO next-moves path — an explicit mix request
+                        // is honored, not silently replaced by the reasoner's own split.
+                        java.util.List<com.fliphelper.model.SlotLane> mixLanes = advisorPanel.isMixMode()
+                            ? com.fliphelper.model.SlotLane.mixPlan(config.mixVolumeSlots(),
+                                config.mixFastSlots(), config.mixWhaleSlots(), snapshot.getFreeSlots())
+                            : null;
+
                         java.util.List<com.fliphelper.model.Suggestion> moves = null;
                         boolean hasKey = config.apiKey() != null && !config.apiKey().trim().isEmpty();
-                        if (hasKey)
+                        if (hasKey && (mixLanes == null || mixLanes.isEmpty()))
                         {
                             try
                             {
@@ -833,14 +841,26 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                         }
                         else
                         {
-                            java.util.List<com.fliphelper.model.Suggestion> basket =
-                                intelligenceClient.fetchBasket(snapshot, exclude, f2pOnly, config.apiKey(),
+                            java.util.List<com.fliphelper.model.Suggestion> basket;
+                            java.util.List<com.fliphelper.ui.AdvisorPanel.LaneTag> laneTags = null;
+                            if (mixLanes != null && !mixLanes.isEmpty())
+                            {
+                                basket = intelligenceClient.fetchBasket(
+                                    snapshot, exclude, f2pOnly, config.apiKey(), mixLanes);
+                                laneTags = com.fliphelper.ui.AdvisorPanel.laneTagsFor(mixLanes, basket);
+                            }
+                            else
+                            {
+                                basket = intelligenceClient.fetchBasket(snapshot, exclude, f2pOnly, config.apiKey(),
                                     advisorPanel.getSelectedBand(), advisorPanel.getMaxFillMin());
+                            }
                             activeSuggestions = (basket != null && !basket.isEmpty())
                                 ? java.util.Collections.unmodifiableList(new java.util.ArrayList<>(basket))
                                 : java.util.Collections.emptyList();
                             activeSuggestionIndex = -1;
-                            javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showBasket(basket));
+                            final java.util.List<com.fliphelper.model.Suggestion> fBasket = basket;
+                            final java.util.List<com.fliphelper.ui.AdvisorPanel.LaneTag> fTags = laneTags;
+                            javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showBasket(fBasket, fTags));
                         }
                     }
                     else
