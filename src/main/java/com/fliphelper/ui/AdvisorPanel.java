@@ -72,6 +72,15 @@ public class AdvisorPanel extends JPanel
     private final JButton[] bandChips = new JButton[BAND_VALUES.length];
     private JButton fastChip;
 
+    // #215 items 5+6 (power-user batch): basket/next-moves rows render COMPACT
+    // (two lines) by default and expand IN PLACE on click to the full detail +
+    // per-item Fill/Skip/Block. One row open at a time — vertical space is the
+    // scarce resource at 242px ("takes a lot of space"). The list is kept so a
+    // toggle can re-render without a refetch.
+    private int expandedItemId = -1;
+    private List<Suggestion> listRows;
+    private boolean listIsNextMoves;
+
     public AdvisorPanel(Listener listener)
     {
         this.listener = listener;
@@ -391,30 +400,54 @@ public class AdvisorPanel extends JPanel
     {
         if (basket == null || basket.isEmpty())
         {
+            listRows = null;
             showMessage("No basket right now — your slots are full or capital is low. "
                 + "Collect a finished offer and check back.");
             return;
         }
+        listRows = basket;
+        listIsNextMoves = false;
+        renderRows();
+    }
 
+    /**
+     * Render the stored list (basket or next-moves) honoring the one expanded row.
+     * #215 items 5+6: compact rows by default, click a row for the in-place detail
+     * card with per-item actions; chip refetches re-enter through show* and keep
+     * the expansion when the item is still present.
+     */
+    private void renderRows()
+    {
+        List<Suggestion> rows = listRows;
+        if (rows == null)
+        {
+            return;
+        }
         content.removeAll();
 
-        JLabel header = new JLabel("Portfolio basket (" + basket.size() + ")");
+        JLabel header = new JLabel((listIsNextMoves ? "Next moves (" : "Portfolio basket (") + rows.size() + ")");
         header.setForeground(GOLD);
         header.setFont(header.getFont().deriveFont(Font.BOLD, 13f));
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(wrapLeft(header));
         content.add(Box.createVerticalStrut(2));
 
-        JLabel sub = new JLabel("Coins spread across your free slots");
+        JLabel sub = new JLabel(listIsNextMoves
+            ? "Confidence-weighted, reasoned picks — sized to your coins"
+            : "Coins spread across your free slots");
         sub.setForeground(DIM);
         sub.setFont(sub.getFont().deriveFont(12f));
         sub.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(wrapLeft(sub));
+        JLabel hint = new JLabel("Click a pick for detail & actions");
+        hint.setForeground(DIM);
+        hint.setFont(hint.getFont().deriveFont(10f));
+        content.add(wrapLeft(hint));
         content.add(Box.createVerticalStrut(6));
 
         long totalSpend = 0;
         long totalProfit = 0;
-        for (Suggestion s : basket)
+        for (Suggestion s : rows)
         {
             if (s == null)
             {
@@ -422,7 +455,7 @@ public class AdvisorPanel extends JPanel
             }
             totalSpend += s.getPrice() * (long) s.getQuantity();
             totalProfit += s.getExpectedProfit();
-            content.add(basketRow(s));
+            content.add(s.getItemId() == expandedItemId ? expandedRow(s) : compactRow(s));
             content.add(Box.createVerticalStrut(4));
         }
 
@@ -439,6 +472,13 @@ public class AdvisorPanel extends JPanel
 
         content.revalidate();
         content.repaint();
+    }
+
+    /** #215 item 5: expand/collapse one row's in-place detail (accordion — one open at a time). */
+    void toggleDetail(int itemId)
+    {
+        expandedItemId = (expandedItemId == itemId) ? -1 : itemId;
+        renderRows();
     }
 
     /**
@@ -552,78 +592,27 @@ public class AdvisorPanel extends JPanel
     {
         if (moves == null || moves.isEmpty())
         {
+            listRows = null;
             showMessage("No confident next move right now — capital is low, slots are full, or "
                 + "the reasoner is holding back on weak signals. Check back after your next GE action.");
             return;
         }
-
-        content.removeAll();
-
-        JLabel header = new JLabel("Next moves (" + moves.size() + ")");
-        header.setForeground(GOLD);
-        header.setFont(header.getFont().deriveFont(Font.BOLD, 13f));
-        header.setAlignmentX(Component.LEFT_ALIGNMENT);
-        content.add(wrapLeft(header));
-        content.add(Box.createVerticalStrut(2));
-
-        JLabel sub = new JLabel("Confidence-weighted, reasoned picks — sized to your coins");
-        sub.setForeground(DIM);
-        sub.setFont(sub.getFont().deriveFont(12f));
-        sub.setAlignmentX(Component.LEFT_ALIGNMENT);
-        content.add(wrapLeft(sub));
-        content.add(Box.createVerticalStrut(6));
-
-        long totalSpend = 0;
-        long totalProfit = 0;
-        for (Suggestion s : moves)
-        {
-            if (s == null)
-            {
-                continue;
-            }
-            totalSpend += s.getPrice() * (long) s.getQuantity();
-            totalProfit += s.getExpectedProfit();
-            content.add(basketRow(s));
-            // The lead reason (agentic explanation), shown dim under the row.
-            if (!s.getReasons().isEmpty())
-            {
-                JLabel why = new JLabel("<html><div style='width:200px'>" + s.getReasons().get(0) + "</div></html>");
-                why.setForeground(DIM);
-                why.setFont(why.getFont().deriveFont(12f));
-                why.setAlignmentX(Component.LEFT_ALIGNMENT);
-                content.add(wrapLeft(why));
-            }
-            content.add(Box.createVerticalStrut(6));
-        }
-
-        content.add(Box.createVerticalStrut(2));
-        JPanel sep = new JPanel();
-        sep.setBackground(GfoPalette.BORDER);
-        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-        sep.setAlignmentX(Component.LEFT_ALIGNMENT);
-        content.add(sep);
-        content.add(Box.createVerticalStrut(4));
-
-        content.add(meta("Total cost", formatGp(totalSpend)));
-        content.add(meta("Est. profit", formatGp(totalProfit)));
-
-        content.revalidate();
-        content.repaint();
+        listRows = moves;
+        listIsNextMoves = true;
+        renderRows();
     }
 
     /**
-     * One compact basket line: name + action tag on top; qty @ price + colored
-     * profit/loss on the second line; buy-limit, profit-at-limit and volume on a dim
-     * third line so the per-cycle ceiling and liquidity are visible at a glance.
+     * The shared first two lines of a list row: name + action tag on top;
+     * qty @ price + colored profit/loss on the second line.
      */
-    private JPanel basketRow(Suggestion s)
+    private JPanel baseRow(Suggestion s)
     {
         JPanel row = new JPanel();
         row.setLayout(new BoxLayout(row, BoxLayout.Y_AXIS));
         row.setBackground(ColorScheme.DARK_GRAY_COLOR);
         row.setBorder(new EmptyBorder(4, 6, 4, 6));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
 
         JPanel top = new JPanel(new BorderLayout());
         top.setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -653,42 +642,177 @@ public class AdvisorPanel extends JPanel
         detailWrap.add(detail);
         row.add(detailWrap);
 
-        // Line 3 (dim): buy limit · profit-at-full-limit · 1h volume.
-        StringBuilder sub = new StringBuilder();
+        return row;
+    }
+
+    /**
+     * #215 item 6: the default list row is the two base lines only — the
+     * limit/volume/fill detail moved behind the click, so a full 8-slot basket
+     * fits on screen. The tooltip carries the hover summary; the hand cursor
+     * signals clickability.
+     */
+    private JPanel compactRow(Suggestion s)
+    {
+        JPanel row = baseRow(s);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 48));
+        StringBuilder tip = new StringBuilder();
         if (s.getGeLimit() > 0)
         {
-            sub.append(String.format("Limit %,d", s.getGeLimit()))
-                .append("  •  ").append(profitText(s.getProfitPerLimit())).append("/limit");
+            tip.append(String.format("Limit %,d", s.getGeLimit()));
         }
         if (s.getVolume() > 0)
         {
-            if (sub.length() > 0)
+            if (tip.length() > 0)
             {
-                sub.append("  •  ");
+                tip.append(" • ");
             }
-            sub.append("vol ").append(formatVolume(s.getVolume()));
+            tip.append("vol ").append(formatVolume(s.getVolume()));
         }
-        if (s.getMarginQuality() != null && !"executable".equalsIgnoreCase(s.getMarginQuality()))
+        if (s.getEstFillMin() > 0)
         {
-            if (sub.length() > 0)
+            if (tip.length() > 0)
             {
-                sub.append("  •  ");
+                tip.append(" • ");
             }
-            sub.append("margin: ").append(
-                "no_estimate".equalsIgnoreCase(s.getMarginQuality()) ? "NO ESTIMATE" : "ESTIMATE");
+            tip.append(fillTime(s.getEstFillMin())).append(" fill");
         }
-        if (sub.length() > 0)
+        row.setToolTipText(tip.length() > 0
+            ? tip + " — click for actions"
+            : "Click for detail & actions");
+        attachToggle(row, s.getItemId());
+        return row;
+    }
+
+    /**
+     * #215 item 5: the in-place detail card — the single-suggestion treatment
+     * (fill estimate, limit/volume, the per-cycle ceiling, honesty badges, reasons)
+     * plus per-item Fill/Skip/Block, rendered inside the list like the last-slot
+     * view. Clicking the row again collapses it; buttons keep their own clicks.
+     */
+    private JPanel expandedRow(Suggestion s)
+    {
+        JPanel row = baseRow(s);
+
+        if (s.getEstFillMin() > 0)
         {
-            JLabel meta = new JLabel(sub.toString());
-            meta.setForeground(DIM);
-            meta.setFont(meta.getFont().deriveFont(12f));
-            JPanel metaWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            metaWrap.setBackground(ColorScheme.DARK_GRAY_COLOR);
-            metaWrap.add(meta);
-            row.add(metaWrap);
+            row.add(rowMeta("Est. fill time", fillTime(s.getEstFillMin())));
+        }
+        if (s.getGeLimit() > 0)
+        {
+            row.add(rowMeta("Buy limit", String.format("%,d / 4h", s.getGeLimit())));
+            row.add(rowMeta("At full limit", profitText(s.getProfitPerLimit())));
+        }
+        if (s.getVolume() > 0)
+        {
+            row.add(rowMeta("Volume (1h)", formatVolume(s.getVolume())));
+        }
+        if (s.getBandLabel() != null && !s.getBandLabel().isEmpty())
+        {
+            row.add(rowMeta("Style", s.getBandLabel()));
         }
 
+        // Honesty badges — same server-graded conditions as the single card,
+        // compacted to one wrapped line each (display-only, never re-derived).
+        String tier = s.getPriceTier();
+        if (tier != null && !"EXECUTABLE".equalsIgnoreCase(tier))
+        {
+            boolean noBook = "NO_ESTIMATE".equalsIgnoreCase(tier) || "NO_DATA".equalsIgnoreCase(tier);
+            row.add(rowLine(noBook
+                ? "• No live book — no defensible live price"
+                : "• Stale book — prices are context, not quotes", GOLD));
+        }
+        String quality = s.getMarginQuality();
+        if (quality != null && !"executable".equalsIgnoreCase(quality))
+        {
+            row.add(rowLine("no_estimate".equalsIgnoreCase(quality)
+                ? "• Margin unquotable — no opposite-side price"
+                : "• Margin is an estimate — one price leg is stale", GOLD));
+        }
+        for (String reason : s.getReasons())
+        {
+            row.add(rowLine("• " + reason, DIM));
+        }
+
+        row.add(Box.createVerticalStrut(4));
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        buttons.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        buttons.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JButton fill = new JButton("Fill offer");
+        fill.setFont(fill.getFont().deriveFont(11f));
+        fill.setFocusPainted(false);
+        fill.setToolTipText("Auto-fill this price & quantity into the GE offer — open the offer to apply, you press Confirm");
+        fill.addActionListener(e -> listener.onFillOffer(s.getItemId(), s.getPrice(), s.getQuantity()));
+        buttons.add(fill);
+        JButton skip = new JButton("Skip");
+        skip.setFont(skip.getFont().deriveFont(11f));
+        skip.setFocusPainted(false);
+        skip.setToolTipText("Not this one — refetch without it");
+        skip.addActionListener(e -> listener.onSkip(s.getItemId()));
+        buttons.add(skip);
+        JButton block = new JButton("Block");
+        block.setFont(block.getFont().deriveFont(11f));
+        block.setFocusPainted(false);
+        block.setToolTipText("Never suggest this item again");
+        block.addActionListener(e -> listener.onBlock(s.getItemId()));
+        buttons.add(block);
+        row.add(buttons);
+
+        // Pin the max height to the built content so BoxLayout can't stretch the
+        // card into leftover viewport space (compact rows pin to 48 the same way).
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+        attachToggle(row, s.getItemId());
         return row;
+    }
+
+    /** Hand cursor + click-to-toggle on a list row (buttons keep their own clicks). */
+    private void attachToggle(JPanel row, int itemId)
+    {
+        row.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        row.addMouseListener(new java.awt.event.MouseAdapter()
+        {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e)
+            {
+                toggleDetail(itemId);
+            }
+        });
+    }
+
+    /** {@link #meta} variant on the DARK_GRAY row-card background. */
+    private static JPanel rowMeta(String label, String value)
+    {
+        JPanel r = new JPanel(new BorderLayout());
+        r.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        r.setAlignmentX(Component.LEFT_ALIGNMENT);
+        r.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
+        JLabel l = new JLabel(label);
+        l.setForeground(DIM);
+        l.setFont(l.getFont().deriveFont(11f));
+        JLabel v = new JLabel(value, SwingConstants.RIGHT);
+        v.setForeground(Color.WHITE);
+        v.setFont(v.getFont().deriveFont(Font.BOLD, 11f));
+        r.add(l, BorderLayout.WEST);
+        r.add(v, BorderLayout.EAST);
+        return r;
+    }
+
+    /** Wrapped dim/caution line on the row card (HTML so it wraps at 242px). */
+    private static JPanel rowLine(String text, Color color)
+    {
+        JLabel l = new JLabel("<html><div style='width:190px'>" + text + "</div></html>");
+        l.setForeground(color);
+        l.setFont(l.getFont().deriveFont(11f));
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        p.setBackground(ColorScheme.DARK_GRAY_COLOR);
+        p.setAlignmentX(Component.LEFT_ALIGNMENT);
+        p.add(l);
+        return p;
+    }
+
+    /** "~35 min" under 90 minutes, "~2.1 h" above — the acquire-time estimate. */
+    private static String fillTime(int minutes)
+    {
+        return minutes >= 90 ? String.format("~%.1f h", minutes / 60.0) : "~" + minutes + " min";
     }
 
     /**
