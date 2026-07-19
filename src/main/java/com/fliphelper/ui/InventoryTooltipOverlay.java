@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026, tuna troll
+ * Copyright (c) 2026, Tunatroll
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the conditions in the BSD
@@ -12,8 +12,8 @@ import com.fliphelper.GrandFlipOutConfig;
 import com.fliphelper.api.PriceService;
 import com.fliphelper.model.PriceAggregate;
 import com.fliphelper.tracker.FlipTracker;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.Client;
-import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
@@ -72,7 +72,7 @@ public class InventoryTooltipOverlay extends Overlay
         }
 
         // Only show when GE is open
-        Widget geWidget = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+        Widget geWidget = client.getWidget(InterfaceID.GeOffers.UNIVERSE);
         if (geWidget == null || geWidget.isHidden())
         {
             return null;
@@ -80,7 +80,7 @@ public class InventoryTooltipOverlay extends Overlay
 
         // Find the inventory container widget while GE is open
         // GE inventory items container: group 467, child 0
-        Widget inventoryWidget = client.getWidget(467, 0);
+        Widget inventoryWidget = client.getWidget(InterfaceID.GeOffersSide.ITEMS);
         if (inventoryWidget == null || inventoryWidget.isHidden())
         {
             return null;

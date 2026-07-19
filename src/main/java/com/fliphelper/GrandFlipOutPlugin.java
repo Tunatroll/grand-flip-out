@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026, tuna troll
+ * Copyright (c) 2026, Tunatroll
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the conditions in the BSD
@@ -25,16 +25,16 @@ import com.fliphelper.util.WealthSnapshot;
 import com.google.gson.Gson;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Player;
-import net.runelite.api.VarClientStr;
 import net.runelite.api.ScriptID;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.ItemID;
 import net.runelite.api.InventoryID;
@@ -1004,7 +1004,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // Discriminate the GE quantity input from the price input by the chatbox title —
         // the exact approach Flipping Copilot uses ("How many do you wish to..." vs
         // "Set a price for each item:") — so the armed value lands in the right field.
-        Widget inputTitle = client.getWidget(ComponentID.CHATBOX_TITLE);
+        Widget inputTitle = client.getWidget(InterfaceID.Chatbox.MES_TEXT);
         String prompt = (inputTitle != null && inputTitle.getText() != null)
             ? inputTitle.getText().toLowerCase() : "";
         boolean quantityField = prompt.contains("how many");
@@ -1030,7 +1030,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             return false;
         }
-        Widget geWindow = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+        Widget geWindow = client.getWidget(InterfaceID.GeOffers.UNIVERSE);
         return geWindow != null && !geWindow.isHidden();
     }
 
@@ -1151,12 +1151,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
         try
         {
-            Widget searchInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
+            Widget searchInput = client.getWidget(InterfaceID.Chatbox.MES_TEXT2);
             if (searchInput != null)
             {
                 searchInput.setText(name + "*");
             }
-            client.setVarcStrValue(net.runelite.api.gameval.VarClientID.MESLAYERINPUT, name);
+            client.setVarcStrValue(VarClientID.MESLAYERINPUT, name);
         }
         catch (Exception e)
         {
@@ -1218,7 +1218,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             return;
         }
 
-        Widget geWindow = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+        Widget geWindow = client.getWidget(InterfaceID.GeOffers.UNIVERSE);
         if (geWindow == null || geWindow.isHidden())
         {
             clientThread.invokeLater(() -> client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Copilot: Open GE to " + s.getAction() + " " + s.getItemName(), null));
@@ -1248,12 +1248,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             try
             {
-                Widget chatboxInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
+                Widget chatboxInput = client.getWidget(InterfaceID.Chatbox.MES_TEXT2);
                 if (chatboxInput != null)
                 {
                     chatboxInput.setText(value + "*");
                 }
-                client.setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(value));
+                client.setVarcStrValue(VarClientID.MESLAYERINPUT, String.valueOf(value));
                 client.addChatMessage(
                     ChatMessageType.GAMEMESSAGE,
                     "",
@@ -1628,7 +1628,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // Try direct injection if chatbox is already open — but only when the open input
         // belongs to the GE (same hazard as the armed path: a hotkey pressed over a bank
         // Withdraw-X prompt must not land a price there).
-        Widget chatboxInput = client.getWidget(ComponentID.CHATBOX_FULL_INPUT);
+        Widget chatboxInput = client.getWidget(InterfaceID.Chatbox.MES_TEXT2);
         if (chatboxInput != null && chatboxInput.getText() != null && !chatboxInput.isHidden()
             && geFillAllowed())
         {

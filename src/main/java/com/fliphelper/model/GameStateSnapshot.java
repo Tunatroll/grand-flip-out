@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026, tuna troll
+ * Copyright (c) 2026, Tunatroll
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the conditions in the BSD
@@ -8,6 +8,8 @@
 
 package com.fliphelper.model;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import lombok.Value;
 import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
@@ -111,76 +113,63 @@ public class GameStateSnapshot
     public String toRequestJson(List<Integer> excludeIds, boolean f2pOnly, String band, int maxFillMin,
                                 List<SlotLane> slotPlan)
     {
-        StringBuilder sb = new StringBuilder();
-        sb.append('{');
-        sb.append("\"gold\":").append(gold);
-        sb.append(",\"freeSlots\":").append(freeSlots);
-        sb.append(",\"f2pOnly\":").append(f2pOnly);
+        // v1.1: structured JsonObject tree instead of hand-concatenated strings — same
+        // insertion order as the old builder, so the serialized body stays byte-identical
+        // (SnapshotBandJsonTest / SlotPlanJsonTest pin it). JsonElement.toString() is
+        // gson's compact writer; no Gson/GsonBuilder construction ever appears.
+        JsonObject body = new JsonObject();
+        body.addProperty("gold", gold);
+        body.addProperty("freeSlots", freeSlots);
+        body.addProperty("f2pOnly", f2pOnly);
         if (band != null && !band.isEmpty())
         {
-            sb.append(",\"band\":\"").append(band).append('"');
+            body.addProperty("band", band);
         }
         if (maxFillMin > 0)
         {
-            sb.append(",\"maxFillMin\":").append(maxFillMin);
+            body.addProperty("maxFillMin", maxFillMin);
         }
         if (slotPlan != null && !slotPlan.isEmpty())
         {
-            sb.append(",\"slotPlan\":[");
-            for (int i = 0; i < slotPlan.size(); i++)
+            JsonArray lanes = new JsonArray();
+            for (SlotLane lane : slotPlan)
             {
-                SlotLane lane = slotPlan.get(i);
-                if (i > 0)
-                {
-                    sb.append(',');
-                }
-                sb.append("{\"slots\":").append(lane.getSlots());
+                JsonObject l = new JsonObject();
+                l.addProperty("slots", lane.getSlots());
                 if (lane.getBand() != null)
                 {
-                    sb.append(",\"band\":\"").append(lane.getBand()).append('"');
+                    l.addProperty("band", lane.getBand());
                 }
                 if (lane.getMaxFillMin() > 0)
                 {
-                    sb.append(",\"maxFillMin\":").append(lane.getMaxFillMin());
+                    l.addProperty("maxFillMin", lane.getMaxFillMin());
                 }
-                sb.append('}');
+                lanes.add(l);
             }
-            sb.append(']');
+            body.add("slotPlan", lanes);
         }
-
-        sb.append(",\"activeOffers\":[");
-        for (int i = 0; i < activeOffers.size(); i++)
+        JsonArray offers = new JsonArray();
+        for (ActiveOffer o : activeOffers)
         {
-            ActiveOffer o = activeOffers.get(i);
-            if (i > 0)
-            {
-                sb.append(',');
-            }
-            sb.append("{\"slot\":").append(o.getSlot())
-                .append(",\"itemId\":").append(o.getItemId())
-                .append(",\"buy\":").append(o.isBuy())
-                .append(",\"price\":").append(o.getPrice())
-                .append(",\"qtyFilled\":").append(o.getQtyFilled())
-                .append(",\"qtyTotal\":").append(o.getQtyTotal())
-                .append('}');
+            JsonObject j = new JsonObject();
+            j.addProperty("slot", o.getSlot());
+            j.addProperty("itemId", o.getItemId());
+            j.addProperty("buy", o.isBuy());
+            j.addProperty("price", o.getPrice());
+            j.addProperty("qtyFilled", o.getQtyFilled());
+            j.addProperty("qtyTotal", o.getQtyTotal());
+            offers.add(j);
         }
-        sb.append(']');
-
-        sb.append(",\"excludeIds\":[");
+        body.add("activeOffers", offers);
+        JsonArray ex = new JsonArray();
         if (excludeIds != null)
         {
-            for (int i = 0; i < excludeIds.size(); i++)
+            for (Integer id : excludeIds)
             {
-                if (i > 0)
-                {
-                    sb.append(',');
-                }
-                sb.append(excludeIds.get(i));
+                ex.add(id);
             }
         }
-        sb.append(']');
-
-        sb.append('}');
-        return sb.toString();
+        body.add("excludeIds", ex);
+        return body.toString();
     }
 }

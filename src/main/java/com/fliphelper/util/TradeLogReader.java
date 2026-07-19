@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026, tuna troll
+ * Copyright (c) 2026, Tunatroll
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the conditions in the BSD

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026, tuna troll
+ * Copyright (c) 2026, Tunatroll
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the conditions in the BSD
@@ -17,11 +17,11 @@ import com.fliphelper.tracker.FlipTracker;
 import com.fliphelper.tracker.SessionManager;
 import com.fliphelper.util.GeTax;
 import com.fliphelper.util.WealthSnapshot;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.ComponentID;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -139,7 +139,7 @@ public class GrandFlipOutOverlay extends Overlay
 
         try
         {
-            Widget geWidget = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+            Widget geWidget = client.getWidget(InterfaceID.GeOffers.UNIVERSE);
             boolean geOpen = geWidget != null && !geWidget.isHidden();
 
             panelComponent.getChildren().clear();
@@ -526,7 +526,7 @@ public class GrandFlipOutOverlay extends Overlay
         {
             return;
         }
-        Widget geWindow = client.getWidget(ComponentID.GRAND_EXCHANGE_WINDOW_CONTAINER);
+        Widget geWindow = client.getWidget(InterfaceID.GeOffers.UNIVERSE);
         if (geWindow == null || geWindow.isHidden())
         {
             return;
