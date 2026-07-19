@@ -71,6 +71,19 @@ public interface GrandFlipOutConfig extends Config
     )
     String advancedSection = "advanced";
 
+    @ConfigItem(
+        keyName = "textSize",
+        name = "Panel text size",
+        description = "Text size for the sidebar panels. Large adds +2px to every "
+            + "label; Standard keeps today's sizes with a 10px minimum on the smallest captions. "
+            + "List rows apply immediately; the header and tab strip fully apply after toggling the plugin.",
+        position = 6
+    )
+    default TextSize textSize()
+    {
+        return TextSize.STANDARD;
+    }
+
     // ==================== GRANDFLIPOUT.COM FEATURES ====================
 
     @ConfigItem(

@@ -76,6 +76,9 @@ tasks.register('screenshot', JavaExec) {
     if (project.findProperty('advisor')) {
         systemProperty 'gfo.advisor', project.findProperty('advisor').toString()
     }
+    if (project.findProperty('large')) {
+        systemProperty 'gfo.large', project.findProperty('large').toString()
+    }
     if (project.findProperty('basket')) {
         systemProperty 'gfo.basket', project.findProperty('basket').toString()
     }

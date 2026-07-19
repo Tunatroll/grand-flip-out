@@ -94,6 +94,11 @@ public final class ScreenshotHarness
         // Opt-in (-Psample): inject sample F2P items so the Prices tab renders real cards
         // for visual review. Default render stays the clean empty panel.
         final boolean sample = Boolean.getBoolean("gfo.sample");
+        // -Plarge: render under the Large text setting (readability review).
+        if (Boolean.getBoolean("gfo.large"))
+        {
+            com.fliphelper.ui.UiText.setBump(com.fliphelper.TextSize.LARGE.bump());
+        }
         final boolean advisor = Boolean.getBoolean("gfo.advisor"); // render the Advisor tab standalone
         final boolean basket = Boolean.getBoolean("gfo.basket");   // render the Advisor 8-slot basket
         final boolean firstRun = Boolean.getBoolean("gfo.firstrun");   // Advisor first-run teaser (public flips + enable)

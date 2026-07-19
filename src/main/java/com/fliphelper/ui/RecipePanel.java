@@ -115,20 +115,20 @@ public class RecipePanel extends JPanel
 
         JLabel title = new JLabel("Recipe / Set Arbitrage");
         title.setForeground(BRAND_GOLD);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 14f));
+        title.setFont(UiText.font(title.getFont(), Font.BOLD, 14f));
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
         header.add(title);
 
         JLabel sub = new JLabel("Set vs pieces, after 2% GE tax");
         sub.setForeground(TEXT_DIM);
-        sub.setFont(sub.getFont().deriveFont(12f));
+        sub.setFont(UiText.font(sub.getFont(), 12f));
         sub.setAlignmentX(Component.LEFT_ALIGNMENT);
         header.add(Box.createVerticalStrut(2));
         header.add(sub);
         header.add(Box.createVerticalStrut(6));
 
         JButton refreshBtn = new JButton("Refresh");
-        refreshBtn.setFont(refreshBtn.getFont().deriveFont(12f));
+        refreshBtn.setFont(UiText.font(refreshBtn.getFont(), 12f));
         refreshBtn.setForeground(BRAND_GOLD);
         refreshBtn.setBackground(PANEL_BUTTON);
         refreshBtn.setFocusPainted(false);
@@ -193,14 +193,14 @@ public class RecipePanel extends JPanel
 
         JLabel section = new JLabel("Decanting");
         section.setForeground(BRAND_GOLD);
-        section.setFont(section.getFont().deriveFont(Font.BOLD, 13f));
+        section.setFont(UiText.font(section.getFont(), Font.BOLD, 13f));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
         section.setBorder(new EmptyBorder(8, 0, 1, 0));
         decantPanel.add(section);
 
         JLabel sub = new JLabel("Per-dose arbitrage across dose variants, after 2% GE tax");
         sub.setForeground(TEXT_DIM);
-        sub.setFont(sub.getFont().deriveFont(10f));
+        sub.setFont(UiText.font(sub.getFont(), 10f));
         sub.setAlignmentX(Component.LEFT_ALIGNMENT);
         decantPanel.add(sub);
         decantPanel.add(Box.createVerticalStrut(6));
@@ -266,12 +266,12 @@ public class RecipePanel extends JPanel
         top.setOpaque(false);
         JLabel name = new JLabel(potion.getName());
         name.setForeground(TEXT_LIGHT);
-        name.setFont(name.getFont().deriveFont(Font.BOLD, 13f));
+        name.setFont(UiText.font(name.getFont(), Font.BOLD, 13f));
         top.add(name, BorderLayout.WEST);
 
         JLabel profit = new JLabel(signed(profitPerDose) + "/dose");
         profit.setForeground(profitable ? PROFIT_GREEN : LOSS_RED);
-        profit.setFont(profit.getFont().deriveFont(Font.BOLD, 13f));
+        profit.setFont(UiText.font(profit.getFont(), Font.BOLD, 13f));
         top.add(profit, BorderLayout.EAST);
         card.add(top, BorderLayout.NORTH);
 
@@ -352,12 +352,12 @@ public class RecipePanel extends JPanel
         top.setOpaque(false);
         JLabel name = new JLabel(recipe.getName());
         name.setForeground(TEXT_LIGHT);
-        name.setFont(name.getFont().deriveFont(Font.BOLD, 13f));
+        name.setFont(UiText.font(name.getFont(), Font.BOLD, 13f));
         top.add(name, BorderLayout.WEST);
 
         JLabel profit = new JLabel(signed(bestProfit));
         profit.setForeground(bestProfit > 0 ? PROFIT_GREEN : LOSS_RED);
-        profit.setFont(profit.getFont().deriveFont(Font.BOLD, 13f));
+        profit.setFont(UiText.font(profit.getFont(), Font.BOLD, 13f));
         top.add(profit, BorderLayout.EAST);
         card.add(top, BorderLayout.NORTH);
 
@@ -379,7 +379,7 @@ public class RecipePanel extends JPanel
         // ---- Note ----
         JLabel note = new JLabel("<html><div style='width:200px'>" + recipe.getNote() + "</div></html>");
         note.setForeground(TEXT_DIM);
-        note.setFont(note.getFont().deriveFont(10f));
+        note.setFont(UiText.font(note.getFont(), 10f));
         card.add(note, BorderLayout.SOUTH);
 
         return card;
@@ -391,10 +391,10 @@ public class RecipePanel extends JPanel
         p.setOpaque(false);
         JLabel k = new JLabel(key);
         k.setForeground(TEXT_DIM);
-        k.setFont(k.getFont().deriveFont(10f));
+        k.setFont(UiText.font(k.getFont(), 10f));
         JLabel v = new JLabel(value);
         v.setForeground(TEXT_LIGHT);
-        v.setFont(v.getFont().deriveFont(12f));
+        v.setFont(UiText.font(v.getFont(), 12f));
         p.add(k, BorderLayout.NORTH);
         p.add(v, BorderLayout.SOUTH);
         return p;

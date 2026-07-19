@@ -317,7 +317,7 @@ public class GrandFlipOutPanel extends PluginPanel
     {
         JLabel link = new JLabel(text);
         link.setForeground(TEXT_DIM);
-        link.setFont(link.getFont().deriveFont(12f));
+        link.setFont(UiText.font(link.getFont(), 12f));
         link.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         link.addMouseListener(new java.awt.event.MouseAdapter()
         {
@@ -347,7 +347,7 @@ public class GrandFlipOutPanel extends PluginPanel
             + " members items hidden.</b><br>Create a free account to unlock all "
             + "members flips and premium features.</div></html>");
         msg.setForeground(TEXT_DIM);
-        msg.setFont(msg.getFont().deriveFont(12f));
+        msg.setFont(UiText.font(msg.getFont(), 12f));
         cta.add(msg, BorderLayout.CENTER);
 
         cta.add(buildUnlockButton("Create free account"), BorderLayout.SOUTH);
@@ -364,7 +364,7 @@ public class GrandFlipOutPanel extends PluginPanel
     private JButton buildLinkButton(String label, String url)
     {
         JButton btn = new JButton(label);
-        btn.setFont(btn.getFont().deriveFont(Font.BOLD, 12f));
+        btn.setFont(UiText.font(btn.getFont(), Font.BOLD, 12f));
         btn.setForeground(PANEL_DEEP);
         btn.setBackground(BRAND_GOLD);
         btn.setFocusPainted(false);
@@ -510,12 +510,12 @@ public class GrandFlipOutPanel extends PluginPanel
         titleRow.setOpaque(false);
         JLabel titleLabel = new JLabel("Grand Flip Out");
         titleLabel.setForeground(BRAND_GOLD);
-        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 16f));
+        titleLabel.setFont(UiText.font(titleLabel.getFont(), Font.BOLD, 16f));
         titleRow.add(titleLabel, BorderLayout.WEST);
 
         lastRefreshLabel = new JLabel("...");
         lastRefreshLabel.setForeground(TEXT_DIM);
-        lastRefreshLabel.setFont(lastRefreshLabel.getFont().deriveFont(12f));
+        lastRefreshLabel.setFont(UiText.font(lastRefreshLabel.getFont(), 12f));
         titleRow.add(lastRefreshLabel, BorderLayout.EAST);
         header.add(titleRow);
         header.add(Box.createVerticalStrut(4));
@@ -533,11 +533,11 @@ public class GrandFlipOutPanel extends PluginPanel
         JPanel profitCard = buildStatMiniCard();
         JLabel profitTitle = new JLabel("PROFIT");
         profitTitle.setForeground(TEXT_DIM);
-        profitTitle.setFont(profitTitle.getFont().deriveFont(Font.BOLD, 9f));
+        profitTitle.setFont(UiText.caption(profitTitle.getFont(), Font.BOLD));
         profitCard.add(profitTitle, BorderLayout.NORTH);
         sessionProfitLabel = new JLabel("0 gp");
         sessionProfitLabel.setForeground(PROFIT_GREEN);
-        sessionProfitLabel.setFont(sessionProfitLabel.getFont().deriveFont(Font.BOLD, 13f));
+        sessionProfitLabel.setFont(UiText.font(sessionProfitLabel.getFont(), Font.BOLD, 13f));
         profitCard.add(sessionProfitLabel, BorderLayout.CENTER);
         statsRow.add(profitCard);
 
@@ -545,11 +545,11 @@ public class GrandFlipOutPanel extends PluginPanel
         JPanel countCard = buildStatMiniCard();
         JLabel countTitle = new JLabel("FLIPS");
         countTitle.setForeground(TEXT_DIM);
-        countTitle.setFont(countTitle.getFont().deriveFont(Font.BOLD, 9f));
+        countTitle.setFont(UiText.caption(countTitle.getFont(), Font.BOLD));
         countCard.add(countTitle, BorderLayout.NORTH);
         sessionFlipCountLabel = new JLabel("0");
         sessionFlipCountLabel.setForeground(GfoPalette.ACCENT_2);
-        sessionFlipCountLabel.setFont(sessionFlipCountLabel.getFont().deriveFont(Font.BOLD, 13f));
+        sessionFlipCountLabel.setFont(UiText.font(sessionFlipCountLabel.getFont(), Font.BOLD, 13f));
         countCard.add(sessionFlipCountLabel, BorderLayout.CENTER);
         statsRow.add(countCard);
 
@@ -557,11 +557,11 @@ public class GrandFlipOutPanel extends PluginPanel
         JPanel avgCard = buildStatMiniCard();
         JLabel avgTitle = new JLabel("AVG");
         avgTitle.setForeground(TEXT_DIM);
-        avgTitle.setFont(avgTitle.getFont().deriveFont(Font.BOLD, 9f));
+        avgTitle.setFont(UiText.caption(avgTitle.getFont(), Font.BOLD));
         avgCard.add(avgTitle, BorderLayout.NORTH);
         avgProfitLabel = new JLabel("0 gp");
         avgProfitLabel.setForeground(Color.WHITE);
-        avgProfitLabel.setFont(avgProfitLabel.getFont().deriveFont(Font.BOLD, 13f));
+        avgProfitLabel.setFont(UiText.font(avgProfitLabel.getFont(), Font.BOLD, 13f));
         avgCard.add(avgProfitLabel, BorderLayout.CENTER);
         statsRow.add(avgCard);
 
@@ -569,11 +569,11 @@ public class GrandFlipOutPanel extends PluginPanel
         JPanel gpHrCard = buildStatMiniCard();
         JLabel gpHrTitle = new JLabel("GP/HR");
         gpHrTitle.setForeground(TEXT_DIM);
-        gpHrTitle.setFont(gpHrTitle.getFont().deriveFont(Font.BOLD, 9f));
+        gpHrTitle.setFont(UiText.caption(gpHrTitle.getFont(), Font.BOLD));
         gpHrCard.add(gpHrTitle, BorderLayout.NORTH);
         gpPerHourLabel = new JLabel("-");
         gpPerHourLabel.setForeground(BRAND_GOLD);
-        gpPerHourLabel.setFont(gpPerHourLabel.getFont().deriveFont(Font.BOLD, 13f));
+        gpPerHourLabel.setFont(UiText.font(gpPerHourLabel.getFont(), Font.BOLD, 13f));
         gpHrCard.add(gpPerHourLabel, BorderLayout.CENTER);
         statsRow.add(gpHrCard);
 
@@ -586,10 +586,10 @@ public class GrandFlipOutPanel extends PluginPanel
             wealthRow.setAlignmentX(Component.LEFT_ALIGNMENT);
             JLabel wealthTitle = new JLabel("WEALTH Δ");
             wealthTitle.setForeground(TEXT_DIM);
-            wealthTitle.setFont(wealthTitle.getFont().deriveFont(Font.BOLD, 9f));
+            wealthTitle.setFont(UiText.caption(wealthTitle.getFont(), Font.BOLD));
             wealthDeltaLabel = new JLabel("—");
             wealthDeltaLabel.setForeground(BRAND_GOLD);
-            wealthDeltaLabel.setFont(wealthDeltaLabel.getFont().deriveFont(Font.BOLD, 12f));
+            wealthDeltaLabel.setFont(UiText.font(wealthDeltaLabel.getFont(), Font.BOLD, 12f));
             wealthRow.add(wealthTitle);
             wealthRow.add(wealthDeltaLabel);
             header.add(Box.createVerticalStrut(4));
@@ -612,7 +612,7 @@ public class GrandFlipOutPanel extends PluginPanel
         card.setBackground(PANEL_CARD);
         card.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(PANEL_BORDER),
-            new EmptyBorder(6, 8, 6, 8)
+            new EmptyBorder(6, 6, 6, 6)
         ));
         return card;
     }
@@ -660,7 +660,7 @@ public class GrandFlipOutPanel extends PluginPanel
             final String cat = categories[i];
             final int catIndex = i;
             JButton catBtn = new JButton(cat);
-            catBtn.setFont(catBtn.getFont().deriveFont(12f));
+            catBtn.setFont(UiText.font(catBtn.getFont(), 12f));
             catBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             categoryButtons[catIndex] = catBtn;
             catBtn.addActionListener(e -> {
@@ -680,13 +680,13 @@ public class GrandFlipOutPanel extends PluginPanel
         sortRow.setBackground(ColorScheme.DARK_GRAY_COLOR);
         JLabel sortLbl = new JLabel("Sort:");
         sortLbl.setForeground(TEXT_DIM);
-        sortLbl.setFont(sortLbl.getFont().deriveFont(12f));
+        sortLbl.setFont(UiText.font(sortLbl.getFont(), 12f));
         sortRow.add(sortLbl);
 
         final String[] sortLabels = {"Best (profit/limit)", "Margin (gp)", "Margin %", "Name (A-Z)"};
         final String[] sortKeys = {SORT_BEST, SORT_MARGIN, SORT_MARGIN_PCT, SORT_NAME};
         JComboBox<String> sortCombo = new JComboBox<>(sortLabels);
-        sortCombo.setFont(sortCombo.getFont().deriveFont(12f));
+        sortCombo.setFont(UiText.font(sortCombo.getFont(), 12f));
         sortCombo.setForeground(Color.LIGHT_GRAY);
         sortCombo.setBackground(PANEL_BUTTON);
         sortCombo.setToolTipText("Rank suggestions by flip metric (volume-floored) or browse by name");
@@ -712,7 +712,7 @@ public class GrandFlipOutPanel extends PluginPanel
         panel.add(topPanel, BorderLayout.NORTH);
 
         // Results
-        priceResultsPanel = new JPanel();
+        priceResultsPanel = new ScrollBody(420);
         priceResultsPanel.setLayout(new BoxLayout(priceResultsPanel, BoxLayout.Y_AXIS));
         priceResultsPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
@@ -846,7 +846,7 @@ public class GrandFlipOutPanel extends PluginPanel
         JPanel headerRow = buildSectionHeader("Active Flips");
         panel.add(headerRow, BorderLayout.NORTH);
 
-        activeFlipsPanel = new JPanel();
+        activeFlipsPanel = new ScrollBody(420);
         activeFlipsPanel.setLayout(new BoxLayout(activeFlipsPanel, BoxLayout.Y_AXIS));
         activeFlipsPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
@@ -904,7 +904,7 @@ public class GrandFlipOutPanel extends PluginPanel
         for (JButton b : new JButton[] { filterAllBtn, filterProfitBtn, filterLossBtn, refreshLogBtn })
         {
             styleSecondaryButton(b);
-            b.setFont(b.getFont().deriveFont(12f));
+            b.setFont(UiText.font(b.getFont(), 12f));
         }
         filterAllBtn.addActionListener(e -> { historyFilter = "all"; updateHistoryTab(); });
         filterProfitBtn.addActionListener(e -> { historyFilter = "profit"; updateHistoryTab(); });
@@ -920,7 +920,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         JButton importGeHistoryBtn = new JButton("Import GE history");
         styleSecondaryButton(importGeHistoryBtn);
-        importGeHistoryBtn.setFont(importGeHistoryBtn.getFont().deriveFont(12f));
+        importGeHistoryBtn.setFont(UiText.font(importGeHistoryBtn.getFont(), 12f));
         importGeHistoryBtn.setToolTipText("Open the in-game Grand Exchange History tab, then click "
             + "to back-fill any mobile/untracked trades it shows (deduplicated).");
         importGeHistoryBtn.addActionListener(e ->
@@ -934,7 +934,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         JButton exportCsvBtn = new JButton("Export CSV");
         stylePrimaryButton(exportCsvBtn);
-        exportCsvBtn.setFont(exportCsvBtn.getFont().deriveFont(12f));
+        exportCsvBtn.setFont(UiText.font(exportCsvBtn.getFont(), 12f));
         exportCsvBtn.setToolTipText("Export completed flips to CSV for advanced trade-log analysis");
         exportCsvBtn.addActionListener(e -> exportHistoryCsv());
         actionRow.add(exportCsvBtn);
@@ -960,7 +960,7 @@ public class GrandFlipOutPanel extends PluginPanel
         northStack.add(statsSep);
         panel.add(northStack, BorderLayout.NORTH);
 
-        historyPanel = new JPanel();
+        historyPanel = new ScrollBody(420);
         historyPanel.setLayout(new BoxLayout(historyPanel, BoxLayout.Y_AXIS));
         historyPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
@@ -1288,7 +1288,7 @@ public class GrandFlipOutPanel extends PluginPanel
      */
     private void styleActionButton(JButton btn, Color bgColor)
     {
-        btn.setFont(btn.getFont().deriveFont(Font.BOLD, 11f));
+        btn.setFont(UiText.font(btn.getFont(), Font.BOLD, 11f));
         btn.setBackground(bgColor);
         btn.setForeground(Color.WHITE);
         btn.setFocusPainted(false);
@@ -1299,7 +1299,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private void stylePrimaryButton(JButton btn)
     {
-        btn.setFont(btn.getFont().deriveFont(Font.BOLD, 12f));
+        btn.setFont(UiText.font(btn.getFont(), Font.BOLD, 12f));
         btn.setBackground(BRAND_GOLD);
         btn.setForeground(new Color(0x10, 0x10, 0x18));
         btn.setFocusPainted(false);
@@ -1310,7 +1310,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
     private void styleSecondaryButton(AbstractButton btn)
     {
-        btn.setFont(btn.getFont().deriveFont(Font.BOLD, 12f));
+        btn.setFont(UiText.font(btn.getFont(), Font.BOLD, 12f));
         btn.setBackground(PANEL_BUTTON);
         btn.setForeground(Color.LIGHT_GRAY);
         btn.setFocusPainted(false);
@@ -1346,7 +1346,7 @@ public class GrandFlipOutPanel extends PluginPanel
         header.setBorder(new EmptyBorder(8, 10, 6, 10));
         JLabel label = new JLabel(title);
         label.setForeground(BRAND_GOLD);
-        label.setFont(label.getFont().deriveFont(Font.BOLD, 14f));
+        label.setFont(UiText.font(label.getFont(), Font.BOLD, 14f));
         header.add(label, BorderLayout.WEST);
         return header;
     }
@@ -1405,11 +1405,11 @@ public class GrandFlipOutPanel extends PluginPanel
         p.setOpaque(false);
         JLabel t = new JLabel(title);
         t.setForeground(TEXT_DIM);
-        t.setFont(t.getFont().deriveFont(Font.PLAIN, 8f));
+        t.setFont(UiText.caption(t.getFont(), Font.PLAIN));
         p.add(t, BorderLayout.NORTH);
         JLabel v = new JLabel(value);
         v.setForeground(Color.LIGHT_GRAY);
-        v.setFont(v.getFont().deriveFont(Font.PLAIN, 12f));
+        v.setFont(UiText.font(v.getFont(), Font.PLAIN, 12f));
         p.add(v, BorderLayout.CENTER);
         return p;
     }
@@ -1432,8 +1432,8 @@ public class GrandFlipOutPanel extends PluginPanel
         row1.setOpaque(false);
         JLabel nameLabel = new JLabel(flip.getItemName());
         nameLabel.setForeground(Color.WHITE);
-        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 13f));
-        row1.add(nameLabel, BorderLayout.WEST);
+        nameLabel.setFont(UiText.font(nameLabel.getFont(), Font.BOLD, 13f));
+        row1.add(nameLabel, BorderLayout.CENTER);
 
         String stateName = flip.getState().getDisplayName();
         Color stateColor = stateName.contains("Buy") ? GfoPalette.UP
@@ -1443,7 +1443,7 @@ public class GrandFlipOutPanel extends PluginPanel
         stateLabel.setForeground(Color.WHITE);
         stateLabel.setOpaque(true);
         stateLabel.setBackground(stateColor.darker().darker());
-        stateLabel.setFont(stateLabel.getFont().deriveFont(Font.BOLD, 9f));
+        stateLabel.setFont(UiText.caption(stateLabel.getFont(), Font.BOLD));
         row1.add(stateLabel, BorderLayout.EAST);
         card.add(row1);
         card.add(Box.createVerticalStrut(4));
@@ -1471,7 +1471,7 @@ public class GrandFlipOutPanel extends PluginPanel
             JLabel expectedLabel = new JLabel("Expected Profit: " + formatGpFull(expectedProfit) + " gp");
             expectedLabel.setForeground(expectedProfit >= 0
                 ? GfoPalette.UP : GfoPalette.DOWN);
-            expectedLabel.setFont(expectedLabel.getFont().deriveFont(Font.BOLD, 12f));
+            expectedLabel.setFont(UiText.font(expectedLabel.getFont(), Font.BOLD, 12f));
             profitRow.add(expectedLabel, BorderLayout.WEST);
             card.add(profitRow);
         }
@@ -1482,6 +1482,10 @@ public class GrandFlipOutPanel extends PluginPanel
             card.add(naLabel);
         }
 
+        // Fit the sidebar: let BoxLayout compress the card to the viewport width
+        // (grids redistribute; the CENTER name clips gracefully). Without this the
+        // rightmost column/badges rendered past the panel edge — invisible.
+        card.setMinimumSize(new Dimension(0, card.getMinimumSize().height));
         return card;
     }
 
@@ -1504,13 +1508,13 @@ public class GrandFlipOutPanel extends PluginPanel
         row1.setOpaque(false);
         JLabel nameLabel = new JLabel(flip.getItemName());
         nameLabel.setForeground(Color.WHITE);
-        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 12f));
-        row1.add(nameLabel, BorderLayout.WEST);
+        nameLabel.setFont(UiText.font(nameLabel.getFont(), Font.BOLD, 12f));
+        row1.add(nameLabel, BorderLayout.CENTER);
 
         String profitText = (profit >= 0 ? "+" : "") + formatGpFull(profit) + " gp";
         JLabel profitLabel = new JLabel(profitText);
         profitLabel.setForeground(profit >= 0 ? GfoPalette.UP : GfoPalette.DOWN);
-        profitLabel.setFont(profitLabel.getFont().deriveFont(Font.BOLD, 12f));
+        profitLabel.setFont(UiText.font(profitLabel.getFont(), Font.BOLD, 12f));
         row1.add(profitLabel, BorderLayout.EAST);
         card.add(row1);
         card.add(Box.createVerticalStrut(2));
@@ -1540,6 +1544,10 @@ public class GrandFlipOutPanel extends PluginPanel
         row3.add(gpHrLabel);
         card.add(row3);
 
+        // Fit the sidebar: let BoxLayout compress the card to the viewport width
+        // (grids redistribute; the CENTER name clips gracefully). Without this the
+        // rightmost column/badges rendered past the panel edge — invisible.
+        card.setMinimumSize(new Dimension(0, card.getMinimumSize().height));
         return card;
     }
 
@@ -1559,13 +1567,13 @@ public class GrandFlipOutPanel extends PluginPanel
         row1.setOpaque(false);
         JLabel nameLabel = new JLabel(entry.getItemName() != null ? entry.getItemName() : ("Item " + entry.getItemId()));
         nameLabel.setForeground(Color.WHITE);
-        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 12f));
+        nameLabel.setFont(UiText.font(nameLabel.getFont(), Font.BOLD, 12f));
         row1.add(nameLabel, BorderLayout.WEST);
 
         String profitText = (profit >= 0 ? "+" : "") + formatGpFull(profit) + " gp";
         JLabel profitLabel = new JLabel(profitText);
         profitLabel.setForeground(profit >= 0 ? PROFIT_GREEN : LOSS_RED);
-        profitLabel.setFont(profitLabel.getFont().deriveFont(Font.BOLD, 12f));
+        profitLabel.setFont(UiText.font(profitLabel.getFont(), Font.BOLD, 12f));
         row1.add(profitLabel, BorderLayout.EAST);
         card.add(row1);
         card.add(Box.createVerticalStrut(2));
@@ -1605,7 +1613,7 @@ public class GrandFlipOutPanel extends PluginPanel
     {
         JLabel label = new JLabel(text);
         label.setForeground(GfoPalette.TEXT_MUTED);
-        label.setFont(label.getFont().deriveFont(Font.PLAIN, 10f));
+        label.setFont(UiText.font(label.getFont(), Font.PLAIN, 10f));
         return label;
     }
 
@@ -1692,7 +1700,7 @@ public class GrandFlipOutPanel extends PluginPanel
                     BorderFactory.createLineBorder(BRAND_GOLD),
                     BorderFactory.createEmptyBorder(4, 8, 4, 8)
                 ));
-                btn.setFont(btn.getFont().deriveFont(Font.BOLD, 11f));
+                btn.setFont(UiText.font(btn.getFont(), Font.BOLD, 11f));
             }
             else
             {
@@ -1703,7 +1711,7 @@ public class GrandFlipOutPanel extends PluginPanel
                     BorderFactory.createLineBorder(PANEL_BORDER),
                     BorderFactory.createEmptyBorder(4, 8, 4, 8)
                 ));
-                btn.setFont(btn.getFont().deriveFont(Font.PLAIN, 12f));
+                btn.setFont(UiText.font(btn.getFont(), Font.PLAIN, 12f));
             }
             btn.setFocusPainted(false);
         }
@@ -2089,7 +2097,7 @@ public class GrandFlipOutPanel extends PluginPanel
         final int watchItemId = agg.getItemId();
         JLabel star = new JLabel(watchlist.contains(watchItemId) ? "★" : "☆");
         star.setForeground(watchlist.contains(watchItemId) ? BRAND_GOLD : TEXT_DIM);
-        star.setFont(star.getFont().deriveFont(14f));
+        star.setFont(UiText.font(star.getFont(), 14f));
         star.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         star.setToolTipText("Star this item to add it to your ★ Watch list");
         star.addMouseListener(new java.awt.event.MouseAdapter()
@@ -2121,7 +2129,7 @@ public class GrandFlipOutPanel extends PluginPanel
         // when a target is set, dim "alert" otherwise.
         JLabel bell = new JLabel(hasTarget ? "alert ●" : "alert");
         bell.setForeground(hasTarget ? BRAND_GOLD : TEXT_DIM);
-        bell.setFont(bell.getFont().deriveFont(Font.BOLD, 9f));
+        bell.setFont(UiText.caption(bell.getFont(), Font.BOLD));
         bell.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         bell.setToolTipText(hasTarget
             ? "Price alert set — click to edit or clear"
@@ -2138,9 +2146,12 @@ public class GrandFlipOutPanel extends PluginPanel
 
         JLabel nameLabel = new JLabel(agg.getItemName());
         nameLabel.setForeground(Color.WHITE);
-        nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 13f));
-        nameRow.add(nameLabel);
+        nameLabel.setFont(UiText.font(nameLabel.getFont(), Font.BOLD, 13f));
+        nameLabel.setBorder(new EmptyBorder(0, 2, 0, 2));
+        // Star+bell keep WEST; the bare CENTER label CLIPS a long name gracefully —
+        // inside a FlowLayout it would wrap to a hidden second line instead.
         row1.add(nameRow, BorderLayout.WEST);
+        row1.add(nameLabel, BorderLayout.CENTER);
 
         JPanel badges = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         badges.setOpaque(false);
@@ -2157,7 +2168,7 @@ public class GrandFlipOutPanel extends PluginPanel
                 sigBadge.setOpaque(true);
                 sigBadge.setBackground(cached.action.equals("BUY") ? GfoPalette.UP
                     : cached.action.equals("SELL") ? GfoPalette.DOWN : GfoPalette.TEXT_DIM);
-                sigBadge.setFont(sigBadge.getFont().deriveFont(Font.BOLD, 9f));
+                sigBadge.setFont(UiText.caption(sigBadge.getFont(), Font.BOLD));
                 badges.add(sigBadge);
             }
             else if (executor != null && intelligenceClient != null)
@@ -2179,7 +2190,7 @@ public class GrandFlipOutPanel extends PluginPanel
         marginBadge.setForeground(Color.WHITE);
         marginBadge.setOpaque(true);
         marginBadge.setBackground(marginColor.darker());
-        marginBadge.setFont(marginBadge.getFont().deriveFont(Font.BOLD, 11f));
+        marginBadge.setFont(UiText.font(marginBadge.getFont(), Font.BOLD, 11f));
         // N2: explainable confidence — surface the locally-computed score + the inputs
         // behind it (margin / volume / freshness) so the suggestion isn't a black box.
         marginBadge.setToolTipText("Confidence: " + agg.getLocalConfidenceLabel()
@@ -2198,7 +2209,7 @@ public class GrandFlipOutPanel extends PluginPanel
         freshBadge.setForeground(Color.WHITE);
         freshBadge.setOpaque(true);
         freshBadge.setBackground(freshColor.darker());
-        freshBadge.setFont(freshBadge.getFont().deriveFont(Font.BOLD, 9f));
+        freshBadge.setFont(UiText.caption(freshBadge.getFont(), Font.BOLD));
         freshBadge.setToolTipText("Last real trade: " + agg.getFreshnessLabel()
             + " ago. Older data may mean a thin, unreliable price.");
         badges.add(freshBadge);
@@ -2303,6 +2314,10 @@ public class GrandFlipOutPanel extends PluginPanel
             }
         }
 
+        // Fit the sidebar: let BoxLayout compress the card to the viewport width
+        // (grids redistribute; the CENTER name clips gracefully). Without this the
+        // Net-margin column and every badge rendered past the panel edge.
+        card.setMinimumSize(new Dimension(0, card.getMinimumSize().height));
         return card;
     }
 
@@ -2335,11 +2350,11 @@ public class GrandFlipOutPanel extends PluginPanel
         // (seen in the screenshot harness); the opt-in nature is stated by the gate copy.
         JLabel title = new JLabel("Server Intelligence");
         title.setForeground(BRAND_GOLD);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 13f));
+        title.setFont(UiText.font(title.getFont(), Font.BOLD, 13f));
         top.add(title, BorderLayout.WEST);
 
         JButton refreshBtn = new JButton("Refresh");
-        refreshBtn.setFont(refreshBtn.getFont().deriveFont(12f));
+        refreshBtn.setFont(UiText.font(refreshBtn.getFont(), 12f));
         refreshBtn.setForeground(BRAND_GOLD);
         refreshBtn.setBackground(PANEL_BUTTON);
         refreshBtn.setFocusPainted(false);
@@ -2350,7 +2365,7 @@ public class GrandFlipOutPanel extends PluginPanel
         top.add(refreshBtn, BorderLayout.EAST);
         wrapper.add(top, BorderLayout.NORTH);
 
-        intelContentPanel = new JPanel();
+        intelContentPanel = new ScrollBody(420);
         intelContentPanel.setLayout(new BoxLayout(intelContentPanel, BoxLayout.Y_AXIS));
         intelContentPanel.setBackground(PANEL_DEEP);
         intelContentPanel.setBorder(new EmptyBorder(4, 8, 8, 8));
@@ -2408,7 +2423,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         JLabel header = new JLabel("PRO — the power layer");
         header.setForeground(BRAND_GOLD);
-        header.setFont(header.getFont().deriveFont(Font.BOLD, 12f));
+        header.setFont(UiText.font(header.getFont(), Font.BOLD, 12f));
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
         teaser.add(header);
 
@@ -2418,7 +2433,7 @@ public class GrandFlipOutPanel extends PluginPanel
             + "&bull; <b>Nature Rune Barometer</b> — market-wide alch signal<br>"
             + "&bull; <b>Every watchlist alert</b> + full CSV export</div></html>");
         rows.setForeground(TEXT_DIM);
-        rows.setFont(rows.getFont().deriveFont(11f));
+        rows.setFont(UiText.font(rows.getFont(), 11f));
         rows.setBorder(new EmptyBorder(4, 0, 8, 0));
         rows.setAlignmentX(Component.LEFT_ALIGNMENT);
         teaser.add(rows);
@@ -2427,7 +2442,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         JLabel trial = new JLabel("7-day free trial · cancel anytime");
         trial.setForeground(TEXT_DIM);
-        trial.setFont(trial.getFont().deriveFont(10f));
+        trial.setFont(UiText.font(trial.getFont(), 10f));
         trial.setBorder(new EmptyBorder(3, 0, 0, 0));
         trial.setAlignmentX(Component.LEFT_ALIGNMENT);
         teaser.add(trial);
@@ -2536,14 +2551,14 @@ public class GrandFlipOutPanel extends PluginPanel
 
                         JLabel baroHeader = new JLabel("Nature Rune Barometer");
                         baroHeader.setForeground(BRAND_GOLD);
-                        baroHeader.setFont(baroHeader.getFont().deriveFont(Font.BOLD, 12f));
+                        baroHeader.setFont(UiText.font(baroHeader.getFont(), Font.BOLD, 12f));
                         baroHeader.setBorder(new EmptyBorder(4, 0, 2, 0));
                         baroHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
                         intelContentPanel.add(baroHeader);
 
                         JLabel baroVal = new JLabel("  " + formatGpFull(natPrice) + " gp (" + change + ") — " + signal.replace('_', ' '));
                         baroVal.setForeground(sigColor);
-                        baroVal.setFont(baroVal.getFont().deriveFont(12f));
+                        baroVal.setFont(UiText.font(baroVal.getFont(), 12f));
                         baroVal.setBorder(new EmptyBorder(1, 8, 4, 0));
                         baroVal.setAlignmentX(Component.LEFT_ALIGNMENT);
                         intelContentPanel.add(baroVal);
@@ -2554,7 +2569,7 @@ public class GrandFlipOutPanel extends PluginPanel
                     {
                         JLabel bwHeader = new JLabel("⚠ BOT BAN WAVE DETECTED");
                         bwHeader.setForeground(LOSS_RED);
-                        bwHeader.setFont(bwHeader.getFont().deriveFont(Font.BOLD, 12f));
+                        bwHeader.setFont(UiText.font(bwHeader.getFont(), Font.BOLD, 12f));
                         bwHeader.setBorder(new EmptyBorder(4, 0, 2, 0));
                         bwHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
                         intelContentPanel.add(bwHeader);
@@ -2562,7 +2577,7 @@ public class GrandFlipOutPanel extends PluginPanel
                         int affected = fBanWave.has("affectedCount") ? fBanWave.get("affectedCount").getAsInt() : 0;
                         JLabel bwDetail = new JLabel("  " + affected + " bot-farmed items with supply drops");
                         bwDetail.setForeground(Color.LIGHT_GRAY);
-                        bwDetail.setFont(bwDetail.getFont().deriveFont(12f));
+                        bwDetail.setFont(UiText.font(bwDetail.getFont(), 12f));
                         bwDetail.setBorder(new EmptyBorder(1, 8, 4, 0));
                         bwDetail.setAlignmentX(Component.LEFT_ALIGNMENT);
                         intelContentPanel.add(bwDetail);
@@ -2648,7 +2663,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         JLabel header = new JLabel(title + " (" + arr.size() + ")");
         header.setForeground(BRAND_GOLD);
-        header.setFont(header.getFont().deriveFont(Font.BOLD, 12f));
+        header.setFont(UiText.font(header.getFont(), Font.BOLD, 12f));
         header.setBorder(new EmptyBorder(8, 0, 4, 0));
         header.setAlignmentX(Component.LEFT_ALIGNMENT);
         intelContentPanel.add(header);
@@ -2661,7 +2676,7 @@ public class GrandFlipOutPanel extends PluginPanel
                 String text = formatter.apply(arr.get(i));
                 JLabel item = new JLabel(text);
                 item.setForeground(Color.LIGHT_GRAY);
-                item.setFont(item.getFont().deriveFont(12f));
+                item.setFont(UiText.font(item.getFont(), 12f));
                 item.setBorder(new EmptyBorder(1, 8, 1, 0));
                 item.setAlignmentX(Component.LEFT_ALIGNMENT);
                 intelContentPanel.add(item);

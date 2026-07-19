@@ -260,7 +260,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             }
         }
 
-        // Create UI — pass sessionManager so the panel has GP/hr data
+        // Create UI — pass sessionManager so the panel has GP/hr data.
+        // Text scale must be set before any panel derives a font.
+        com.fliphelper.ui.UiText.setBump(config.textSize().bump());
         panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager, DATA_DIR, intelligenceClient, executor, entitlementService);
         panel.enableDeviceLink(config, deviceLinkService, key ->
         {
@@ -590,6 +592,17 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 config.priceRefreshInterval(),
                 TimeUnit.SECONDS
             );
+        }
+
+        // Text size changed — rows pick the new scale up as they rebuild;
+        // the header/tab strip fully apply on the next plugin toggle.
+        if ("textSize".equals(event.getKey()))
+        {
+            com.fliphelper.ui.UiText.setBump(config.textSize().bump());
+            if (panel != null)
+            {
+                panel.updateAll();
+            }
         }
 
         // Advisor toggled — show the right state and fetch immediately when enabled.

@@ -94,12 +94,12 @@ public class StatsPanel extends JPanel
         top.setOpaque(false);
         JLabel heading = new JLabel("Stats");
         heading.setForeground(BRAND_GOLD);
-        heading.setFont(heading.getFont().deriveFont(Font.BOLD, 13f));
+        heading.setFont(UiText.font(heading.getFont(), Font.BOLD, 13f));
         top.add(heading, BorderLayout.WEST);
 
         intervalSelector = new JComboBox<>(INTERVALS);
         intervalSelector.setSelectedItem("Session");
-        intervalSelector.setFont(intervalSelector.getFont().deriveFont(12f));
+        intervalSelector.setFont(UiText.font(intervalSelector.getFont(), 12f));
         intervalSelector.setBackground(PANEL_CARD);
         intervalSelector.setForeground(Color.LIGHT_GRAY);
         intervalSelector.setFocusable(false);
@@ -109,7 +109,7 @@ public class StatsPanel extends JPanel
         // Per-account selector: "All accounts" + each distinct RSN in history.
         accountSelector = new JComboBox<>();
         accountSelector.addItem(ALL_ACCOUNTS);
-        accountSelector.setFont(accountSelector.getFont().deriveFont(12f));
+        accountSelector.setFont(UiText.font(accountSelector.getFont(), 12f));
         accountSelector.setBackground(PANEL_CARD);
         accountSelector.setForeground(Color.LIGHT_GRAY);
         accountSelector.setFocusable(false);
@@ -119,7 +119,7 @@ public class StatsPanel extends JPanel
         accountRow.setBorder(new EmptyBorder(4, 0, 0, 0));
         JLabel accountLabel = new JLabel("Account");
         accountLabel.setForeground(TEXT_DIM);
-        accountLabel.setFont(accountLabel.getFont().deriveFont(12f));
+        accountLabel.setFont(UiText.font(accountLabel.getFont(), 12f));
         accountRow.add(accountLabel, BorderLayout.WEST);
         accountRow.add(accountSelector, BorderLayout.EAST);
 
@@ -164,7 +164,7 @@ public class StatsPanel extends JPanel
     {
         JLabel t = new JLabel(text);
         t.setForeground(TEXT_DIM);
-        t.setFont(t.getFont().deriveFont(12f));
+        t.setFont(UiText.font(t.getFont(), 12f));
         return t;
     }
 
@@ -172,7 +172,7 @@ public class StatsPanel extends JPanel
     {
         JLabel v = new JLabel(text);
         v.setForeground(Color.LIGHT_GRAY);
-        v.setFont(v.getFont().deriveFont(Font.BOLD, 12f));
+        v.setFont(UiText.font(v.getFont(), Font.BOLD, 12f));
         v.setHorizontalAlignment(JLabel.RIGHT);
         return v;
     }
