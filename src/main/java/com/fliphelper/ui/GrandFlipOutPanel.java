@@ -2073,6 +2073,31 @@ public class GrandFlipOutPanel extends PluginPanel
         }
     }
 
+    /**
+     * The price a price/watchlist row arms for a GE fill: the BUY side (what you would place a
+     * buy offer at). Returns 0 when there is no honest buy price — the caller must then arm
+     * NOTHING rather than pre-filling a GE input with a fabricated number. Pinned by
+     * WatchlistFillTest.
+     */
+    static long fillArmPrice(PriceAggregate agg)
+    {
+        if (agg == null)
+        {
+            return 0;
+        }
+        long buy = agg.getBuyPrice();
+        return buy > 0 ? buy : 0;
+    }
+
+    /** Wired by the plugin: arms (itemId, buyPrice) so the item + price pre-fill when the
+     *  player opens the GE search/offer themselves. Null = the affordance stays hidden. */
+    public void setFillRequestListener(java.util.function.BiConsumer<Integer, Long> listener)
+    {
+        this.fillRequestListener = listener;
+    }
+
+    private java.util.function.BiConsumer<Integer, Long> fillRequestListener;
+
     private JPanel buildPriceCard(PriceAggregate agg)
     {
         Color cardBg = GfoPalette.CARD;
@@ -2143,6 +2168,31 @@ public class GrandFlipOutPanel extends PluginPanel
             }
         });
         nameRow.add(bell);
+
+        // "fill" — arm this row's item + BUY price so they pre-fill when the player opens the
+        // GE search/offer themselves (the same armed, opt-in chokepoint the advisor rows use;
+        // nothing is ever popped open or confirmed for them). Starred rows are exactly where a
+        // player acts, and until now only advisor rows could arm. Hidden when there is no
+        // honest buy price to arm, or when no listener is wired.
+        final long armPrice = fillArmPrice(agg);
+        if (armPrice > 0 && fillRequestListener != null)
+        {
+            JLabel fill = new JLabel("fill");
+            fill.setForeground(TEXT_DIM);
+            fill.setFont(UiText.caption(fill.getFont(), Font.BOLD));
+            fill.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            fill.setToolTipText("Arm " + agg.getItemName() + " at " + formatGp(armPrice)
+                + " — it pre-fills when you open the GE search/offer yourself");
+            fill.addMouseListener(new java.awt.event.MouseAdapter()
+            {
+                @Override
+                public void mouseClicked(java.awt.event.MouseEvent e)
+                {
+                    fillRequestListener.accept(watchItemId, armPrice);
+                }
+            });
+            nameRow.add(fill);
+        }
 
         JLabel nameLabel = new JLabel(agg.getItemName());
         nameLabel.setForeground(Color.WHITE);

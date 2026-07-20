@@ -342,6 +342,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
         // Star toggles push (debounced); website-side stars arrive on a slow pull.
         panel.setWatchlistChangedListener(this::scheduleWatchlistPush);
+        // A price/watchlist row carries no suggested SIZE — arm the item + price only
+        // (armOfferFill omits the quantity rather than claiming x0; GeChatCopyTest pins it).
+        panel.setFillRequestListener((itemId, price) -> armOfferFill(itemId, price, 0));
         watchlistSyncFuture = executor.scheduleAtFixedRate(
             this::syncAccountWatchlist,
             WATCHLIST_PERIODIC_SYNC_S,
@@ -1019,7 +1022,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         {
             long price = pendingGePrice;
             pendingGePrice = -1;
-            injectGeInput(price, formatGp(price) + " gp");
+            injectGeInput(price, formatGp(price));
         }
     }
 
@@ -1092,7 +1095,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
 
     private void injectGePrice(long price)
     {
-        injectGeInput(price, formatGp(price) + " gp");
+        injectGeInput(price, formatGp(price));
     }
 
     /**
@@ -1110,8 +1113,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             clientThread.invokeLater(() -> client.addChatMessage(
                 ChatMessageType.GAMEMESSAGE,
                 "",
-                String.format("Grand Flip Out: suggested %s gp x%,d — enable \"GE offer pre-fill\" in settings to auto-fill.",
-                    formatGp(price), quantity),
+                armChatMessage(formatGp(price), quantity, false),
                 null));
             return;
         }
@@ -1122,8 +1124,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         clientThread.invokeLater(() -> client.addChatMessage(
             ChatMessageType.GAMEMESSAGE,
             "",
-            String.format("Grand Flip Out: open a GE buy/sell offer — the item, %s gp, and x%,d auto-fill as you go.",
-                formatGp(price), quantity),
+            armChatMessage(formatGp(price), quantity, true),
             null));
     }
 
@@ -1257,7 +1258,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 client.addChatMessage(
                     ChatMessageType.GAMEMESSAGE,
                     "",
-                    String.format("Grand Flip Out: filled %s into the GE offer (press Confirm).", label),
+                    filledChatMessage(label),
                     null
                 );
             }
@@ -1748,9 +1749,35 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
-    private String formatGp(long amount)
+    /** Formats gp WITH its unit — "1,234 gp". Callers must NOT append another " gp". */
+    static String formatGp(long amount)
     {
         return GP_FORMAT.format(amount) + " gp";
+    }
+
+    /**
+     * Chat copy for an armed GE fill. {@code gpText} already carries its unit (see
+     * {@link #formatGp}), so this never re-adds one — every call site used to, and the client
+     * printed "1,234 gp gp". A quantity we do not have (a fill armed from a watchlist/price
+     * row carries no suggested size) is OMITTED, never rendered "x0". Pinned by GeChatCopyTest.
+     */
+    static String armChatMessage(String gpText, int quantity, boolean fillEnabled)
+    {
+        if (!fillEnabled)
+        {
+            return quantity > 0
+                ? String.format("Grand Flip Out: suggested %s x%,d — enable \"GE offer pre-fill\" in settings to auto-fill.", gpText, quantity)
+                : String.format("Grand Flip Out: suggested %s — enable \"GE offer pre-fill\" in settings to auto-fill.", gpText);
+        }
+        return quantity > 0
+            ? String.format("Grand Flip Out: open a GE buy/sell offer — the item, %s, and x%,d auto-fill as you go.", gpText, quantity)
+            : String.format("Grand Flip Out: open a GE buy/sell offer — the item and %s auto-fill as you go.", gpText);
+    }
+
+    /** Confirmation copy after a value lands in a GE input. {@code label} carries its own unit. */
+    static String filledChatMessage(String label)
+    {
+        return String.format("Grand Flip Out: filled %s into the GE offer (press Confirm).", label);
     }
 
     private void openQuickLookup()
