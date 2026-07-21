@@ -782,7 +782,15 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         if (!config.enableServerFunctionality() || intelligenceClient == null)
         {
             javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showFirstRun(null, false,
-                () -> configManager.setConfiguration("grandflipout", "enableServerFunctionality", true)));
+                () ->
+                {
+                    // One informed click after the disclosure turns on BOTH the warned network
+                    // switch AND the Advisor — a fresh install otherwise needed two separate
+                    // toggles found in the config screen before anything happened.
+                    configManager.setConfiguration("grandflipout", "enableServerFunctionality", true);
+                    configManager.setConfiguration("grandflipout", "enableAdvisor", true);
+                },
+                () -> configManager.setConfiguration("grandflipout", "enableGePriceFill", true)));
             return;
         }
         javax.swing.SwingUtilities.invokeLater(() ->
@@ -793,7 +801,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             {
                 java.util.List<com.fliphelper.model.Suggestion> flips = intelligenceClient.fetchPublicTopFlips(5);
                 javax.swing.SwingUtilities.invokeLater(() -> advisorPanel.showFirstRun(flips, true,
-                    () -> configManager.setConfiguration("grandflipout", "enableAdvisor", true)));
+                    () -> configManager.setConfiguration("grandflipout", "enableAdvisor", true),
+                    () -> configManager.setConfiguration("grandflipout", "enableGePriceFill", true)));
             }
             catch (Exception ex)
             {

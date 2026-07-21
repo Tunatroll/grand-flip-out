@@ -127,11 +127,11 @@ public final class ScreenshotHarness
                 if (firstRun0)
                 {
                     // Fresh install: master network switch off — static pitch, zero fetches.
-                    ap.showFirstRun(null, false, () -> { });
+                    ap.showFirstRun(null, false, () -> { }, () -> { });
                 }
                 else if (firstRun)
                 {
-                    ap.showFirstRun(sampleFirstRunFlips(), true, () -> { });
+                    ap.showFirstRun(sampleFirstRunFlips(), true, () -> { }, () -> { });
                 }
                 else if (basket)
                 {

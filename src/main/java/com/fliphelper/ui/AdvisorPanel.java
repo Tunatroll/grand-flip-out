@@ -603,6 +603,18 @@ public class AdvisorPanel extends JPanel
      */
     public void showFirstRun(List<Suggestion> flips, boolean serverEnabled, Runnable onEnable)
     {
+        showFirstRun(flips, serverEnabled, onEnable, null);
+    }
+
+    /**
+     * First-run card with an optional GE auto-fill opt-in. {@code onEnableGeFill}, when non-null,
+     * renders a separately-ticked checkbox — the ONLY in-plugin path to the flagship auto-fill,
+     * which otherwise hid in the RuneLite config screen. Kept a distinct, explicit tick (not folded
+     * into the main Enable) so the injection consent stays deliberate and Hub-compliant.
+     */
+    public void showFirstRun(List<Suggestion> flips, boolean serverEnabled, Runnable onEnable,
+        Runnable onEnableGeFill)
+    {
         content.removeAll();
 
         JLabel header = new JLabel(serverEnabled ? "Top public flips right now" : "Your next flip, suggested");
@@ -664,6 +676,25 @@ public class AdvisorPanel extends JPanel
         content.add(wrapLeft(pitchLabel));
         content.add(Box.createVerticalStrut(6));
 
+        // Optional GE auto-fill opt-in. Separate, unchecked-by-default tick: the flagship
+        // "Fill offer" injection was previously reachable ONLY from the RuneLite config screen,
+        // so a new user never found it. Kept distinct from the main Enable so the injection
+        // consent is explicit (writes into your GE input; you always press Confirm).
+        final javax.swing.JCheckBox geFill = onEnableGeFill == null ? null
+            : new javax.swing.JCheckBox("Also pre-fill my GE offers");
+        if (geFill != null)
+        {
+            geFill.setForeground(DIM);
+            geFill.setFont(UiText.font(geFill.getFont(), 12f));
+            geFill.setFocusPainted(false);
+            geFill.setOpaque(false);
+            geFill.setAlignmentX(Component.LEFT_ALIGNMENT);
+            geFill.setToolTipText("Writes the suggested price/quantity into the GE input when you "
+                + "open an offer. You always review it and press Confirm — nothing is submitted for you.");
+            content.add(geFill);
+            content.add(Box.createVerticalStrut(6));
+        }
+
         JButton enable = new JButton(serverEnabled ? "Enable Advisor" : "Enable grandflipout.com features");
         enable.setFont(UiText.font(enable.getFont(), Font.BOLD, 12f));
         enable.setFocusPainted(false);
@@ -674,6 +705,10 @@ public class AdvisorPanel extends JPanel
                 // Advisor enable: the egress disclosure is the pitch text directly above,
                 // and the WARNED master switch was already consented when it was turned on.
                 onEnable.run();
+                if (geFill != null && geFill.isSelected())
+                {
+                    onEnableGeFill.run();
+                }
                 return;
             }
             // Fresh-install path flips the WARNED master switch — present the SAME
@@ -686,6 +721,10 @@ public class AdvisorPanel extends JPanel
             if (choice == javax.swing.JOptionPane.OK_OPTION)
             {
                 onEnable.run();
+                if (geFill != null && geFill.isSelected())
+                {
+                    onEnableGeFill.run();
+                }
             }
         });
         content.add(wrapLeft(enable));
