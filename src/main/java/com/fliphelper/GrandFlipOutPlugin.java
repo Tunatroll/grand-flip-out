@@ -466,13 +466,14 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         int currentQuantity = offer.getQuantitySold();
         int itemId = offer.getItemId();
 
-        // Detect when an offer completes (bought or sold)
-        if (state == GrandExchangeOfferState.BOUGHT || state == GrandExchangeOfferState.SOLD)
+        // Record at any TERMINAL state — completed OR cancelled — so a partially-filled offer the
+        // player collected + cancelled before it finished isn't dropped (crab's #support report).
+        if (isTerminalOfferState(state))
         {
             int deltaQuantity = currentQuantity - lastOfferQuantity[slot];
             if (deltaQuantity > 0)
             {
-                boolean isBuy = (state == GrandExchangeOfferState.BOUGHT);
+                boolean isBuy = isBuySideOfferState(state);
                 long pricePerItem = currentQuantity > 0 ? offer.getSpent() / currentQuantity : 0;
 
                 net.runelite.api.ItemComposition itemDef = client.getItemDefinition(itemId);
@@ -534,15 +535,15 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     }
                 }
             }
-        }
-        else if (state == GrandExchangeOfferState.CANCELLED_BUY || state == GrandExchangeOfferState.CANCELLED_SELL)
-        {
-            // Handle cancellations
-            if (lastOfferState[slot] == GrandExchangeOfferState.BUYING)
+            else if ((state == GrandExchangeOfferState.CANCELLED_BUY
+                    || state == GrandExchangeOfferState.CANCELLED_SELL)
+                && lastOfferState[slot] == GrandExchangeOfferState.BUYING)
             {
+                // A buy cancelled with nothing new filled — drop the dangling pending flip.
+                // A partial fill (delta > 0 above) is recorded instead of cancelled, so the
+                // player's collected-early quantity is kept.
                 flipTracker.cancelFlip(itemId);
-                // GE events arrive on the client thread — Swing work must hop to the EDT
-                // (this bare call was the one panel mutation running off-EDT).
+                // GE events arrive on the client thread — Swing work must hop to the EDT.
                 javax.swing.SwingUtilities.invokeLater(panel::updateFlipsTab);
             }
         }
@@ -1878,6 +1879,27 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      * fill key may safely fire. Deliberately NOT the item-search box ("search for an item"),
      * which is a text field where the player types letters. Titles from the game, lowercased.
      */
+    /**
+     * A terminal GE offer state — completed OR cancelled — at which we record whatever quantity
+     * actually filled. Recording only on BOUGHT/SOLD dropped every partially-filled offer the
+     * player collected + cancelled before it finished (crab's "I grab the cash before the last item
+     * sells"). CANCELLED_* is terminal-for-recording precisely so that partial fill isn't lost.
+     */
+    static boolean isTerminalOfferState(net.runelite.api.GrandExchangeOfferState s)
+    {
+        return s == net.runelite.api.GrandExchangeOfferState.BOUGHT
+            || s == net.runelite.api.GrandExchangeOfferState.SOLD
+            || s == net.runelite.api.GrandExchangeOfferState.CANCELLED_BUY
+            || s == net.runelite.api.GrandExchangeOfferState.CANCELLED_SELL;
+    }
+
+    /** Buy vs sell side read from the offer state itself (a cancelled buy is still a buy). */
+    static boolean isBuySideOfferState(net.runelite.api.GrandExchangeOfferState s)
+    {
+        return s == net.runelite.api.GrandExchangeOfferState.BOUGHT
+            || s == net.runelite.api.GrandExchangeOfferState.CANCELLED_BUY;
+    }
+
     static boolean isGeNumericPrompt(String promptLower)
     {
         if (promptLower == null)
