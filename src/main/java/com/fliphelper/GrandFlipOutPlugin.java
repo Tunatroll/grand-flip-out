@@ -1355,9 +1355,21 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             overlay.toggleVisibility();
             e.consume();
         }
-        else if (config.enableGePriceFill() && config.priceFillHotkey().matches(e))
+        else if (config.priceFillHotkey().matches(e))
         {
-            clientThread.invokeLater(this::fillGePrice);
+            // The enable-gate lives INSIDE the branch on purpose. Gating the match itself made a
+            // bound key fall silently through this chain whenever auto-fill was off — press, and
+            // nothing whatsoever happened. Keybind.NOT_SET.matches() is always false, so an
+            // unbound hotkey still never reaches here.
+            if (config.enableGePriceFill())
+            {
+                clientThread.invokeLater(this::fillGePrice);
+            }
+            else
+            {
+                clientThread.invokeLater(() -> client.addChatMessage(
+                    ChatMessageType.GAMEMESSAGE, "", priceFillDisabledMessage(), null));
+            }
             e.consume();
         }
         else if (config.copilotHotkey().matches(e))
@@ -1807,6 +1819,16 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         return quantity > 0
             ? String.format("Grand Flip Out: open a GE buy/sell offer — the item, %s, and x%,d auto-fill as you go.", gpText, quantity)
             : String.format("Grand Flip Out: open a GE buy/sell offer — the item and %s auto-fill as you go.", gpText);
+    }
+
+    /**
+     * Copy for a bound Price-Fill hotkey pressed while "GE offer auto-fill" is off. Names the
+     * setting verbatim so the player knows exactly what to look for, and promises nothing —
+     * the sibling of {@link #armChatMessage} with {@code fillEnabled=false}.
+     */
+    static String priceFillDisabledMessage()
+    {
+        return "Grand Flip Out: the Price-Fill hotkey needs \"GE offer auto-fill\" turned on in settings.";
     }
 
     /** Confirmation copy after a value lands in a GE input. {@code label} carries its own unit. */
