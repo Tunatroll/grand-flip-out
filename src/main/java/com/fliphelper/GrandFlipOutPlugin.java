@@ -1024,17 +1024,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         if (event.getScriptId() == ScriptID.GE_ITEM_SEARCH)
         {
             showFavouriteQuickLook();
-            if (pendingSearchItemId > 0)
-            {
-                if (geFillArmedAtMs > 0 && System.currentTimeMillis() - geFillArmedAtMs > GE_FILL_ARM_TTL_MS)
-                {
-                    clearGeFillArm();
-                    return;
-                }
-                int id = pendingSearchItemId;
-                pendingSearchItemId = -1;
-                fillGeSearch(id);
-            }
+            // GE item-search auto-fill was REMOVED: it wrote the item name but the results list
+            // could not be refreshed compliantly (that needs a runScript the Plugin Hub forbids),
+            // so it showed the typed name with no matching items — "fills apple but no apple shows"
+            // (#support). No approved flipping plugin auto-types the item search (Flipping-Utilities
+            // and Copilot both fill only price/quantity); the player types the item themselves.
             return;
         }
 
@@ -1183,7 +1177,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 null));
             return;
         }
-        pendingSearchItemId = itemId > 0 ? itemId : -1;
+        // Item-search auto-fill removed (see onScriptPostFired) — arm price/quantity only.
         pendingGePrice = price > 0 ? price : -1;
         pendingGeQty = quantity > 0 ? quantity : -1;
         geFillArmedAtMs = System.currentTimeMillis();
@@ -1194,42 +1188,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             null));
     }
 
-    /**
-     * Pre-fill the GE item-search box with the suggested item's name. Runs ONLY from the
-     * armed path — onScriptPostFired(GE_ITEM_SEARCH), i.e. the PLAYER just opened the
-     * search themselves — and uses the exact widget-text + client-var mechanism
-     * {@link #injectGeInput} already uses for price/quantity. The plugin never executes a
-     * client script: the old runScript(GE_ITEM_SEARCH) + runScript(2153) popup-and-refresh
-     * was the Hub-forbidden "auto-execute the GE search" pattern (compliance review
-     * 2026-07-12) and was removed — hotkeys now ARM the fill and the search opens by the
-     * player's own click. Opt-in chokepoint; the player still clicks the item.
-     */
-    private void fillGeSearch(int itemId)
-    {
-        if (!config.enableGePriceFill() || itemId <= 0)
-        {
-            return;
-        }
-        net.runelite.api.ItemComposition def = client.getItemDefinition(itemId);
-        String name = def != null ? def.getName() : null;
-        if (name == null || name.isEmpty())
-        {
-            return;
-        }
-        try
-        {
-            Widget searchInput = client.getWidget(InterfaceID.Chatbox.MES_TEXT2);
-            if (searchInput != null)
-            {
-                searchInput.setText(name + "*");
-            }
-            client.setVarcStrValue(VarClientID.MESLAYERINPUT, name);
-        }
-        catch (Exception e)
-        {
-            log.debug("GE search fill failed: {}", e.getMessage());
-        }
-    }
 
     private void nextSuggestion()
     {
@@ -1858,8 +1816,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 : String.format("Grand Flip Out: suggested %s — enable \"GE offer auto-fill\" in settings to auto-fill.", gpText);
         }
         return quantity > 0
-            ? String.format("Grand Flip Out: open a GE buy/sell offer — the item, %s, and x%,d auto-fill as you go.", gpText, quantity)
-            : String.format("Grand Flip Out: open a GE buy/sell offer — the item and %s auto-fill as you go.", gpText);
+            ? String.format("Grand Flip Out: search the item, then open the offer — %s and x%,d fill into the price/quantity as you go.", gpText, quantity)
+            : String.format("Grand Flip Out: search the item, then open the offer — %s fills into the price as you go.", gpText);
     }
 
     /**
