@@ -39,6 +39,7 @@ import net.runelite.api.ItemContainer;
 import net.runelite.api.ItemID;
 import net.runelite.api.InventoryID;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GrandExchangeOfferChanged;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetLoaded;
@@ -166,6 +167,10 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     // gated on the GE window actually being open (see geFillAllowed()).
     private static final long GE_FILL_ARM_TTL_MS = 90_000;
     private volatile long geFillArmedAtMs = -1;
+
+    // Refreshed every game tick on the client thread; read from keyPressed (AWT thread) to gate
+    // a BARE fill key so it only fires inside a GE numeric input and never eats chat/search typing.
+    private volatile boolean geNumericInputOpen = false;
 
     // Watchlist sync triggers (#190 flakiness fix, 2026-07-16): the boot-only sync meant
     // in-session stars never reached the website until the next client restart. A star
@@ -1070,6 +1075,22 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
     }
 
+    /**
+     * Refresh {@link #geNumericInputOpen} on the client thread so the AWT keyPressed handler can
+     * gate a bare fill key without touching widgets off-thread. Self-correcting every tick: the
+     * flag can never stick true past ~one tick after the input closes.
+     */
+    @Subscribe
+    public void onGameTick(GameTick event)
+    {
+        Widget geWindow = client.getWidget(InterfaceID.GeOffers.UNIVERSE);
+        boolean geOpen = geWindow != null && !geWindow.isHidden();
+        Widget inputTitle = client.getWidget(InterfaceID.Chatbox.MES_TEXT);
+        String prompt = (inputTitle != null && inputTitle.getText() != null)
+            ? inputTitle.getText().toLowerCase() : "";
+        geNumericInputOpen = geOpen && isGeNumericPrompt(prompt);
+    }
+
     /** An armed GE fill may fire only while the GE window is open and the arm is fresh. */
     private boolean geFillAllowed()
     {
@@ -1366,10 +1387,20 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         }
         else if (config.priceFillHotkey().matches(e))
         {
+            // The default fill key is a bare "E" (Copilot parity). RuneLite's KeyManager has no
+            // chatbox-typing guard, so a bare key must ONLY be consumed inside a GE numeric input
+            // — otherwise it eats chat and GE item-search typing. A modifier combo (a user's own
+            // choice) can't collide with typing, so it keeps arm-from-anywhere behaviour.
+            boolean bareKey = (e.getModifiersEx() & (KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK
+                | KeyEvent.SHIFT_DOWN_MASK | KeyEvent.META_DOWN_MASK)) == 0;
+            if (!shouldConsumeFillHotkey(bareKey, geNumericInputOpen))
+            {
+                // Let the bare key through untouched — not our context.
+                return;
+            }
             // The enable-gate lives INSIDE the branch on purpose. Gating the match itself made a
             // bound key fall silently through this chain whenever auto-fill was off — press, and
-            // nothing whatsoever happened. Keybind.NOT_SET.matches() is always false, so an
-            // unbound hotkey still never reaches here.
+            // nothing whatsoever happened.
             if (config.enableGePriceFill())
             {
                 clientThread.invokeLater(this::fillGePrice);
@@ -1839,6 +1870,31 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     static boolean shouldShowBasket(int freeSlots, boolean forceSingle)
     {
         return !forceSingle && freeSlots > 1;
+    }
+
+    /**
+     * True when a chatbox prompt is the GE numeric price/quantity input — the only place a bare
+     * fill key may safely fire. Deliberately NOT the item-search box ("search for an item"),
+     * which is a text field where the player types letters. Titles from the game, lowercased.
+     */
+    static boolean isGeNumericPrompt(String promptLower)
+    {
+        if (promptLower == null)
+        {
+            return false;
+        }
+        return promptLower.contains("how many") || promptLower.contains("set a price");
+    }
+
+    /**
+     * Whether a fill-hotkey press should be acted on and consumed. A bare key (no modifier) may
+     * only be consumed inside a GE numeric input — RuneLite's KeyManager has no chatbox-typing
+     * guard, so a bare key consumed anywhere else would eat chat / GE-search typing. A modifier
+     * combo can't collide with typing, so it keeps arm-from-anywhere behaviour.
+     */
+    static boolean shouldConsumeFillHotkey(boolean bareKey, boolean geNumericInputOpen)
+    {
+        return !bareKey || geNumericInputOpen;
     }
 
     /**

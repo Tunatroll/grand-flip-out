@@ -12,6 +12,7 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
+import java.awt.event.KeyEvent;
 import net.runelite.client.config.Keybind;
 import net.runelite.client.config.Range;
 
@@ -441,13 +442,15 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "priceFillHotkey",
         name = "Price-Fill Assist",
-        description = "Hotkey that fills the recommended price into the open GE offer field (requires 'GE offer auto-fill' enabled). You press Confirm yourself.",
+        description = "Hotkey that fills the recommended price into the open GE offer field (requires 'GE offer auto-fill' enabled). You press Confirm yourself. Defaults to E, which only acts while a GE price/quantity input is open — so it never interferes with typing.",
         section = hotkeysSection,
         position = 6
     )
     default Keybind priceFillHotkey()
     {
-        return Keybind.NOT_SET;
+        // Bare E by default (Flipping Copilot parity — "press E to set the price"). Safe because
+        // the dispatch only consumes a bare key inside a GE numeric input; see keyPressed.
+        return new Keybind(KeyEvent.VK_E, 0);
     }
 
     @ConfigItem(
