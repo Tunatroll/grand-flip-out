@@ -1228,7 +1228,7 @@ public class GrandFlipOutPanel extends PluginPanel
             }
             if (displayCount == 0 && logEntries.isEmpty())
             {
-                historyPanel.add(emptyStateLabel("No completed flips yet. trade_log.ndjson fills on GE sells."));
+                historyPanel.add(emptyStateLabel("No completed flips yet. Sell something in the GE and it lands here."));
             }
         }
 
@@ -2626,9 +2626,16 @@ public class GrandFlipOutPanel extends PluginPanel
                 // addIntelSection() null-checks its payload, so a failure just omits the section.
                 com.google.gson.JsonObject screener = null;
                 try { screener = intelligenceClient.fetchScreener("buy_signal", 10); } catch (Exception ignored) {}
-                com.google.gson.JsonObject vpin = intelligenceClient.fetchVPIN();
-                com.google.gson.JsonObject nextDumps = intelligenceClient.fetchNextDumps(10);
-                com.google.gson.JsonObject alerts = intelligenceClient.fetchAlerts(5);
+                // Guarded individually for the SAME reason /screener is: fetchJson throws on ANY
+                // non-2xx, and one throw here aborts the whole block, leaving the tab stuck on
+                // "Loading intelligence data..." forever (the 2026-07-01 live bug). Guards were
+                // added for screener/barometer/banWave/optimize but these three were missed.
+                com.google.gson.JsonObject vpin = null;
+                com.google.gson.JsonObject nextDumps = null;
+                com.google.gson.JsonObject alerts = null;
+                try { vpin = intelligenceClient.fetchVPIN(); } catch (Exception ignored) {}
+                try { nextDumps = intelligenceClient.fetchNextDumps(10); } catch (Exception ignored) {}
+                try { alerts = intelligenceClient.fetchAlerts(5); } catch (Exception ignored) {}
                 com.google.gson.JsonObject barometer = null;
                 com.google.gson.JsonObject banWave = null;
                 com.google.gson.JsonObject portfolio = null;
@@ -2640,6 +2647,9 @@ public class GrandFlipOutPanel extends PluginPanel
                 // Guarded fetches are no longer effectively-final, so they need the same final
                 // copy the Pro-gated ones below already take before crossing into the lambda.
                 final com.google.gson.JsonObject fScreener = screener;
+                final com.google.gson.JsonObject fVpin = vpin;
+                final com.google.gson.JsonObject fNextDumps = nextDumps;
+                final com.google.gson.JsonObject fAlerts = alerts;
                 final com.google.gson.JsonObject fBarometer = barometer;
                 final com.google.gson.JsonObject fBanWave = banWave;
                 final com.google.gson.JsonObject fPortfolio = portfolio;
@@ -2693,7 +2703,7 @@ public class GrandFlipOutPanel extends PluginPanel
                     }
 
                     // VPIN section
-                    addIntelSection("VPIN Order Flow", vpin, "elevated",
+                    addIntelSection("VPIN Order Flow", fVpin, "elevated",
                         e -> e.getAsJsonObject().has("itemName")
                             ? e.getAsJsonObject().get("itemName").getAsString()
                               + " — VPIN " + e.getAsJsonObject().get("vpin").getAsString()
@@ -2711,7 +2721,7 @@ public class GrandFlipOutPanel extends PluginPanel
                         });
 
                     // Next dumps
-                    addIntelSection("Next Dump Predictions", nextDumps, "predictions",
+                    addIntelSection("Next Dump Predictions", fNextDumps, "predictions",
                         e -> {
                             com.google.gson.JsonObject p = e.getAsJsonObject();
                             String name = p.has("name") ? p.get("name").getAsString() : "Item " + p.get("item_id");
@@ -2720,7 +2730,7 @@ public class GrandFlipOutPanel extends PluginPanel
                         });
 
                     // HP alerts
-                    addIntelSection("Dump Alerts", alerts, "alerts",
+                    addIntelSection("Dump Alerts", fAlerts, "alerts",
                         e -> {
                             com.google.gson.JsonObject a = e.getAsJsonObject();
                             String name = a.has("name") ? a.get("name").getAsString() : "?";

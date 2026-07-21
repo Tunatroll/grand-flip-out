@@ -60,4 +60,19 @@ public final class UiText
     {
         return base.deriveFont(style, FLOOR);
     }
+
+	/**
+	 * Label for a hotkey-driven overlay row. RuneLite renders an unbound {@code Keybind} as
+	 * "Not set", and every hotkey in this plugin ships unbound — so a hard-coded "(Ctrl+Space)"
+	 * taught a shortcut that does nothing. When nothing is bound, advertise no key at all.
+	 */
+	public static String hotkeyLabel(String feature, String binding)
+	{
+		String b = binding == null ? "" : binding.trim();
+		if (b.isEmpty() || "Not set".equalsIgnoreCase(b))
+		{
+			return feature + ":";
+		}
+		return feature + " (" + b + "):";
+	}
 }

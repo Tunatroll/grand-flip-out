@@ -1250,14 +1250,14 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         com.fliphelper.model.Suggestion s = getCopilotSuggestion();
         if (s == null || s.isWait())
         {
-            clientThread.invokeLater(() -> client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Copilot: No suggestions ready.", null));
+            clientThread.invokeLater(() -> client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Advisor: No suggestions ready.", null));
             return;
         }
 
         Widget geWindow = client.getWidget(InterfaceID.GeOffers.UNIVERSE);
         if (geWindow == null || geWindow.isHidden())
         {
-            clientThread.invokeLater(() -> client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Copilot: Open GE to " + s.getAction() + " " + s.getItemName(), null));
+            clientThread.invokeLater(() -> client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Advisor: Open GE to " + s.getAction() + " " + s.getItemName(), null));
             return;
         }
 

@@ -158,7 +158,7 @@ public interface GrandFlipOutConfig extends Config
     @ConfigItem(
         keyName = "enableGePriceFill",
         name = "GE offer auto-fill",
-        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested item name into the GE item search and the suggested price/quantity into the offer's input when you open them — the same mechanism Flipping Copilot uses. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
+        description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested item name into the GE item search and the suggested price/quantity into the offer's input when you open them. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
         section = advisorSection,
         position = 1
     )
@@ -438,7 +438,7 @@ public interface GrandFlipOutConfig extends Config
 
     @ConfigItem(
         keyName = "copilotHotkey",
-        name = "Copilot next step",
+        name = "Advisor next step",
         description = "Context-aware GE hotkey. Arms the suggested item, price and quantity — they pre-fill as you open the GE search or offer input yourself (requires \"GE offer auto-fill\").",
         section = hotkeysSection,
         position = 7

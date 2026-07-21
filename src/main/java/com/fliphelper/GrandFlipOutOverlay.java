@@ -187,7 +187,7 @@ public class GrandFlipOutOverlay extends Overlay
         if (s == null || s.isWait()) return;
 
         panelComponent.getChildren().add(LineComponent.builder()
-            .left("Copilot (Ctrl+Space):")
+            .left(com.fliphelper.ui.UiText.hotkeyLabel("Advisor", config.copilotHotkey().toString()))
             .right(s.getAction() + " " + s.getItemName())
             .rightColor("BUY".equals(s.getAction()) ? PROFIT_GREEN : WARNING_AMBER)
             .build());
