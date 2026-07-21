@@ -2569,7 +2569,14 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             try
             {
-                com.google.gson.JsonObject screener = intelligenceClient.fetchScreener("buy_signal", 10);
+                // Guarded like the Pro-gated calls below: fetchJson throws IOException on ANY
+                // non-2xx, and this was the FIRST statement of the shared try — so a single 403
+                // aborted the block and took vpin + nextDumps + alerts down with it, leaving the
+                // Intel tab stuck on "Loading intelligence data..." (the 2026-07-01 live bug).
+                // /screener is a server-side PRO-gating candidate, so that 403 is foreseeable.
+                // addIntelSection() null-checks its payload, so a failure just omits the section.
+                com.google.gson.JsonObject screener = null;
+                try { screener = intelligenceClient.fetchScreener("buy_signal", 10); } catch (Exception ignored) {}
                 com.google.gson.JsonObject vpin = intelligenceClient.fetchVPIN();
                 com.google.gson.JsonObject nextDumps = intelligenceClient.fetchNextDumps(10);
                 com.google.gson.JsonObject alerts = intelligenceClient.fetchAlerts(5);
@@ -2581,6 +2588,9 @@ public class GrandFlipOutPanel extends PluginPanel
 
                 try { portfolio = intelligenceClient.fetchOptimize(10_000_000, 4, "balanced"); } catch (Exception ignored) {}
 
+                // Guarded fetches are no longer effectively-final, so they need the same final
+                // copy the Pro-gated ones below already take before crossing into the lambda.
+                final com.google.gson.JsonObject fScreener = screener;
                 final com.google.gson.JsonObject fBarometer = barometer;
                 final com.google.gson.JsonObject fBanWave = banWave;
                 final com.google.gson.JsonObject fPortfolio = portfolio;
@@ -2642,7 +2652,7 @@ public class GrandFlipOutPanel extends PluginPanel
                             : "?");
 
                     // Buy signals
-                    addIntelSection("Buy Signals", screener, "results",
+                    addIntelSection("Buy Signals", fScreener, "results",
                         e -> {
                             com.google.gson.JsonObject r = e.getAsJsonObject();
                             String name = r.has("itemName") ? r.get("itemName").getAsString() : "?";
