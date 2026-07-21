@@ -93,6 +93,9 @@ public class GrandFlipOutPanel extends PluginPanel
     private final File dataDir;
 
     private JTabbedPane tabbedPane;
+
+    /** Anonymous activation counters. Null in the three test-only constructors — always guard. */
+    private com.fliphelper.telemetry.ActivationTelemetry telemetry;
     private JPanel pricesTab;
     private JPanel flipsTab;
     private JPanel historyTab;
@@ -262,6 +265,18 @@ public class GrandFlipOutPanel extends PluginPanel
             flipsTab, "Active", historyTab, "History"));
         tabbedPane.addTab("Intel", intelPanel);
         tabbedPane.addTab("Guide", guideTab);
+
+        // ONE listener for panel reach, rather than editing each tab's own handler. The tab TITLE
+        // is the label we report, lowercased — ActivationTelemetry allowlists the four real names,
+        // so a future rename drops the count instead of sending an unreviewed string.
+        tabbedPane.addChangeListener(e ->
+        {
+            int i = tabbedPane.getSelectedIndex();
+            if (i >= 0)
+            {
+                countPanel(tabbedPane.getTitleAt(i).toLowerCase());
+            }
+        });
         styleTabbedPane();
 
         add(tabbedPane, BorderLayout.CENTER);
@@ -351,13 +366,17 @@ public class GrandFlipOutPanel extends PluginPanel
         cta.add(msg, BorderLayout.CENTER);
 
         cta.add(buildUnlockButton("Create free account"), BorderLayout.SOUTH);
+        countCta(false); // rendered — is this prompt ever actually seen?
         return cta;
     }
 
     /** Shared gold "create account" button that opens the web signup (no in-client payment). */
     private JButton buildUnlockButton(String label)
     {
-        return buildLinkButton(label, "https://grandflipout.com/signup?ref=plugin");
+        JButton btn = buildLinkButton(label, "https://grandflipout.com/signup?ref=plugin");
+        // Counted here, not in buildLinkButton — only the unlock prompt is the activation CTA.
+        btn.addActionListener(e -> countCta(true));
+        return btn;
     }
 
     /** Shared gold CTA button that opens a grandflipout.com page (no in-client payment). */
@@ -1680,6 +1699,36 @@ public class GrandFlipOutPanel extends PluginPanel
     /**
      * Update the visual styling of category buttons to highlight the selected one.
      */
+    public void setTelemetry(com.fliphelper.telemetry.ActivationTelemetry telemetry)
+    {
+        this.telemetry = telemetry;
+    }
+
+    /** Null-guarded: three of the four constructors are used by tests that never set telemetry. */
+    private void countPanel(String name)
+    {
+        if (telemetry != null)
+        {
+            telemetry.panelOpened(name);
+        }
+    }
+
+    private void countCta(boolean clicked)
+    {
+        if (telemetry == null)
+        {
+            return;
+        }
+        if (clicked)
+        {
+            telemetry.unlockCtaClicked();
+        }
+        else
+        {
+            telemetry.unlockCtaSeen();
+        }
+    }
+
     private void updateCategoryButtonStyles()
     {
         if (categoryButtons == null)

@@ -131,6 +131,12 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     @Inject
     private ScheduledExecutorService executor;
 
+    /** Anonymous, session-scoped activation counters (spec 2026-07-21). Never persisted. */
+    private final com.fliphelper.telemetry.ActivationTelemetry telemetry =
+        new com.fliphelper.telemetry.ActivationTelemetry();
+    private com.fliphelper.telemetry.ActivationTelemetrySender telemetrySender;
+    private java.util.concurrent.ScheduledFuture<?> telemetryFlush;
+
     @Inject
     private Notifier notifier;
 
@@ -212,6 +218,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // Initialize core services
         priceService = new PriceService(okHttpClient, config, gson);
         intelligenceClient = new IntelligenceClient(okHttpClient, config.intelligenceBaseUrl(), gson);
+        telemetrySender = new com.fliphelper.telemetry.ActivationTelemetrySender(okHttpClient);
         dumpFeedClient = new com.fliphelper.api.DumpFeedClient(okHttpClient, config.intelligenceBaseUrl(), gson);
         entitlementService = new com.fliphelper.api.EntitlementService(okHttpClient, config.intelligenceBaseUrl(), gson);
         deviceLinkService = new com.fliphelper.api.DeviceLinkService(okHttpClient, gson, config.intelligenceBaseUrl(), executor);
@@ -264,6 +271,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // Text scale must be set before any panel derives a font.
         com.fliphelper.ui.UiText.setBump(config.textSize().bump());
         panel = new GrandFlipOutPanel(config, priceService, flipTracker, sessionManager, DATA_DIR, intelligenceClient, executor, entitlementService);
+        panel.setTelemetry(telemetry);
         panel.enableDeviceLink(config, deviceLinkService, key ->
         {
             // The one config write in the flow — never logged (device-link contract).
@@ -340,6 +348,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             TimeUnit.SECONDS
         );
 
+        // 30-minute safety flush: shutDown() does not run on a hard client kill, so a long
+        // session would otherwise be lost entirely. One POST per session is the normal case.
+        telemetryFlush = executor.scheduleWithFixedDelay(
+            this::flushTelemetry, 30, 30, TimeUnit.MINUTES);
+
         // Star toggles push (debounced); website-side stars arrive on a slow pull.
         panel.setWatchlistChangedListener(this::scheduleWatchlistPush);
         // A price/watchlist row carries no suggested SIZE — arm the item + price only
@@ -353,6 +366,21 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         );
 
         log.info("Grand Flip Out started successfully");
+    }
+
+    /**
+     * One batched, anonymous activation report. No consent means nothing is drained and nothing
+     * is sent — this is the only place {@link com.fliphelper.telemetry.ActivationTelemetrySender}
+     * is ever called.
+     */
+    private void flushTelemetry()
+    {
+        if (!config.enableServerFunctionality() || telemetrySender == null)
+        {
+            return;
+        }
+        telemetrySender.send(config.intelligenceBaseUrl(), true, telemetry.sessionId(),
+            telemetry.drain(), telemetry.drainPanels());
     }
 
     @Override
@@ -370,6 +398,13 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             refreshFuture.cancel(false);
             refreshFuture = null;
         }
+
+        if (telemetryFlush != null)
+        {
+            telemetryFlush.cancel(false);
+            telemetryFlush = null;
+        }
+        flushTelemetry();
 
         if (watchlistPushFuture != null)
         {

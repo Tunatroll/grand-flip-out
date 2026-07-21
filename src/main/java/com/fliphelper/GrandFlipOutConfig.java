@@ -98,7 +98,10 @@ public interface GrandFlipOutConfig extends Config
         position = 0,
         warning = "This plugin submits your IP address to a 3rd party website not controlled or verified by the RuneLite Developers. "
             + "When enabled, your Grand Exchange offer and trade data (item, price, quantity, flip timings, and approximate coins) are sent to grandflipout.com. "
-            + "If you link an account, your starred watchlist items sync to it (both directions)."
+            + "If you link an account, your starred watchlist items sync to it (both directions). "
+            + "It also sends anonymous usage counts once per session — which plugin tab you opened, and whether the "
+            + "\"Create free account\" prompt was shown or clicked — identified only by a random id that is discarded "
+            + "when you close the client. No character name, no account hash, no other players' data."
     )
     default boolean enableServerFunctionality()
     {
