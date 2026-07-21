@@ -157,15 +157,15 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
-        keyName = "advisorSingleFlip",
-        name = "Show one flip at a time",
-        description = "Off by default. When on, the Advisor always shows a single next flip instead "
-            + "of a multi-slot basket, even when several GE slots are free. Some players find one "
-            + "clear suggestion easier to act on than a spread of buys.",
+        keyName = "advisorMultiSlot",
+        name = "Plan all my free GE slots",
+        description = "Off by default — the Advisor focuses on your single next flip, one clear "
+            + "action at a time. Turn this on to instead get a coordinated basket that spreads your "
+            + "coins across several buys when you have more than one GE slot free.",
         section = advisorSection,
         position = 1
     )
-    default boolean advisorSingleFlip()
+    default boolean advisorMultiSlot()
     {
         return false;
     }
