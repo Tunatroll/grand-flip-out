@@ -1766,8 +1766,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         if (!fillEnabled)
         {
             return quantity > 0
-                ? String.format("Grand Flip Out: suggested %s x%,d — enable \"GE offer pre-fill\" in settings to auto-fill.", gpText, quantity)
-                : String.format("Grand Flip Out: suggested %s — enable \"GE offer pre-fill\" in settings to auto-fill.", gpText);
+                ? String.format("Grand Flip Out: suggested %s x%,d — enable \"GE offer auto-fill\" in settings to auto-fill.", gpText, quantity)
+                : String.format("Grand Flip Out: suggested %s — enable \"GE offer auto-fill\" in settings to auto-fill.", gpText);
         }
         return quantity > 0
             ? String.format("Grand Flip Out: open a GE buy/sell offer — the item, %s, and x%,d auto-fill as you go.", gpText, quantity)
