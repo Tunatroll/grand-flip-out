@@ -846,7 +846,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                     // With more than one free slot, ask for a COORDINATED basket: a diversified
                     // set of buys with the player's gold split across them. A single free slot
                     // (or none) falls back to the one-at-a-time next-action card.
-                    if (snapshot.getFreeSlots() > 1)
+                    if (shouldShowBasket(snapshot.getFreeSlots(), config.advisorSingleFlip()))
                     {
                         // A basket spans several slots — there's no single slot to highlight.
                         if (overlay != null)
@@ -1819,6 +1819,17 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         return quantity > 0
             ? String.format("Grand Flip Out: open a GE buy/sell offer — the item, %s, and x%,d auto-fill as you go.", gpText, quantity)
             : String.format("Grand Flip Out: open a GE buy/sell offer — the item and %s auto-fill as you go.", gpText);
+    }
+
+    /**
+     * Basket (multi-slot) vs single-flip decision. Default (Auto) shows a coordinated basket only
+     * when more than one GE slot is free; {@code forceSingle} (the "Show one flip at a time"
+     * setting) always collapses to the single card — two users asked to see just one flip because
+     * the basket "takes up a lot of space". Pure so the rule is pinned by AdvisorViewTest.
+     */
+    static boolean shouldShowBasket(int freeSlots, boolean forceSingle)
+    {
+        return !forceSingle && freeSlots > 1;
     }
 
     /**

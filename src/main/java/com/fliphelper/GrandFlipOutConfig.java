@@ -156,11 +156,25 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
+        keyName = "advisorSingleFlip",
+        name = "Show one flip at a time",
+        description = "Off by default. When on, the Advisor always shows a single next flip instead "
+            + "of a multi-slot basket, even when several GE slots are free. Some players find one "
+            + "clear suggestion easier to act on than a spread of buys.",
+        section = advisorSection,
+        position = 1
+    )
+    default boolean advisorSingleFlip()
+    {
+        return false;
+    }
+
+    @ConfigItem(
         keyName = "enableGePriceFill",
         name = "GE offer auto-fill",
         description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested item name into the GE item search and the suggested price/quantity into the offer's input when you open them. You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
         section = advisorSection,
-        position = 1
+        position = 2
     )
     default boolean enableGePriceFill()
     {
@@ -173,7 +187,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Mix: high-volume slots",
         description = "GE slots the Advisor's Mix chip gives to high-volume flips (small margin, fills fast in quantity). Unassigned slots get the best overall pick.",
         section = advisorSection,
-        position = 2
+        position = 3
     )
     default int mixVolumeSlots()
     {
@@ -186,7 +200,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Mix: fast-fill slots",
         description = "GE slots the Mix chip gives to flips estimated to fill within ~2 hours (any band).",
         section = advisorSection,
-        position = 3
+        position = 4
     )
     default int mixFastSlots()
     {
@@ -199,7 +213,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Mix: high-ticket slots",
         description = "GE slots the Mix chip gives to high-ticket flips (1M+ per fill, patient by nature).",
         section = advisorSection,
-        position = 4
+        position = 5
     )
     default int mixWhaleSlots()
     {
