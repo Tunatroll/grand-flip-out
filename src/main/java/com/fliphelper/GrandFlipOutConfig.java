@@ -165,7 +165,7 @@ public interface GrandFlipOutConfig extends Config
             + "by itself once you place the sell offer, or press \"Next flip\" to skip ahead. "
             + "Turn this off to always show the next suggestion immediately.",
         section = advisorSection,
-        position = 1
+        position = 2
     )
     default boolean advisorHoldForSell()
     {
@@ -191,7 +191,7 @@ public interface GrandFlipOutConfig extends Config
         name = "GE offer auto-fill",
         description = "Off by default. When enabled, the Advisor's 'Fill offer' button and the Price-Fill hotkey write the suggested price/quantity into a GE offer's input when you open it (you still search and pick the item yourself). You always review the value and press Confirm yourself; nothing is ever submitted automatically.",
         section = advisorSection,
-        position = 2
+        position = 3
     )
     default boolean enableGePriceFill()
     {
@@ -204,7 +204,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Mix: high-volume slots",
         description = "GE slots the Advisor's Mix chip gives to high-volume flips (small margin, fills fast in quantity). Unassigned slots get the best overall pick.",
         section = advisorSection,
-        position = 3
+        position = 4
     )
     default int mixVolumeSlots()
     {
@@ -217,7 +217,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Mix: fast-fill slots",
         description = "GE slots the Mix chip gives to flips estimated to fill within ~2 hours (any band).",
         section = advisorSection,
-        position = 4
+        position = 5
     )
     default int mixFastSlots()
     {
@@ -230,7 +230,7 @@ public interface GrandFlipOutConfig extends Config
         name = "Mix: high-ticket slots",
         description = "GE slots the Mix chip gives to high-ticket flips (1M+ per fill, patient by nature).",
         section = advisorSection,
-        position = 5
+        position = 6
     )
     default int mixWhaleSlots()
     {
