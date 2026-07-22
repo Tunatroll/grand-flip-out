@@ -209,6 +209,7 @@ public class ReadabilityTest
                 public void onPauseToggled(boolean p) { }
                 public void onFillOffer(int id, long price, int quantity) { }
                 public void onFiltersChanged() { }
+                public void onNextFlip() { }
             });
             ap.showBasket(java.util.Arrays.asList(
                 com.fliphelper.model.Suggestion.builder()

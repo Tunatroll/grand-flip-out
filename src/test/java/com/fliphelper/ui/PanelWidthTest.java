@@ -112,6 +112,7 @@ public class PanelWidthTest
                 public void onPauseToggled(boolean p) { }
                 public void onFillOffer(int id, long price, int quantity) { }
                 public void onFiltersChanged() { }
+                public void onNextFlip() { }
             });
             ap.showSuggestion(com.fliphelper.model.Suggestion.builder()
                 .action("BUY").itemId(1163).itemName("Extremely long advisor item name for width purposes")

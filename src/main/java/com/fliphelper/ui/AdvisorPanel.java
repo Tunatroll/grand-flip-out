@@ -50,6 +50,9 @@ public class AdvisorPanel extends JPanel
 
         /** #215: a band/fast-fill chip changed — refetch the suggestion under the new filters. */
         void onFiltersChanged();
+
+        /** Player finished with the held card ("Next flip") — drop the hold and advance. */
+        void onNextFlip();
     }
 
     // GFO pastel brand via GfoPalette (OSRS-gold locals retired 2026-07-10)
@@ -363,6 +366,49 @@ public class AdvisorPanel extends JPanel
         content.revalidate();
         content.repaint();
     }
+
+    /**
+     * Pin the card the player is still working: after collecting a completed buy they need this
+     * item's SELL price, and the advisor used to replace it immediately (crab, #support
+     * 2026-07-22). Appends a one-line banner plus a "Next flip" button BELOW the existing card —
+     * it never rebuilds the card, because the numbers already on screen are the whole point.
+     * Idempotent: repeated offer ticks re-use the banner instead of stacking copies.
+     */
+    public void showHeldForSell()
+    {
+        if (holdBanner != null && holdBanner.getParent() == content)
+        {
+            return;
+        }
+        JPanel banner = new JPanel();
+        banner.setLayout(new BoxLayout(banner, BoxLayout.Y_AXIS));
+        banner.setBackground(getBackground());
+        banner.setAlignmentX(Component.LEFT_ALIGNMENT);
+        banner.setBorder(new EmptyBorder(8, 4, 4, 4));
+
+        JLabel hint = new JLabel("<html><div style='width:200px'>Bought &mdash; place your sell "
+            + "offer using the numbers above. This stays until you do.</div></html>");
+        hint.setForeground(DIM);
+        hint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        banner.add(hint);
+
+        JButton next = new JButton("Next flip");
+        next.setFont(UiText.font(next.getFont(), 12f));
+        next.setFocusPainted(false);
+        next.setAlignmentX(Component.LEFT_ALIGNMENT);
+        next.setToolTipText("Skip ahead to the next suggestion without placing this sell offer");
+        next.addActionListener(e -> listener.onNextFlip());
+        banner.add(Box.createVerticalStrut(4));
+        banner.add(next);
+
+        holdBanner = banner;
+        content.add(banner);
+        content.revalidate();
+        content.repaint();
+    }
+
+    /** The pinned-card banner, so repeated ticks re-use it rather than stacking copies. */
+    private JPanel holdBanner;
 
     /** Render one suggestion card. */
     public void showSuggestion(Suggestion s)

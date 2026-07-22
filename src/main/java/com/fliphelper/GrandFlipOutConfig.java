@@ -157,6 +157,22 @@ public interface GrandFlipOutConfig extends Config
     }
 
     @ConfigItem(
+        keyName = "advisorHoldForSell",
+        name = "Keep the flip card until you sell",
+        description = "On by default. After you collect a completed buy, the Advisor keeps showing "
+            + "that item's sell price and quantity instead of jumping straight to the next "
+            + "suggestion, so you don't have to memorise the numbers before collecting. It moves on "
+            + "by itself once you place the sell offer, or press \"Next flip\" to skip ahead. "
+            + "Turn this off to always show the next suggestion immediately.",
+        section = advisorSection,
+        position = 1
+    )
+    default boolean advisorHoldForSell()
+    {
+        return true;
+    }
+
+    @ConfigItem(
         keyName = "advisorMultiSlot",
         name = "Plan all my free GE slots",
         description = "Off by default — the Advisor focuses on your single next flip, one clear "

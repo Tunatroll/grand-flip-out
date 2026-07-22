@@ -123,6 +123,7 @@ public final class ScreenshotHarness
                         public void onPauseToggled(boolean p) { }
                         public void onFillOffer(int id, long price, int quantity) { }
                         public void onFiltersChanged() { }
+                        public void onNextFlip() { }
                     });
                 if (firstRun0)
                 {

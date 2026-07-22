@@ -63,6 +63,7 @@ public class AdvisorBasketDetailTest
         @Override public void onFiltersChanged()
         {
         }
+        @Override public void onNextFlip() { }
     }
 
     private static Suggestion sugg(int id, String name)

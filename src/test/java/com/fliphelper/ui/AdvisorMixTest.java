@@ -42,6 +42,7 @@ public class AdvisorMixTest
         @Override public void onPauseToggled(boolean paused) { }
         @Override public void onFillOffer(int itemId, long price, int quantity) { }
         @Override public void onFiltersChanged() { }
+        @Override public void onNextFlip() { }
     };
 
     private static Suggestion sugg(int id, String band)

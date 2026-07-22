@@ -321,6 +321,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             @Override public void onPauseToggled(boolean paused) { if (!paused) { lastSuggestAt = 0; requestSuggestion(); } }
             @Override public void onFillOffer(int itemId, long price, int quantity) { armOfferFill(itemId, price, quantity); }
             @Override public void onFiltersChanged() { lastSuggestAt = 0; requestSuggestion(); }
+            @Override public void onNextFlip() { releaseAdvisorHold(); }
         });
         panel.insertTab("Advisor", advisorPanel, 0);
         if (config.enableAdvisor())
@@ -557,7 +558,44 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             overlay.updateSlotActivity(slot);
         }
 
-        // Refresh the advisor — placing/collecting an offer changes the next-best action.
+        // Refresh the advisor — placing/collecting an offer changes the next-best action. EXCEPT
+        // when the player just collected a completed buy: that card carries the sell price they
+        // have not used yet, and replacing it forced them to memorise the numbers before
+        // collecting (crab, #support 2026-07-22). Hold it until the sell offer exists.
+        if (releasesAdvisorHold(state))
+        {
+            advisorHeldItemId = -1;
+        }
+        else if (shouldHoldAdvisorForSell(state, config.advisorHoldForSell()))
+        {
+            advisorHeldItemId = itemId;
+        }
+
+        if (advisorHeldItemId >= 0)
+        {
+            if (advisorPanel != null)
+            {
+                javax.swing.SwingUtilities.invokeLater(advisorPanel::showHeldForSell);
+            }
+            return;
+        }
+
+        requestSuggestion();
+    }
+
+    /**
+     * Item whose advisor card is pinned while the player still has to place its sell offer, or -1
+     * when nothing is held. Cleared by the sell offer appearing, by "Next flip", or by the config
+     * opt-out. Guarded so a held card can never strand the advisor: any advisor refresh path that
+     * the player drives directly ({@link #releaseAdvisorHold}) clears it first.
+     */
+    private volatile int advisorHeldItemId = -1;
+
+    /** Player pressed "Next flip" (or an explicit refresh) — drop the hold and advance. */
+    void releaseAdvisorHold()
+    {
+        advisorHeldItemId = -1;
+        lastSuggestAt = 0;
         requestSuggestion();
     }
 
@@ -1856,6 +1894,32 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     {
         return s == net.runelite.api.GrandExchangeOfferState.BOUGHT
             || s == net.runelite.api.GrandExchangeOfferState.CANCELLED_BUY;
+    }
+
+    /**
+     * True when collecting this offer should HOLD the current advisor card instead of advancing to
+     * the next suggestion. The advisor refreshed on every offer change, so collecting a completed
+     * BUY replaced the card carrying the sell price the player had not used yet — they had to
+     * memorise it before collecting (crab, #support 2026-07-22). Only a TERMINAL BUY qualifies: a
+     * partial tick is not a collect, and the sell side means the flip is finished so advancing is
+     * right. {@code holdEnabled} is the config opt-out and disables this entirely.
+     */
+    static boolean shouldHoldAdvisorForSell(net.runelite.api.GrandExchangeOfferState s, boolean holdEnabled)
+    {
+        return holdEnabled && isBuySideOfferState(s);
+    }
+
+    /**
+     * True when this offer state releases a held advisor card. "Shown till I create sell offer" —
+     * so SELLING releases it; SOLD/CANCELLED_SELL also release in case the SELLING tick is missed.
+     * A further BUY must NOT release, or a second completing buy would knock the held sell numbers
+     * off the screen — the very thing the hold exists to prevent.
+     */
+    static boolean releasesAdvisorHold(net.runelite.api.GrandExchangeOfferState s)
+    {
+        return s == net.runelite.api.GrandExchangeOfferState.SELLING
+            || s == net.runelite.api.GrandExchangeOfferState.SOLD
+            || s == net.runelite.api.GrandExchangeOfferState.CANCELLED_SELL;
     }
 
     static boolean isGeNumericPrompt(String promptLower)
