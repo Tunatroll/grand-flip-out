@@ -33,7 +33,9 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -88,6 +90,30 @@ public class FlipTracker
 
     @Getter
     private final AtomicInteger sessionFlipCount = new AtomicInteger(0);
+
+    /**
+     * Active flips newest-first by buy time. {@link #activeFlips} is a HashMap with arbitrary
+     * iteration order, so the UI must sort — otherwise the cards reshuffle on every refresh.
+     * Un-stamped (null) buy times sink to the bottom.
+     */
+    public static List<FlipItem> newestFirstByBuyTime(Collection<FlipItem> flips)
+    {
+        List<FlipItem> list = new ArrayList<>(flips);
+        list.sort(Comparator.comparing(FlipItem::getBuyTime,
+            Comparator.nullsLast(Comparator.reverseOrder())));
+        return list;
+    }
+
+    /**
+     * A copy of {@code flips} reversed. {@link #completedFlips} is append-ordered (oldest at
+     * index 0), so the trade log reverses it to show the most recent flip on top.
+     */
+    public static List<FlipItem> newestFirst(List<FlipItem> flips)
+    {
+        List<FlipItem> list = new ArrayList<>(flips);
+        Collections.reverse(list);
+        return list;
+    }
 
     public FlipTracker(GrandFlipOutConfig config, PriceService priceService, File dataDir, Gson gson, Executor ioExecutor)
     {

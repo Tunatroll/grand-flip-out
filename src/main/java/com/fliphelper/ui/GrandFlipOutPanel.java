@@ -1133,18 +1133,21 @@ public class GrandFlipOutPanel extends PluginPanel
         }
         else
         {
-            java.util.concurrent.atomic.AtomicInteger idx = new java.util.concurrent.atomic.AtomicInteger(0);
-            flipTracker.getActiveFlips().values().forEach(flip -> {
-                JPanel card = buildFlipCard(flip);
-                activeFlipsPanel.add(card);
-                if (idx.incrementAndGet() < flipTracker.getActiveFlips().size())
+            // getActiveFlips() is a HashMap (arbitrary iteration order) — sort newest-first so the
+            // cards don't reshuffle between refresh ticks.
+            java.util.List<com.fliphelper.model.FlipItem> active =
+                com.fliphelper.tracker.FlipTracker.newestFirstByBuyTime(flipTracker.getActiveFlips().values());
+            for (int i = 0; i < active.size(); i++)
+            {
+                activeFlipsPanel.add(buildFlipCard(active.get(i)));
+                if (i < active.size() - 1)
                 {
                     JSeparator sep = new JSeparator();
                     sep.setForeground(GfoPalette.BORDER);
                     sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
                     activeFlipsPanel.add(sep);
                 }
-            });
+            }
         }
 
         activeFlipsPanel.revalidate();
@@ -1187,7 +1190,7 @@ public class GrandFlipOutPanel extends PluginPanel
             executor.execute(() ->
             {
                 final List<TradeLogEntry> logEntries = dataDir != null
-                    ? TradeLogReader.readRecent(dataDir, 40, priceService.getGson())
+                    ? TradeLogReader.readRecent(dataDir, 100, priceService.getGson())
                     : new ArrayList<>();
                 SwingUtilities.invokeLater(() ->
                     renderHistoryTab(logEntries, selectedAccount, logStamp, stateKey));
@@ -1196,7 +1199,7 @@ public class GrandFlipOutPanel extends PluginPanel
         else
         {
             List<TradeLogEntry> logEntries = dataDir != null
-                ? TradeLogReader.readRecent(dataDir, 40, priceService.getGson())
+                ? TradeLogReader.readRecent(dataDir, 100, priceService.getGson())
                 : new ArrayList<>();
             renderHistoryTab(logEntries, selectedAccount, logStamp, stateKey);
         }
@@ -1237,7 +1240,7 @@ public class GrandFlipOutPanel extends PluginPanel
                 continue;
             }
             filteredLog.add(entry);
-            if (filteredLog.size() >= 25)
+            if (filteredLog.size() >= 100)
             {
                 break;
             }
@@ -1259,9 +1262,12 @@ public class GrandFlipOutPanel extends PluginPanel
 
         if (shown == 0)
         {
+            // Fallback to in-memory completed flips when the ndjson log is empty. completedFlips is
+            // append-ordered (oldest at index 0), so iterate in REVERSE to show the most recent
+            // flip on top, matching the log path above.
             List<com.fliphelper.model.FlipItem> completed = flipTracker.getCompletedFlips();
-            int displayCount = Math.min(completed.size(), 25);
-            for (int i = 0; i < displayCount; i++)
+            int rendered = 0;
+            for (int i = completed.size() - 1; i >= 0 && rendered < 100; i--)
             {
                 com.fliphelper.model.FlipItem flip = completed.get(i);
                 if ("profit".equals(historyFilter) && flip.getProfit() <= 0)
@@ -1277,10 +1283,10 @@ public class GrandFlipOutPanel extends PluginPanel
                 {
                     continue;
                 }
-                JPanel card = buildHistoryCard(flip);
-                historyPanel.add(card);
+                historyPanel.add(buildHistoryCard(flip));
+                rendered++;
             }
-            if (displayCount == 0 && logEntries.isEmpty())
+            if (completed.isEmpty() && logEntries.isEmpty())
             {
                 historyPanel.add(emptyStateLabel("No completed flips yet. Sell something in the GE and it lands here."));
             }
