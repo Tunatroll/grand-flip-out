@@ -112,6 +112,8 @@ public class GrandFlipOutPanel extends PluginPanel
     private JPanel historyPanel;
     private StatsPanel statsPanel;
     private JLabel upgradeLink;
+    /** Always-visible account-tier badge (Not signed in / Free / Pro) in the footer. */
+    private JLabel statusBadge;
     private boolean intelAutoRefreshStarted;
     private java.util.concurrent.ScheduledFuture<?> intelRefreshFuture;
     private com.fliphelper.util.WatchlistStore watchlist;
@@ -295,25 +297,72 @@ public class GrandFlipOutPanel extends PluginPanel
      */
     private JPanel buildLinksFooter()
     {
-        JPanel footer = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 4));
+        // Vertical footer: a prominent tier-badge row on top, the links row below. The
+        // badge gets its own row so it never crowds the links off the 242px-capped panel
+        // (a single-row layout hid the upgrade CTA once the badge was added — caught in
+        // the screenshot harness).
+        JPanel footer = new JPanel();
+        footer.setLayout(new BoxLayout(footer, BoxLayout.Y_AXIS));
         footer.setBackground(PANEL_DEEP);
         footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, PANEL_BORDER));
 
-        footer.add(buildFooterLink("Website", "https://grandflipout.com/?ref=plugin"));
-        footer.add(buildFooterDot());
-        footer.add(buildFooterLink("Discord", "https://discord.gg/5bGJbdHFSv"));
-        footer.add(buildFooterDot());
+        // Always-visible tier badge — so a user (esp. a payer) can see at a glance that
+        // their account is recognized. Free and Pro both used to read "Account", giving a
+        // payer zero confirmation their Pro was live.
+        JPanel badgeRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 2));
+        badgeRow.setBackground(PANEL_DEEP);
+        statusBadge = new JLabel();
+        statusBadge.setFont(UiText.font(statusBadge.getFont(), Font.BOLD, 11f));
+        applyStatusBadge();
+        badgeRow.add(statusBadge);
+        footer.add(badgeRow);
 
-        // Upgrade CTA changes label once the account is unlocked. "Upgrade" only opens the
-        // web — payment/account management is server-side per Jagex rules (no in-client pay).
-        // URL resolved at CLICK time: the entitlement refresh only re-labels this link
-        // (setText below), so a construction-time URL could say "Account" but open /upgrade.
-        upgradeLink = buildFooterLink(isUnlocked() ? "Account" : "Upgrade",
+        JPanel links = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 2));
+        links.setBackground(PANEL_DEEP);
+        links.add(buildFooterLink("Website", "https://grandflipout.com/?ref=plugin"));
+        links.add(buildFooterDot());
+        links.add(buildFooterLink("Discord", "https://discord.gg/5bGJbdHFSv"));
+        links.add(buildFooterDot());
+
+        // The account CTA is tier-aware. "Upgrade to Pro" only opens the web — payment /
+        // account management is server-side per Jagex rules (no in-client pay). URL resolved
+        // at CLICK time: the entitlement refresh only re-labels this link (setText below),
+        // so a construction-time URL could say "Account" but open /upgrade.
+        upgradeLink = buildFooterLink(accountCtaLabel(),
             () -> isUnlocked() ? "https://grandflipout.com/dashboard?ref=plugin" : "https://grandflipout.com/upgrade?ref=plugin");
         upgradeLink.setForeground(BRAND_GOLD);
-        footer.add(upgradeLink);
+        links.add(upgradeLink);
+        footer.add(links);
 
         return footer;
+    }
+
+    /** Footer CTA label per tier: a FREE user is nudged to Pro; a payer just manages the Account. */
+    private String accountCtaLabel()
+    {
+        switch (accountStatus(entitlementService != null ? entitlementService.get() : null))
+        {
+            case PRO:  return "Account";
+            case FREE: return "Upgrade to Pro";
+            default:   return "Upgrade";
+        }
+    }
+
+    /** Paint the tier badge (text + colour) from the current entitlement. EDT-only. */
+    private void applyStatusBadge()
+    {
+        if (statusBadge == null)
+        {
+            return;
+        }
+        AccountStatus s = accountStatus(entitlementService != null ? entitlementService.get() : null);
+        statusBadge.setText(statusBadgeText(s));
+        // Pro = the "up"/positive accent so it reads as a win; Free = brand accent; guest = dim.
+        statusBadge.setForeground(s == AccountStatus.PRO ? GfoPalette.UP
+            : s == AccountStatus.FREE ? BRAND_GOLD : TEXT_DIM);
+        statusBadge.setToolTipText(s == AccountStatus.PRO ? "Pro features unlocked on this account"
+            : s == AccountStatus.FREE ? "Signed in on the Free plan — upgrade for Pro features"
+            : "Not signed in — paste your account key or create a free account");
     }
 
     private JLabel buildFooterDot()
@@ -401,8 +450,9 @@ public class GrandFlipOutPanel extends PluginPanel
     {
         if (upgradeLink != null)
         {
-            upgradeLink.setText(isUnlocked() ? "Account" : "Upgrade");
+            upgradeLink.setText(accountCtaLabel());
         }
+        applyStatusBadge();
         // Re-render the gated browse list and the premium Intel tab.
         displayAllItemsInCategory();
         rebuildIntelGate();
@@ -2489,7 +2539,38 @@ public class GrandFlipOutPanel extends PluginPanel
      */
     static boolean showProTeaser(com.fliphelper.api.EntitlementService.Entitlement e)
     {
-        return e == null || !"pro".equalsIgnoreCase(e.getTier());
+        return accountStatus(e) != AccountStatus.PRO;
+    }
+
+    /** The three account states the plugin surfaces to the user. */
+    enum AccountStatus { GUEST, FREE, PRO }
+
+    /**
+     * Pure/static SSOT for the visible account-status badge (AccountStatusTest).
+     * GUEST = signed out / unresolved (the panel constructs before the entitlement
+     * resolves — a null defaults to GUEST). PRO = a resolved pro tier. FREE =
+     * authenticated but not pro. Tier is matched case-insensitively so a server
+     * casing change can never mislabel a payer, and any UNKNOWN authenticated tier
+     * falls back to FREE — never a false "you're Pro".
+     */
+    static AccountStatus accountStatus(com.fliphelper.api.EntitlementService.Entitlement e)
+    {
+        if (e == null || !e.isAuthenticated())
+        {
+            return AccountStatus.GUEST;
+        }
+        return "pro".equalsIgnoreCase(e.getTier()) ? AccountStatus.PRO : AccountStatus.FREE;
+    }
+
+    /** The user-facing badge label for a status (pure, so it is unit-testable). */
+    static String statusBadgeText(AccountStatus s)
+    {
+        switch (s)
+        {
+            case PRO:  return "★ Pro";            // ★ Pro
+            case FREE: return "● Free account";   // ● Free account
+            default:   return "○ Not signed in";  // ○ Not signed in
+        }
     }
 
     private void maybeAddProTeaser()

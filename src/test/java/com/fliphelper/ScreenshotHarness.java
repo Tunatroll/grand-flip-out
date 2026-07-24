@@ -149,9 +149,34 @@ public final class ScreenshotHarness
             else
             {
                 GrandFlipOutPanel panel = new GrandFlipOutPanel(config, priceService, flipTracker);
-                if (sample)
+                // Optional: force an account tier so the footer status badge can be
+                // visually verified in each state (-Dgfo.entitlement=pro|free|guest).
+                try
                 {
-                    panel.onEntitlementChanged();          // populate the gated Prices browse list
+                    String entState = System.getProperty("gfo.entitlement");
+                    if (entState != null)
+                    {
+                        com.fliphelper.api.EntitlementService es =
+                            new com.fliphelper.api.EntitlementService(http, "https://grandflipout.com", gson);
+                        com.fliphelper.api.EntitlementService.Entitlement ent =
+                            "pro".equals(entState) ? new com.fliphelper.api.EntitlementService.Entitlement(true, "pro", true)
+                            : "free".equals(entState) ? new com.fliphelper.api.EntitlementService.Entitlement(true, "free", true)
+                            : com.fliphelper.api.EntitlementService.LOCKED;
+                        Field cf = com.fliphelper.api.EntitlementService.class.getDeclaredField("cached");
+                        cf.setAccessible(true);
+                        cf.set(es, ent);
+                        Field pf = GrandFlipOutPanel.class.getDeclaredField("entitlementService");
+                        pf.setAccessible(true);
+                        pf.set(panel, es);
+                    }
+                }
+                catch (ReflectiveOperationException roe)
+                {
+                    System.out.println("entitlement inject skipped: " + roe.getMessage());
+                }
+                if (sample || System.getProperty("gfo.entitlement") != null)
+                {
+                    panel.onEntitlementChanged();          // populate the gated list + repaint the badge
                 }
                 target = panel;
             }

@@ -73,6 +73,9 @@ tasks.register('screenshot', JavaExec) {
     if (project.findProperty('sample')) {
         systemProperty 'gfo.sample', project.findProperty('sample').toString()
     }
+    if (project.findProperty('ent')) {
+        systemProperty 'gfo.entitlement', project.findProperty('ent').toString()
+    }
     if (project.findProperty('advisor')) {
         systemProperty 'gfo.advisor', project.findProperty('advisor').toString()
     }
