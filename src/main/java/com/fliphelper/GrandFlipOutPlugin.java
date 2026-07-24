@@ -154,6 +154,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     private InventoryTooltipOverlay inventoryTooltipOverlay;
     private NavigationButton navButton;
     private ScheduledFuture<?> refreshFuture;
+    /** #242: periodic entitlement re-check — keeps the single-instance lease alive AND
+     *  refreshes tier/Pro state (which otherwise only updated on startup/key-change). */
+    private ScheduledFuture<?> entitlementHeartbeat;
     // Track GE offer states to detect completions
     private final int[] lastOfferQuantity = new int[8];
     private final GrandExchangeOfferState[] lastOfferState = new GrandExchangeOfferState[8];
@@ -359,6 +362,21 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         telemetryFlush = executor.scheduleWithFixedDelay(
             this::flushTelemetry, 30, 30, TimeUnit.MINUTES);
 
+        // #242: entitlement heartbeat every 5 min — refreshes the single-live-instance lease
+        // (so this instance keeps Pro while running) AND keeps tier/Pro state fresh. Off-thread,
+        // no-op without a key or with server functionality disabled.
+        entitlementHeartbeat = executor.scheduleWithFixedDelay(() ->
+        {
+            if (entitlementService != null && config.enableServerFunctionality())
+            {
+                entitlementService.refresh(config.apiKey());
+                if (panel != null)
+                {
+                    javax.swing.SwingUtilities.invokeLater(panel::onEntitlementChanged);
+                }
+            }
+        }, 5, 5, TimeUnit.MINUTES);
+
         // Star toggles push (debounced); website-side stars arrive on a slow pull.
         panel.setWatchlistChangedListener(this::scheduleWatchlistPush);
         // A price/watchlist row carries no suggested SIZE — arm the item + price only
@@ -405,6 +423,11 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             refreshFuture = null;
         }
 
+        if (entitlementHeartbeat != null)
+        {
+            entitlementHeartbeat.cancel(false);
+            entitlementHeartbeat = null;
+        }
         if (telemetryFlush != null)
         {
             telemetryFlush.cancel(false);

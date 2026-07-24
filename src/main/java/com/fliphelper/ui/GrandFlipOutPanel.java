@@ -342,9 +342,10 @@ public class GrandFlipOutPanel extends PluginPanel
     {
         switch (accountStatus(entitlementService != null ? entitlementService.get() : null))
         {
-            case PRO:  return "Account";
-            case FREE: return "Upgrade to Pro";
-            default:   return "Upgrade";
+            case PRO:
+            case CONFLICT: return "Account"; // a payer either way — manage the account
+            case FREE:     return "Upgrade to Pro";
+            default:       return "Upgrade";
         }
     }
 
@@ -357,10 +358,13 @@ public class GrandFlipOutPanel extends PluginPanel
         }
         AccountStatus s = accountStatus(entitlementService != null ? entitlementService.get() : null);
         statusBadge.setText(statusBadgeText(s));
-        // Pro = the "up"/positive accent so it reads as a win; Free = brand accent; guest = dim.
+        // Pro = the "up"/positive accent so it reads as a win; conflict = rose "attention";
+        // Free = brand accent; guest = dim.
         statusBadge.setForeground(s == AccountStatus.PRO ? GfoPalette.UP
+            : s == AccountStatus.CONFLICT ? GfoPalette.DOWN
             : s == AccountStatus.FREE ? BRAND_GOLD : TEXT_DIM);
         statusBadge.setToolTipText(s == AccountStatus.PRO ? "Pro features unlocked on this account"
+            : s == AccountStatus.CONFLICT ? "Your Pro is active on another instance — close it (or wait ~15 min) to use Pro here"
             : s == AccountStatus.FREE ? "Signed in on the Free plan — upgrade for Pro features"
             : "Not signed in — paste your account key or create a free account");
     }
@@ -2539,25 +2543,34 @@ public class GrandFlipOutPanel extends PluginPanel
      */
     static boolean showProTeaser(com.fliphelper.api.EntitlementService.Entitlement e)
     {
-        return accountStatus(e) != AccountStatus.PRO;
+        // Show the upsell to non-payers only. A PRO (or a CONFLICT — a payer whose Pro is
+        // active on another instance) must never see "upgrade to Pro".
+        AccountStatus s = accountStatus(e);
+        return s == AccountStatus.GUEST || s == AccountStatus.FREE;
     }
 
-    /** The three account states the plugin surfaces to the user. */
-    enum AccountStatus { GUEST, FREE, PRO }
+    /** The account states the plugin surfaces to the user. */
+    enum AccountStatus { GUEST, FREE, PRO, CONFLICT }
 
     /**
      * Pure/static SSOT for the visible account-status badge (AccountStatusTest).
      * GUEST = signed out / unresolved (the panel constructs before the entitlement
-     * resolves — a null defaults to GUEST). PRO = a resolved pro tier. FREE =
-     * authenticated but not pro. Tier is matched case-insensitively so a server
-     * casing change can never mislabel a payer, and any UNKNOWN authenticated tier
-     * falls back to FREE — never a false "you're Pro".
+     * resolves — a null defaults to GUEST). CONFLICT (#242) = a payer whose Pro is
+     * active on ANOTHER instance (server sends instanceConflict) — checked FIRST so a
+     * locked-out instance never reads as PRO. PRO = a resolved pro tier. FREE =
+     * authenticated but not pro. Tier is matched case-insensitively so a server casing
+     * change can never mislabel a payer, and any UNKNOWN authenticated tier falls back
+     * to FREE — never a false "you're Pro".
      */
     static AccountStatus accountStatus(com.fliphelper.api.EntitlementService.Entitlement e)
     {
         if (e == null || !e.isAuthenticated())
         {
             return AccountStatus.GUEST;
+        }
+        if (e.isInstanceConflict())
+        {
+            return AccountStatus.CONFLICT;
         }
         return "pro".equalsIgnoreCase(e.getTier()) ? AccountStatus.PRO : AccountStatus.FREE;
     }
@@ -2567,9 +2580,10 @@ public class GrandFlipOutPanel extends PluginPanel
     {
         switch (s)
         {
-            case PRO:  return "★ Pro";            // ★ Pro
-            case FREE: return "● Free account";   // ● Free account
-            default:   return "○ Not signed in";  // ○ Not signed in
+            case PRO:      return "★ Pro";                  // ★ Pro
+            case CONFLICT: return "⚠ Pro (in use elsewhere)"; // locked out — another instance holds it
+            case FREE:     return "● Free account";         // ● Free account
+            default:       return "○ Not signed in";        // ○ Not signed in
         }
     }
 

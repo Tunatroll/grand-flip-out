@@ -67,6 +67,7 @@ public class DumpFeedClient
         if (apiKey != null && !apiKey.trim().isEmpty())
         {
             builder.header("Authorization", "Bearer " + apiKey.trim());
+            builder.header(InstanceId.HEADER, InstanceId.get());
         }
 
         try (Response response = httpClient.newCall(builder.build()).execute())

@@ -14,6 +14,7 @@ import com.fliphelper.ui.GrandFlipOutPanel.AccountStatus;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 /**
  * Recognition contract: the plugin must make the account tier VISIBLE — a user
@@ -80,17 +81,40 @@ public class AccountStatusTest
     }
 
     @Test
+    public void instanceConflictIsCONFLICT_notPro_notFree()
+    {
+        // #242: a payer whose Pro is active on another instance (server: pro:false +
+        // instanceConflict:true). Checked before tier so a locked-out instance never reads PRO.
+        Entitlement conflicted = new Entitlement(true, "pro", true, true);
+        assertEquals(AccountStatus.CONFLICT, GrandFlipOutPanel.accountStatus(conflicted));
+        // even if the server downgraded tier to free, the conflict flag still wins.
+        assertEquals(AccountStatus.CONFLICT, GrandFlipOutPanel.accountStatus(new Entitlement(true, "free", true, true)));
+        String badge = GrandFlipOutPanel.statusBadgeText(AccountStatus.CONFLICT);
+        assertEquals(true, badge != null && !badge.trim().isEmpty());
+        assertEquals(true, badge.toLowerCase().contains("pro")); // it's still a Pro payer
+    }
+
+    @Test
+    public void conflictedPayerNeverSeesTheUpsellTeaser()
+    {
+        // A payer locked out on this instance must NOT be shown "upgrade to Pro".
+        assertFalse(GrandFlipOutPanel.showProTeaser(new Entitlement(true, "pro", true, true)));
+    }
+
+    @Test
     public void proTeaserGateStaysConsistentWithAccountStatus()
     {
-        // showProTeaser must be exactly "not Pro" — the two helpers can never disagree,
-        // or a payer could see the badge say Pro while the upsell still shows.
+        // showProTeaser = "the user is a non-payer" (GUEST or FREE). A PRO or CONFLICT payer
+        // never sees the upsell, or a payer would get an upgrade nag for something they bought.
         for (Entitlement e : new Entitlement[]{
             null, EntitlementService.LOCKED,
-            new Entitlement(true, "free", true), new Entitlement(true, "pro", true)})
+            new Entitlement(true, "free", true), new Entitlement(true, "pro", true),
+            new Entitlement(true, "pro", true, true)})
         {
+            AccountStatus s = GrandFlipOutPanel.accountStatus(e);
             boolean teaser = GrandFlipOutPanel.showProTeaser(e);
-            boolean notPro = GrandFlipOutPanel.accountStatus(e) != AccountStatus.PRO;
-            assertEquals("teaser gate must equal (status != PRO)", notPro, teaser);
+            boolean nonPayer = (s == AccountStatus.GUEST || s == AccountStatus.FREE);
+            assertEquals("teaser shows for non-payers only", nonPayer, teaser);
         }
     }
 }

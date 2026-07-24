@@ -173,6 +173,7 @@ public class IntelligenceClient
             .header("Accept", "application/json")
             .header("User-Agent", "GrandFlipOut-Plugin/1.0")
             .header("Authorization", "Bearer " + apiKey)
+            .header(InstanceId.HEADER, InstanceId.get())
             .build();
         try (Response response = httpClient.newCall(request).execute())
         {
@@ -202,6 +203,7 @@ public class IntelligenceClient
             .header("Accept", "application/json")
             .header("User-Agent", "GrandFlipOut-Plugin/1.0")
             .header("Authorization", "Bearer " + apiKey)
+            .header(InstanceId.HEADER, InstanceId.get())
             .build();
         try (Response response = httpClient.newCall(request).execute())
         {
@@ -378,6 +380,7 @@ public class IntelligenceClient
         if (apiKey != null && !apiKey.trim().isEmpty())
         {
             builder.header("Authorization", "Bearer " + apiKey.trim());
+            builder.header(InstanceId.HEADER, InstanceId.get());
         }
 
         try (Response response = httpClient.newCall(builder.build()).execute())
@@ -458,6 +461,7 @@ public class IntelligenceClient
         if (apiKey != null && !apiKey.trim().isEmpty())
         {
             builder.header("Authorization", "Bearer " + apiKey.trim());
+            builder.header(InstanceId.HEADER, InstanceId.get());
         }
 
         try (Response response = httpClient.newCall(builder.build()).execute())
@@ -535,6 +539,7 @@ public class IntelligenceClient
             // requirePro accepts a Bearer token (same as /suggest*); also send X-API-Key
             // for parity with the web/Coach callers.
             builder.header("Authorization", "Bearer " + apiKey.trim());
+            builder.header(InstanceId.HEADER, InstanceId.get());
             builder.header("X-API-Key", apiKey.trim());
         }
 

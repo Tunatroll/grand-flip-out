@@ -10,6 +10,7 @@ package com.fliphelper.api;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
@@ -117,6 +118,7 @@ public class EntitlementService
             .url(baseUrl + "/api/entitlements")
             .get()
             .header("Authorization", "Bearer " + apiKey)
+            .header(InstanceId.HEADER, InstanceId.get())
             .header("Accept", "application/json")
             .header("User-Agent", "GrandFlipOut-Plugin/1.0")
             .build();
@@ -134,15 +136,29 @@ public class EntitlementService
             String tier = root.has("tier") && !root.get("tier").isJsonNull()
                 ? root.get("tier").getAsString()
                 : (authenticated ? "free" : "anonymous");
-            return new Entitlement(authenticated, tier, unlocked);
+            // #242: the server flags a second concurrent instance of the same Pro key
+            // (pro:false + instanceConflict:true) so the plugin can say "Pro is active on
+            // another instance" instead of silently locking the Pro UI.
+            boolean instanceConflict = root.has("instanceConflict") && root.get("instanceConflict").getAsBoolean();
+            return new Entitlement(authenticated, tier, unlocked, instanceConflict);
         }
     }
 
     @Value
+    // Explicit @AllArgsConstructor: @Value suppresses its generated all-args ctor once we
+    // add the compat 3-arg one below, so re-enable the 4-arg (authenticated,tier,unlocked,conflict).
+    @AllArgsConstructor
     public static class Entitlement
     {
         boolean authenticated;
         String tier;
         boolean unlocked;
+        boolean instanceConflict;
+
+        /** Backward-compat: pre-#242 call sites (and tests) construct without the lease flag. */
+        public Entitlement(boolean authenticated, String tier, boolean unlocked)
+        {
+            this(authenticated, tier, unlocked, false);
+        }
     }
 }

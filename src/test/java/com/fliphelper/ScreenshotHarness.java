@@ -160,6 +160,7 @@ public final class ScreenshotHarness
                             new com.fliphelper.api.EntitlementService(http, "https://grandflipout.com", gson);
                         com.fliphelper.api.EntitlementService.Entitlement ent =
                             "pro".equals(entState) ? new com.fliphelper.api.EntitlementService.Entitlement(true, "pro", true)
+                            : "conflict".equals(entState) ? new com.fliphelper.api.EntitlementService.Entitlement(true, "pro", false, true)
                             : "free".equals(entState) ? new com.fliphelper.api.EntitlementService.Entitlement(true, "free", true)
                             : com.fliphelper.api.EntitlementService.LOCKED;
                         Field cf = com.fliphelper.api.EntitlementService.class.getDeclaredField("cached");
