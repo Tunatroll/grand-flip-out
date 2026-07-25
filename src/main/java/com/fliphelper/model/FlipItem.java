@@ -36,6 +36,19 @@ public class FlipItem
     /** Wealth snapshot at sell completion (optional, local-only). */
     /** Market sell price at the time the buy was placed (for frozen sell tracking). */
     private long frozenSellPrice;
+    /**
+     * The sell price the ADVISOR recommended for this lot (#249). 0 = this buy did not come
+     * from a recommendation, in which case surfaces fall back to {@link #frozenSellPrice}.
+     *
+     * Deliberately SEPARATE from frozenSellPrice, which is the raw market high at buy time and
+     * is what the server's `hitTarget` metric is computed against (IntelligenceClient
+     * flipOutcomeJson). Repurposing that field would redefine a live metric underneath itself.
+     * Gson leaves both 0 on pre-#249 history rows: fail-closed, same convention as
+     * {@link #liveWitnessed} and {@link #accountId}.
+     */
+    private long advisedSellPrice;
+    /** Epoch ms the advice was given (0 = none) — rendered so old advice never reads as current. */
+    private long advisedAt;
     private Long sellCoinGp;
     private Long sellInventoryGp;
     private Long sellBankGp;

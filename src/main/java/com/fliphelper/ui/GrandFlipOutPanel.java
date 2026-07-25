@@ -1476,6 +1476,24 @@ public class GrandFlipOutPanel extends PluginPanel
     }
 
     /**
+     * #249 — the target we REMEMBER for this position: what the advisor advised, else the
+     * market high captured at buy time, else nothing. 0 means render no target line; never
+     * fabricate one. Package-private and static so it is testable without Swing.
+     */
+    static long rememberedTarget(com.fliphelper.model.FlipItem flip)
+    {
+        if (flip == null)
+        {
+            return 0L;
+        }
+        if (flip.getAdvisedSellPrice() > 0)
+        {
+            return flip.getAdvisedSellPrice();
+        }
+        return Math.max(flip.getFrozenSellPrice(), 0L);
+    }
+
+    /**
      * Build a compact meta-label with title on top and value below.
      */
     private JPanel createMetaLabel(String title, String value)
@@ -1553,6 +1571,27 @@ public class GrandFlipOutPanel extends PluginPanel
             expectedLabel.setFont(UiText.font(expectedLabel.getFont(), Font.BOLD, 12f));
             profitRow.add(expectedLabel, BorderLayout.WEST);
             card.add(profitRow);
+
+            // #249 — the REMEMBERED target, beside the live number above. This is a historical
+            // fact stamped with when it was given, never silently rewritten: the player needs
+            // back the number they were told, and must be able to see it drift from the market
+            // rather than have it quietly restated as current truth.
+            long target = rememberedTarget(flip);
+            if (target > 0)
+            {
+                JPanel targetRow = new JPanel(new BorderLayout());
+                targetRow.setOpaque(false);
+                String when = flip.getAdvisedSellPrice() > 0 && flip.getAdvisedAt() > 0
+                    ? " (advised " + java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+                        .withZone(java.time.ZoneId.systemDefault())
+                        .format(java.time.Instant.ofEpochMilli(flip.getAdvisedAt())) + ")"
+                    : "";
+                JLabel targetLabel = new JLabel("Target: " + formatGp(target) + when);
+                targetLabel.setForeground(GfoPalette.ACCENT_2);
+                targetLabel.setFont(UiText.font(targetLabel.getFont(), 11f));
+                targetRow.add(targetLabel, BorderLayout.WEST);
+                card.add(targetRow);
+            }
         }
         else
         {

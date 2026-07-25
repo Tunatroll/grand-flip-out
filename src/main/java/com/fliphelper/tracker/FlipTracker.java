@@ -69,6 +69,8 @@ public class FlipTracker
 
     private final GrandFlipOutConfig config;
     private final PriceService priceService;
+    /** #249 — advice awaiting the buy it produced, so the advised sell survives on the lot. */
+    private final PendingAdvice pendingAdvice = new PendingAdvice();
     private final Executor ioExecutor;
     // Serializes the file writes submitted to the shared executor — its pool width is
     // unspecified, and two concurrent temp-file renames would corrupt the history.
@@ -96,6 +98,16 @@ public class FlipTracker
      * iteration order, so the UI must sort — otherwise the cards reshuffle on every refresh.
      * Un-stamped (null) buy times sink to the bottom.
      */
+    /**
+     * #249 — record the sell target the advisor quoted, just before the player acts on it.
+     * The next BOUGHT lot for this item claims it (see the buy branch). A non-positive price
+     * is ignored by {@link PendingAdvice}, so an older server sending 0 stamps nothing.
+     */
+    public void recordAdvice(int itemId, long advisedSellPrice)
+    {
+        pendingAdvice.record(itemId, advisedSellPrice, System.currentTimeMillis());
+    }
+
     public static List<FlipItem> newestFirstByBuyTime(Collection<FlipItem> flips)
     {
         List<FlipItem> list = new ArrayList<>(flips);
@@ -169,6 +181,13 @@ public class FlipTracker
                     frozen = agg.getBestHighPrice();
                 }
 
+                // #249: if this buy came from a recommendation, stamp what we ADVISED onto the
+                // lot. Distinct from `frozen` above, which is the raw market high — when the
+                // two differ, the advice is the number the player was told and is the one they
+                // need back later. Null when the buy was not advised: the card then falls back
+                // to `frozen` rather than inventing a target.
+                long[] advice = pendingAdvice.claim(trade.getItemId(), System.currentTimeMillis());
+
                 // Create or update active flip
                 FlipItem flip = FlipItem.builder()
                     .itemId(trade.getItemId())
@@ -176,6 +195,8 @@ public class FlipTracker
                     .quantity(trade.getQuantity())
                     .buyPrice(trade.getPrice())
                     .frozenSellPrice(frozen)
+                    .advisedSellPrice(advice != null ? advice[0] : 0L)
+                    .advisedAt(advice != null ? advice[1] : 0L)
                     .buyTime(trade.getTimestamp())
                     .state(FlipState.BOUGHT)
                     .geSlot(trade.getGeSlot())

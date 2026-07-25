@@ -26,6 +26,14 @@ public class Suggestion
     int itemId;
     String itemName;
     long price;
+    /**
+     * The advised SELL target for this buy, straight from the server (#249). 0 means the
+     * server did not supply one — an older build, or a WAIT with no item — never "sell for
+     * nothing". Gson leaves an absent field at 0, which is the correct fail-closed default.
+     * Before this existed the target reached us only inside the prose `reasons` line, so it
+     * could not be remembered against the position the buy produced.
+     */
+    long sellPrice;
     int quantity;
     long expectedProfit;
     double confidence;

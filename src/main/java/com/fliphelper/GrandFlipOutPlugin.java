@@ -322,7 +322,14 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             @Override public void onSkip(int itemId) { advisorSkipped.add(itemId); lastSuggestAt = 0; requestSuggestion(); }
             @Override public void onBlock(int itemId) { advisorBlacklist.add(itemId); lastSuggestAt = 0; requestSuggestion(); }
             @Override public void onPauseToggled(boolean paused) { if (!paused) { lastSuggestAt = 0; requestSuggestion(); } }
-            @Override public void onFillOffer(int itemId, long price, int quantity) { armOfferFill(itemId, price, quantity); }
+            // #249: remember what we ADVISED before the buy lands, so FlipTracker can stamp it
+            // onto the resulting lot. Without this the advised sell dies with the card and the
+            // player has to memorise it before collecting.
+            @Override public void onFillOffer(int itemId, long price, int quantity)
+            {
+                flipTracker.recordAdvice(itemId, currentAdvisedSell(itemId));
+                armOfferFill(itemId, price, quantity);
+            }
             @Override public void onFiltersChanged() { lastSuggestAt = 0; requestSuggestion(); }
             @Override public void onNextFlip() { releaseAdvisorHold(); }
         });
@@ -885,6 +892,28 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      * the Advisor is disabled, paused, or the player isn't logged in. The snapshot is
      * captured on the client thread; the network call and UI update run off it.
      */
+    /**
+     * #249 — the sell target the advisor is currently quoting for this item, or 0 if unknown.
+     * Read from the live suggestion set rather than re-derived from margin + tax: the server
+     * owns this number, and reconstructing it client-side would be a second source of truth.
+     */
+    long currentAdvisedSell(int itemId)
+    {
+        java.util.List<com.fliphelper.model.Suggestion> active = activeSuggestions;
+        if (active == null)
+        {
+            return 0L;
+        }
+        for (com.fliphelper.model.Suggestion s : active)
+        {
+            if (s != null && s.getItemId() == itemId)
+            {
+                return s.getSellPrice();
+            }
+        }
+        return 0L;
+    }
+
     private void requestSuggestion()
     {
         if (!config.enableServerFunctionality() || !config.enableAdvisor() || advisorPanel == null || advisorPanel.isPaused()
