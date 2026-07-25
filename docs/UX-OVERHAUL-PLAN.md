@@ -63,6 +63,14 @@ maintainer rules per `.claude/skills/runelite-plugin-dev`.
 - **Chunk C+**: #4 file split, one tab per PR (mechanical, reviewer-friendly).
 - **Chunk D**: #7 recovery history line.
 
+## Chunk: advised sell memory (open positions) — 2026-07-25, owner-approved
+
+Owner: "it's gotta be remembering what you bought and what you haven't sold… the number they
+should've sold for isn't shown anymore." The advisor's advice is never attached to the flip it
+produces (`Suggestion` has no target-sell field; nothing in `tracker/` references it), so the
+sell number dies with the card. Folds in #225 S3. Design + TDD list:
+[`ADVISED-SELL-MEMORY-design.md`](ADVISED-SELL-MEMORY-design.md).
+
 ## Hard rules re-checks per chunk
 JDK-11 `clean build` green · no banned APIs (injected Gson/OkHttp only) · client reads on the
 client thread · Swing on EDT · startUp/shutDown symmetry · sync-public-repo + leak-check before
