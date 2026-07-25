@@ -1,7 +1,10 @@
 # Design — Advised sell memory (open positions)
 
 **Date:** 2026-07-25
-**Status:** APPROVED (brainstorm complete, owner-approved)
+**Status:** IMPLEMENTED 2026-07-25 — plugin `c284350` (pushed to
+`origin/feat/flip-ordering-tracking`), server `ebf59fc8` (LIVE). Suites: plugin 123/0,
+server 2844/0. **NOT yet shipped to users** — the Hub manifest still pins `e43bf8a`; a pin
+bump is owner-fired and should follow an in-client test, which has NOT happened.
 **Scope:** RuneLite plugin + a 2-line server addition (see below).
 
 **Corrected again 2026-07-25:** "no server change" was wrong. The advised sell price is not a

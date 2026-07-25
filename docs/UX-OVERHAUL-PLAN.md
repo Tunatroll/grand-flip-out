@@ -69,7 +69,13 @@ Owner: "it's gotta be remembering what you bought and what you haven't sold… t
 should've sold for isn't shown anymore." The advisor's advice is never attached to the flip it
 produces (`Suggestion` has no target-sell field; nothing in `tracker/` references it), so the
 sell number dies with the card. Folds in #225 S3. Design + TDD list:
-[`ADVISED-SELL-MEMORY-design.md`](ADVISED-SELL-MEMORY-design.md).
+[`ADVISED-SELL-MEMORY-design.md`](ADVISED-SELL-MEMORY-design.md) ·
+plan [`ADVISED-SELL-MEMORY-plan.md`](ADVISED-SELL-MEMORY-plan.md).
+**DONE in code `c284350`** (server half `ebf59fc8` live). Two corrections worth carrying
+forward: a target memory ALREADY existed (`frozenSellPrice` — it stores the MARKET high, not
+the advice, and the panel never rendered it), and #225 S3 was ALREADY FIXED by `0ba7fca`.
+Both errors came from inferring off symbol/test names instead of reading the file.
+⚠ Still needs an in-client test before any Hub pin bump.
 
 ## Hard rules re-checks per chunk
 JDK-11 `clean build` green · no banned APIs (injected Gson/OkHttp only) · client reads on the
