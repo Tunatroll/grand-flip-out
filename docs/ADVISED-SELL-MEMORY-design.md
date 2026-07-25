@@ -2,7 +2,16 @@
 
 **Date:** 2026-07-25
 **Status:** APPROVED (brainstorm complete, owner-approved)
-**Scope:** RuneLite plugin only. No server change required for v1.
+**Scope:** RuneLite plugin + a 2-line server addition (see below).
+
+**Corrected again 2026-07-25:** "no server change" was wrong. The advised sell price is not a
+structured field anywhere the plugin can read — the advisor card shows it only inside the
+server's prose `reasons[0]` ("Buy at X -> Sell at Y", `AdvisorPanel.java:690-696`).
+`rankBuyCandidates` (`server/routes/intelligence-tools.js:~117`) **computes** `sellPrice =
+item.highPrice` and uses it, but **omits it from the returned candidate object** (~:164), so
+`/api/intelligence/suggest` never serves it. Parsing the prose would be fragile; re-deriving
+sell from `marginPer` + tax would be a client-side re-derivation the doctrine forbids.
+Exposing the number the server already has is the correct fix and is two lines.
 **Constraints:** Hub PR < 500 LOC, one PR in flight (lane is CLEAR — `e43bf8a` is the live
 manifest pin and equals local HEAD, so #14269 merged), Java 11, owner fires every push.
 
@@ -107,8 +116,9 @@ price would silently fail to stamp exactly the lots the player most needs rememb
 - the advised price is recorded as advised, and the lot separately records what was actually
   paid — the row can then honestly show both when they differ.
 
-A lot with no matching pending advice gets `fromAdvisor = false` and **no advised number** —
-rendered `—`. Never fabricate an advised price for a flip the advisor did not recommend.
+A lot with no matching pending advice keeps `advisedSellPrice == 0`, and the card falls back to
+`frozenSellPrice` (§3.3). Never fabricate an advised price for a flip the advisor did not
+recommend.
 
 ### 3.3 Display — extend the EXISTING flip card
 
@@ -156,12 +166,23 @@ Issue #225 S3 — "flips not recorded when cash is collected before the last uni
 in this exact code path. If position tracking becomes the source of truth for *what do I still
 hold*, a missed recording silently corrupts it. It is in scope.
 
-`OfferStateRecordingTest` today pins only: cancelled-offers-are-terminal,
-active/empty-never-record, and buy-side-read-from-state. **None** covers the
-collect-before-last-unit case (verified by reading the file, not inferred from its name). This
-needs its own failing test first.
+### ⚠ Corrected 2026-07-25 — S3 IS ALREADY FIXED. Dropped from scope.
 
-Copilot #6 (open since 2026-03-31) is the same bug, unsolved there.
+The claim above is **wrong**, and the error came from reading test method names instead of the
+file. `OfferStateRecordingTest`'s docstring quotes crabthecrabster verbatim — *"usually I
+don't wait till the last item is sold before I grab the cash"* — and exists to pin precisely
+this fix. Commit **`0ba7fca` "plugin: record partial fills on cancelled GE offers (crab's '1
+flip' bug)"** shipped it: `GrandFlipOutPlugin.isTerminalOfferState` (:1907) treats
+`CANCELLED_BUY` / `CANCELLED_SELL` as terminal, and the handler (:495-501) records the
+`deltaQuantity` that actually filled. A partially-sold offer the player collects and cancels
+IS recorded.
+
+**Consequence:** no S3 task in the plan. Nothing to fix.
+
+**Competitive consequence — a second win, not a shared bug.** Copilot #6 ("Flip isn't recorded
+if item sells the same tick offer is posted", open since 2026-03-31) is the same class and is
+still open there. GFO shipped it in `0ba7fca`. Together with #73/S1, GFO has fixed **both**
+flip-workflow bugs Copilot still carries open.
 
 ## 5. Edge cases
 
