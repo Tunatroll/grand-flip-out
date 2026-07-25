@@ -14,52 +14,82 @@ manifest pin and equals local HEAD, so #14269 merged), Java 11, owner fires ever
 > buys something on a recommendation then you need to remember that — people are buying and
 > then the number they should've sold for isn't shown anymore to them."
 
-Grounded confirmation, read this session:
+### ⚠ Corrected 2026-07-25 after deeper grounding — a target-memory ALREADY EXISTS
 
-- `model/Suggestion.java` carries `price` (the BUY price) and `marginPer`. There is **no
-  target sell price field**.
-- `grep Suggestion src/main/java/com/fliphelper/tracker/*.java` returns **nothing**. A
-  recommendation and the flip it produces are entirely unlinked.
-- `FlipItem.sellPrice` is assigned from `trade.getPrice()` (`tracker/FlipTracker.java:224`) —
-  the price you *actually* sold at, recorded after the fact. Not the advised one.
+The first draft of this spec proposed building position memory from scratch. That was wrong
+and would have duplicated a working system. Verified facts:
 
-So the advised sell number lives only in the advisor card's UI state. Advance the card, buy a
-second item, or relog, and it is gone permanently and unrecoverably.
+- **`FlipItem.frozenSellPrice` already exists, is populated, and persists.** Set at
+  `tracker/FlipTracker.java:178` on the buy, carried across the sell at :225.
+- It is **already displayed** — `GrandFlipOutOverlay.java:418-423` renders
+  `"Sell target: X (+drift)"`, and `InventoryTooltipOverlay.java:195` renders `"Frozen sell:
+  X"`.
+- It is **already sent to the server** — `IntelligenceClient.java:784` ships it and derives
+  `hitTarget`.
 
-`cbea103` ("keep the flip card until you place the sell offer", pinned by
-`AdvisorHoldForSellTest`) mitigates exactly one case: a single card, in memory, this session.
-It persists nothing and does not survive a second concurrent position or a relog.
+So the plugin *does* remember a sell target per position. The real defect is two narrower
+things:
+
+**Gap 1 — it remembers the wrong number.** `frozen = agg.getBestHighPrice()`
+(`FlipTracker.java:165-169`) is the **market** high price at buy time, taken from the local
+price cache. It is **not** what the advisor advised. When the advisor's target and raw market
+high differ, the plugin remembers the market number and the advice is lost.
+
+**Gap 2 — the panel never shows it.** `GrandFlipOutPanel.buildFlipCard` computes
+`expectedSell = agg.getBestHighPrice()` — the **live** price at render time — and shows profit
+derived from it. It never renders `frozenSellPrice`. The remembered target is visible only on
+the in-game overlay and the inventory tooltip. A player working in the side panel sees a
+number that silently drifts, which is exactly the reported experience.
+
+Supporting: `model/Suggestion.java` has `price` (BUY) and `marginPer` but **no target-sell
+field**, and `grep Suggestion src/main/java/com/fliphelper/tracker/*.java` returns nothing —
+so nothing links a recommendation to the flip it produced. `cbea103` holds one card in memory
+for one session and persists nothing.
 
 **Competitive note:** Flipping Copilot issue #73 (open since 2026-02-05) is the same class of
 bug. Neither product currently remembers advice across positions.
 
 ## 2. Leverage what already exists — do NOT rebuild
 
+- **`FlipItem.frozenSellPrice`** — the target-memory field, already populated and persisted.
 - **`tracker/FlipTracker.java`** already models `BUYING → BOUGHT → SELLING → COMPLETE`
-  (`model/FlipState.java`) and already persists across sessions behind
-  `config.persistHistory()` → `loadHistory()` / `saveHistory()`.
-- **Local store pattern** for plugin-dir files: `util/BlacklistStore.java`,
-  `util/WatchlistStore.java`.
+  (`model/FlipState.java`) and already persists behind `config.persistHistory()`.
+- **`GrandFlipOutPanel.activeFlipsPanel` + `buildFlipCard`** — the open-positions list already
+  exists in the panel (`:1127-1142`, newest-first, honest empty state "No active flips"). **Do
+  NOT build a second one.**
+- **`GrandFlipOutOverlay:418`** already renders the target with drift; **`InventoryTooltipOverlay:195`**
+  already renders it in-game.
 - **Sell arming** already exists: `armOfferFill` / `injectGeInput` / `fillGe*`, gated by
   `enableGePriceFill` (off by default).
 
-**Implication:** this is *attaching advice to an existing tracked flip and surfacing it* — not
-a new positions subsystem. No new store, no new persistence mechanism.
+**Implication:** v1 is (a) capture the ADVISED number instead of losing it, and (b) render the
+already-remembered target in the panel card. No new section, no new store, no new persistence,
+no new overlay. Estimated ~120 LOC, not the ~380 the first draft assumed.
 
 ## 3. Design
 
 ### 3.1 Data
 
-Extend the tracked flip with advice provenance:
+Add **alongside** `frozenSellPrice`, not replacing it:
 
 | Field | Meaning |
 |---|---|
-| `advisedSellPrice` | the sell price the advisor quoted when this buy was recommended |
-| `advisedMarginPer` | after-tax per-item margin quoted at advice time |
-| `advisedAt` | epoch ms the advice was given |
-| `fromAdvisor` | true only when this lot originated from a recommendation |
+| `advisedSellPrice` | the sell price the advisor quoted when this buy was recommended (0 = none) |
+| `advisedAt` | epoch ms the advice was given (0 = none) |
 
-Rides the existing `saveHistory()` / `loadHistory()` path — survives relog for free.
+**Why not just repurpose `frozenSellPrice`:** it is already shipped to the server and is the
+basis of the `hitTarget` metric (`IntelligenceClient.java:784-786`). Silently changing its
+meaning from "market high at buy time" to "what the advisor advised" would redefine a live
+metric underneath itself — a metric-drift bug, and a second source of truth for a number the
+server already reasons about. Keep `frozenSellPrice` exactly as-is; add the advised number
+beside it.
+
+`fromAdvisor` is not a separate field: `advisedSellPrice > 0` IS the provenance flag, matching
+the codebase's existing `frozenSellPrice > 0` idiom (`Overlay:418`, `Tooltip:193`).
+
+Both ride the existing `saveHistory()` / `loadHistory()` path — Gson leaves them `0` on rows
+from older history files, which is the correct fail-closed default (same convention as
+`liveWitnessed` and `accountId`).
 
 ### 3.2 Capture
 
@@ -80,25 +110,29 @@ price would silently fail to stamp exactly the lots the player most needs rememb
 A lot with no matching pending advice gets `fromAdvisor = false` and **no advised number** —
 rendered `—`. Never fabricate an advised price for a flip the advisor did not recommend.
 
-### 3.3 Display — the actual fix
+### 3.3 Display — extend the EXISTING flip card
 
-A new **Open Positions** section: every lot in `BOUGHT` / `SELLING` with unsold quantity
-remaining, showing per row:
+`GrandFlipOutPanel.buildFlipCard` already renders every open position and already computes a
+live `expectedSell`. Add one line to that card showing the **remembered** target beside the
+live number:
 
 ```
-Magic logs   ×2,400 unsold
-bought 1,024 · advised sell 1,102 (14:32) · now 1,088
+Magic logs   ×2,400 · Bought
+bought 1,024 · now 1,088
+target 1,102 (advised 14:32)          ← new line
 ```
 
-- Independent of whatever card the advisor is currently showing.
-- Persists across relog.
-- Empty when nothing is held — honestly empty, never a placeholder row.
+Target resolution, in order: `advisedSellPrice` when set, else `frozenSellPrice`, else omit the
+line entirely. Never fabricate a target for a flip that has neither.
+
+No new section, no new list, no new empty state — `activeFlipsPanel` already handles all three
+(including "No active flips. Buy something in the GE!").
 
 ### 3.4 Action
 
-One click per row arms the sell fill at the advised price via the existing `armOfferFill`,
-behind the existing `enableGePriceFill` gate. No new injection path; the one-hotkey-one-action
-rule is untouched.
+One click on the card arms the sell fill at the remembered target via the existing
+`armOfferFill`, behind the existing `enableGePriceFill` gate. No new injection path; the
+one-hotkey-one-action rule is untouched.
 
 ### 3.5 Honesty boundary
 
@@ -141,28 +175,22 @@ Copilot #6 (open since 2026-03-31) is the same bug, unsolved there.
 
 ## 6. Testing (TDD — failing test first, every item)
 
-- advice is stamped onto the lot that the recommendation produced
-- a non-advised lot never receives an advised price
-- advice survives a save/load round-trip
-- a partially-sold lot reports the correct remaining quantity
-- two lots of the same item keep distinct advice
+- `advisedSellPrice` is stamped onto the lot the recommendation produced
+- a lot bought without a recommendation keeps `advisedSellPrice == 0` (never fabricated)
+- `frozenSellPrice` is UNCHANGED by this work — still market-high-at-buy, so `hitTarget`
+  semantics on the server do not move (regression guard)
+- advised fields survive a save/load round-trip; absent on legacy rows they read `0`
+- pending advice older than 30 min does not attach to a later buy
+- target resolution prefers advised, falls back to frozen, omits when neither
 - **S3:** a flip is recorded when cash is collected before the last unit sells (red first)
 - dead-pick auto-skip does not fire while a position awaits sale
 
-## 7. Size risk and the split, if needed
+## 7. Size
 
-Rough estimate: data ~20 LOC, capture ~40, Open Positions UI ~120 (Swing), sell arming ~20,
-S3 fix ~30, tests ~150 → **~380 LOC**. That fits under the 500-LOC Hub ceiling, but the Swing
-section is the volatile part and the whole diff counts.
-
-If it overruns, split on this seam (NOT arbitrarily):
-
-- **PR 1 — memory:** data fields + capture + persistence + S3 fix + tests. No new UI; the
-  advice is stamped and durable but not yet displayed.
-- **PR 2 — surface:** the Open Positions section + one-click sell arming.
-
-PR 1 alone is defensible on its own: it stops the data loss. PR 2 alone is not — it would have
-nothing to show. Ship in that order if a split is forced.
+Revised after the corrected grounding: 2 fields ~10 LOC, capture ~35, one card line ~20,
+sell arming ~15, S3 fix ~30, tests ~120 → **~230 LOC**, comfortably under the 500-LOC ceiling.
+No split needed. (The first draft estimated ~380 because it assumed a new Open Positions
+section that turned out already to exist.)
 
 ## 8. Out of scope (v1)
 
