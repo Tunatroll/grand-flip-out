@@ -413,7 +413,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
         JLabel msg = new JLabel("<html><div style='width:170px'><b>" + membersHidden
             + " members items hidden.</b><br>Create a free account to unlock all "
-            + "members flips and premium features.</div></html>");
+            + "members items and every flip suggestion.</div></html>");
         msg.setForeground(TEXT_DIM);
         msg.setFont(UiText.font(msg.getFont(), 12f));
         cta.add(msg, BorderLayout.CENTER);
@@ -2704,8 +2704,8 @@ public class GrandFlipOutPanel extends PluginPanel
 
         if (!isUnlocked())
         {
-            JLabel msg = new JLabel("<html><div style='width:170px'><b>Server intelligence is a "
-                + "premium feature.</b><br>Create a free Grand Flip Out account to unlock VPIN "
+            JLabel msg = new JLabel("<html><div style='width:170px'><b>Server intelligence needs a "
+                + "free account.</b><br>Create a free Grand Flip Out account to unlock VPIN "
                 + "alerts, screener signals, dump predictions, and the portfolio optimizer.</div></html>");
             msg.setForeground(TEXT_DIM);
             msg.setBorder(new EmptyBorder(16, 8, 12, 8));
