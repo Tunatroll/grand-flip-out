@@ -2704,9 +2704,15 @@ public class GrandFlipOutPanel extends PluginPanel
 
         if (!isUnlocked())
         {
+            // The enumeration must match what a FREE account actually gets. Verified live
+            // 2026-07-26: /api/intelligence/{vpin,screener,next-dumps} answer 200 to an
+            // anonymous caller; /optimize returns 403 "PRO required" and require-pro.js
+            // gates on getTier()=='PRO', so a FREE key is refused too. Naming the optimizer
+            // here promised a PRO feature for free — the revenue-leak inverted.
             JLabel msg = new JLabel("<html><div style='width:170px'><b>Server intelligence needs a "
                 + "free account.</b><br>Create a free Grand Flip Out account to unlock VPIN "
-                + "alerts, screener signals, dump predictions, and the portfolio optimizer.</div></html>");
+                + "alerts, screener signals and dump predictions. The portfolio optimizer is Pro."
+                + "</div></html>");
             msg.setForeground(TEXT_DIM);
             msg.setBorder(new EmptyBorder(16, 8, 12, 8));
             msg.setAlignmentX(Component.LEFT_ALIGNMENT);
