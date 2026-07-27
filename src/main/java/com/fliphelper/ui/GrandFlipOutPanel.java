@@ -151,16 +151,50 @@ public class GrandFlipOutPanel extends PluginPanel
     // Intelligence signal cache (itemId -> advisor result, TTL 60s)
     private final java.util.concurrent.ConcurrentHashMap<Integer, CachedAdvisor> advisorCache = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /**
+     * itemIds with an advisor fetch already in flight.
+     *
+     * The fetch below is issued from per-card rendering, so one render pass over N cards
+     * issued N requests and OVERLAPPING passes re-issued them: a single client was observed
+     * live firing ~35 GET /api/intelligence/smart-advisor in 0.8s (Railway http logs,
+     * 2026-07-27). Nothing deduplicated them, because a cache MISS is not a record that a
+     * fetch is already running. `add()` is the atomic claim — it returns false when another
+     * thread already owns this itemId, and that thread's result populates the cache for both.
+     */
+    private final java.util.Set<Integer> advisorInFlight = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     private static final class CachedAdvisor {
+        /** A good result holds for a minute; a FAILURE backs off longer than it. */
+        private static final long OK_TTL_MS = 60_000L;
+        private static final long FAIL_TTL_MS = 300_000L;
+
         final String action;
         final int strength;
         final long fetchedAt;
+        /**
+         * True for a negative entry. Failures used to cache NOTHING (`catch (Exception
+         * ignored) {}`), so a persistently failing item — a 403, a network blip, a bad id —
+         * was re-requested on EVERY subsequent render, forever, with no backoff and no
+         * ceiling. Caching the failure is what bounds it; the render path skips the badge.
+         */
+        final boolean failed;
+
         CachedAdvisor(String action, int strength) {
+            this(action, strength, false);
+        }
+
+        private CachedAdvisor(String action, int strength, boolean failed) {
             this.action = action;
             this.strength = strength;
             this.fetchedAt = System.currentTimeMillis();
+            this.failed = failed;
         }
-        boolean isStale() { return System.currentTimeMillis() - fetchedAt > 60_000; }
+
+        static CachedAdvisor failure() { return new CachedAdvisor(null, 0, true); }
+
+        boolean isStale() {
+            return System.currentTimeMillis() - fetchedAt > (failed ? FAIL_TTL_MS : OK_TTL_MS);
+        }
     }
 
     public GrandFlipOutPanel(GrandFlipOutConfig config, PriceService priceService,
@@ -2361,21 +2395,36 @@ public class GrandFlipOutPanel extends PluginPanel
             CachedAdvisor cached = advisorCache.get(itemId);
             if (cached != null && !cached.isStale())
             {
-                JLabel sigBadge = new JLabel(" " + cached.action + " ");
-                sigBadge.setForeground(Color.WHITE);
-                sigBadge.setOpaque(true);
-                sigBadge.setBackground(cached.action.equals("BUY") ? GfoPalette.UP
-                    : cached.action.equals("SELL") ? GfoPalette.DOWN : GfoPalette.TEXT_DIM);
-                sigBadge.setFont(UiText.caption(sigBadge.getFont(), Font.BOLD));
-                badges.add(sigBadge);
+                // A fresh NEGATIVE entry renders no badge and, crucially, triggers no refetch —
+                // that is what bounds a persistently failing item.
+                if (!cached.failed)
+                {
+                    JLabel sigBadge = new JLabel(" " + cached.action + " ");
+                    sigBadge.setForeground(Color.WHITE);
+                    sigBadge.setOpaque(true);
+                    sigBadge.setBackground(cached.action.equals("BUY") ? GfoPalette.UP
+                        : cached.action.equals("SELL") ? GfoPalette.DOWN : GfoPalette.TEXT_DIM);
+                    sigBadge.setFont(UiText.caption(sigBadge.getFont(), Font.BOLD));
+                    badges.add(sigBadge);
+                }
             }
-            else if (executor != null && intelligenceClient != null)
+            // Claim the itemId BEFORE dispatching. add() returns false when a fetch is already
+            // in flight for it, which is what collapses a render pass over N cards (and any
+            // overlapping pass) into one request per item instead of one per rendered card.
+            else if (executor != null && intelligenceClient != null && advisorInFlight.add(itemId))
             {
                 executor.execute(() -> {
                     try {
                         var result = intelligenceClient.fetchSmartAdvisor(itemId);
                         advisorCache.put(itemId, new CachedAdvisor(result.getAction(), result.getSignalStrength()));
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        // Cache the failure so it backs off instead of re-firing every repaint.
+                        advisorCache.put(itemId, CachedAdvisor.failure());
+                    } finally {
+                        // finally, not the try tail: an early return or an unchecked throw would
+                        // otherwise strand the claim and block this itemId for the whole session.
+                        advisorInFlight.remove(itemId);
+                    }
                 });
             }
         }
