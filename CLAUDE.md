@@ -20,6 +20,13 @@ The manifest lives in the plugin-hub FORK (`../plugin-hub`), not here. One PR in
    `repository=https://github.com/Tunatroll/grand-flip-out.git` and `commit=<full sha>` — on the
    current working branch, commit message `grand-flip-out: update to <sha7>`.
 3. Push the fork branch; an open PR's head auto-updates and CI re-runs.
+4. **If NO PR is open** (step 3 assumes one is — check with
+   `env -u GH_TOKEN gh pr list -R runelite/plugin-hub --author Tunatroll --state open`), branch the
+   fork from `upstream/master`, commit the 1-line pin bump, push, and open the PR with the KEYRING
+   token — it CAN create cross-owner PRs:
+   `env -u GH_TOKEN gh pr create -R runelite/plugin-hub --base master --head Tunatroll:<branch> --title "grand-flip-out: update to <sha7>" --body-file <f>`
+   (verified 2026-07-27 → runelite/plugin-hub#14388). The fine-grained PAT cannot, which is why the
+   monorepo `src/CLAUDE.md` used to claim no token could — corrected there the same day.
 
 - **Read the live pin before assuming anything:**
   `git -C ../plugin-hub show upstream/master:plugins/grand-flip-out`. A memorised pin is always stale.
