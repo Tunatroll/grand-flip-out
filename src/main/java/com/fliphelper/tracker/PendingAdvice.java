@@ -7,8 +7,8 @@
  */
 package com.fliphelper.tracker;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Advice waiting to be attached to the buy it produced (#249).
@@ -28,7 +28,10 @@ public class PendingAdvice
     /** Advice older than this never attaches — long enough to place an offer, short enough not to drift. */
     private static final long TTL_MS = 30 * 60_000L;
 
-    private final Map<Integer, long[]> pending = new HashMap<>();
+    // ConcurrentHashMap: record() runs on the EDT (the advisor's Fill-offer click) while
+    // claim() runs on the client thread (recordTransaction from the GE offer event) — a
+    // plain HashMap crossed by two threads can corrupt or lose an entry.
+    private final Map<Integer, long[]> pending = new ConcurrentHashMap<>();
 
     /**
      * Remember that {@code sellPrice} was advised for {@code itemId} at {@code nowMs}.

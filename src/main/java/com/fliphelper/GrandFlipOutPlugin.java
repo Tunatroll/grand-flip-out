@@ -1292,8 +1292,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      * Arm the advisor's suggested price + quantity so they auto-fill when the player
      * opens the GE offer's price / quantity field (the script handler routes each value
      * to the right field by the input title). The player still places + confirms.
+     * Returns whether the fill actually ARMED (false = the auto-fill setting is off).
      */
-    /** Returns whether the fill actually ARMED (false = the auto-fill setting is off). */
     private boolean armOfferFill(int itemId, long price, int quantity)
     {
         if (!config.enableGePriceFill())
