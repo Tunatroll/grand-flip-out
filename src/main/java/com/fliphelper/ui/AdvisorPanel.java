@@ -45,14 +45,32 @@ public class AdvisorPanel extends JPanel
 
         void onPauseToggled(boolean paused);
 
-        /** Arm the GE price/quantity auto-fill for the suggested flip (user opens the offer to apply). */
-        void onFillOffer(int itemId, long price, int quantity);
+        /**
+         * Arm the GE price/quantity auto-fill for the suggested flip (user opens the offer to
+         * apply). Returns whether the fill actually ARMED — false when the auto-fill setting is
+         * off — so the clicked button can show truthful feedback (#225 S4: "I don't know if
+         * it's worked").
+         */
+        boolean onFillOffer(int itemId, long price, int quantity);
 
         /** #215: a band/fast-fill chip changed — refetch the suggestion under the new filters. */
         void onFiltersChanged();
 
         /** Player finished with the held card ("Next flip") — drop the hold and advance. */
         void onNextFlip();
+    }
+
+    /**
+     * Label for the Fill-offer button AFTER a click, by whether the fill actually armed.
+     * The armed copy is the panel-side feedback kahubu asked for (#225 S4) — the game-chat
+     * line alone went unseen ("I don't know if it's worked"). When the auto-fill setting is
+     * off nothing armed, so the label must not claim otherwise; the chat line names the
+     * setting to enable. The button is rebuilt fresh on every card render, so the armed
+     * label naturally reverts with the next suggestion.
+     */
+    public static String fillButtonFeedback(boolean armed)
+    {
+        return armed ? "Armed ✓ — open the GE offer" : "Fill offer";
     }
 
     // GFO pastel brand via GfoPalette (OSRS-gold locals retired 2026-07-10)
@@ -519,7 +537,13 @@ public class AdvisorPanel extends JPanel
         fill.setFont(UiText.font(fill.getFont(), 12f));
         fill.setFocusPainted(false);
         fill.setToolTipText("Auto-fill this price & quantity into the GE offer — open the offer to apply, you press Confirm");
-        fill.addActionListener(e -> listener.onFillOffer(s.getItemId(), s.getPrice(), s.getQuantity()));
+        fill.addActionListener(e ->
+        {
+            // #225 S4: feedback lives on the button the player clicked, not just game chat.
+            boolean armed = listener.onFillOffer(s.getItemId(), s.getPrice(), s.getQuantity());
+            fill.setText(fillButtonFeedback(armed));
+            fill.setEnabled(!armed);
+        });
         buttons.add(fill);
 
         JButton skip = new JButton("Skip");
@@ -942,7 +966,13 @@ public class AdvisorPanel extends JPanel
         fill.setFont(UiText.font(fill.getFont(), 11f));
         fill.setFocusPainted(false);
         fill.setToolTipText("Auto-fill this price & quantity into the GE offer — open the offer to apply, you press Confirm");
-        fill.addActionListener(e -> listener.onFillOffer(s.getItemId(), s.getPrice(), s.getQuantity()));
+        fill.addActionListener(e ->
+        {
+            // #225 S4: feedback lives on the button the player clicked, not just game chat.
+            boolean armed = listener.onFillOffer(s.getItemId(), s.getPrice(), s.getQuantity());
+            fill.setText(fillButtonFeedback(armed));
+            fill.setEnabled(!armed);
+        });
         buttons.add(fill);
         JButton skip = new JButton("Skip");
         skip.setFont(UiText.font(skip.getFont(), 11f));

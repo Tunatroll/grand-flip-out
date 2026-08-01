@@ -207,7 +207,7 @@ public class ReadabilityTest
                 public void onSkip(int id) { }
                 public void onBlock(int id) { }
                 public void onPauseToggled(boolean p) { }
-                public void onFillOffer(int id, long price, int quantity) { }
+                public boolean onFillOffer(int id, long price, int quantity) { return true; }
                 public void onFiltersChanged() { }
                 public void onNextFlip() { }
             });

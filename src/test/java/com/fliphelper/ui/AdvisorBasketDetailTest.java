@@ -55,9 +55,10 @@ public class AdvisorBasketDetailTest
         {
         }
 
-        @Override public void onFillOffer(int itemId, long price, int quantity)
+        @Override public boolean onFillOffer(int itemId, long price, int quantity)
         {
             filled = itemId;
+            return true;
         }
 
         @Override public void onFiltersChanged()

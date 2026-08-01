@@ -168,7 +168,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     // price could fire into a numeric prompt MINUTES later — and script 108 is the
     // generic numeric-input script (bank Withdraw-X, trades...), so fills are also
     // gated on the GE window actually being open (see geFillAllowed()).
-    private static final long GE_FILL_ARM_TTL_MS = 90_000;
+    static final long GE_FILL_ARM_TTL_MS = 90_000;
     private volatile long geFillArmedAtMs = -1;
 
     // Refreshed every game tick on the client thread; read from keyPressed (AWT thread) to gate
@@ -325,10 +325,20 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             // #249: remember what we ADVISED before the buy lands, so FlipTracker can stamp it
             // onto the resulting lot. Without this the advised sell dies with the card and the
             // player has to memorise it before collecting.
-            @Override public void onFillOffer(int itemId, long price, int quantity)
+            @Override public boolean onFillOffer(int itemId, long price, int quantity)
             {
                 flipTracker.recordAdvice(itemId, currentAdvisedSell(itemId));
-                armOfferFill(itemId, price, quantity);
+                boolean armed = armOfferFill(itemId, price, quantity);
+                // #225 S4 "it changes mid putting all the prices in": arming pins the card so
+                // another slot's offer event can't swap it while the player enters the offer.
+                // Same hold as held-for-sell, but TTL-bounded (armHoldExpired) so an abandoned
+                // arm can never strand the advisor; a terminal BUY upgrades it to unbounded.
+                if (armed)
+                {
+                    advisorHeldItemId = itemId;
+                    advisorHoldFromArmAtMs = System.currentTimeMillis();
+                }
+                return armed;
             }
             @Override public void onFiltersChanged() { lastSuggestAt = 0; requestSuggestion(); }
             @Override public void onNextFlip() { releaseAdvisorHold(); }
@@ -592,18 +602,30 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // when the player just collected a completed buy: that card carries the sell price they
         // have not used yet, and replacing it forced them to memorise the numbers before
         // collecting (crab, #support 2026-07-22). Hold it until the sell offer exists.
+        // An abandoned arm-hold (#225 S4) lapses on the fill-arm TTL before it can gate anything.
+        if (advisorHeldItemId >= 0 && armHoldExpired(advisorHoldFromArmAtMs, System.currentTimeMillis()))
+        {
+            advisorHeldItemId = -1;
+            advisorHoldFromArmAtMs = -1;
+        }
+
         if (releasesAdvisorHold(state))
         {
             advisorHeldItemId = -1;
+            advisorHoldFromArmAtMs = -1;
         }
         else if (shouldHoldAdvisorForSell(state, config.advisorHoldForSell()))
         {
             advisorHeldItemId = itemId;
+            // Terminal BUY upgrades an arm-sourced hold to the unbounded held-for-sell state.
+            advisorHoldFromArmAtMs = -1;
         }
 
         if (advisorHeldItemId >= 0)
         {
-            if (advisorPanel != null)
+            // The held-for-sell message only fits the post-buy state; an arm-sourced hold
+            // (#225 S4) keeps the card exactly as the player sees it while they fill.
+            if (advisorHoldFromArmAtMs <= 0 && advisorPanel != null)
             {
                 javax.swing.SwingUtilities.invokeLater(advisorPanel::showHeldForSell);
             }
@@ -621,10 +643,28 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      */
     private volatile int advisorHeldItemId = -1;
 
+    /**
+     * When > 0, the current hold came from ARMING a Fill offer (#225 S4) at this timestamp and
+     * lapses after {@link #GE_FILL_ARM_TTL_MS} ({@link #armHoldExpired}) so an abandoned arm can
+     * never strand the advisor. -1 = the hold (if any) is the unbounded held-for-sell state.
+     * A terminal BUY upgrades an arm-hold to unbounded by resetting this to -1.
+     */
+    private volatile long advisorHoldFromArmAtMs = -1;
+
+    /**
+     * True when an ARM-sourced hold has outlived the fill-arm TTL. {@code armFromMs <= 0} marks
+     * a hold that did not come from an arm (held-for-sell) — that one never lapses on time.
+     */
+    static boolean armHoldExpired(long armFromMs, long nowMs)
+    {
+        return armFromMs > 0 && nowMs - armFromMs > GE_FILL_ARM_TTL_MS;
+    }
+
     /** Player pressed "Next flip" (or an explicit refresh) — drop the hold and advance. */
     void releaseAdvisorHold()
     {
         advisorHeldItemId = -1;
+        advisorHoldFromArmAtMs = -1;
         lastSuggestAt = 0;
         requestSuggestion();
     }
@@ -1253,7 +1293,8 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      * opens the GE offer's price / quantity field (the script handler routes each value
      * to the right field by the input title). The player still places + confirms.
      */
-    private void armOfferFill(int itemId, long price, int quantity)
+    /** Returns whether the fill actually ARMED (false = the auto-fill setting is off). */
+    private boolean armOfferFill(int itemId, long price, int quantity)
     {
         if (!config.enableGePriceFill())
         {
@@ -1265,7 +1306,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 "",
                 armChatMessage(formatGp(price), quantity, false),
                 null));
-            return;
+            return false;
         }
         // Item-search auto-fill removed (see onScriptPostFired) — arm price/quantity only.
         pendingGePrice = price > 0 ? price : -1;
@@ -1276,6 +1317,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
             "",
             armChatMessage(formatGp(price), quantity, true),
             null));
+        return true;
     }
 
 

@@ -33,7 +33,7 @@ public class FirstRunSetupTest
 		@Override public void onSkip(int itemId) { }
 		@Override public void onBlock(int itemId) { }
 		@Override public void onPauseToggled(boolean paused) { }
-		@Override public void onFillOffer(int itemId, long price, int quantity) { }
+		@Override public boolean onFillOffer(int itemId, long price, int quantity) { return true; }
 		@Override public void onFiltersChanged() { }
 		@Override public void onNextFlip() { }
 	};
