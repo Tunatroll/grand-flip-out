@@ -624,12 +624,6 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
     }
 
     /**
-     * Item whose advisor card is pinned while the player still has to place its sell offer, or -1
-     * when nothing is held. Cleared by the sell offer appearing, by "Next flip", or by the config
-     * opt-out. Guarded so a held card can never strand the advisor: any advisor refresh path that
-     * the player drives directly ({@link #releaseAdvisorHold}) clears it first.
-     */
-    /**
      * Immutable advisor-hold state (review follow-up R1): the old (itemId, armAtMs) volatile
      * PAIR was written non-atomically, so an offer event between the two writes could read a
      * half-set hold. One immutable value behind an {@link java.util.concurrent.atomic.AtomicReference}

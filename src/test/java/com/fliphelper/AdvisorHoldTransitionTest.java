@@ -65,6 +65,8 @@ public class AdvisorHoldTransitionTest
 		GrandFlipOutPlugin.AdvisorHold held = new GrandFlipOutPlugin.AdvisorHold(4151, -1L);
 		assertFalse(GrandFlipOutPlugin.nextAdvisorHold(
 			held, GrandExchangeOfferState.SELLING, true, 4151, NOW).active());
+		assertFalse(GrandFlipOutPlugin.nextAdvisorHold(
+			held, GrandExchangeOfferState.SOLD, true, 4151, NOW).active());
 		GrandFlipOutPlugin.AdvisorHold armed = new GrandFlipOutPlugin.AdvisorHold(4151, NOW);
 		assertFalse(GrandFlipOutPlugin.nextAdvisorHold(
 			armed, GrandExchangeOfferState.CANCELLED_SELL, true, 4151, NOW).active());
