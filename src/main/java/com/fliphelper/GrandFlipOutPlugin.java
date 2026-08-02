@@ -335,8 +335,7 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 // arm can never strand the advisor; a terminal BUY upgrades it to unbounded.
                 if (armed)
                 {
-                    advisorHeldItemId = itemId;
-                    advisorHoldFromArmAtMs = System.currentTimeMillis();
+                    advisorHold.set(new AdvisorHold(itemId, System.currentTimeMillis()));
                 }
                 return armed;
             }
@@ -602,30 +601,19 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         // when the player just collected a completed buy: that card carries the sell price they
         // have not used yet, and replacing it forced them to memorise the numbers before
         // collecting (crab, #support 2026-07-22). Hold it until the sell offer exists.
-        // An abandoned arm-hold (#225 S4) lapses on the fill-arm TTL before it can gate anything.
-        if (advisorHeldItemId >= 0 && armHoldExpired(advisorHoldFromArmAtMs, System.currentTimeMillis()))
-        {
-            advisorHeldItemId = -1;
-            advisorHoldFromArmAtMs = -1;
-        }
+        // The whole hold lifecycle in one ATOMIC step (R1): expiry, release, and the
+        // terminal-BUY upgrade are the pure transition; updateAndGet applies it without
+        // torn reads or losing a concurrent arm-click from the EDT.
+        final boolean holdEnabled = config.advisorHoldForSell();
+        final long nowMs = System.currentTimeMillis();
+        AdvisorHold held = advisorHold.updateAndGet(
+            h -> nextAdvisorHold(h, state, holdEnabled, itemId, nowMs));
 
-        if (releasesAdvisorHold(state))
-        {
-            advisorHeldItemId = -1;
-            advisorHoldFromArmAtMs = -1;
-        }
-        else if (shouldHoldAdvisorForSell(state, config.advisorHoldForSell()))
-        {
-            advisorHeldItemId = itemId;
-            // Terminal BUY upgrades an arm-sourced hold to the unbounded held-for-sell state.
-            advisorHoldFromArmAtMs = -1;
-        }
-
-        if (advisorHeldItemId >= 0)
+        if (held.active())
         {
             // The held-for-sell message only fits the post-buy state; an arm-sourced hold
             // (#225 S4) keeps the card exactly as the player sees it while they fill.
-            if (advisorHoldFromArmAtMs <= 0 && advisorPanel != null)
+            if (!held.fromArm() && advisorPanel != null)
             {
                 javax.swing.SwingUtilities.invokeLater(advisorPanel::showHeldForSell);
             }
@@ -641,15 +629,39 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
      * opt-out. Guarded so a held card can never strand the advisor: any advisor refresh path that
      * the player drives directly ({@link #releaseAdvisorHold}) clears it first.
      */
-    private volatile int advisorHeldItemId = -1;
-
     /**
-     * When > 0, the current hold came from ARMING a Fill offer (#225 S4) at this timestamp and
-     * lapses after {@link #GE_FILL_ARM_TTL_MS} ({@link #armHoldExpired}) so an abandoned arm can
-     * never strand the advisor. -1 = the hold (if any) is the unbounded held-for-sell state.
-     * A terminal BUY upgrades an arm-hold to unbounded by resetting this to -1.
+     * Immutable advisor-hold state (review follow-up R1): the old (itemId, armAtMs) volatile
+     * PAIR was written non-atomically, so an offer event between the two writes could read a
+     * half-set hold. One immutable value behind an {@link java.util.concurrent.atomic.AtomicReference}
+     * + the pure {@link #nextAdvisorHold} transition applied via updateAndGet = no torn reads,
+     * no lost arm-click. {@code armAtMs > 0} = arm-sourced (#225 S4, lapses on the fill-arm
+     * TTL); {@code <= 0} = the unbounded held-for-sell state (crab's S1 fix).
      */
-    private volatile long advisorHoldFromArmAtMs = -1;
+    static final class AdvisorHold
+    {
+        static final AdvisorHold NONE = new AdvisorHold(-1, -1L);
+        final int itemId;
+        final long armAtMs;
+
+        AdvisorHold(int itemId, long armAtMs)
+        {
+            this.itemId = itemId;
+            this.armAtMs = armAtMs;
+        }
+
+        boolean active()
+        {
+            return itemId >= 0;
+        }
+
+        boolean fromArm()
+        {
+            return armAtMs > 0;
+        }
+    }
+
+    private final java.util.concurrent.atomic.AtomicReference<AdvisorHold> advisorHold =
+        new java.util.concurrent.atomic.AtomicReference<>(AdvisorHold.NONE);
 
     /**
      * True when an ARM-sourced hold has outlived the fill-arm TTL. {@code armFromMs <= 0} marks
@@ -660,11 +672,33 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         return armFromMs > 0 && nowMs - armFromMs > GE_FILL_ARM_TTL_MS;
     }
 
+    /**
+     * The whole hold lifecycle as one pure transition — the offer-event handler applies it
+     * atomically. Order matters: an expired arm-hold lapses first (an abandoned arm must not
+     * strand the advisor), a sell-side state releases everything, a terminal BUY (config
+     * permitting) upgrades to the unbounded held-for-sell state, anything else keeps the
+     * current hold.
+     */
+    static AdvisorHold nextAdvisorHold(AdvisorHold current, net.runelite.api.GrandExchangeOfferState state,
+        boolean holdForSellEnabled, int itemId, long nowMs)
+    {
+        AdvisorHold h = (current.active() && armHoldExpired(current.armAtMs, nowMs))
+            ? AdvisorHold.NONE : current;
+        if (releasesAdvisorHold(state))
+        {
+            return AdvisorHold.NONE;
+        }
+        if (shouldHoldAdvisorForSell(state, holdForSellEnabled))
+        {
+            return new AdvisorHold(itemId, -1L);
+        }
+        return h;
+    }
+
     /** Player pressed "Next flip" (or an explicit refresh) — drop the hold and advance. */
     void releaseAdvisorHold()
     {
-        advisorHeldItemId = -1;
-        advisorHoldFromArmAtMs = -1;
+        advisorHold.set(AdvisorHold.NONE);
         lastSuggestAt = 0;
         requestSuggestion();
     }
