@@ -173,7 +173,8 @@ public class AdvisorBasketDetailTest
             assertEquals("exactly one expanded card", 1, countButtons(panel, "Fill offer"));
             assertEquals(1, countButtons(panel, "Skip"));
             assertEquals(1, countButtons(panel, "Block"));
-            assertTrue("fill estimate rendered", hasLabelContaining(panel, "~35 min"));
+            // #269: the estimate is a measured-optimistic FLOOR — the label must carry the "+".
+            assertTrue("fill estimate rendered as an honest floor", hasLabelContaining(panel, "~35 min+"));
             assertTrue("band style rendered", hasLabelContaining(panel, "Volume play"));
         });
     }

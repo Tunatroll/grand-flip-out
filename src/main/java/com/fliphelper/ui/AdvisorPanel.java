@@ -1041,10 +1041,14 @@ public class AdvisorPanel extends JPanel
         return p;
     }
 
-    /** "~35 min" under 90 minutes, "~2.1 h" above — the acquire-time estimate. */
+    /**
+     * "~35 min+" under 90 minutes, "~2.1 h+" above — the acquire-time FLOOR. The server's
+     * estimate measured systematically optimistic in every band (#269), so the label reads
+     * "at least", never a promise.
+     */
     private static String fillTime(int minutes)
     {
-        return minutes >= 90 ? String.format("~%.1f h", minutes / 60.0) : "~" + minutes + " min";
+        return minutes >= 90 ? String.format("~%.1f h+", minutes / 60.0) : "~" + minutes + " min+";
     }
 
     /**
