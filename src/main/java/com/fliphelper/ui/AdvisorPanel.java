@@ -394,9 +394,38 @@ public class AdvisorPanel extends JPanel
      */
     public void showHeldForSell()
     {
+        showHoldBanner("sell", "<html><div style='width:200px'>Bought &mdash; place your sell "
+            + "offer using the numbers above. This stays until you do.</div></html>",
+            "Skip ahead to the next suggestion without placing this sell offer");
+    }
+
+    /**
+     * #support 2026-08-03 (kahubu): "I filled the order but now you need a way to go to the
+     * next suggestion, it's stuck on this order until you click the 'All' or 'Volume' etc."
+     * The ARMED state (Fill Order pressed, offer working) pinned the card with no escape —
+     * "Next flip" existed only on the collected-buy banner. Same banner mechanics, armed copy.
+     */
+    public void showArmedHold()
+    {
+        showHoldBanner("armed", "<html><div style='width:200px'>Offer armed &mdash; this card "
+            + "stays put while you fill it. Done or moved on?</div></html>",
+            "Skip ahead to the next suggestion");
+    }
+
+    /**
+     * One pinned-card banner: idempotent per kind (repeated offer ticks re-use it), and a
+     * DIFFERENT kind replaces the old copy — the held-for-sell upgrade must not leave the
+     * armed hint lying about the offer's state.
+     */
+    private void showHoldBanner(String kind, String hintHtml, String nextTooltip)
+    {
         if (holdBanner != null && holdBanner.getParent() == content)
         {
-            return;
+            if (kind.equals(holdBannerKind))
+            {
+                return;
+            }
+            content.remove(holdBanner);
         }
         JPanel banner = new JPanel();
         banner.setLayout(new BoxLayout(banner, BoxLayout.Y_AXIS));
@@ -404,8 +433,7 @@ public class AdvisorPanel extends JPanel
         banner.setAlignmentX(Component.LEFT_ALIGNMENT);
         banner.setBorder(new EmptyBorder(8, 4, 4, 4));
 
-        JLabel hint = new JLabel("<html><div style='width:200px'>Bought &mdash; place your sell "
-            + "offer using the numbers above. This stays until you do.</div></html>");
+        JLabel hint = new JLabel(hintHtml);
         hint.setForeground(DIM);
         hint.setAlignmentX(Component.LEFT_ALIGNMENT);
         banner.add(hint);
@@ -414,12 +442,13 @@ public class AdvisorPanel extends JPanel
         next.setFont(UiText.font(next.getFont(), 12f));
         next.setFocusPainted(false);
         next.setAlignmentX(Component.LEFT_ALIGNMENT);
-        next.setToolTipText("Skip ahead to the next suggestion without placing this sell offer");
+        next.setToolTipText(nextTooltip);
         next.addActionListener(e -> listener.onNextFlip());
         banner.add(Box.createVerticalStrut(4));
         banner.add(next);
 
         holdBanner = banner;
+        holdBannerKind = kind;
         content.add(banner);
         content.revalidate();
         content.repaint();
@@ -427,6 +456,7 @@ public class AdvisorPanel extends JPanel
 
     /** The pinned-card banner, so repeated ticks re-use it rather than stacking copies. */
     private JPanel holdBanner;
+    private String holdBannerKind;
 
     /** Render one suggestion card. */
     public void showSuggestion(Suggestion s)

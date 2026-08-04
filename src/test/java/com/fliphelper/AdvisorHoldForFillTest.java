@@ -73,4 +73,32 @@ public class AdvisorHoldForFillTest
 		// names the setting to enable).
 		assertEquals("Fill offer", com.fliphelper.ui.AdvisorPanel.fillButtonFeedback(false));
 	}
+
+	/**
+	 * kahubu (#support, 2026-08-03): "I filled the order but now you need a way to go to the
+	 * next suggestion, it's stuck on this order until you click the 'All' or 'Volume' etc."
+	 * Expiry was only EVALUATED inside the offer-event handler, and no offer event fires
+	 * between placing a buy and its first fill — so past the arm TTL the card sat stale with
+	 * no advance affordance. The game tick now releases an EXPIRED arm-hold (which refetches);
+	 * the held-for-sell state stays untouchable by ticks (it is unbounded by design, S1).
+	 */
+	@Test
+	public void aTickReleasesOnlyAnExpiredArmSourcedHold()
+	{
+		long armedAt = 1_000_000L;
+		GrandFlipOutPlugin.AdvisorHold armed = new GrandFlipOutPlugin.AdvisorHold(4151, armedAt);
+		GrandFlipOutPlugin.AdvisorHold heldForSell = new GrandFlipOutPlugin.AdvisorHold(4151, -1L);
+
+		// Fresh arm: the mid-entry pin (S4) must survive the tick.
+		assertFalse(GrandFlipOutPlugin.shouldTickReleaseArmHold(armed, armedAt + 1_000));
+		// Past the TTL: release, so the advisor advances without a tab-click escape hatch.
+		assertTrue(GrandFlipOutPlugin.shouldTickReleaseArmHold(armed,
+			armedAt + GrandFlipOutPlugin.GE_FILL_ARM_TTL_MS + 1));
+		// Held-for-sell is unbounded (S1) — a tick must never release it.
+		assertFalse(GrandFlipOutPlugin.shouldTickReleaseArmHold(heldForSell,
+			armedAt + GrandFlipOutPlugin.GE_FILL_ARM_TTL_MS + 1));
+		// No hold: nothing to do.
+		assertFalse(GrandFlipOutPlugin.shouldTickReleaseArmHold(
+			GrandFlipOutPlugin.AdvisorHold.NONE, armedAt));
+	}
 }

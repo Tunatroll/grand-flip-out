@@ -336,6 +336,9 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
                 if (armed)
                 {
                     advisorHold.set(new AdvisorHold(itemId, System.currentTimeMillis()));
+                    // #support 2026-08-03: the pinned card needs its escape hatch NOW, not
+                    // only after the buy completes — the armed banner carries "Next flip".
+                    advisorPanel.showArmedHold();
                 }
                 return armed;
             }
@@ -1242,6 +1245,22 @@ public class GrandFlipOutPlugin extends Plugin implements KeyListener
         String prompt = (inputTitle != null && inputTitle.getText() != null)
             ? inputTitle.getText().toLowerCase() : "";
         geNumericInputOpen = geOpen && isGeNumericPrompt(prompt);
+
+        // #support 2026-08-03 (kahubu): expiry was only evaluated inside the offer-event
+        // handler, and NO offer event fires between placing a buy and its first fill — so past
+        // the arm TTL the card sat stale ("stuck on this order until you click the 'All' or
+        // 'Volume' etc"). The tick releases an expired arm-hold, which refetches; held-for-sell
+        // (armAtMs <= 0) is unbounded by design and never tick-released.
+        if (shouldTickReleaseArmHold(advisorHold.get(), System.currentTimeMillis()))
+        {
+            releaseAdvisorHold();
+        }
+    }
+
+    /** Tick-side release rule for an EXPIRED arm-sourced hold — see onGameTick. */
+    static boolean shouldTickReleaseArmHold(AdvisorHold h, long nowMs)
+    {
+        return h.active() && h.fromArm() && armHoldExpired(h.armAtMs, nowMs);
     }
 
     /** An armed GE fill may fire only while the GE window is open and the arm is fresh. */
