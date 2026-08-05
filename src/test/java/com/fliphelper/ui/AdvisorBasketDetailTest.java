@@ -252,4 +252,38 @@ public class AdvisorBasketDetailTest
             assertEquals(1, countButtons(panel, "Fill offer"));
         });
     }
+
+    /**
+     * fillTime's >= 90-minute branch renders the compact hour form WITH the #269 floor
+     * marker — only the "~35 min+" branch was pinned before (review nit on the
+     * 5af290e..a07015c batch). 126 min = "~2.1 h+".
+     */
+    @Test
+    public void hourRangeFillEstimateCarriesTheFloorMarker() throws Exception
+    {
+        SwingUtilities.invokeAndWait(() ->
+        {
+            AdvisorPanel panel = new AdvisorPanel(new RecordingListener());
+            Suggestion slow = Suggestion.builder()
+                .action("BUY")
+                .itemId(13652)
+                .itemName("Dragon claws")
+                .price(40_000_000L)
+                .quantity(1)
+                .marginPer(500_000L)
+                .expectedProfit(500_000L)
+                .geLimit(8)
+                .profitPerLimit(4_000_000L)
+                .volume(40L)
+                .band("whale")
+                .bandLabel("Whale play")
+                .estFillMin(126)
+                .reasons(Arrays.asList("Slow book"))
+                .build();
+            panel.showBasket(Arrays.asList(slow));
+            panel.toggleDetail(13652);
+            assertTrue("hour-branch estimate renders as an honest floor",
+                hasLabelContaining(panel, "~2.1 h+"));
+        });
+    }
 }

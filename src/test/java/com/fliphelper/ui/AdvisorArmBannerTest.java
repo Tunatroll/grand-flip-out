@@ -13,6 +13,7 @@ import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -100,5 +101,46 @@ public class AdvisorArmBannerTest
 			assertTrue("the sell hint replaced it",
 				count(panel, JLabel.class, "place your sell") >= 1);
 		});
+	}
+
+	private static AbstractButton findButton(Container c, String text)
+	{
+		for (Component comp : c.getComponents())
+		{
+			if (comp instanceof AbstractButton && text.equals(((AbstractButton) comp).getText()))
+			{
+				return (AbstractButton) comp;
+			}
+			if (comp instanceof Container)
+			{
+				AbstractButton b = findButton((Container) comp, text);
+				if (b != null)
+				{
+					return b;
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The escape's click WIRING: "Next flip" on the armed banner must reach
+	 * Listener.onNextFlip (the stub's counter existed unasserted — review nit on the
+	 * 5af290e..a07015c batch).
+	 */
+	@Test
+	public void armedNextFlipClickReachesTheListener() throws Exception
+	{
+		StubListener listener = new StubListener();
+		SwingUtilities.invokeAndWait(() ->
+		{
+			AdvisorPanel panel = new AdvisorPanel(listener);
+			panel.showSuggestion(buy());
+			panel.showArmedHold();
+			AbstractButton next = findButton(panel, "Next flip");
+			assertNotNull("armed banner carries the Next flip escape", next);
+			next.doClick();
+		});
+		assertEquals("click reaches onNextFlip exactly once", 1, listener.nextFlips);
 	}
 }
