@@ -436,18 +436,18 @@ public class GrandFlipOutPanel extends PluginPanel
      * "Create free account -> unlock members flips" call-to-action shown to anonymous users
      * above the F2P-filtered suggestion list. Opens the web signup (no in-client payment).
      */
-    private JPanel buildUnlockCta(int membersHidden)
+    private JPanel buildUnlockCta(int membersHidden, PriceAggregate topHidden)
     {
         JPanel cta = new JPanel(new BorderLayout(0, 6));
         cta.setBackground(PANEL_CARD);
         cta.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(BRAND_GOLD),
             new EmptyBorder(8, 10, 8, 10)));
-        cta.setMaximumSize(new Dimension(Integer.MAX_VALUE, 96));
+        cta.setMaximumSize(new Dimension(Integer.MAX_VALUE, 108));
 
-        JLabel msg = new JLabel("<html><div style='width:170px'><b>" + membersHidden
-            + " members items hidden.</b><br>Create a free account to unlock all "
-            + "members items and every flip suggestion.</div></html>");
+        JLabel msg = new JLabel(unlockCtaHtml(membersHidden,
+            topHidden != null ? topHidden.getItemName() : null,
+            topHidden != null ? topHidden.getNetMarginAfterTax() : 0L));
         msg.setForeground(TEXT_DIM);
         msg.setFont(UiText.font(msg.getFont(), 12f));
         cta.add(msg, BorderLayout.CENTER);
@@ -455,6 +455,22 @@ public class GrandFlipOutPanel extends PluginPanel
         cta.add(buildUnlockButton("Create free account"), BorderLayout.SOUTH);
         countCta(false); // rendered — is this prompt ever actually seen?
         return cta;
+    }
+
+    /**
+     * Pure copy builder for the unlock CTA. The value line renders ONLY with a real
+     * item name and a positive tax-net PER-ITEM margin (never ×buy-limit — the
+     * fantasy-profit class) and is omitted entirely otherwise. formatGp carries the
+     * unit for sub-1K amounts, so no "gp" is appended here (the 'gp gp' copy class).
+     */
+    static String unlockCtaHtml(int membersHidden, String topName, long topNetMarginGp)
+    {
+        String top = (topName != null && !topName.isEmpty() && topNetMarginGp > 0)
+            ? " Top hidden: " + topName + " (~" + formatGp(topNetMarginGp) + "/item net)."
+            : "";
+        return "<html><div style='width:170px'><b>" + membersHidden
+            + " members items hidden.</b>" + top + "<br>Create a free account to unlock all "
+            + "members items and every flip suggestion.</div></html>";
     }
 
     /** Shared gold "create account" button that opens the web signup (no in-client payment). */
@@ -1923,6 +1939,7 @@ public class GrandFlipOutPanel extends PluginPanel
         // and price lookup stay free for ALL items — only this browse list is gated.
         boolean unlocked = isUnlocked();
         int membersHidden = 0;
+        PriceAggregate topHiddenMembers = null; // first skipped = best by the current sort
         List<PriceAggregate> allItems = new ArrayList<>();
 
         if (watchMode)
@@ -1952,6 +1969,10 @@ public class GrandFlipOutPanel extends PluginPanel
                 }
                 if (!unlocked && agg.getMapping() != null && agg.getMapping().isMembers())
                 {
+                    if (topHiddenMembers == null)
+                    {
+                        topHiddenMembers = agg;
+                    }
                     membersHidden++;
                     continue;
                 }
@@ -1960,7 +1981,7 @@ public class GrandFlipOutPanel extends PluginPanel
 
             if (!unlocked && membersHidden > 0)
             {
-                priceResultsPanel.add(buildUnlockCta(membersHidden));
+                priceResultsPanel.add(buildUnlockCta(membersHidden, topHiddenMembers));
             }
         }
 
@@ -3013,7 +3034,7 @@ public class GrandFlipOutPanel extends PluginPanel
         return GP_FORMAT.format(amount);
     }
 
-    private String formatGp(long amount)
+    static String formatGp(long amount)
     {
         if (amount >= 1_000_000_000)
         {
