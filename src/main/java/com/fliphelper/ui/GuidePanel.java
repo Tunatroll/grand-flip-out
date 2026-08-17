@@ -7,6 +7,7 @@ import java.util.function.Consumer;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import net.runelite.client.ui.ColorScheme;
+import net.runelite.client.util.LinkBrowser;
 
 public class GuidePanel extends JPanel {
 
@@ -317,6 +318,17 @@ public class GuidePanel extends JPanel {
         refreshServerState();
     }
 
+    // The browse target for a freshly minted device-link code: the SERVED verification
+    // URI (fall back to the canonical /link page if absent) with the code as an
+    // input-only ?code= prefill. Package-private for ActivationLinkWiringTest.
+    static String linkPageUrl(String verificationUri, String userCode)
+    {
+        String base = (verificationUri == null || verificationUri.isEmpty())
+            ? "https://grandflipout.com/link"
+            : verificationUri;
+        return (userCode == null || userCode.isEmpty()) ? base : base + "?code=" + userCode;
+    }
+
     private void onLinkPressed()
     {
         if (config == null || linkService == null)
@@ -348,9 +360,14 @@ public class GuidePanel extends JPanel {
                 {
                     codeLabel.setText(userCode);
                     codeLabel.setVisible(true);
-                    accountStatus.setText("Enter this code at grandflipout.com/link (15 min)");
+                    accountStatus.setText("Approve in the browser tab that opened (15 min)");
                     linkButton.setEnabled(true);
                     linkButton.setText("Waiting… (press to restart)");
+                    // Open /link with the code prefilled instead of making the player
+                    // hand-type the URL mid-game. Prefill is input-only site-side — the
+                    // player still clicks approve themselves. User-initiated: this only
+                    // runs after they pressed "Link account".
+                    LinkBrowser.browse(linkPageUrl(verificationUri, userCode));
                 });
             }
 

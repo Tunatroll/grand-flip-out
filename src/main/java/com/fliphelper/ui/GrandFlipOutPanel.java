@@ -473,10 +473,15 @@ public class GrandFlipOutPanel extends PluginPanel
             + "members items and every flip suggestion.</div></html>";
     }
 
+    // next=link rides signup's FIXED destination allowlist (auth-discord.js DEST_PATHS) so the
+    // clicker lands on /link — the device-link flow — instead of stranded on a bare dashboard.
+    // Package-private for ActivationLinkWiringTest.
+    static final String UNLOCK_SIGNUP_URL = "https://grandflipout.com/signup?ref=plugin&next=link";
+
     /** Shared gold "create account" button that opens the web signup (no in-client payment). */
     private JButton buildUnlockButton(String label)
     {
-        JButton btn = buildLinkButton(label, "https://grandflipout.com/signup?ref=plugin");
+        JButton btn = buildLinkButton(label, UNLOCK_SIGNUP_URL);
         // Counted here, not in buildLinkButton — only the unlock prompt is the activation CTA.
         btn.addActionListener(e -> countCta(true));
         return btn;
@@ -2788,6 +2793,9 @@ public class GrandFlipOutPanel extends PluginPanel
             msg.setAlignmentX(Component.LEFT_ALIGNMENT);
             intelContentPanel.add(msg);
 
+            // Same activation CTA as the prices tab — count the impression too, or the
+            // Intel-gate clicks inflate a CTR whose denominator never saw this surface.
+            countCta(false);
             intelContentPanel.add(buildUnlockButton("Create free account"));
             maybeAddProTeaser();
         }
