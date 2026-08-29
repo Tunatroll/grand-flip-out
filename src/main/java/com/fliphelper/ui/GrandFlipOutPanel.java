@@ -2533,8 +2533,9 @@ public class GrandFlipOutPanel extends PluginPanel
         {
             card.add(Box.createVerticalStrut(2));
             JPanel fillMeta = createMetaLabel("Est. fill (limit)", agg.getFillEstimateLabel());
-            fillMeta.setToolTipText("Rough time to buy the full buy limit at current volume — "
-                + "a liquidity guide, not exact. Longer = capital may sit unfilled.");
+            fillMeta.setToolTipText("Rough time to buy the full buy limit at current volume "
+                + "(often longer — you only capture a share of one side). "
+                + "A liquidity guide, not exact. Longer = capital may sit unfilled.");
             Component[] fcs = fillMeta.getComponents();
             if (fcs.length > 1 && fcs[1] instanceof JLabel)
             {

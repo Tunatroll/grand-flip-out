@@ -240,7 +240,12 @@ public class PriceAggregate
         return limit * 60.0 / vol;
     }
 
-    /** Short label for the fill estimate: "&lt;1m", "~Nm", "~N.Nh", or "—". */
+    /**
+     * Short label for the fill estimate: "&lt;1m", "~Nm+", "~N.Nh+", or "—".
+     * #269: limit/total-volume is a measured-optimistic FLOOR (fill is zero-then-lump;
+     * a buyer captures only a share of one side), so the label carries the same honest
+     * "+" marker the server's advisor est-fill copy ships. "&lt;1m" is already a bound.
+     */
     public String getFillEstimateLabel()
     {
         double minutes = getEstFillMinutesForLimit();
@@ -254,9 +259,9 @@ public class PriceAggregate
         }
         if (minutes < 60)
         {
-            return "~" + Math.round(minutes) + "m";
+            return "~" + Math.round(minutes) + "m+";
         }
-        return "~" + (Math.round(minutes / 6.0) / 10.0) + "h";
+        return "~" + (Math.round(minutes / 6.0) / 10.0) + "h+";
     }
 
     /**
