@@ -36,12 +36,14 @@ public final class GeTax
     private static final Set<Integer> EXEMPT_ITEMS;
     static
     {
-        // OSRS Wiki "Exempt from tax" (verified 2026-06). Only certain IDs are
-        // listed; watering-can fill variants and Civitas illa fortis teleport
-        // are omitted (IDs not individually verified). Keep in sync with
-        // server/ge-tax.js and intelligence config.GE_TAX_EXEMPT_ITEMS.
+        // OSRS Wiki "Exempt from tax" (re-audited 2026-08-29 against the wiki's
+        // 45-item exempt category). Keep in sync with server/ge-tax.js and
+        // intelligence config.GE_TAX_EXEMPT_ITEMS (contract fixture:
+        // packages/ge-contracts/ge-tax/fixtures.json). Pinned by GeTaxExemptTest.
         Set<Integer> exempt = new HashSet<>();
         exempt.add(OLD_SCHOOL_BOND);
+        exempt.add(28824);  // Civitas illa fortis teleport (tablet) — tabs exempt 29 May 2025
+        exempt.add(5331);   // Watering can (empty 5331 = the GE-tradeable variant)
         // Tools (exempt since 9 Dec 2021)
         exempt.add(1755);   // Chisel
         exempt.add(5325);   // Gardening trowel
