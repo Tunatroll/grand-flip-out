@@ -18,7 +18,7 @@ import java.util.List;
 /**
  * Small, hand-curated catalog of well-known combination/recipe items for set-vs-pieces
  * arbitrage. Every item ID below was verified against the live OSRS Wiki item mapping
- * (prices.runescape.wiki/api/v1/osrs/mapping). The catalog is intentionally kept short
+ * (prices.runescape.wiki/api/v2/osrs/mapping). The catalog is intentionally kept short
  * and correct: a wrong ID would silently mis-price a recipe, so only relationships whose
  * IDs are certain are included.
  *

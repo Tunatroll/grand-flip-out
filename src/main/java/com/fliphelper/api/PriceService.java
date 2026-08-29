@@ -287,38 +287,6 @@ public class PriceService
     }
 
     /**
-     * Get price timeseries for an item from the Wiki timeseries API.
-     * Returns actual historical data points at 5m or 1h resolution.
-     */
-    public List<PriceData> getPriceTimeseries(int itemId, int hours)
-    {
-        try
-        {
-            // Use 5m resolution for shorter timeframes, 1h for longer
-            String timestep = hours <= 6 ? "5m" : "1h";
-            List<PriceData> series = wikiClient.fetchTimeSeries(itemId, timestep);
-            if (series != null && !series.isEmpty())
-            {
-                return series;
-            }
-        }
-        catch (IOException e)
-        {
-            log.debug("Failed to fetch timeseries for item {}: {}", itemId, e.getMessage());
-        }
-
-        // Fallback to collected history
-        PriceData current = getLatestPrice(itemId);
-        if (current == null)
-        {
-            return new ArrayList<>();
-        }
-        List<PriceData> series = new ArrayList<>();
-        series.add(current);
-        return series;
-    }
-
-    /**
      * Shutdown the price service and release resources.
      */
     public void shutdown()

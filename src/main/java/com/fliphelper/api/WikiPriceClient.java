@@ -35,7 +35,24 @@ import java.util.Map;
 @Slf4j
 public class WikiPriceClient
 {
-    private static final String BASE_URL = "https://prices.runescape.wiki/api/v1/osrs";
+    /**
+     * #290: the DOCUMENTED wiki prices base. The docs moved v1 -> v2 on 2026-07-24
+     * (v1 still serves but is undocumented — silent-sunset risk); /mapping, /latest,
+     * /5m and /1h are payload-identical on v2. Package-private so the contract test
+     * pins it.
+     */
+    static final String BASE_URL = "https://prices.runescape.wiki/api/v2/osrs";
+
+    /**
+     * #290 phase 3: the one timeseries URL builder — the v2 contract pin lives on it.
+     * v2 replaced v1's {@code timestep=} with {@code lookback=} fixed span/step pairs:
+     * 6h/24h -> 5m step, 7d -> 1h, 30d -> 6h, 6m/1y -> 1d. A v1-style timestep param
+     * is a 400 on v2.
+     */
+    static String timeseriesUrl(int itemId, String lookback)
+    {
+        return BASE_URL + "/timeseries?id=" + itemId + "&lookback=" + lookback;
+    }
 
     private final OkHttpClient httpClient;
     private final String userAgent;
@@ -274,67 +291,21 @@ public class WikiPriceClient
     }
 
     /**
-     * Fetch time-series data for a specific item.
-     */
-    public List<PriceData> fetchTimeSeries(int itemId, String timestep) throws IOException
-    {
-        Request request = new Request.Builder()
-            .url(BASE_URL + "/timeseries?id=" + itemId + "&timestep=" + timestep)
-            .header("User-Agent", userAgent)
-            .build();
-
-        try (Response response = httpClient.newCall(request).execute())
-        {
-            if (!response.isSuccessful())
-            {
-                throw new IOException("Wiki timeseries request failed: " + response.code());
-            }
-
-            var body = response.body();
-            if (body == null)
-            {
-                throw new IOException("Wiki timeseries request returned empty response body");
-            }
-
-            String bodyString = body.string();
-            JsonObject json = gson.fromJson(bodyString, JsonObject.class);
-            var dataArray = json.getAsJsonArray("data");
-
-            ItemMapping mapping = mappingById.get(itemId);
-            String name = mapping != null ? mapping.getName() : "Item " + itemId;
-
-            List<PriceData> series = new ArrayList<>();
-            for (JsonElement element : dataArray)
-            {
-                JsonObject point = element.getAsJsonObject();
-                PriceData data = PriceData.builder()
-                    .itemId(itemId)
-                    .itemName(name)
-                    .avgHighPrice1h(getJsonLong(point, "avgHighPrice"))
-                    .avgLowPrice1h(getJsonLong(point, "avgLowPrice"))
-                    .highVolume1h(getJsonLong(point, "highPriceVolume"))
-                    .lowVolume1h(getJsonLong(point, "lowPriceVolume"))
-                    .highTime(getJsonLong(point, "timestamp"))
-                    .source(PriceSource.WIKI)
-                    .build();
-                series.add(data);
-            }
-
-            return series;
-        }
-    }
-
-    /**
      * Fetch the raw Wiki time-series for a single item as clean chart points.
+     * (#290: the v1-era {@code fetchTimeSeries} PriceData variant and its sole caller
+     * {@code PriceService.getPriceTimeseries} were call-site-dead and deleted with the
+     * v2 port rather than carried across the contract swap.)
      *
      * @param itemId   the OSRS item id
-     * @param timestep one of {@code 5m}, {@code 1h}, {@code 6h}, {@code 24h}
-     * @return up to 365 points (oldest first), each holding avg high/low price and volumes
+     * @param lookback one of {@code 6h}, {@code 24h} (5m step), {@code 7d} (1h step),
+     *                 {@code 30d} (6h step), {@code 6m}, {@code 1y} (1d step)
+     * @return the fixed v2 bucket set for that lookback (oldest first), each holding
+     *         avg high/low price and volumes
      */
-    public List<TimeseriesPoint> fetchTimeseries(int itemId, String timestep) throws IOException
+    public List<TimeseriesPoint> fetchTimeseries(int itemId, String lookback) throws IOException
     {
         Request request = new Request.Builder()
-            .url(BASE_URL + "/timeseries?id=" + itemId + "&timestep=" + timestep)
+            .url(timeseriesUrl(itemId, lookback))
             .header("User-Agent", userAgent)
             .build();
 
@@ -375,7 +346,7 @@ public class WikiPriceClient
                     .build());
             }
 
-            log.debug("Fetched {} timeseries points for item {} ({})", points.size(), itemId, timestep);
+            log.debug("Fetched {} timeseries points for item {} ({})", points.size(), itemId, lookback);
             return points;
         }
     }

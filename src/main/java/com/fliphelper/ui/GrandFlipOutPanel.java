@@ -933,7 +933,9 @@ public class GrandFlipOutPanel extends PluginPanel
     private void openNativeChart(int itemId, String itemName)
     {
         final String name = itemName != null ? itemName : ("Item " + itemId);
-        final String timestep = "1h"; // ~15 days of hourly data — a useful default window
+        // #290: v2 lookback pair 7d -> 1h step (v1's timestep=1h gave ~15d; 7d keeps the
+        // hourly step, matching the dashboard sparkline's consumer-need choice).
+        final String timestep = "7d";
 
         PriceChartPanel chart = new PriceChartPanel();
         chart.setLoading();

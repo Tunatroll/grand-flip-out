@@ -23,7 +23,7 @@ import java.util.List;
  * from live prices, after GE tax.
  *
  * <p>Every ID below was verified against the live OSRS Wiki item mapping
- * (prices.runescape.wiki/api/v1/osrs/mapping). The list is intentionally short and certain:
+ * (prices.runescape.wiki/api/v2/osrs/mapping). The list is intentionally short and certain:
  * a wrong ID would silently mis-price a variant and over- or under-report profit, so only
  * potions whose four dose IDs are known are included.
  */
