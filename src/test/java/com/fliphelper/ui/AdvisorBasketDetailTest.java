@@ -12,6 +12,7 @@ import com.fliphelper.model.Suggestion;
 import org.junit.Test;
 
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
@@ -67,7 +68,7 @@ public class AdvisorBasketDetailTest
         @Override public void onNextFlip() { }
     }
 
-    private static Suggestion sugg(int id, String name)
+    private static Suggestion.SuggestionBuilder suggBuilder(int id, String name)
     {
         return Suggestion.builder()
             .action("BUY")
@@ -83,8 +84,12 @@ public class AdvisorBasketDetailTest
             .band("throughput")
             .bandLabel("Volume play")
             .estFillMin(35)
-            .reasons(Arrays.asList("Fills both sides"))
-            .build();
+            .reasons(Arrays.asList("Fills both sides"));
+    }
+
+    private static Suggestion sugg(int id, String name)
+    {
+        return suggBuilder(id, name).build();
     }
 
     private static List<Suggestion> basket()
@@ -147,6 +152,62 @@ public class AdvisorBasketDetailTest
             }
         }
         return false;
+    }
+
+    private static boolean hasTooltipContaining(Container c, String needle)
+    {
+        for (Component comp : c.getComponents())
+        {
+            if (comp instanceof JComponent)
+            {
+                String tip = ((JComponent) comp).getToolTipText();
+                if (tip != null && tip.contains(needle))
+                {
+                    return true;
+                }
+            }
+            if (comp instanceof Container && hasTooltipContaining((Container) comp, needle))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * #269 c3: the compact row's tooltip is the ONE surface where the floor-ish
+     * "~35 min+" estimate shows with no probability context (reasons don't render
+     * on compact rows), so the server's measured fill-window pcts must ride it.
+     */
+    @Test
+    public void compactTooltipCarriesMeasuredFillWindow() throws Exception
+    {
+        SwingUtilities.invokeAndWait(() ->
+        {
+            AdvisorPanel panel = new AdvisorPanel(new RecordingListener());
+            panel.showBasket(Arrays.asList(
+                suggBuilder(4151, "Abyssal whip").fillH2Pct(35).fillH4Pct(46).build()));
+            assertTrue("measured window rides the compact tooltip",
+                hasTooltipContaining(panel, "35% ≤2h / 46% ≤4h (measured)"));
+        });
+    }
+
+    /**
+     * #269 honesty: no measurement -> no window fragment — the tooltip reads
+     * exactly as before, nothing fabricated for unmeasured bands/older servers.
+     */
+    @Test
+    public void compactTooltipOmitsWindowWhenUnmeasured() throws Exception
+    {
+        SwingUtilities.invokeAndWait(() ->
+        {
+            AdvisorPanel panel = new AdvisorPanel(new RecordingListener());
+            panel.showBasket(basket());
+            assertFalse("no fabricated window on unmeasured cards",
+                hasTooltipContaining(panel, "≤2h"));
+            assertTrue("floor estimate still present",
+                hasTooltipContaining(panel, "~35 min+ fill"));
+        });
     }
 
     @Test

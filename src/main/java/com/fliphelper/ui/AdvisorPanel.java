@@ -929,7 +929,7 @@ public class AdvisorPanel extends JPanel
             {
                 tip.append(" • ");
             }
-            tip.append(fillTime(s.getEstFillMin())).append(" fill");
+            tip.append(fillTime(s.getEstFillMin())).append(" fill").append(fillWindowNote(s));
         }
         row.setToolTipText(tip.length() > 0
             ? tip + " — click for actions"
@@ -1079,6 +1079,31 @@ public class AdvisorPanel extends JPanel
     private static String fillTime(int minutes)
     {
         return minutes >= 90 ? String.format("~%.1f h+", minutes / 60.0) : "~" + minutes + " min+";
+    }
+
+    /**
+     * #269 c3: compact measured fill-window qualifier for the compact-row tooltip —
+     * the one surface where the floor-ish minutes number otherwise shows with no
+     * probability context (expanded/single cards already carry the server's measured
+     * sentence via {@code reasons}). Empty when the server sent no measurement:
+     * nothing is ever fabricated, and the tooltip then reads exactly as before.
+     */
+    private static String fillWindowNote(Suggestion s)
+    {
+        StringBuilder sb = new StringBuilder();
+        if (s.getFillH2Pct() != null)
+        {
+            sb.append(s.getFillH2Pct()).append("% ≤2h");
+        }
+        if (s.getFillH4Pct() != null)
+        {
+            if (sb.length() > 0)
+            {
+                sb.append(" / ");
+            }
+            sb.append(s.getFillH4Pct()).append("% ≤4h");
+        }
+        return sb.length() > 0 ? " · " + sb + " (measured)" : "";
     }
 
     /**

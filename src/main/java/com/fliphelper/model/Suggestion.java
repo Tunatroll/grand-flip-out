@@ -72,6 +72,16 @@ public class Suggestion
     /** Rough minutes to acquire the sized quantity at current volume; 0 when the server didn't say. */
     int estFillMin;
 
+    /**
+     * #269 c3: measured fill-window probability — the percentage of comparable advised
+     * flips that FULLY filled within 2h, measured server-side per band. Null when the
+     * server sent no measurement (older build / unmeasured band); a measured 0 is
+     * meaningful and must stay distinct from absent, hence Integer not int.
+     */
+    Integer fillH2Pct;
+    /** Same as {@link #fillH2Pct} for the 4h window. */
+    Integer fillH4Pct;
+
     public List<String> getReasons()
     {
         return reasons != null ? reasons : Collections.emptyList();

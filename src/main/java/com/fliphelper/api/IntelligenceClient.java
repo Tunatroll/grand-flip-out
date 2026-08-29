@@ -415,6 +415,7 @@ public class IntelligenceClient
                 .priceTier(optString(root, "priceTier"))
                 .band(optString(root, "band")).bandLabel(optString(root, "bandLabel"))
                 .estFillMin(optInt(root, "estFillMin"))
+                .fillH2Pct(fillWindowPct(root, "h2")).fillH4Pct(fillWindowPct(root, "h4"))
                 .build();
         }
     }
@@ -505,6 +506,7 @@ public class IntelligenceClient
                         .priceTier(optString(o, "priceTier"))
                         .band(optString(o, "band")).bandLabel(optString(o, "bandLabel"))
                         .estFillMin(optInt(o, "estFillMin"))
+                        .fillH2Pct(fillWindowPct(o, "h2")).fillH4Pct(fillWindowPct(o, "h4"))
                         .build());
                 }
             }
@@ -598,6 +600,7 @@ public class IntelligenceClient
                         .priceTier(optString(o, "priceTier"))
                         .band(optString(o, "band")).bandLabel(optString(o, "bandLabel"))
                         .estFillMin(optInt(o, "estFillMin"))
+                        .fillH2Pct(fillWindowPct(o, "h2")).fillH4Pct(fillWindowPct(o, "h4"))
                         .build());
                 }
             }
@@ -809,6 +812,26 @@ public class IntelligenceClient
     }
 
     /** Optional long field — 0 when absent/null (back-compat with older server responses). */
+    /**
+     * #269 c3: one measured fill-window percentage off the card's {@code fillWindow}
+     * object ({@code h2}/{@code h4} arrive as 0..1 fractions). Null when the server sent
+     * no measurement — absent object, absent field, or a non-numeric leg — so a measured
+     * 0% stays distinct from "unmeasured". Package-private for the parse test.
+     */
+    static Integer fillWindowPct(JsonObject card, String field)
+    {
+        if (!card.has("fillWindow") || !card.get("fillWindow").isJsonObject())
+        {
+            return null;
+        }
+        JsonObject fw = card.get("fillWindow").getAsJsonObject();
+        if (!fw.has(field) || !fw.get(field).isJsonPrimitive() || !fw.getAsJsonPrimitive(field).isNumber())
+        {
+            return null;
+        }
+        return (int) Math.round(fw.get(field).getAsDouble() * 100);
+    }
+
     private static long optLong(JsonObject o, String key)
     {
         return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsLong() : 0L;
