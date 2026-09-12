@@ -25,3 +25,5 @@ build/
 logs/
 data/
 graphify-out/
+# test fixtures replayed by the JUnit suite (the ge-tax contract copy) must be tracked despite *.json above
+!src/test/resources/*.json

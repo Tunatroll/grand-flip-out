@@ -1,0 +1,182 @@
+{
+  "_comment": "Canonical GE tax fixtures — language-neutral. All stacks (JS, Python, Java) must pass every case.",
+  "_source": "packages/ge-contracts/ge-tax/fixtures.json — keep in sync with OSRS Wiki 'Grand Exchange / Tax'",
+  "_rules_summary": "rate=2%, cap=5000000 per item, floor: price<50 => tax=0, exempt_ids list => tax=0",
+
+  "rate": 0.02,
+  "cap": 5000000,
+  "floor": 50,
+
+  "exempt_ids": [
+    13190,
+    1755, 5325, 1785, 2347, 1733, 233, 5341, 8794, 5329, 5343, 1735, 952,
+    3008, 3010, 3012, 3014,
+    882, 884, 886, 806, 807, 808, 558,
+    365, 2309, 1891, 2140, 2142, 347, 379, 355, 2327, 351, 329, 315, 361,
+    8011, 8010, 8009, 19651, 8008, 8007, 8013, 3853, 2552,
+    28824, 5331
+  ],
+
+  "cases": [
+    {
+      "label": "zero price",
+      "sell_price": 0,
+      "item_id": null,
+      "expected_tax_raw": 0,
+      "expected_tax_exempt": 0,
+      "note": "geTax(0) = floor(0*0.02)=0"
+    },
+    {
+      "label": "price below floor (1 gp)",
+      "sell_price": 1,
+      "item_id": null,
+      "expected_tax_raw": 0,
+      "expected_tax_exempt": 0,
+      "note": "floor(1*0.02)=0; also < 50 floor"
+    },
+    {
+      "label": "price at floor boundary minus one (49 gp)",
+      "sell_price": 49,
+      "item_id": null,
+      "expected_tax_raw": 0,
+      "expected_tax_exempt": 0,
+      "note": "floor(49*0.02)=floor(0.98)=0; below 50gp floor => 0"
+    },
+    {
+      "label": "price exactly at floor (50 gp)",
+      "sell_price": 50,
+      "item_id": null,
+      "expected_tax_raw": 1,
+      "expected_tax_exempt": 1,
+      "note": "floor(50*0.02)=floor(1.0)=1; >= 50gp so tax applies"
+    },
+    {
+      "label": "price just above floor (51 gp)",
+      "sell_price": 51,
+      "item_id": null,
+      "expected_tax_raw": 1,
+      "expected_tax_exempt": 1,
+      "note": "floor(51*0.02)=floor(1.02)=1"
+    },
+    {
+      "label": "typical low-value item (1000 gp)",
+      "sell_price": 1000,
+      "item_id": null,
+      "expected_tax_raw": 20,
+      "expected_tax_exempt": 20,
+      "note": "floor(1000*0.02)=20"
+    },
+    {
+      "label": "typical mid-value item (100000 gp)",
+      "sell_price": 100000,
+      "item_id": null,
+      "expected_tax_raw": 2000,
+      "expected_tax_exempt": 2000,
+      "note": "floor(100000*0.02)=2000"
+    },
+    {
+      "label": "just below cap boundary (249999999 gp — 249.999999M)",
+      "sell_price": 249999999,
+      "item_id": null,
+      "expected_tax_raw": 4999999,
+      "expected_tax_exempt": 4999999,
+      "note": "floor(249999999*0.02)=floor(4999999.98)=4999999 < 5M cap"
+    },
+    {
+      "label": "exactly at cap boundary (250000000 gp — 250M)",
+      "sell_price": 250000000,
+      "item_id": null,
+      "expected_tax_raw": 5000000,
+      "expected_tax_exempt": 5000000,
+      "note": "floor(250000000*0.02)=5000000 == cap, still 5M"
+    },
+    {
+      "label": "above cap (500000000 gp — 500M)",
+      "sell_price": 500000000,
+      "item_id": null,
+      "expected_tax_raw": 5000000,
+      "expected_tax_exempt": 5000000,
+      "note": "floor(500000000*0.02)=10000000 > cap => 5000000"
+    },
+    {
+      "label": "very expensive item (2147483647 gp — max int32)",
+      "sell_price": 2147483647,
+      "item_id": null,
+      "expected_tax_raw": 5000000,
+      "expected_tax_exempt": 5000000,
+      "note": "always capped at 5M regardless of price"
+    },
+    {
+      "label": "exempt item: Old school bond (13190) — any price",
+      "sell_price": 10000000,
+      "item_id": 13190,
+      "expected_tax_raw": 200000,
+      "expected_tax_exempt": 0,
+      "note": "raw tax would be floor(10M*0.02)=200000 but exempt => 0"
+    },
+    {
+      "label": "exempt item: Chisel (1755) — price above floor",
+      "sell_price": 500,
+      "item_id": 1755,
+      "expected_tax_raw": 10,
+      "expected_tax_exempt": 0,
+      "note": "tool exemption: chisel is fully exempt"
+    },
+    {
+      "label": "exempt item: Mind rune (558) — low price",
+      "sell_price": 60,
+      "item_id": 558,
+      "expected_tax_raw": 1,
+      "expected_tax_exempt": 0,
+      "note": "rune exemption: mind rune is fully exempt"
+    },
+    {
+      "label": "exempt item: Energy potion(4) (3008)",
+      "sell_price": 200,
+      "item_id": 3008,
+      "expected_tax_raw": 4,
+      "expected_tax_exempt": 0,
+      "note": "energy potion exemption added 29 May 2025"
+    },
+    {
+      "label": "exempt item: Lobster (379)",
+      "sell_price": 150,
+      "item_id": 379,
+      "expected_tax_raw": 3,
+      "expected_tax_exempt": 0,
+      "note": "basic food exemption"
+    },
+    {
+      "label": "non-exempt item with item_id provided (Dragon bones — arbitrary id 536)",
+      "sell_price": 3000,
+      "item_id": 536,
+      "expected_tax_raw": 60,
+      "expected_tax_exempt": 60,
+      "note": "item_id 536 is not on exempt list; normal tax applies"
+    },
+    {
+      "label": "exempt item: Varrock teleport (8007) — below 50gp floor",
+      "sell_price": 30,
+      "item_id": 8007,
+      "expected_tax_raw": 0,
+      "expected_tax_exempt": 0,
+      "note": "below 50gp floor AND exempt — both reasons give 0"
+    },
+    {
+      "label": "fractional rounding — floor(99*0.02)=floor(1.98)=1",
+      "sell_price": 99,
+      "item_id": null,
+      "expected_tax_raw": 1,
+      "expected_tax_exempt": 1,
+      "note": "must use floor (rounds DOWN), not round"
+    },
+    {
+      "label": "fractional rounding — floor(149*0.02)=floor(2.98)=2",
+      "sell_price": 149,
+      "item_id": null,
+      "expected_tax_raw": 2,
+      "expected_tax_exempt": 2,
+      "note": "must use floor (rounds DOWN), not round"
+    }
+  ]
+}
