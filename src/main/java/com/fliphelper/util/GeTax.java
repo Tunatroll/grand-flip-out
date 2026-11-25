@@ -88,7 +88,7 @@ public final class GeTax
         exempt.add(8011);   // Ardougne teleport
         exempt.add(8010);   // Camelot teleport
         exempt.add(8009);   // Falador teleport
-        exempt.add(19651);  // Kourend castle teleport
+        exempt.add(28790);  // Kourend castle teleport (tablet) — the GE-tradeable id per the wiki /mapping; 19651 is not on the GE
         exempt.add(8008);   // Lumbridge teleport
         exempt.add(8007);   // Varrock teleport
         exempt.add(8013);   // Teleport to house
