@@ -29,7 +29,7 @@ import static org.junit.Assert.assertNotNull;
  * monorepo). This test replays that package's fixtures.json (a byte-copy kept in
  * src/test/resources; the monorepo's ge-tax-fixtures-hub-sync test pins the two
  * copies equal) so the Java port can never drift from the served numbers:
- * rate, cap, the exempt set, and 20 worked cases.
+ * rate, cap, the exempt set, and 22 worked cases.
  */
 public class GeTaxFixturesTest
 {
@@ -84,7 +84,7 @@ public class GeTaxFixturesTest
 	public void everyWorkedCaseReplays()
 	{
 		JsonArray cases = fixtures().getAsJsonArray("cases");
-		assertEquals(20, cases.size());
+		assertEquals(22, cases.size());
 		for (JsonElement el : cases)
 		{
 			JsonObject c = el.getAsJsonObject();
